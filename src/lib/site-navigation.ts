@@ -1,4 +1,4 @@
-export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'signin';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools';
 export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools';
 
 interface TopNavBaseItem {
@@ -21,12 +21,6 @@ export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
   { section: 'free_tools', href: '/free-tools', label: 'Free tools', icon: 'free_tools' },
-  {
-    section: 'signin',
-    href: 'https://app.gopromptless.ai',
-    label: 'Sign in',
-    external: true,
-  },
 ];
 
 function normalizePathname(pathname: string): string {
