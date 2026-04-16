@@ -1,5 +1,5 @@
-export type SiteSection = 'website' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'signin';
-export type TopNavIcon = 'website' | 'docs' | 'blog' | 'changelog' | 'free_tools';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'signin';
+export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools';
 
 interface TopNavBaseItem {
   section: SiteSection;
@@ -16,6 +16,7 @@ export type TopNavItem = TopNavLinkItem;
 
 export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'website', href: '/', label: 'Home', icon: 'website' },
+  { section: 'pricing', href: '/pricing', label: 'Pricing', icon: 'pricing' },
   { section: 'docs', href: '/docs', label: 'Docs', icon: 'docs' },
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
@@ -39,7 +40,6 @@ export function getActiveSection(pathname: string): SiteSection {
     normalized === '/' ||
     normalized === '/home' ||
     normalized === '/demo' ||
-    normalized === '/pricing' ||
     normalized === '/meet' ||
     normalized === '/jobs' ||
     normalized === '/wtd-portland-2026' ||
@@ -47,6 +47,7 @@ export function getActiveSection(pathname: string): SiteSection {
   ) {
     return 'website';
   }
+  if (normalized === '/pricing') return 'pricing';
   if (normalized.startsWith('/docs')) return 'docs';
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
