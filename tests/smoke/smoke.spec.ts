@@ -108,6 +108,16 @@ test('llms endpoints remain available', async () => {
   assert.match(llmsFullBody, /## Docs/i);
 });
 
+test('homepage and docs pages include the llms.txt directive in html', async () => {
+  const homepage = await fetch(`${preview.baseUrl}/`);
+  assert.equal(homepage.status, 200);
+  assert.match(await homepage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
+
+  const docsPage = await fetch(`${preview.baseUrl}/docs/getting-started/welcome`);
+  assert.equal(docsPage.status, 200);
+  assert.match(await docsPage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
+});
+
 test('primary nav keeps canonical routes with free tools tab', async () => {
   const response = await fetch(`${preview.baseUrl}/docs/getting-started/welcome`);
   assert.equal(response.status, 200);
@@ -279,7 +289,7 @@ test('homepage, demo, and pricing render website content', async () => {
   assert.match(pricingHtml, /Growth/);
   assert.match(pricingHtml, /Enterprise/);
   assert.match(pricingHtml, /\$500\s*\/\s*mo/);
-  assert.match(pricingHtml, /All plans include a 30-day free trial\./);
+  assert.match(pricingHtml, /All plans include a 14-day free trial\./);
   assert.match(pricingHtml, /Up to 200 Pages\*/);
   assert.match(pricingHtml, /Pages are normalized/);
   assert.match(pricingHtml, /name=\"growth_bundle\"/);
@@ -342,6 +352,34 @@ test('free tool page renders form fields and explanatory copy', async () => {
   assert.match(html, /Send me the report/);
 
   assert.doesNotMatch(html, /data-website-sidebar="true"/);
+});
+
+test('website markdown endpoints are available for agent-friendly content', async () => {
+  const routes = [
+    { path: '/index.md', heading: /# Automatically update your docs/, detail: /## How Promptless works/ },
+    { path: '/demo.md', heading: /# Book a 15-minute demo/, detail: /## See why Vitess and Helm chose Promptless/ },
+    { path: '/pricing.md', heading: /# Pricing that fits teams of all sizes/, detail: /## Startup/ },
+    { path: '/free-tools.md', heading: /# Free tools/, detail: /## Broken Link Report/ },
+    {
+      path: '/free-tools/broken-link-report.md',
+      heading: /# Broken Link Report/,
+      detail: /## Advanced options/,
+    },
+  ];
+
+  for (const route of routes) {
+    const response = await fetch(`${preview.baseUrl}${route.path}`);
+    assert.equal(response.status, 200, `Expected ${route.path} to be available.`);
+    assert.match(
+      response.headers.get('content-type') ?? '',
+      /^text\/markdown\b/i,
+      `Expected ${route.path} to return markdown.`
+    );
+
+    const body = await response.text();
+    assert.match(body, route.heading, `Expected ${route.path} to include its markdown title.`);
+    assert.match(body, route.detail, `Expected ${route.path} to include key agent-facing content.`);
+  }
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
