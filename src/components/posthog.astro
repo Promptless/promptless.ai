@@ -11,6 +11,52 @@
       debug: location.hostname === 'localhost' || location.hostname === '127.0.0.1'
     })
 
+    // Track homepage section views (50%+ visible, once per section per page load).
+    // Uses IntersectionObserver to fire 'section_viewed' when a user scrolls each
+    // section into view. The 0.5 threshold means the event fires once 50% of the
+    // section is visible. viewedSections prevents duplicate events for the same
+    // section if the user scrolls back and forth.
+    if (location.pathname === '/') {
+      var sectionIds = ['overview', 'testimonials', 'how-promptless-works', 'capabilities'];
+      var viewedSections = {}; // Tracks which sections already fired to avoid duplicates
+      var sectionObs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return; // Ignore when section leaves viewport
+          var id = entry.target.id;
+          if (viewedSections[id]) return; // Skip if already tracked
+          viewedSections[id] = true;
+          posthog.capture('section_viewed', { section: id, page: location.pathname });
+        });
+      }, { threshold: 0.5 }); // Fire when 50% of section is visible
+      sectionIds.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) sectionObs.observe(el);
+      });
+    }
+
+    // Track scroll depth on blog posts (25/50/75/100%, once per milestone per page load).
+    // Fires 'scroll_depth' at each milestone as the user scrolls through an article.
+    // Excludes the blog index (/blog/) and all-posts page (/blog/all) since those
+    // aren't article content. Uses passive listener for better scroll performance.
+    if (location.pathname.indexOf('/blog/') === 0 && location.pathname !== '/blog/' && location.pathname !== '/blog/all') {
+      var scrollMilestones = [25, 50, 75, 100];
+      var firedMilestones = {}; // Tracks which milestones already fired to avoid duplicates
+      var scrollHandler = function () {
+        // Calculate scrollable height (total doc height minus viewport)
+        var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        if (docHeight <= 0) return; // Page fits in viewport, no scroll tracking needed
+        // Calculate current scroll percentage
+        var pct = Math.round((window.scrollY / docHeight) * 100);
+        scrollMilestones.forEach(function (m) {
+          if (pct >= m && !firedMilestones[m]) {
+            firedMilestones[m] = true;
+            posthog.capture('scroll_depth', { percent: m, page: location.pathname });
+          }
+        });
+      };
+      window.addEventListener('scroll', scrollHandler, { passive: true }); // passive for perf
+    }
+
     // Unmask the Pagefind search input and track search queries.
     new MutationObserver(function(_, obs) {
       var input = document.querySelector('site-search input, .pagefind-ui__search-input');

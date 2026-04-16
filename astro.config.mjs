@@ -1,11 +1,24 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
 
 import generatedSidebar from './src/lib/generated/sidebar.json' with { type: 'json' };
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
+import routeManifest from './src/lib/generated/route-manifest.json' with { type: 'json' };
+import {
+  createSitemapPathFilter,
+  getHiddenDocsPaths,
+  getHiddenRouteManifestPaths,
+  getHiddenWebsitePaths,
+} from './src/lib/sitemap-filter.mjs';
 
 const redirectEntries = (redirectsManifest.redirects || []).map((rule) => [rule.source, rule.destination]);
+const hiddenSitemapPaths = new Set([
+  ...getHiddenRouteManifestPaths(routeManifest),
+  ...getHiddenDocsPaths(new URL('./src/content/docs/', import.meta.url)),
+  ...getHiddenWebsitePaths(new URL('./src/content/website/', import.meta.url)),
+]);
 
 const redirects = {
   '/home': '/',
@@ -32,6 +45,9 @@ export default defineConfig({
   redirects,
   integrations: [
     react(),
+    sitemap({
+      filter: createSitemapPathFilter(hiddenSitemapPaths),
+    }),
     starlight({
       title: 'Promptless | Automatic updates for your customer-facing docs',
       description: 'Automated docs that eliminate manual overhead and keep your docs current with your codebase',
