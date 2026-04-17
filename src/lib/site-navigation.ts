@@ -35,7 +35,6 @@ export function getActiveSection(pathname: string): SiteSection {
   if (
     normalized === '/' ||
     normalized === '/home' ||
-    normalized === '/demo' ||
     normalized === '/meet' ||
     normalized.startsWith('/site')
   ) {
