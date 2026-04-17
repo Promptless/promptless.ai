@@ -1,4 +1,4 @@
-export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd' | 'none';
 export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd';
 
 interface TopNavBaseItem {
@@ -35,7 +35,6 @@ export function getActiveSection(pathname: string): SiteSection {
   if (
     normalized === '/' ||
     normalized === '/home' ||
-    normalized === '/meet' ||
     normalized.startsWith('/site')
   ) {
     return 'website';
@@ -47,5 +46,6 @@ export function getActiveSection(pathname: string): SiteSection {
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
   if (normalized.startsWith('/free-tools')) return 'free_tools';
+  if (normalized === '/meet') return 'none';
   return 'website';
 }
