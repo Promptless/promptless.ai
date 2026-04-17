@@ -22,6 +22,10 @@ const hiddenSitemapPaths = new Set([
 
 const redirects = {
   '/home': '/',
+  '/demo': '/',
+  '/site': '/',
+  '/site/demo': '/',
+  '/video-demo': '/',
   '/docs': '/docs/getting-started/welcome',
   '/page': '/',
   '/wtd': '/',
