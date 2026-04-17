@@ -70,7 +70,7 @@ export default defineConfig({
         processedDirs: ['./src/content/blog', './src/content/changelog', './src/content/website'],
       },
       editLink: {
-        baseUrl: 'https://github.com/Promptless/docs/tree/main',
+        baseUrl: 'https://github.com/Promptless/promptless.ai/tree/main',
       },
       head: [
         {
