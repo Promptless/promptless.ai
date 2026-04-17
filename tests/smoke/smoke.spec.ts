@@ -130,10 +130,9 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
   assertLink(nav, '/blog', 'Blog');
   assertLink(nav, '/changelog', 'Changelog');
   assertLink(nav, '/free-tools', 'Free tools');
-  assertLink(nav, '/jobs', 'Work at Promptless!');
   assertLink(nav, '/wtd-portland-2026', 'WTD 2026');
 
-  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools', 'Work at Promptless!', 'WTD 2026']);
+  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools', 'WTD 2026']);
   assert.doesNotMatch(nav, /href="\/blog\/all"/);
   assert.doesNotMatch(nav, /href="\/changelog\/all"/);
 });
@@ -264,7 +263,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Write the docs/);
+  assert.match(homeHtml, /Ship world-class docs/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
