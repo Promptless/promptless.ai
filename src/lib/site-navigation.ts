@@ -1,5 +1,5 @@
-export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools';
-export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd';
+export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd';
 
 interface TopNavBaseItem {
   section: SiteSection;
@@ -21,6 +21,8 @@ export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
   { section: 'free_tools', href: '/free-tools', label: 'Free tools', icon: 'free_tools' },
+  { section: 'jobs', href: '/jobs', label: 'Work at Promptless!', icon: 'jobs' },
+  { section: 'wtd', href: '/wtd-portland-2026', label: 'WTD 2026', icon: 'wtd' },
 ];
 
 function normalizePathname(pathname: string): string {
@@ -35,13 +37,13 @@ export function getActiveSection(pathname: string): SiteSection {
     normalized === '/home' ||
     normalized === '/demo' ||
     normalized === '/meet' ||
-    normalized === '/jobs' ||
-    normalized === '/wtd-portland-2026' ||
     normalized.startsWith('/site')
   ) {
     return 'website';
   }
   if (normalized === '/pricing') return 'pricing';
+  if (normalized === '/jobs') return 'jobs';
+  if (normalized === '/wtd-portland-2026') return 'wtd';
   if (normalized.startsWith('/docs')) return 'docs';
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
