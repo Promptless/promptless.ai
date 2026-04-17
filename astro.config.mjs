@@ -26,7 +26,7 @@ const redirects = {
   '/page': '/',
   '/wtd': '/',
   '/hn': '/',
-  '/demo': '/meet',
+  '/demo': '/#demo',
   '/site': '/meet',
   '/site/demo': '/meet',
   '/video-demo': '/meet',
