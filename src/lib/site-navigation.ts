@@ -21,7 +21,6 @@ export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
   { section: 'free_tools', href: '/free-tools', label: 'Free tools', icon: 'free_tools' },
-  { section: 'jobs', href: '/jobs', label: 'Work at Promptless!', icon: 'jobs' },
   { section: 'wtd', href: '/wtd-portland-2026', label: 'WTD 2026', icon: 'wtd' },
 ];
 
