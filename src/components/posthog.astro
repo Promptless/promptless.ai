@@ -12,26 +12,32 @@
     })
 
     // Track homepage section views (50%+ visible, once per section per page load).
-    // Uses IntersectionObserver to fire 'section_viewed' when a user scrolls each
-    // section into view. The 0.5 threshold means the event fires once 50% of the
-    // section is visible. viewedSections prevents duplicate events for the same
-    // section if the user scrolls back and forth.
+    // Elements opt in with data-section-tracked="<name>" — section_viewed fires
+    // once per name per page load when a matching element reaches 50% visibility.
+    // Uses a data attribute (not id) so display:none variants (e.g. mobile vs
+    // desktop testimonials) can share a name without duplicate ids.
+    // Runs on DOMContentLoaded since this script lives in <head>/top-of-body
+    // and the sections it observes render later in the document.
     if (location.pathname === '/') {
-      var sectionIds = ['overview', 'testimonials', 'how-promptless-works', 'capabilities'];
-      var viewedSections = {}; // Tracks which sections already fired to avoid duplicates
-      var sectionObs = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (!entry.isIntersecting) return; // Ignore when section leaves viewport
-          var id = entry.target.id;
-          if (viewedSections[id]) return; // Skip if already tracked
-          viewedSections[id] = true;
-          posthog.capture('section_viewed', { section: id, page: location.pathname });
-        });
-      }, { threshold: 0.5 }); // Fire when 50% of section is visible
-      sectionIds.forEach(function (id) {
-        var el = document.getElementById(id);
-        if (el) sectionObs.observe(el);
-      });
+      var startSectionObserver = function () {
+        var viewedSections = {}; // Dedupe across multiple elements with the same name
+        var sectionObs = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            var name = entry.target.getAttribute('data-section-tracked');
+            if (!name || viewedSections[name]) return;
+            viewedSections[name] = true;
+            posthog.capture('section_viewed', { section: name, page: location.pathname });
+          });
+        }, { threshold: 0.5 });
+        var els = document.querySelectorAll('[data-section-tracked]');
+        for (var i = 0; i < els.length; i++) sectionObs.observe(els[i]);
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startSectionObserver);
+      } else {
+        startSectionObserver();
+      }
     }
 
     // Track scroll depth on blog posts (25/50/75/100%, once per milestone per page load).
