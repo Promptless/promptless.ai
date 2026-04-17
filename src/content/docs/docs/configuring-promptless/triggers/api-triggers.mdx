@@ -1,0 +1,156 @@
+---
+title: API Triggers
+slug: docs/configuring-promptless/triggers/api-triggers
+sidebar:
+  hidden: false
+  order: 14
+---
+import Frame from '@components/fern/Frame.astro';
+import Info from '@components/fern/Info.astro';
+import Note from '@components/fern/Note.astro';
+import Tip from '@components/fern/Tip.astro';
+import Warning from '@components/fern/Warning.astro';
+
+API triggers allow external systems to request documentation updates from Promptless. This enables integration with CI/CD pipelines, custom automation tools, or any system that can make HTTP requests.
+
+## Use Cases
+
+API triggers are useful when you want to:
+
+- Integrate Promptless into CI/CD pipelines that run after deployments
+- Build custom automation workflows that trigger documentation updates
+- Connect external systems (ticketing, project management, custom tools) to Promptless
+- Programmatically request documentation updates without using Slack or the dashboard
+
+## Setting Up API Triggers
+
+### 1. Create an API Project
+
+1. Navigate to your [Projects page](https://app.gopromptless.ai/projects)
+2. Click **New Project**
+3. Select **API** as the trigger type
+4. Choose your doc collection
+5. Save the project
+
+<Info>
+API projects don't require source repository configuration. Promptless processes the instructions you send in the API request and uses your configured context sources to create documentation suggestions.
+</Info>
+
+### 2. Generate an API Key
+
+API keys are managed in your organization's Settings page.
+
+1. Navigate to **Settings > API Access**
+2. Click **Generate Key** to create a new API key
+3. Copy the key immediately—it's only shown once
+
+<Warning>
+Store your API key securely. The full key is only displayed when first generated. Promptless stores only a hash of the key for validation.
+</Warning>
+
+### Key Management
+
+- **One active key per organization**: Each organization can have one active API key at a time
+- **Key rotation**: Generating a new key immediately revokes the previous key
+- **Revocation**: You can revoke your active key at any time from the Settings page
+
+<Tip>
+When rotating keys, update your integrations before generating a new key. The previous key stops working immediately when you create a new one.
+</Tip>
+
+## Using the API
+
+### Endpoint
+
+```
+POST /organizations/{org_id}/triggers/api
+```
+
+Replace `{org_id}` with your organization ID, which you can find in your dashboard URL or organization settings.
+
+### Authentication
+
+Include your API key as a Bearer token in the Authorization header:
+
+```
+Authorization: Bearer sk-pl-your-api-key
+```
+
+### Request Format
+
+Send a JSON body with your documentation instructions:
+
+```json
+{
+  "instructions": "Update the getting started guide with the new authentication flow",
+  "context": {
+    "ticket_id": "ENG-123",
+    "requested_by": "deploy-bot"
+  }
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `instructions` | string | Yes | What you want Promptless to document. Be specific about which docs to update and what changes to make. |
+| `context` | object | No | Additional metadata to include with the request. This appears in trigger history for reference. |
+
+### Example Request
+
+```bash
+curl -X POST "https://app.gopromptless.ai/api/v1/organizations/{org_id}/triggers/api" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instructions": "Document the new rate limiting feature added in v2.5",
+    "context": {
+      "release": "v2.5.0",
+      "jira_ticket": "DOC-456"
+    }
+  }'
+```
+
+### Response
+
+A successful request returns a `202 Accepted` response:
+
+```json
+{
+  "trigger_event_id": "abc123-...",
+  "job_id": "job-456-...",
+  "matched_pipeline_ids": ["pipeline-789-..."]
+}
+```
+
+### Error Responses
+
+| Status | Error | Description |
+|--------|-------|-------------|
+| 401 | `invalid_api_key` | The API key is missing, invalid, or revoked |
+| 409 | `no_eligible_pipelines` | No API projects are configured for your organization |
+| 422 | Validation error | The request body is invalid (e.g., empty instructions) |
+
+## Viewing API Triggers
+
+API-triggered events appear in your dashboard with a distinct "API" label.
+
+### Trigger History
+
+View all API triggers on the [Triggers page](https://app.gopromptless.ai/triggers). API triggers display the submitted instructions and any context you included in the request.
+
+### Change History
+
+Filter by "API" source in [Change History](https://app.gopromptless.ai/change-history) to see documentation suggestions that originated from API requests.
+
+## How It Works
+
+When you submit an API request:
+
+1. **Validation**: Promptless validates your API key and request format
+2. **Routing**: The request is routed to all API projects in your organization
+3. **Processing**: Promptless analyzes your instructions along with configured context sources
+4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions
+
+<Note>
+API triggers use the same processing pipeline as other trigger types. The suggestions appear in your dashboard and follow your configured auto-publish and notification settings.
+</Note>
