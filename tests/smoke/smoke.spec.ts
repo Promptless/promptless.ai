@@ -125,22 +125,22 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
   const nav = getPrimaryNav(html);
 
   assertLink(nav, '/', 'Home');
+  assertLink(nav, '/pricing', 'Pricing');
   assertLink(nav, '/docs', 'Docs');
   assertLink(nav, '/blog', 'Blog');
   assertLink(nav, '/changelog', 'Changelog');
   assertLink(nav, '/free-tools', 'Free tools');
-  assertLink(nav, 'https://app.gopromptless.ai', 'Sign in');
+  assertLink(nav, '/wtd-portland-2026', 'WTD 2026');
 
-  assertLabelOrder(nav, ['Home', 'Docs', 'Blog', 'Changelog', 'Free tools', 'Sign in']);
+  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools', 'WTD 2026']);
   assert.doesNotMatch(nav, /href="\/blog\/all"/);
   assert.doesNotMatch(nav, /href="\/changelog\/all"/);
 });
 
 test('website/docs/blog/changelog/free tools active state is correct', async () => {
   const websiteHtml = await (await fetch(`${preview.baseUrl}/`)).text();
-  const websiteDemoHtml = await (await fetch(`${preview.baseUrl}/demo`)).text();
-  // /meet now redirects to /demo — no separate page to test
   const websitePricingHtml = await (await fetch(`${preview.baseUrl}/pricing`)).text();
+  const meetHtml = await (await fetch(`${preview.baseUrl}/meet`)).text();
   const docsHtml = await (await fetch(`${preview.baseUrl}/docs/getting-started/welcome`)).text();
   const blogHtml = await (await fetch(`${preview.baseUrl}/blog`)).text();
   const changelogHtml = await (await fetch(`${preview.baseUrl}/changelog`)).text();
@@ -154,11 +154,12 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   assertInactiveLink(websiteNav, '/changelog', 'Changelog');
   assertInactiveLink(websiteNav, '/free-tools', 'Free tools');
 
-  const demoNav = getPrimaryNav(websiteDemoHtml);
-  assertActiveLink(demoNav, '/', 'Home');
-
   const pricingNav = getPrimaryNav(websitePricingHtml);
-  assertActiveLink(pricingNav, '/', 'Home');
+  assertActiveLink(pricingNav, '/pricing', 'Pricing');
+  assertInactiveLink(pricingNav, '/', 'Home');
+
+  const meetNav = getPrimaryNav(meetHtml);
+  assertInactiveLink(meetNav, '/', 'Home');
 
   const docsNav = getPrimaryNav(docsHtml);
   assertActiveLink(docsNav, '/docs', 'Docs');
@@ -216,7 +217,7 @@ test('/blog/all and /changelog/all remain compatibility redirects', async () => 
   }
 });
 
-test('website routes are canonicalized to /, /demo, and /pricing', async () => {
+test('website routes are canonicalized to /, /meet, and /pricing', async () => {
   const homepage = await fetch(`${preview.baseUrl}/`);
   assert.equal(homepage.status, 200);
   const homepageHtml = await homepage.text();
@@ -233,53 +234,45 @@ test('website routes are canonicalized to /, /demo, and /pricing', async () => {
 
   const demo = await fetch(`${preview.baseUrl}/demo`);
   assert.equal(demo.status, 200);
-  assert.match(await demo.text(), /Book a 15-minute demo/);
+  // /demo is now a client-side redirect page to /#demo
+  assert.match(await demo.text(), /\/#demo/);
+
+  const meet = await fetch(`${preview.baseUrl}/meet`);
+  assert.equal(meet.status, 200);
+  assert.match(await meet.text(), /cal-inline-demo-booking/);
 
   const pricing = await fetch(`${preview.baseUrl}/pricing`);
   assert.equal(pricing.status, 200);
   assert.match(await pricing.text(), /Pricing/);
 
-  const aliases = ['/site', '/site/demo', '/video-demo', '/meet', '/use-cases', '/faq', '/api-reference'];
+  const aliases = ['/use-cases', '/faq', '/api-reference'];
   for (const alias of aliases) {
     const aliasResponse = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (aliasResponse.status >= 300 && aliasResponse.status < 400) {
-      if (alias === '/site' || alias === '/site/demo' || alias === '/video-demo' || alias === '/meet') {
-        assert.equal(aliasResponse.headers.get('location'), '/demo');
-      } else {
-        assert.equal(aliasResponse.headers.get('location'), '/');
-      }
+      assert.equal(aliasResponse.headers.get('location'), '/');
       continue;
     }
     assert.equal(aliasResponse.status, 200);
     const body = await aliasResponse.text();
-    if (alias === '/site' || alias === '/site/demo' || alias === '/video-demo' || alias === '/meet') {
-      assert.match(body, /Redirecting to: \/demo/);
-    } else {
-      assert.match(body, /Redirecting to: \//);
-    }
+    assert.match(body, /Redirecting to: \//);
   }
 });
 
-test('homepage, demo, and pricing render website content', async () => {
+test('homepage, meet, and pricing render website content', async () => {
   const homeResponse = await fetch(`${preview.baseUrl}/`);
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Automatically update your/);
+  assert.match(homeHtml, /Ship world-class docs/);
   assert.match(homeHtml, /How Promptless works/);
-  assert.match(homeHtml, /Book a demo/);
-  assert.match(homeHtml, /Pricing/);
+  assert.match(homeHtml, /Get a demo/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
-  assert.match(homeHtml, /data-site-icon="overview"/);
-  assert.match(homeHtml, /data-site-icon="video"/);
-  assert.match(homeHtml, /data-site-icon="pricing"/);
-  const demoResponse = await fetch(`${preview.baseUrl}/demo`);
-  assert.equal(demoResponse.status, 200);
-  const demoHtml = await demoResponse.text();
-  assert.match(demoHtml, /Book a 15-minute demo/);
-  assert.match(demoHtml, /cal-inline-demo-booking/);
-  assert.match(demoHtml, /cal-inline-demo-booking/);
-  assert.match(demoHtml, /tella\.tv/);
+
+  const meetResponse = await fetch(`${preview.baseUrl}/meet`);
+  assert.equal(meetResponse.status, 200);
+  const meetHtml = await meetResponse.text();
+  assert.match(meetHtml, /Book a 15-minute demo/);
+  assert.match(meetHtml, /cal-inline-demo-booking/);
 
   const pricingResponse = await fetch(`${preview.baseUrl}/pricing`);
   assert.equal(pricingResponse.status, 200);
@@ -309,7 +302,8 @@ test('website header renders expected CTAs and search control', async () => {
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(html, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
-  assert.match(html, /href="\/demo"[^>]*>\s*Book demo/i);
+  assert.match(html, /href="\/meet"[^>]*>\s*Get a demo/i);
+  assert.match(html, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
   assert.match(html, /aria-label="Search"/i);
 });
 
@@ -357,7 +351,6 @@ test('free tool page renders form fields and explanatory copy', async () => {
 test('website markdown endpoints are available for agent-friendly content', async () => {
   const routes = [
     { path: '/index.md', heading: /# Automatically update your docs/, detail: /## How Promptless works/ },
-    { path: '/demo.md', heading: /# Book a 15-minute demo/, detail: /## See why Vitess and Helm chose Promptless/ },
     { path: '/pricing.md', heading: /# Pricing that fits teams of all sizes/, detail: /## Startup/ },
     { path: '/free-tools.md', heading: /# Free tools/, detail: /## Broken Link Report/ },
     {
@@ -393,17 +386,5 @@ test('website compatibility routes redirect to canonical destinations', async ()
     assert.equal(response.status, 200);
     const body = await response.text();
     assert.match(body, /Redirecting to: \//);
-  }
-
-  const siteAliases = ['/site', '/site/demo', '/video-demo', '/meet'];
-  for (const alias of siteAliases) {
-    const response = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
-    if (response.status >= 300 && response.status < 400) {
-      assert.equal(response.headers.get('location'), '/demo');
-      continue;
-    }
-    assert.equal(response.status, 200);
-    const body = await response.text();
-    assert.match(body, /Redirecting to: \/demo/);
   }
 });
