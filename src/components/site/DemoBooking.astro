@@ -108,9 +108,22 @@
 
     var calLink = 'team/promptless/15m-discovery-call';
     var storedEmail = getStoredEmail();
-    if (storedEmail) {
-      calLink += '?email=' + encodeURIComponent(storedEmail);
-    }
+    var ph = window.posthog;
+    var distinctId = null;
+    var sessionId = null;
+    try { distinctId = sessionStorage.getItem('pl_ph_distinct_id'); } catch (_) {}
+    try { sessionId = sessionStorage.getItem('pl_ph_session_id'); } catch (_) {}
+    try {
+      if (!distinctId && ph && typeof ph.get_distinct_id === 'function') distinctId = ph.get_distinct_id();
+      if (!sessionId && ph && typeof ph.get_session_id === 'function') sessionId = ph.get_session_id();
+    } catch (_) {}
+
+    var params = new URLSearchParams();
+    if (storedEmail) params.set('email', storedEmail);
+    if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
+    if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
+    var qs = params.toString();
+    if (qs) calLink += '?' + qs;
 
     window.Cal('init', namespace, { origin: 'https://app.cal.com' });
     window.Cal.ns[namespace]('inline', {
@@ -172,6 +185,14 @@
           $set: { email: email },
         });
       }
+
+      try {
+        var phNow = window.posthog;
+        var did = phNow && phNow.get_distinct_id && phNow.get_distinct_id();
+        var sid = phNow && phNow.get_session_id && phNow.get_session_id();
+        if (did) sessionStorage.setItem('pl_ph_distinct_id', did);
+        if (sid) sessionStorage.setItem('pl_ph_session_id', sid);
+      } catch (_) {}
 
       if (statusEl) {
         statusEl.textContent = 'Thanks! We\u2019ll be in touch.';
