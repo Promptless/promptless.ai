@@ -47,11 +47,27 @@
           };
       })(window, 'https://app.cal.com/embed/embed.js', 'init');
 
+      let resolvedCalLink = calLink;
+      try {
+        const ph = window.posthog;
+        let distinctId = null;
+        let sessionId = null;
+        try { distinctId = sessionStorage.getItem('pl_ph_distinct_id'); } catch (_) {}
+        try { sessionId = sessionStorage.getItem('pl_ph_session_id'); } catch (_) {}
+        if (!distinctId && ph && typeof ph.get_distinct_id === 'function') distinctId = ph.get_distinct_id();
+        if (!sessionId && ph && typeof ph.get_session_id === 'function') sessionId = ph.get_session_id();
+        const params = new URLSearchParams();
+        if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
+        if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
+        const qs = params.toString();
+        if (qs) resolvedCalLink += '?' + qs;
+      } catch (_) {}
+
       window.Cal('init', namespace, { origin: 'https://app.cal.com' });
       window.Cal.ns[namespace]('inline', {
         elementOrSelector: elementSelector,
         config: { layout: 'month_view', useSlotsViewOnSmallScreen: 'true' },
-        calLink,
+        calLink: resolvedCalLink,
       });
       window.Cal.ns[namespace]('ui', { hideEventTypeDetails: false, layout: 'month_view' });
 
