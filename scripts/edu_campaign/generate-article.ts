@@ -90,7 +90,7 @@ description: >-
   One or two sentence SEO description, 120–160 characters.
 date: '${todayISO()}T00:00:00.000Z'
 author: Frances
-section: Technical
+section: Use Cases
 hidden: false
 ---
 import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
@@ -98,32 +98,83 @@ import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
 
 [article body starts here]`;
 
-  const userPrompt = `Research and write a blog article for Promptless on this keyword/topic: "${keyword}"
+  const userPrompt = `You are a scheduled content generation agent for Promptless, an AI-powered documentation platform that helps developer-facing companies keep their docs accurate and up to date. Promptless's audience is technical writers, DevRel engineers, developer advocates, solutions engineers, and engineering managers at companies with developer-facing products.
 
-Step 1 — Research:
-Search the web for the top articles, studies, blog posts, and discussions on this topic. Read 5–8 of the best results thoroughly. Identify: the main angles already covered, data points or case studies cited, gaps in existing coverage, and what practitioners are actually struggling with. Look especially for 2024–2026 material.
+**Step 1 — Keyword**
+The keyword for this article is: \`${keyword}\`
 
-Step 2 — Write a plan:
-Before writing the article, produce a detailed plan. The plan must answer:
-- Article format: What format best serves this content and reader? Describe it in your own words — e.g. "a comparison of two approaches to help readers make a technical decision," or "an explainer that teaches readers why X matters before showing them what to do about it.".
-- Thesis: What is the single main point this article makes? State it in one sentence.
-- Target reader: Who specifically benefits from this — developers, technical writers, solutions engineers, product managers,developer advocates? What do they already know, and what gap does this fill?
-- Key points: List the 4–6 specific claims or arguments the article will make, in order. Each point should be concrete — not "discuss X" but "argue that X causes Y because Z".
-- Evidence: For each key point, note what data, case studies, or examples from your research support it. Add links to the evidence.
-- Promptless connection: Explicitly state how the article's thesis connects to what Promptless does. This does not need to be a sales pitch — it should be a logical continuation. E.g. "This article argues that docs go stale faster than teams notice, which is exactly the problem Promptless monitors for."
+**Step 2 — Research**
+Use web search to find the top articles, blog posts, studies, and discussions on this keyword. Read a sample of 5–8 of the best results thoroughly. Identify: the main angles already covered, data points or case studies cited, gaps in existing coverage, and what practitioners are actually struggling with. Look especially for 2024–2026 material.
+
+**Step 3 — Write a plan**
+Before writing anything, produce a detailed article plan. The plan must answer:
+- **Article format:** What format best serves this content and reader? Describe it in your own words — e.g. "a comparison of two approaches to help readers make a technical decision," or "an explainer that teaches readers why X matters before showing them what to do about it." Don't force it into a category.
+- **Thesis:** What is the single main point this article makes? State it in one sentence.
+- **Target reader:** Who specifically benefits from this — developers, technical writers, solutions engineers, product managers, developer advocates? What do they already know, and what gap does this fill?
+- **Key points:** List the 4–6 specific claims or arguments the article will make, in order. Each point should be concrete — not "discuss X" but "argue that X causes Y because Z".
+- **Evidence:** For each key point, note what data, case studies, or examples you found in Step 2 that support it. Add links to the evidence.
+- **Promptless connection:** Explicitly state how the article's thesis connects to what Promptless does. This does not need to be a sales pitch — it should be a logical continuation. E.g. "This article argues that docs go stale faster than teams notice, which is exactly the problem Promptless monitors for."
 
 Write the plan as a structured document. Do not proceed to writing the article until the plan is complete.
 
-Step 3 — Write the article:
-Write a complete, publication-ready MDX article strictly according to the plan. Follow the style and structural conventions in the system prompt. Include the full frontmatter at the top. The title should be specific and SEO-optimized for "${keyword}". Ground every claim in concrete examples, real numbers, or cited evidence from your research.
+**Step 4 — Write the article**
+Write a complete, publication-ready MDX blog post strictly according to the plan from Step 3:
+- 800–1400 words
+- 10th grade reading level — short sentences, plain words, no jargon without explanation
+- Style: direct and dry, like a Dutch engineer. Say what you mean. Cut anything that doesn't add information. No enthusiasm, no hype.
+- Lead with a hook that frames the specific problem (NOT a generic intro paragraph)
+- Use ## for H2, ### for H3
+- Place \`<BlogNewsletterCTA />\` at the 40–50% mark (after the first major section)
+- End with \`<BlogRequestDemo />\`
+- Do NOT include a generic conclusion that restates what was said
+- Ground every claim in concrete examples, real numbers, or cited evidence from your research
 
-Step 4 — Edit the article:
-Do a final editorial pass specifically looking for these two patterns. Rewrite every instance — do not just flag them:
-1. "X is not Y, but Z" constructions — e.g. "This isn't a tooling problem, it's a process problem." Rewrite as a direct statement.
-2. Tricolon structures — three-item lists used for rhetorical effect, e.g. "It's fast, reliable, and cheap." Break these up or cut to the most important item.
-3. Optimize for SEO: update the title, subtitle, and description to make them closer to what users would search for. Also add relevant links to other Promptless blogposts.
+Frontmatter format (fill in all fields, today's date):
+\`\`\`
+---
+title: 'Article Title Here'
+subtitle: Published [Month Year]
+description: >-
+  One or two sentence SEO description, 120–160 characters.
+date: '[YYYY-MM-DD]T00:00:00.000Z'
+author: Frances
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+\`\`\`
 
-Output the plan first, then output the final MDX file contents (frontmatter + article body). No code fences around the MDX.`;
+**Step 5 — Edit the article**
+After the article is written, do a final editorial pass specifically looking for these patterns. Remove every instance:
+
+1. **"X is not Y, but Z" constructions** — e.g. "This isn't a tooling problem, it's a process problem" or "The issue isn't frequency, but ownership." Rewrite these as direct statements.
+2. **Tricolon structures** — three-item lists used for rhetorical effect, e.g. "It's fast, reliable, and cheap" or "Write it, review it, ship it." Break these up or cut to the most important item.
+3. **SEO optimization** — update the title, subtitle, and description to be closer to what users would actually search for. Add relevant inline links to other Promptless blog posts where they fit naturally.
+
+Rewrite the affected sentences. Do not just flag them.
+
+**Step 6 — Commit and open a PR**
+1. Derive a URL-safe slug from the title (lowercase, hyphens only, max 60 chars)
+2. Save the article to \`src/content/blog/technical/{slug}.mdx\`
+3. Run: \`git checkout -b articles/$(date +%Y-%m-%d)-{slug} origin/main\`
+4. Run: \`git add src/content/blog/technical/{slug}.mdx && git commit -m "content: Add article — {title}"\`
+5. Run: \`git push -u origin HEAD\`
+6. Write the PR body to a temp file, then run: \`gh pr create --title "content: {title}" --body-file {tempfile} --base main --head articles/$(date +%Y-%m-%d)-{slug}\`
+   PR body should include: **Keyword:** {keyword}, a summary of the article plan (format, thesis, Promptless connection), a note that it's an AI-generated draft needing review, and instructions to set \`hidden: false\` when ready to publish.
+7. Capture the PR URL printed by that command
+
+**Step 7 — Post to Slack**
+Post a message to Slack channel C0ANY84P1DM (content-marketing) using the Slack MCP tools available to you. The message should include:
+- The article title
+- The keyword that was used
+- A link to the PR URL
+
+Example message format:
+📝 *New blog draft ready for review*
+*Title:* {title}
+*Keyword:* \`{keyword}\`
+*PR:* {pr_url}`;
 
   console.log(`\n🔍 Researching: "${keyword}"\n`);
 
@@ -212,7 +263,6 @@ function createPR(articleContent: string, keyword: string, fullOutput: string = 
   console.log(`\n📝 Writing article to ${filePath}`);
   fs.writeFileSync(worktreeFilePath, articleContent + "\n");
 
-
   exec(`git add ${filePath}`, { cwd: worktreePath });
   exec(
     `git commit -m "content: Add AI-generated article — ${title}\n\nKeyword: ${keyword}\nGenerated by edu campaign script on ${date}"`,
@@ -232,7 +282,6 @@ ${planSummary ? `## Article plan\n\n${planSummary}\n\n` : ""}## File
 \`${filePath}\`
 
 This is an AI-generated draft and needs human review before publishing. Set \`hidden: false\` in the frontmatter when ready to publish.`;
-
 
   const bodyFile = path.join(REPO_ROOT, ".pr-body.tmp");
   fs.writeFileSync(bodyFile, prBody);

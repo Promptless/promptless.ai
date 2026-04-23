@@ -1,0 +1,188 @@
+---
+interface Props {
+  author: string;
+  pageUrl: string;
+}
+
+const { author, pageUrl } = Astro.props;
+
+const AUTHORS: Record<string, { photo: string; name: string; role: string; linkedin?: string; twitter?: string }> = {
+  Frances: {
+    photo: '/assets/frances.jpg',
+    name: 'Frances Liu',
+    role: 'Co-founder',
+    linkedin: 'https://www.linkedin.com/in/frances-liu-1a426057/',
+    twitter: 'https://x.com/robobobots',
+  },
+  Prithvi: {
+    photo: '/assets/prithvi.jpg',
+    name: 'Prithvi Krishnarao',
+    role: 'Co-founder',
+    linkedin: 'https://www.linkedin.com/in/prithvi-r/',
+    twitter: 'https://x.com/prithviramak',
+  },
+  InlinePizza: {
+    photo: '/assets/inlinepizza.jpg',
+    name: 'InlinePizza',
+    role: 'Founding Engineer',
+    twitter: 'https://twitter.com/InlinePizza',
+  },
+};
+
+const data = AUTHORS[author];
+if (!data) return;
+
+const linkedinShare = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`;
+const twitterShare = `https://twitter.com/intent/tweet?url=${encodeURIComponent(pageUrl)}&text=${encodeURIComponent('Check out this article from @promptlessai:')} `;
+---
+
+<div class="bac-root">
+  <img class="bac-photo" src={data.photo} alt={data.name} width="44" height="44" />
+  <p class="bac-name">{data.name}</p>
+  <p class="bac-role">{data.role}</p>
+
+  <div class="bac-divider"></div>
+
+  <p class="bac-share-label">Share</p>
+  <div class="bac-share-row">
+    <a class="bac-btn" href={linkedinShare} target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+      </svg>
+    </a>
+    <a class="bac-btn" href={twitterShare} target="_blank" rel="noopener noreferrer" aria-label="Share on X">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.259 5.63zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+      </svg>
+    </a>
+    <button class="bac-btn" id="bac-copy" aria-label="Copy link" data-url={pageUrl}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    </button>
+  </div>
+  <span class="bac-copied-label" id="bac-copied-label" aria-live="polite">Copied!</span>
+</div>
+
+<script>
+  const btn = document.getElementById('bac-copy');
+  if (btn instanceof HTMLButtonElement) {
+    btn.addEventListener('click', async () => {
+      const url = btn.dataset.url ?? window.location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch {
+        const el = document.createElement('input');
+        el.value = url;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand('copy');
+        document.body.removeChild(el);
+      }
+      btn.classList.add('bac-copied');
+      const label = document.getElementById('bac-copied-label');
+      if (label) label.classList.add('bac-copied-label--visible');
+      setTimeout(() => {
+        btn.classList.remove('bac-copied');
+        if (label) label.classList.remove('bac-copied-label--visible');
+      }, 1800);
+    });
+  }
+</script>
+
+<style>
+  .bac-root {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .bac-photo {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.375rem;
+    object-fit: cover;
+    margin-bottom: 0.4rem;
+  }
+
+  .bac-name {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--sl-color-text);
+    line-height: 1.3;
+  }
+
+  .bac-role {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--sl-color-gray-3);
+    line-height: 1.3;
+  }
+
+  .bac-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--sl-color-hairline);
+    margin: 0.85rem 0 0.7rem;
+  }
+
+  .bac-share-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-3);
+  }
+
+  .bac-share-row {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .bac-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--sl-color-hairline);
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .bac-btn:hover {
+    color: var(--sl-color-text);
+    border-color: color-mix(in srgb, var(--sl-color-text) 22%, var(--sl-color-hairline));
+    background: color-mix(in srgb, var(--sl-color-accent-low) 35%, transparent);
+  }
+
+  .bac-btn.bac-copied {
+    color: #16a34a;
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+  }
+
+  .bac-copied-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #16a34a;
+    opacity: 0;
+    transition: opacity 150ms ease;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  .bac-copied-label--visible {
+    opacity: 1;
+  }
+</style>

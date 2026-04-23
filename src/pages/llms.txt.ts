@@ -13,7 +13,14 @@ interface WebsiteEntry {
 
 export const GET: APIRoute = async ({ site }) => {
   const websiteEntries = await getWebsiteEntries();
-  const lines: string[] = ['# Promptless | Documentation', '', '## Website', ''];
+  const lines: string[] = [
+    '# Promptless | Documentation',
+    '',
+    '> Promptless automatically updates your customer-facing docs as you ship features and support customers. This index lists all documentation, blog posts, and changelogs.',
+    '',
+    '## Website',
+    '',
+  ];
 
   for (const entry of websiteEntries) {
     lines.push(

@@ -2,35 +2,19 @@
 ---
 
 <!--
-  Email-gated Cal.com booking widget.
+  Cal.com booking widget + email capture.
 
-  The Cal.com embed is always loaded (hidden via display:none) so it's ready
-  instantly when revealed. If the visitor already provided their email (stored
-  in sessionStorage by the homepage hero or blog CTA), we show it immediately
-  with the email prefilled. Otherwise we show a small email form first.
+  The Cal.com embed is always visible. Below it, a simple email form lets
+  visitors leave their email if they prefer not to book immediately.
 
-  No-JS fallback: the email gate and Cal.com embed both require JavaScript.
-  We show a plain link to the Cal.com booking page via <noscript>. Users who
-  submitted their email on the homepage via the native form POST will be asked
-  for their email again on Cal.com — there is no way to pass it without JS.
+  If the visitor already provided their email (stored in sessionStorage by
+  the homepage hero or blog CTA), it's prefilled into the Cal.com embed.
+
+  No-JS fallback: a plain link to the Cal.com booking page via <noscript>.
 -->
 
-<div id="demo-booking">
-  <div id="demo-email-gate" class="demo-email-gate">
-    <form id="demo-email-form" class="pl-site-form-row">
-      <label class="sr-only" for="demo-gate-email">Work email</label>
-      <input
-        id="demo-gate-email"
-        type="email"
-        name="email"
-        placeholder="Work email"
-        required
-      />
-      <button type="submit">Continue to booking</button>
-    </form>
-  </div>
-
-  <div id="demo-calendar" class="pl-site-meet-calendar" style="display:none;">
+<div id="book">
+  <div id="demo-calendar" class="pl-site-meet-calendar">
     <div class="pl-site-meet-calendar-mount" id="cal-inline-demo-booking"></div>
   </div>
 
@@ -41,14 +25,45 @@
       </a>
     </p>
   </noscript>
+
+  <div id="demo-email-gate" class="demo-email-gate">
+    <p class="demo-email-label">Not ready to book? Leave your email and we'll follow up.</p>
+    <form id="demo-email-form" class="pl-site-form-row">
+      <label class="sr-only" for="demo-gate-email">Work email</label>
+      <input
+        id="demo-gate-email"
+        type="email"
+        name="email"
+        placeholder="Work email"
+        required
+      />
+      <button type="submit">Send</button>
+    </form>
+    <p id="demo-email-status" class="demo-email-status" aria-live="polite"></p>
+  </div>
 </div>
+
+<style>
+  .demo-email-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.92rem;
+    color: #475569;
+  }
+
+  .demo-email-status {
+    margin: 0.35rem 0 0;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: #16a34a;
+    min-height: 1.2em;
+  }
+</style>
 
 <script is:inline>
 (() => {
   var EMAIL_KEY = 'pl_demo_email';
-  var gate = document.getElementById('demo-email-gate');
-  var calendar = document.getElementById('demo-calendar');
   var form = document.getElementById('demo-email-form');
+  var statusEl = document.getElementById('demo-email-status');
   var namespace = 'demo-booking';
   var elementSelector = '#cal-inline-demo-booking';
 
@@ -60,7 +75,6 @@
     try { sessionStorage.setItem(EMAIL_KEY, email); } catch {}
   }
 
-  // Load Cal.com embed immediately (hidden) so it's prewarmed
   function bootCal() {
     var mountEl = document.querySelector(elementSelector);
     if (!mountEl || mountEl.dataset.calMounted === 'true') return;
@@ -94,9 +108,22 @@
 
     var calLink = 'team/promptless/15m-discovery-call';
     var storedEmail = getStoredEmail();
-    if (storedEmail) {
-      calLink += '?email=' + encodeURIComponent(storedEmail);
-    }
+    var ph = window.posthog;
+    var distinctId = null;
+    var sessionId = null;
+    try { distinctId = sessionStorage.getItem('pl_ph_distinct_id'); } catch (_) {}
+    try { sessionId = sessionStorage.getItem('pl_ph_session_id'); } catch (_) {}
+    try {
+      if (!distinctId && ph && typeof ph.get_distinct_id === 'function') distinctId = ph.get_distinct_id();
+      if (!sessionId && ph && typeof ph.get_session_id === 'function') sessionId = ph.get_session_id();
+    } catch (_) {}
+
+    var params = new URLSearchParams();
+    if (storedEmail) params.set('email', storedEmail);
+    if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
+    if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
+    var qs = params.toString();
+    if (qs) calLink += '?' + qs;
 
     window.Cal('init', namespace, { origin: 'https://app.cal.com' });
     window.Cal.ns[namespace]('inline', {
@@ -112,27 +139,21 @@
     mountEl.dataset.calMounted = 'true';
   }
 
-  function showCal() {
-    if (calendar) calendar.style.display = '';
-    if (gate) gate.style.display = 'none';
-  }
-
-  // Query param overrides:
-  //   ?demo=reset  — clear stored email, show the gate
-  //   ?demo=cal    — skip the gate, show Cal.com
+  // Query param override: ?demo=reset — clear stored email
   var params = new URLSearchParams(window.location.search);
   var demoParam = params.get('demo');
   if (demoParam === 'reset') {
     try { sessionStorage.removeItem(EMAIL_KEY); } catch {}
   }
 
-  // Always boot Cal.com embed on page load (stays hidden until revealed)
   bootCal();
 
-  var storedEmail = demoParam === 'reset' ? null : getStoredEmail();
-  if (storedEmail || demoParam === 'cal') {
-    showCal();
-    return;
+  // Scroll to #book if the URL hash targets it (e.g. /demo#book)
+  if (window.location.hash === '#book') {
+    var bookEl = document.getElementById('book');
+    if (bookEl) {
+      setTimeout(function () { bookEl.scrollIntoView({ behavior: 'smooth' }); }, 100);
+    }
   }
 
   if (form) {
@@ -157,19 +178,31 @@
       } catch (_) {}
 
       if (window.posthog) {
-        window.posthog.capture('demo_requested', {
+        window.posthog.capture('email_captured', {
+          intent: 'demo',
           location: 'demo_page',
+          campaign: '',
           $set: { email: email },
         });
       }
 
-      showCal();
+      try {
+        var phNow = window.posthog;
+        var did = phNow && phNow.get_distinct_id && phNow.get_distinct_id();
+        var sid = phNow && phNow.get_session_id && phNow.get_session_id();
+        if (did) sessionStorage.setItem('pl_ph_distinct_id', did);
+        if (sid) sessionStorage.setItem('pl_ph_session_id', sid);
+      } catch (_) {}
+
+      if (statusEl) {
+        statusEl.textContent = 'Thanks! We\u2019ll be in touch.';
+      }
+      form.style.display = 'none';
     });
   }
 
   document.addEventListener('astro:page-load', function () {
     bootCal();
-    if (getStoredEmail()) showCal();
   });
 })();
 </script>

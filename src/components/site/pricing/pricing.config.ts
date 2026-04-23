@@ -76,7 +76,7 @@ export const GROWTH_BUNDLE_OPTIONS: GrowthBundleOption[] = [
 ];
 
 export const STARTUP_FEATURES = [
-  '30 day free trial',
+  '14 day free trial',
   'Slack + GitHub integrations',
   'Unlimited contributors',
   'Unlimited triggers',

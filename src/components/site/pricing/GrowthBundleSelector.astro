@@ -63,7 +63,19 @@ const selectId = 'growth-pages';
         }
       };
 
-      select.addEventListener('change', update);
+      select.addEventListener('change', function () {
+        update();
+        // Track when users change the Growth plan bundle selection on the pricing page.
+        // Captures the selected bundle details to understand which tiers users explore.
+        var opt = select.options[select.selectedIndex];
+        if (opt && window.posthog) {
+          window.posthog.capture('pricing_bundle_changed', {
+            bundle_id: opt.value,              // e.g., 'growth_50', 'growth_100'
+            bundle_label: opt.textContent.trim(),  // e.g., '50 articles', '100 articles'
+            price_label: (opt.dataset.priceLabel || '').trim(),  // e.g., '$199/mo'
+          });
+        }
+      });
       update();
     };
 
