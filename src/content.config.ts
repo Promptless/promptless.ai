@@ -14,9 +14,11 @@ const blog = defineCollection({
     description: z.string(),
     subtitle: z.string().optional(),
     author: z.string().optional(),
+    tag: z.string().optional(),
     section: z.string().optional(),
     date: z.coerce.date(),
     hidden: z.boolean().optional().default(false),
+    socialImage: z.string().optional(),
   }),
 });
 
@@ -42,9 +44,20 @@ const website = defineCollection({
   }),
 });
 
+const websiteMarkdown = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    routePath: z.string(),
+    hidden: z.boolean().optional().default(false),
+  }),
+});
+
 export const collections = {
   docs,
   blog,
   changelog,
   website,
+  websiteMarkdown,
 };

@@ -1,11 +1,24 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
+import sitemap from '@astrojs/sitemap';
 
 import generatedSidebar from './src/lib/generated/sidebar.json' with { type: 'json' };
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
+import routeManifest from './src/lib/generated/route-manifest.json' with { type: 'json' };
+import {
+  createSitemapPathFilter,
+  getHiddenDocsPaths,
+  getHiddenRouteManifestPaths,
+  getHiddenWebsitePaths,
+} from './src/lib/sitemap-filter.mjs';
 
 const redirectEntries = (redirectsManifest.redirects || []).map((rule) => [rule.source, rule.destination]);
+const hiddenSitemapPaths = new Set([
+  ...getHiddenRouteManifestPaths(routeManifest),
+  ...getHiddenDocsPaths(new URL('./src/content/docs/', import.meta.url)),
+  ...getHiddenWebsitePaths(new URL('./src/content/website/', import.meta.url)),
+]);
 
 const redirects = {
   '/home': '/',
@@ -13,9 +26,6 @@ const redirects = {
   '/page': '/',
   '/wtd': '/',
   '/hn': '/',
-  '/site': '/demo',
-  '/site/demo': '/demo',
-  '/video-demo': '/demo',
   '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
   '/use-cases': '/',
   '/faq': '/',
@@ -29,13 +39,11 @@ const redirects = {
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
   redirects,
-  image: {
-    service: {
-      entrypoint: 'astro/assets/services/noop',
-    },
-  },
   integrations: [
     react(),
+    sitemap({
+      filter: createSitemapPathFilter(hiddenSitemapPaths),
+    }),
     starlight({
       title: 'Promptless | Automatic updates for your customer-facing docs',
       description: 'Automated docs that eliminate manual overhead and keep your docs current with your codebase',
@@ -65,6 +73,16 @@ export default defineConfig({
         baseUrl: 'https://github.com/Promptless/docs/tree/main',
       },
       head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'preload',
+            href: '/fonts/InterVariable.woff2',
+            as: 'font',
+            type: 'font/woff2',
+            crossorigin: '',
+          },
+        },
         {
           tag: 'meta',
           attrs: { property: 'og:image', content: 'https://promptless.ai/assets/social-card.png' },

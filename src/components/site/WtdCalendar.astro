@@ -16,6 +16,8 @@ interface CalendarEvent {
   time: string;
   type: 'writing' | 'talks' | 'unconference' | 'social' | 'promptless';
   link?: string;
+  location?: string;
+  address?: string;
   promptlessFaces?: boolean;
   cta?: { label: string; href: string };
 }
@@ -41,7 +43,7 @@ const days: CalendarDay[] = [
     dateShort: 'Sat, May 2',
     subtitle: 'Pre-Conference',
     events: [
-      { id: 'sat-lunch', title: 'Lunch at Nob Hill Food Carts', startHour: 12.5, endHour: 13.67, time: '12:30 – 1:40 PM', type: 'social' },
+      { id: 'sat-lunch', title: 'Lunch at Nob Hill Food Carts', startHour: 12.5, endHour: 13.67, time: '12:30 – 1:40 PM', type: 'social', link: 'https://www.writethedocs.org/conf/portland/2026/hike/' },
       { id: 'sat-hike', title: 'Conference Hike', startHour: 14, endHour: 17, time: '2 – 5 PM', type: 'social', link: 'https://www.writethedocs.org/conf/portland/2026/hike/', promptlessFaces: true },
     ],
   },
@@ -52,7 +54,7 @@ const days: CalendarDay[] = [
     events: [
       { id: 'sun-writing', title: 'Writing Day', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'writing', link: 'https://www.writethedocs.org/conf/portland/2026/writing-day/' },
       { id: 'sun-reception', title: 'Sunday Reception', startHour: 17, endHour: 19, time: '5 – 7 PM', type: 'social' },
-      { id: 'sun-pl-dinner', title: 'Promptless Dinner', startHour: 19.75, endHour: 21.5, time: '7:45 – 9:30 PM', type: 'promptless', promptlessFaces: true, cta: { label: 'RSVP', href: 'https://luma.com/1m13xfc3' } },
+      { id: 'sun-pl-dinner', title: 'Promptless Dinner', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'promptless', link: 'https://maps.app.goo.gl/1ZhubfeFBjnzXYtx5', location: 'East Burn', address: '1800 E Burnside St, Portland, OR 97214', promptlessFaces: true, cta: { label: 'RSVP', href: 'https://luma.com/1m13xfc3' } },
     ],
   },
   {
@@ -62,8 +64,8 @@ const days: CalendarDay[] = [
     events: [
       { id: 'mon-talks', title: 'Conference Talks', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'talks', link: 'https://www.writethedocs.org/conf/portland/2026/schedule/' },
       { id: 'mon-unconf', title: 'Unconference', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'unconference', link: 'https://www.writethedocs.org/conf/portland/2026/unconference/' },
-      { id: 'mon-pl-dinner', title: 'Promptless Dinner', startHour: 17.5, endHour: 19, time: '5:30 – 7 PM', type: 'promptless', promptlessFaces: true, cta: { label: 'RSVP', href: 'https://luma.com/tpl91l3a' } },
-      { id: 'mon-social', title: 'Monday Night Social', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'social' },
+      { id: 'mon-pl-dinner', title: 'Promptless Dinner', startHour: 17.5, endHour: 19, time: '5:30 – 7 PM', type: 'promptless', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (downstairs)', cta: { label: 'RSVP', href: 'https://luma.com/tpl91l3a' } },
+      { id: 'mon-social', title: 'Monday Night Social', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'social', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (upstairs)' },
     ],
   },
   {
@@ -175,7 +177,8 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
                         </a>
                       )}
                       <span class="wtd-cal-block-time">{ev.time}</span>
-                      <span class="wtd-cal-block-title">{ev.title}</span>
+                      <span class="wtd-cal-block-title">{ev.title}{ev.location && <span class="wtd-cal-block-loc"> at {ev.location}</span>}</span>
+                      {ev.address && <span class="wtd-cal-block-addr">{ev.address}</span>}
                       {(ev.promptlessFaces || ev.cta) && (
                         <div class="wtd-cal-bottom">
                           {ev.promptlessFaces && (
@@ -432,6 +435,21 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
     line-height: 1.25;
   }
 
+  .wtd-cal-block-loc {
+    font-weight: 500;
+  }
+
+  .wtd-cal-block-addr {
+    font-size: 0.68rem;
+    color: #6b7280;
+    line-height: 1.25;
+  }
+
+  .wtd-cal-block:has(.wtd-cal-block-link):hover:not(:has(.wtd-cal-cta:hover)) .wtd-cal-block-title {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   /* ── Bottom row (faces + CTA) ── */
   .wtd-cal-bottom {
     display: flex;
@@ -441,6 +459,15 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
     padding-top: 0.2rem;
     position: relative;
     z-index: 2;
+  }
+
+  .wtd-cal-bottom:not(:has(.wtd-cal-faces)) {
+    position: absolute;
+    bottom: 0.35rem;
+    right: 0.45rem;
+    left: 0.45rem;
+    margin-top: 0;
+    padding-top: 0;
   }
 
   /* ── CTA button ── */

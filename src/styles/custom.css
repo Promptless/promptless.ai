@@ -76,14 +76,7 @@ starlight-theme-select {
 @media (max-width: 50rem) {
   :root {
     --sl-content-width: 100%;
-  }
-
-  :root[data-has-sidebar] {
-    --pl-docs-nav-height: 4.15rem;
-  }
-
-  :root:not([data-has-sidebar]) {
-    --pl-docs-nav-height: 5.75rem;
+    --pl-docs-nav-height: 3.65rem;
   }
 }
 
@@ -150,13 +143,37 @@ starlight-theme-select {
   font-size: 0.875rem;
   line-height: 1;
   font-weight: 600;
-  padding: 0.58rem 0.82rem;
+  padding: 0.58rem 1.1rem;
   border: 1px solid #0f172a;
 }
 
 .pl-site-cta:hover {
-  background: #1e293b;
-  border-color: #1e293b;
+  background: #506aea;
+  border-color: #506aea;
+}
+
+.pl-site-cta-secondary {
+  background: #506aea;
+  color: #fff;
+  border-color: #506aea;
+}
+
+.pl-site-cta-secondary:hover {
+  background: #3f56d4;
+  border-color: #3f56d4;
+  color: #fff;
+}
+
+.pl-site-cta-login {
+  background: transparent;
+  color: #6b7280;
+  border-color: transparent;
+}
+
+.pl-site-cta-login:hover {
+  background: transparent;
+  border-color: transparent;
+  color: #111827;
 }
 
 .pl-site-nav-row {
@@ -257,7 +274,9 @@ starlight-theme-select {
     padding-inline: 0.78rem;
   }
 
-  .pl-site-header-row {
+  .pl-site-header-row,
+  .pl-site-header-row.has-tools {
+    display: flex;
     min-height: 2.9rem;
   }
 
@@ -265,26 +284,22 @@ starlight-theme-select {
     display: none !important;
   }
 
-  :root[data-has-sidebar] .pl-site-cta-row {
+  .pl-site-cta-row {
+    margin-inline-start: auto;
+  }
+
+  .pl-site-cta-secondary,
+  .pl-site-cta-login {
     display: none;
   }
 
-  :root[data-has-sidebar] .pl-site-nav-row {
+  .pl-site-cta {
+    font-size: 0.875rem;
+    padding: 0.55rem 0.9rem;
+  }
+
+  .pl-site-nav-row {
     display: none;
-  }
-
-  :root:not([data-has-sidebar]) .pl-site-tabs {
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  :root:not([data-has-sidebar]) .pl-site-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  .pl-site-tab {
-    padding-inline: 0.48rem;
-    font-size: 0.88rem;
   }
 }
 
@@ -299,7 +314,7 @@ starlight-theme-select {
 }
 
 .sidebar-content .top-level > li > details > summary {
-  padding: 0.18rem 0.35rem;
+  padding: 0.18rem 0 0.18rem 0.35rem;
 }
 
 .sidebar-content .top-level > li > details > summary .large {
@@ -310,12 +325,18 @@ starlight-theme-select {
   text-transform: uppercase;
 }
 
+/* Remove right margin/padding from nested ul to allow caret alignment */
+.sidebar-content details > ul {
+  margin-right: 0;
+  padding-right: 0;
+}
+
 /* Nested group headers (e.g. Triggers, Context Sources) — tone down to match links */
 .sidebar-content details details > summary {
   font-size: 0.875rem;
   font-weight: 500;
   color: color-mix(in srgb, var(--sl-color-text) 84%, #374151);
-  padding: 0.42rem 0.58rem;
+  padding: 0.42rem 0 0.42rem 0.58rem;
 }
 
 .sidebar-content details details > summary .large {
@@ -385,15 +406,19 @@ starlight-theme-select {
   mask-image: url('/site/icons/meet.svg');
 }
 
+.sidebar-content a[data-site-icon='jobs']::before {
+  mask-image: url('/site/icons/jobs.svg');
+}
+
 .sidebar-content a[data-site-icon='calendar']::before {
   mask-image: url('/site/icons/calendar.svg');
 }
 
-.sidebar-content .pl-mobile-menu-primary {
+.sidebar-content a[href].pl-mobile-menu-primary {
   color: #fff;
 }
 
-.sidebar-content .pl-mobile-menu-primary:hover {
+.sidebar-content a[href].pl-mobile-menu-primary:hover {
   color: #fff;
 }
 
@@ -486,6 +511,10 @@ main:has(.pl-site-page.pl-site-page-compact) .content-panel:first-of-type {
   padding-bottom: 0.5rem;
 }
 
+main:has(.pl-site-page.pl-site-page-no-title) .content-panel:first-of-type {
+  display: none;
+}
+
 main:has(.pl-site-page.pl-site-page-compact) .content-panel + .content-panel {
   padding-top: 0.5rem;
 }
@@ -516,6 +545,74 @@ main:has(.pl-site-page.pl-site-page-compact) .content-panel + .content-panel {
 
 .sl-markdown-content img {
   border-radius: 10px;
+}
+
+main:has(.collection-back-link) .content-panel > .sl-container,
+main:has(.collection-back-link) .sl-markdown-content {
+  /* Use rem instead of ch — ch is font-relative, so it changes size during
+     font swap, which combined with margin-inline:auto causes CLS. */
+  max-width: 38rem;
+  margin-inline: auto;
+}
+
+/* Keep blog prose at readable width, but let comparison tables use the full content width. */
+main:has(.collection-back-link) .sl-markdown-content table {
+  width: min(var(--sl-content-width), calc(100vw - 2 * var(--sl-content-pad-x)));
+  max-width: none;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* --- Blog layout with sticky author aside --- */
+
+/* Widen the Starlight container so the grid has room for prose + aside */
+main:has(.blog-layout--has-aside) .content-panel > .sl-container,
+main:has(.blog-layout--has-aside) .sl-markdown-content {
+  max-width: min(52rem, calc(100vw - 2 * var(--sl-content-pad-x)));
+}
+
+/* Undo the table breakout trick inside the grid — tables just flow normally */
+main:has(.blog-layout--has-aside) .sl-markdown-content table {
+  position: static;
+  left: auto;
+  transform: none;
+  width: 100%;
+  max-width: 38rem;
+}
+
+.blog-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.blog-layout--has-aside {
+  grid-template-columns: minmax(0, 38rem) 10.5rem;
+  gap: 3rem;
+}
+
+.blog-prose {
+  min-width: 0;
+}
+
+.blog-author-aside {
+  /* Column 2: just the sticky wrapper */
+}
+
+.blog-author-sticky {
+  position: sticky;
+  top: calc(var(--pl-docs-nav-height) + 1.75rem);
+}
+
+/* Hide the aside at narrow viewports — not enough room */
+@media (max-width: 56rem) {
+  .blog-layout--has-aside {
+    grid-template-columns: 1fr;
+  }
+
+  .blog-author-aside {
+    display: none;
+  }
 }
 
 .collection-back-link {
@@ -663,13 +760,6 @@ main:has(.pl-site-page.pl-site-page-compact) .content-panel + .content-panel {
   font-weight: 500;
 }
 
-.collection-post-author {
-  margin: 0 0 1.5rem;
-  color: var(--sl-color-gray-3);
-  font-size: var(--sl-text-sm);
-  font-weight: 500;
-}
-
 .collection-feed-description {
   margin: 0;
   max-width: 72ch;
@@ -774,6 +864,18 @@ a.fern-card:hover {
 
 .welcome-intro-card {
   margin-top: 1rem;
+}
+
+.pl-docs-cta {
+  margin-top: 2rem;
+  padding: 1rem 1.25rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--sl-color-accent) 8%, var(--sl-color-bg));
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 25%, var(--sl-color-hairline));
+}
+
+.pl-docs-cta a {
+  font-weight: 600;
 }
 
 .fern-card h3 {
