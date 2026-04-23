@@ -1,0 +1,102 @@
+---
+---
+
+<div id="rff-wrapper">
+  <form
+    id="rff-form"
+    class="pl-site-form-row"
+    action="https://submit-form.com/zmlFaDayx"
+    novalidate
+  >
+    <label class="sr-only" for="rff-email">Work email</label>
+    <input
+      id="rff-email"
+      name="email"
+      type="email"
+      inputmode="email"
+      placeholder="Work email"
+      autocomplete="email"
+      required
+    />
+    <button type="submit">Book demo</button>
+    <p id="rff-status" class="rff-status" aria-live="polite"></p>
+  </form>
+
+</div>
+
+<script is:inline>
+  (() => {
+    const form = document.getElementById('rff-form');
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const status = document.getElementById('rff-status');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!(submitBtn instanceof HTMLButtonElement)) return;
+
+    const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+    const setStatus = (msg, tone) => {
+      if (!status) return;
+      status.textContent = msg;
+      status.dataset.tone = tone || 'neutral';
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+
+      const email = String(new FormData(form).get('email') || '').trim();
+      if (!isValidEmail(email)) {
+        setStatus('Please enter a valid work email.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      setStatus('Sending…', 'neutral');
+
+      try {
+        const res = await fetch('https://submit-form.com/zmlFaDayx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+
+        if (!res.ok) throw new Error('Submission failed');
+
+        try { sessionStorage.setItem('pl_demo_email', email); } catch {}
+
+        window.posthog?.capture('email_captured', {
+          intent: 'demo',
+          location: 'blog',
+          campaign: '',
+          $set: { email },
+        });
+
+        window.location.assign('https://promptless.ai/meet#book');
+      } catch {
+        setStatus('Something went wrong. Please try again.', 'error');
+        submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>
+
+<style>
+  #rff-wrapper {
+    margin-top: 1.25rem;
+  }
+
+  .rff-status {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: #475569;
+    min-height: 1.2em;
+    width: 100%;
+  }
+
+  .rff-status[data-tone='error'] {
+    color: #b42318;
+  }
+
+</style>

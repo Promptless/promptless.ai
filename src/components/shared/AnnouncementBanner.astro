@@ -1,0 +1,132 @@
+---
+interface Props {
+  campaign: string;
+  href: string;
+  message: string;
+  linkText: string;
+  ctaAction?: string;
+}
+
+const { campaign, href, message, linkText, ctaAction = 'banner_cta' } = Astro.props;
+const storageKey = `pl_banner_dismissed_${campaign}`;
+---
+
+<div
+  class="pl-announcement-banner"
+  id="pl-announcement-banner"
+  data-storage-key={storageKey}
+  hidden
+>
+  <p class="pl-announcement-banner-content">
+    <span>{message}</span>
+    <a
+      href={href}
+      data-track-action={ctaAction}
+      data-track-funnel="conversion"
+      data-track-location="announcement_banner"
+      data-track-campaign={campaign}
+    >{linkText}</a>
+  </p>
+  <button
+    class="pl-announcement-banner-dismiss"
+    type="button"
+    aria-label="Dismiss announcement"
+  >&times;</button>
+</div>
+
+<script is:inline>
+(function initBanner() {
+  function setup() {
+    var banner = document.getElementById('pl-announcement-banner');
+    if (!banner) return;
+
+    var storageKey = banner.getAttribute('data-storage-key');
+    if (!storageKey) return;
+
+    if (localStorage.getItem(storageKey)) return;
+
+    banner.removeAttribute('hidden');
+
+    var root = document.documentElement;
+    var currentNavHeight = getComputedStyle(root).getPropertyValue('--sl-nav-height').trim();
+    var bannerHeight = banner.offsetHeight;
+    root.style.setProperty('--sl-nav-height', 'calc(' + currentNavHeight + ' + ' + bannerHeight + 'px)');
+
+    var dismissButton = banner.querySelector('.pl-announcement-banner-dismiss');
+    if (dismissButton) {
+      dismissButton.addEventListener('click', function () {
+        banner.setAttribute('hidden', '');
+        localStorage.setItem(storageKey, '1');
+        root.style.removeProperty('--sl-nav-height');
+
+        // Track banner dismissal with the campaign name extracted from the storage key.
+        // This helps measure how many users dismiss vs. engage with each campaign.
+        var campaign = storageKey.replace('pl_banner_dismissed_', '');
+        if (window.posthog) {
+          window.posthog.capture('banner_dismissed', { campaign: campaign });
+        }
+      });
+    }
+  }
+
+  if (document.readyState !== 'loading') {
+    setup();
+  } else {
+    document.addEventListener('DOMContentLoaded', setup);
+  }
+
+  document.addEventListener('astro:page-load', setup);
+})();
+</script>
+
+<style>
+  @layer starlight.core {
+    .pl-announcement-banner {
+      align-items: center;
+      background: var(--pl-accent, #4f46e5);
+      color: #fff;
+      display: flex;
+      font-size: var(--sl-text-sm);
+      gap: 0.5rem;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    .pl-announcement-banner[hidden] {
+      display: none;
+    }
+
+    .pl-announcement-banner-content {
+      margin: 0;
+    }
+
+    .pl-announcement-banner-content a {
+      color: #fff;
+      font-weight: 600;
+      margin-inline-start: 0.35em;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .pl-announcement-banner-content a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    .pl-announcement-banner-dismiss {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+      opacity: 0.8;
+      padding: 0.25rem;
+    }
+
+    .pl-announcement-banner-dismiss:hover {
+      opacity: 1;
+    }
+  }
+</style>

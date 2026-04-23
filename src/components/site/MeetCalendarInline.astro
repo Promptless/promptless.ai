@@ -1,0 +1,85 @@
+<div class="pl-site-meet-calendar">
+  <div class="pl-site-meet-calendar-mount" id="my-cal-inline-15m-discovery-call"></div>
+</div>
+
+<script is:inline>
+  (() => {
+    const namespace = '15m-discovery-call';
+    const calLink = 'team/promptless/15m-discovery-call';
+    const elementSelector = '#my-cal-inline-15m-discovery-call';
+
+    const mountCal = () => {
+      const mountEl = document.querySelector(elementSelector);
+      if (!mountEl || mountEl.dataset.calMounted === 'true') return;
+
+      (function (C, A, L) {
+        let p = function (a, ar) {
+          a.q.push(ar);
+        };
+        let d = C.document;
+        C.Cal =
+          C.Cal ||
+          function () {
+            let cal = C.Cal;
+            let ar = arguments;
+            if (!cal.loaded) {
+              cal.ns = {};
+              cal.q = cal.q || [];
+              d.head.appendChild(d.createElement('script')).src = A;
+              cal.loaded = true;
+            }
+            if (ar[0] === L) {
+              const api = (...apiArgs) => {
+                p(api, apiArgs);
+              };
+              const namespaceArg = ar[1];
+              api.q = api.q || [];
+              if (typeof namespaceArg === 'string') {
+                cal.ns[namespaceArg] = cal.ns[namespaceArg] || api;
+                p(cal.ns[namespaceArg], ar);
+                p(cal, ['initNamespace', namespaceArg]);
+              } else {
+                p(cal, ar);
+              }
+              return;
+            }
+            p(cal, ar);
+          };
+      })(window, 'https://app.cal.com/embed/embed.js', 'init');
+
+      let resolvedCalLink = calLink;
+      try {
+        const ph = window.posthog;
+        let distinctId = null;
+        let sessionId = null;
+        try { distinctId = sessionStorage.getItem('pl_ph_distinct_id'); } catch (_) {}
+        try { sessionId = sessionStorage.getItem('pl_ph_session_id'); } catch (_) {}
+        if (!distinctId && ph && typeof ph.get_distinct_id === 'function') distinctId = ph.get_distinct_id();
+        if (!sessionId && ph && typeof ph.get_session_id === 'function') sessionId = ph.get_session_id();
+        const params = new URLSearchParams();
+        if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
+        if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
+        const qs = params.toString();
+        if (qs) resolvedCalLink += '?' + qs;
+      } catch (_) {}
+
+      window.Cal('init', namespace, { origin: 'https://app.cal.com' });
+      window.Cal.ns[namespace]('inline', {
+        elementOrSelector: elementSelector,
+        config: { layout: 'month_view', useSlotsViewOnSmallScreen: 'true' },
+        calLink: resolvedCalLink,
+      });
+      window.Cal.ns[namespace]('ui', { hideEventTypeDetails: false, layout: 'month_view' });
+
+      mountEl.dataset.calMounted = 'true';
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', mountCal, { once: true });
+    } else {
+      mountCal();
+    }
+
+    document.addEventListener('astro:page-load', mountCal);
+  })();
+</script>

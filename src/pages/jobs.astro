@@ -1,0 +1,83 @@
+---
+import { getEntry } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { getWebsiteSidebarLinks } from '@lib/website-navigation';
+
+const entry = await getEntry('website', 'jobs');
+
+if (!entry) {
+  throw new Error('Missing website content entry: jobs');
+}
+
+const { Content, headings } = await entry.render();
+
+const org = {
+  "@type": "Organization",
+  "name": "Promptless",
+  "sameAs": "https://promptless.ai",
+  "logo": "https://promptless.ai/assets/logo.svg"
+};
+
+const location = {
+  "@type": "Place",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "San Francisco",
+    "addressRegion": "CA",
+    "addressCountry": "US"
+  }
+};
+
+const jobPostings = [
+  {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "title": "Founding Engineer (All Levels)",
+    "description": "Join the Promptless team as a founding engineer. Build AI that keeps documentation in sync with code.",
+    "datePosted": "2025-01-01",
+    "employmentType": "FULL_TIME",
+    "hiringOrganization": org,
+    "jobLocation": location,
+    "baseSalary": {
+      "@type": "MonetaryAmount",
+      "currency": "USD",
+      "value": {
+        "@type": "QuantitativeValue",
+        "minValue": 140000,
+        "maxValue": 200000,
+        "unitText": "YEAR"
+      }
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "title": "Founding Docs Practice Lead",
+    "description": "Own the documentation practice at Promptless. Onboard customers, build the playbook for AI-assisted documentation, and coach teams on effective workflows.",
+    "datePosted": "2025-01-01",
+    "employmentType": "FULL_TIME",
+    "hiringOrganization": org,
+    "jobLocation": location,
+  }
+];
+---
+
+<StarlightPage
+  hasSidebar
+  sidebar={getWebsiteSidebarLinks()}
+  headings={headings}
+  frontmatter={{
+    title: entry.data.title,
+    description: entry.data.description,
+    template: 'doc',
+    editUrl: false,
+    tableOfContents: true,
+  }}
+>
+  {jobPostings.map((posting) => (
+    <script type="application/ld+json" set:html={JSON.stringify(posting)} />
+  ))}
+  <div class="pl-site-page">
+    <Content />
+  </div>
+</StarlightPage>
