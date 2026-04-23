@@ -1,0 +1,155 @@
+---
+import { getCollection } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+const posts = (await getCollection('blog', ({ data }) => !data.hidden)).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+const getTagLabel = (tag?: string) => tag || 'Other';
+
+const getTab = (section?: string) => {
+  if (section === 'Use Cases') return 'use-cases';
+  if (section === 'Other') return 'other';
+  return 'featured';
+};
+---
+
+<StarlightPage
+  hasSidebar={false}
+  frontmatter={{
+    title: 'Blog',
+    description: 'Product updates, customer stories, and technical insights from Promptless.',
+    template: 'doc',
+    tableOfContents: false,
+    editUrl: false,
+  }}
+>
+  <div class="blog-tabs" role="tablist">
+    <button class="blog-tab active" data-tab="featured" role="tab" aria-selected="true">Featured</button>
+    <button class="blog-tab" data-tab="use-cases" role="tab" aria-selected="false">Use cases</button>
+    <button class="blog-tab" data-tab="other" role="tab" aria-selected="false">Other</button>
+  </div>
+
+  {
+    posts.length ? (
+      <ul class="collection-feed" role="list">
+        {posts.map((entry) => (
+          <li data-tab={getTab(entry.data.section)}>
+            <article class="collection-feed-item">
+              <div class="collection-feed-meta">
+                <p class="collection-feed-date">{dateFormatter.format(entry.data.date)}</p>
+                <ul class="collection-tag-list" role="list">
+                  <li>
+                    <span class="collection-tag">{getTagLabel(entry.data.tag)}</span>
+                  </li>
+                </ul>
+              </div>
+              <h2 class="collection-feed-title">
+                <a href={`/blog/${entry.slug}`}>{entry.data.title}</a>
+              </h2>
+              {entry.data.author && (
+                <p class="collection-feed-author">By {entry.data.author}</p>
+              )}
+              {(entry.data.description || entry.data.subtitle) && (
+                <p class="collection-feed-description">{entry.data.description || entry.data.subtitle}</p>
+              )}
+            </article>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="collection-feed-empty">No blog posts yet.</p>
+    )
+  }
+</StarlightPage>
+
+<style>
+  .blog-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 1.25rem;
+    background: var(--sl-color-hairline);
+    border-radius: 10px;
+    padding: 3px;
+  }
+
+  .blog-tab {
+    margin: 0 !important;
+    padding: 0.375rem 1rem !important;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--pl-tab-fg);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+    white-space: nowrap;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .blog-tab:hover {
+    color: var(--pl-tab-fg-hover);
+  }
+
+  .blog-tab.active {
+    background: #fff;
+    color: #396df1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  .collection-feed li[data-tab] {
+    display: none;
+  }
+
+  .collection-feed li[data-tab].visible {
+    display: block;
+  }
+
+  /* hide borders for hidden items */
+  .collection-feed li.visible + li.visible {
+    border-top: 1px solid var(--sl-color-hairline);
+  }
+
+  .collection-feed li.visible:first-of-type {
+    border-top: none;
+  }
+</style>
+
+<script>
+  function initTabs() {
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.blog-tab');
+    const items = document.querySelectorAll<HTMLLIElement>('.collection-feed li[data-tab]');
+
+    function showTab(tab: string) {
+      tabs.forEach((btn) => {
+        const isActive = btn.dataset.tab === tab;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', String(isActive));
+      });
+      items.forEach((item) => {
+        item.classList.toggle('visible', item.dataset.tab === tab);
+      });
+    }
+
+    tabs.forEach((btn) => {
+      btn.addEventListener('click', () => showTab(btn.dataset.tab!));
+    });
+
+    // Show initial tab
+    showTab('featured');
+  }
+
+  initTabs();
+</script>

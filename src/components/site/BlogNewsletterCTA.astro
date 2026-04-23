@@ -1,0 +1,164 @@
+---
+---
+
+<div class="newsletter-cta">
+  <p class="newsletter-cta-text">
+    <em>We regularly share actionable insights grounded in research, experiments, and real-world product learnings. Subscribe to get future posts in your inbox.</em>
+  </p>
+  <form
+    id="newsletter-form"
+    class="newsletter-form"
+    action="https://submit-form.com/zmlFaDayx"
+    novalidate
+  >
+    <label class="sr-only" for="newsletter-email">Email</label>
+    <input
+      id="newsletter-email"
+      name="email"
+      type="email"
+      inputmode="email"
+      placeholder="Type your email..."
+      autocomplete="email"
+      required
+    />
+    <button type="submit">Subscribe</button>
+  </form>
+  <p id="newsletter-status" class="newsletter-status" aria-live="polite"></p>
+</div>
+
+<script is:inline>
+  (() => {
+    const form = document.getElementById('newsletter-form');
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const status = document.getElementById('newsletter-status');
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (!(submitBtn instanceof HTMLButtonElement)) return;
+
+    const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
+    const setStatus = (msg, tone) => {
+      if (!status) return;
+      status.textContent = msg;
+      status.dataset.tone = tone || 'neutral';
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setStatus('');
+
+      const email = String(new FormData(form).get('email') || '').trim();
+      if (!isValidEmail(email)) {
+        setStatus('Please enter a valid email.', 'error');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      setStatus('Subscribing...', 'neutral');
+
+      try {
+        const res = await fetch('https://submit-form.com/zmlFaDayx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ email, source: 'blog_newsletter' }),
+        });
+
+        if (!res.ok) throw new Error('Submission failed');
+
+        window.posthog?.capture('email_captured', {
+          intent: 'newsletter',
+          location: 'blog',
+          campaign: '',
+          $set: { email },
+        });
+
+        setStatus("You're subscribed! Thanks for joining.", 'success');
+        form.reset();
+        submitBtn.disabled = false;
+      } catch {
+        setStatus('Something went wrong. Please try again.', 'error');
+        submitBtn.disabled = false;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .newsletter-cta {
+    margin: 1.5rem 0;
+  }
+
+  .newsletter-cta-text {
+    margin: 0 0 0.75rem;
+  }
+
+  .newsletter-form {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-top: 2rem;
+  }
+
+  .newsletter-form input {
+    max-width: 18rem;
+    border: 1px solid #d1d5db;
+    border-right: none;
+    border-radius: 0.4rem 0 0 0.4rem;
+    background: #fff;
+    color: #111827;
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .newsletter-form input::placeholder {
+    color: #9ca3af;
+  }
+
+  .newsletter-form input:focus {
+    outline: none;
+    border-color: #9ca3af;
+  }
+
+  .newsletter-form button {
+    border: none;
+    border-radius: 0 0.4rem 0.4rem 0;
+    background: #506aea;
+    color: #fff;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    padding: 0.55rem 1.1rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .newsletter-form button:hover {
+    background: #3d5ad4;
+  }
+
+  .newsletter-form button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .newsletter-status:empty {
+    display: none;
+  }
+
+  .newsletter-status {
+    margin: 0.4rem 0 0;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: #475569;
+    text-align: center;
+  }
+
+  .newsletter-status[data-tone='error'] {
+    color: #b42318;
+  }
+
+  .newsletter-status[data-tone='success'] {
+    color: #16a34a;
+  }
+</style>

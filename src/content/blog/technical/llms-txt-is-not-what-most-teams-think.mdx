@@ -1,0 +1,83 @@
+---
+title: "llms.txt Is Not What Most Teams Think It Is"
+subtitle: Published March 2026
+description: >-
+  llms.txt won't boost your AI search rankings. But for developer-facing companies, there's a different—and real—reason to care about it.
+date: '2026-03-31T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Featured
+hidden: true
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Every few months a new file format arrives that promises to fix how AI understands your docs. `llms.txt` is the current one. It was proposed in September 2024 by Jeremy Howard, co-founder of Answer.AI, and by November 2024, Mintlify had rolled it out automatically across every documentation site they host — meaning thousands of technical docs, including Anthropic's and Cursor's, got `llms.txt` files overnight without anyone on those teams doing a thing.
+
+The hype followed. Blog posts spread. SEO tools added it to their audit checklists. And now teams are adding `llms.txt` files for reasons they can't quite articulate, having absorbed a vague sense that this is something you're supposed to do.
+
+Here's the honest picture: `llms.txt` is probably not doing what your team thinks it is. But for developer-facing companies specifically, there's a separate — and real — reason it matters. These two things are worth separating clearly.
+
+## What the file is supposed to do
+
+The spec is simple. You place a Markdown file at `/llms.txt` on your domain. It contains an H1 with your project's name, a short blockquote summary, and a structured list of links to your documentation — optionally with one-sentence descriptions of each page. A companion file, `/llms-full.txt`, can contain the full text of every doc page concatenated together.
+
+The theory: AI systems that crawl or index your site will read this file first, understand your content more accurately, and surface better answers when users ask questions about your product.
+
+Cloudflare has built one of the most thorough implementations: their `llms.txt` organizes all documentation by product, with per-product `llms-full.txt` files reaching 3.7 million tokens for the entire developer platform. Anthropic publishes an 8,364-token index alongside a 481,349-token full export. These aren't token-optimized footnotes — they're serious investments in machine-readable documentation.
+
+## Why the AI visibility argument doesn't hold
+
+The problem is that the primary use case — improving how AI search and LLM training systems understand your content — doesn't have evidence behind it.
+
+Log analyses across thousands of domains found that LLM-specific crawlers (GPTBot, ClaudeBot, PerplexityBot) visited `llms.txt` files at effectively zero rates through mid-to-late 2025. One audit of 30 days of CDN logs across 1,000 domains found no visits from any LLM crawler. SEMrush's own testing on Search Engine Land found no correlation between implementing `llms.txt` and improved performance in AI-generated results.
+
+Google's Gary Illyes was direct: "We currently have no plans to support llms.txt." Google's AI Overviews continue to rely on traditional SEO signals. No major AI lab has publicly committed to honoring the spec. SE Ranking's testing found that their domain was actually cited more often by AI models *without* the file than with it.
+
+So if your motivation is SEO — getting cited more in ChatGPT responses, showing up in AI Overviews, influencing LLM training data — `llms.txt` is not the lever.
+
+<BlogNewsletterCTA />
+
+## Where the value actually is
+
+The use case that does have evidence behind it is narrower and more specific: developer tooling.
+
+Your users are developers. Developers use AI coding assistants constantly — Cursor, GitHub Copilot, Claude, Gemini. When those developers ask their coding assistant how to use your API, the assistant either has accurate information or it doesn't. That accuracy depends on what it can access and how efficiently it can parse it.
+
+This is where `llms.txt` does something useful. It's not a ranking signal — it's a navigation layer. An agent trying to understand your product can read `llms.txt`, get a structured map of your documentation, and then fetch only the pages relevant to the task at hand. Cloudflare's implementation explicitly instructs AI agents to request Markdown versions of pages (via an `Accept: text/markdown` header or by appending `/index.md` to any URL) rather than HTML — because HTML wastes context window and burns tokens on navigation chrome that agents don't need.
+
+Companies have reported up to 10x token reductions when serving Markdown instead of HTML to agents. At scale, across a large developer customer base, that compounds. Faster, cheaper, more accurate agent interactions with your product.
+
+Microsoft's GenAIScript team takes this further: their `llms.txt` includes an explicit "Guidance for Code Generation" section that tells LLMs what to do when writing code that uses the tool. It's documentation written specifically for the agent, not the human.
+
+The LangChain and LangGraph docs use `llms.txt` as an explicit context-loading entry point for agents building on their framework. Mastercard's developer platform documents `llms.txt` as part of their official agent toolkit guide. The pattern is the same: developer tools that know their users are building with AI are treating `llms.txt` as infrastructure for the developer experience, not as an SEO move.
+
+## The problem this creates for documentation teams
+
+Here's where the file becomes relevant to the work of actually maintaining documentation.
+
+`llms.txt` is only as accurate as the docs it points to. If your `llms.txt` lists "Authentication Guide" at `/docs/auth` and that page has been reorganized, or renamed, or its content reflects a deprecated flow — every agent that uses your `llms.txt` as a navigation layer will get directed to inaccurate information. You've made the drift problem worse by adding a confident, structured pointer to the outdated page.
+
+This is not a hypothetical. The same forces that cause documentation drift in human-readable docs — rapid shipping cycles, PRs that skip doc updates, quarterly audits that can't keep up with weekly releases — apply to `llms.txt` with extra force. The file is smaller, easier to overlook, and less likely to show up in a PR review. But the blast radius is larger, because it's specifically designed to be ingested by automated systems.
+
+A developer building on your product whose coding assistant confidently uses a stale `llms.txt` as its roadmap will get worse results than a developer whose assistant does a fresh web search. You've optimized the wrong thing.
+
+### What good maintenance looks like
+
+Teams that get value from `llms.txt` treat it as a derived artifact of their documentation, not a manually edited file. Cloudflare regenerates theirs automatically. GitBook generates and updates it as docs evolve. The principle is the same one that applies to API specs, sitemaps, and changelogs: if a file is supposed to stay in sync with a changing system, that sync should be automated, not reliant on a human remembering to update two places.
+
+If you're maintaining `llms.txt` by hand — updating it when someone remembers, during periodic audits, as a checklist item in your release process — you are creating debt. The question isn't whether drift will happen, it's when.
+
+## The practical frame
+
+If you're a developer-facing company deciding whether to invest in `llms.txt`:
+
+**Skip it if** your goal is AI visibility, SEO, or influencing how AI search products cite you. The mechanism doesn't exist yet. Your energy is better spent on the things that do affect AI citation: accurate, well-structured documentation with good SEO fundamentals.
+
+**Invest in it if** your users are developers who use AI coding assistants, and you want those assistants to navigate your docs more accurately and efficiently. Treat it as developer experience infrastructure. Pair it with Markdown-friendly page delivery (Cloudflare's model is worth studying). Build the generation and maintenance into your docs tooling so it stays current.
+
+And if you ship `llms.txt` without a maintenance plan, understand that you've added a new failure mode: a structured, machine-readable pointer to whatever inaccuracies accumulate in your docs over time.
+
+The file is not magic. The challenge it surfaces — keeping machine-readable representations of your documentation in sync with a product that keeps changing — is the same challenge that makes developer documentation hard in general. `llms.txt` just makes it more visible.
+
+<BlogRequestDemo />
