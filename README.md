@@ -10,6 +10,8 @@ This documentation is written and maintained by [Promptless](https://promptless.
 
 ## Building These Docs Locally
 
+This site is built with [Astro](https://astro.build/) and [Starlight](https://starlight.astro.build/).
+
 ### Prerequisites
 
 - Node.js 20 or higher
@@ -21,21 +23,21 @@ From the repository root, run:
 
 ```bash
 npm install
-npm run migrate
 npm run dev
 ```
 
-This starts Astro/Starlight at `http://localhost:4321` with hot-reloading.
+This starts the Astro dev server at `http://localhost:4321` with hot-reloading.
 
-### Useful Commands
+### npm Scripts
 
-```bash
-npm run migrate:dry      # route/content migration dry run
-npm run migrate          # regenerate manifests, redirects, and content
-npm run validate:links   # internal link validation against route + redirect manifests
-npm run check:route-parity
-npm run check            # typecheck + build + link validation + parity check
-```
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the local dev server |
+| `npm run build` | Build the site for production |
+| `npm run preview` | Preview the production build locally |
+| `npm run typecheck` | Run Astro type checking |
+| `npm run test:smoke` | Run smoke tests |
+| `npm run check` | Run typecheck and build |
 
 ### Free Tools Local Env
 
@@ -48,7 +50,36 @@ PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key
 
 If `PUBLIC_FREE_TOOLS_API_BASE_URL` is unset, local dev defaults to `http://127.0.0.1:5000` and production defaults to `https://api.gopromptless.ai`.
 
-### Deployment
+---
+
+## Claude Code Skills and Commands
+
+This repository includes several [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and commands for automating documentation and content tasks.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/docs-audit [hint]` | Audit documentation for AI agent readiness. Produces a prioritized fix list based on [agent-friendly docs best practices](https://www.promptless.ai/blog/technical/agent-docs). |
+
+### Skills
+
+| Skill | Description |
+|-------|-------------|
+| `generate-article` | Generate blog articles for the edu campaign. Researches a keyword, writes an MDX draft, and opens a PR. |
+| `launch-post` | Triage changelog entries and write focused launch articles for features that meet the bar. |
+| `agent-docs` | Reference guide for evaluating and improving docs for AI agent consumption. |
+| `agent-slack` | Send messages to Slack channels. |
+
+### Enabled Plugins
+
+- `doc-detective` - Automated documentation testing
+- `frontend-design` - Frontend design assistance
+- `skill-creator` - Create new Claude Code skills
+
+---
+
+## Deployment
 
 - Production and preview deployments are handled by Vercel Git integration.
-- Redirects are generated into `vercel.json` by the migration script.
+- Redirects are generated in `vercel.json`.
