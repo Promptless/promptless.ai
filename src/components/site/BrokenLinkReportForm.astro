@@ -1,0 +1,223 @@
+---
+const rawApiBaseUrl = import.meta.env.PUBLIC_FREE_TOOLS_API_BASE_URL?.trim();
+const fallbackApiBaseUrl = import.meta.env.PROD ? 'https://api.gopromptless.ai' : 'http://127.0.0.1:5000';
+const apiBaseUrl = (rawApiBaseUrl || fallbackApiBaseUrl).replace(/\/+$/, '');
+---
+
+<form
+  class="pl-free-tools-form"
+  id="broken-link-report-form"
+  data-api-base={apiBaseUrl}
+  novalidate
+>
+  <div class="pl-free-tools-form-grid">
+    <label class="pl-free-tools-field">
+      <span>Website URL</span>
+      <input
+        id="broken-link-url"
+        name="url"
+        type="url"
+        inputmode="url"
+        placeholder="https://docs.example.com"
+        autocomplete="url"
+        required
+      />
+      <small>Use a full URL, like `https://docs.example.com`.</small>
+    </label>
+
+    <label class="pl-free-tools-field">
+      <span>Email</span>
+      <input
+        id="broken-link-email"
+        name="email"
+        type="email"
+        inputmode="email"
+        placeholder="you@company.com"
+        autocomplete="email"
+        required
+      />
+      <small>We will send your report to this email address.</small>
+    </label>
+  </div>
+
+  <details class="pl-free-tools-advanced">
+    <summary>
+      <span>Show advanced options</span>
+    </summary>
+    <fieldset class="pl-free-tools-options">
+      <legend class="sr-only">Advanced crawl options</legend>
+
+      <label class="pl-free-tools-toggle">
+        <input id="broken-link-check-external" name="check_external" type="checkbox" />
+        <span>Check external links</span>
+        <small>Also checks links that go to other websites.</small>
+      </label>
+
+      <label class="pl-free-tools-toggle">
+        <input id="broken-link-check-anchors" name="check_anchors" type="checkbox" checked />
+        <span>Check section links</span>
+        <small>Checks links that jump to a section on a page (like `#pricing`).</small>
+      </label>
+
+      <label class="pl-free-tools-field">
+        <span>Max pages to scan (optional)</span>
+        <input id="broken-link-max-pages" name="max_pages" type="number" min="1" max="5000" placeholder="Unlimited" />
+        <small>Leave blank to scan as many pages as we find.</small>
+      </label>
+    </fieldset>
+  </details>
+
+  <div class="pl-free-tools-honeypot" aria-hidden="true">
+    <label for="broken-link-website">Website</label>
+    <input id="broken-link-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+  </div>
+
+  <div class="pl-free-tools-actions">
+    <button type="submit">Send me the report</button>
+    <p id="broken-link-form-status" class="pl-free-tools-status" aria-live="polite"></p>
+  </div>
+</form>
+
+<script is:inline>
+  (() => {
+    const form = document.getElementById('broken-link-report-form');
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const status = document.getElementById('broken-link-form-status');
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (!(submitButton instanceof HTMLButtonElement)) return;
+
+    const apiBase = form.dataset.apiBase || 'http://127.0.0.1:5000';
+    const fixedConcurrency = 10;
+    const fixedTimeoutSeconds = 10;
+
+    const setStatus = (message, tone = 'neutral') => {
+      if (!status) return;
+      status.textContent = message;
+      status.dataset.tone = tone;
+    };
+
+    const normalizeUrl = (rawValue) => {
+      const value = rawValue.trim();
+      try {
+        const parsed = new URL(value);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+        return parsed.toString();
+      } catch {
+        return null;
+      }
+    };
+
+    const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+    const parseBoundedInteger = (input, min, max, { required, fallback } = {}) => {
+      const raw = input.trim();
+      if (!raw) {
+        if (required) return { error: 'required' };
+        return { value: null };
+      }
+      const numeric = Number(raw);
+      if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) {
+        return { error: 'integer' };
+      }
+      if (numeric < min || numeric > max) {
+        return { error: 'range' };
+      }
+      return { value: numeric || fallback || numeric };
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setStatus('');
+
+      const formData = new FormData(form);
+      const url = normalizeUrl(String(formData.get('url') || ''));
+      const email = String(formData.get('email') || '').trim();
+      const website = String(formData.get('website') || '').trim();
+      const checkExternal = formData.get('check_external') === 'on';
+      const checkAnchors = formData.get('check_anchors') === 'on';
+      const maxPages = parseBoundedInteger(String(formData.get('max_pages') || ''), 1, 5000, { required: false });
+
+      if (!url) {
+        setStatus('Please enter a valid URL (http or https).', 'error');
+        return;
+      }
+      if (!isValidEmail(email)) {
+        setStatus('Please enter a valid email address.', 'error');
+        return;
+      }
+      if (maxPages.error) {
+        setStatus('Max pages must be a whole number between 1 and 5000.', 'error');
+        return;
+      }
+
+      if (typeof gtag === 'function') {
+        gtag('event', 'cta_click', {
+          funnel_stage: 'evaluation',
+          action: 'broken_link_report',
+          location: 'free_tools',
+          campaign: '',
+          link_url: apiBase + '/public/free-tools/broken-link-report',
+        });
+      }
+
+      submitButton.disabled = true;
+      submitButton.dataset.loading = 'true';
+      setStatus('Submitting request...', 'neutral');
+
+      try {
+        const response = await fetch(`${apiBase}/public/free-tools/broken-link-report`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            url,
+            email,
+            options: {
+              check_external: checkExternal,
+              check_anchors: checkAnchors,
+              max_pages: maxPages.value,
+              concurrency: fixedConcurrency,
+              timeout_seconds: fixedTimeoutSeconds,
+            },
+            website,
+          }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = payload?.error || payload?.message || 'Unable to start report. Please try again.';
+          throw new Error(message);
+        }
+
+        const submissionId = payload?.submission_id ? ` (id: ${payload.submission_id})` : '';
+        setStatus(`Report queued. We will email the CSV when the crawl completes${submissionId}.`, 'success');
+
+        window.posthog?.capture('broken_link_report_submitted', {
+          target_url: url,
+          check_external: checkExternal,
+          check_anchors: checkAnchors,
+          max_pages: maxPages.value,
+          $set: { email },
+        });
+
+        window.posthog?.capture('email_captured', {
+          intent: 'free_tool',
+          location: 'free_tools',
+          campaign: '',
+          $set: { email },
+        });
+
+        form.reset();
+        const anchorsToggle = form.querySelector('#broken-link-check-anchors');
+        if (anchorsToggle instanceof HTMLInputElement) anchorsToggle.checked = true;
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Request failed. Please try again.', 'error');
+      } finally {
+        submitButton.disabled = false;
+        submitButton.dataset.loading = 'false';
+      }
+    });
+  })();
+</script>

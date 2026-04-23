@@ -1,0 +1,127 @@
+---
+import { Image } from 'astro:assets';
+import ycLogo from '../../assets/site/yc_logo.svg.png';
+
+interface Props {
+  prefix?: string;
+  words?: string[];
+  subtitle?: string;
+}
+
+const {
+  prefix = 'Automatically update your',
+  words = ['customer docs', 'screenshots', 'release notes', 'developer docs', 'support articles', 'knowledge base', 'API docs', 'changelogs', 'tutorials', 'code examples', 'how-to guides', 'customer docs'],
+  subtitle = 'AI agents that eliminate docs drift and automate the most painful parts of docs maintenance.',
+} = Astro.props;
+---
+
+<section id="overview" class="pl-site-hero">
+  <h1 class="pl-site-hero-title">
+    <span>{prefix}</span>
+    <span class="pl-site-hero-words" aria-hidden="true">
+      {words.map((word) => <span>{word}</span>)}
+    </span>
+    <span class="sr-only">{words.slice(0, words.length - 1).join(', ')}</span>
+  </h1>
+
+  <p class="pl-site-subtitle">{subtitle}</p>
+
+  <form
+    id="book-a-demo"
+    class="pl-site-form-row"
+    action="https://submit-form.com/roBOd2Oxb"
+    method="post"
+    data-redirect="/meet#book"
+  >
+    <label class="sr-only" for="work-email">Work email</label>
+    <input id="work-email" type="email" name="email" placeholder="Work email" required />
+    <input type="hidden" name="_redirect" value="/meet#book" />
+    <button type="submit" name="submit" data-track-action="book_demo" data-track-funnel="conversion" data-track-location="hero">Book demo</button>
+  </form>
+
+  <div class="pl-site-trust-row">
+    <div class="pl-site-trust-badge">
+      <Image src={ycLogo} alt="Y Combinator" width={40} height={40} />
+      <span>Backed by Y Combinator</span>
+    </div>
+    <span>Trusted by fast-growing startups and Fortune 500 enterprises alike</span>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const form = document.getElementById('book-a-demo');
+    if (!(form instanceof HTMLFormElement)) return;
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const redirectInput = form.querySelector('input[name="_redirect"]');
+
+    if (redirectInput instanceof HTMLInputElement) {
+      redirectInput.value = `${window.location.origin}/meet#book`;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const gtag = (window as any).gtag;
+      if (typeof gtag === 'function') {
+        gtag('event', 'cta_click', {
+          funnel_stage: 'conversion',
+          action: 'book_demo',
+          location: 'hero',
+          campaign: '',
+          link_url: form.action,
+        });
+      }
+
+      const email = (form.querySelector('input[name="email"]') as HTMLInputElement)?.value?.trim();
+      if (email) {
+        try { sessionStorage.setItem('pl_demo_email', email); } catch {}
+      }
+      (window as any).posthog?.capture('email_captured', {
+        intent: 'demo',
+        location: 'hero',
+        campaign: '',
+        ...(email ? { $set: { email } } : {}),
+      });
+
+      if (submitButton instanceof HTMLButtonElement) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Submitting...';
+      }
+
+      try {
+        const formData = new FormData(form);
+        const payload = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+          if (typeof value === 'string') payload.append(key, value);
+        }
+
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: payload.toString(),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Formspark submission failed with status ${response.status}`);
+        }
+
+        const redirectTo = form.dataset.redirect || '/meet';
+        window.location.assign(redirectTo);
+      } catch (_error) {
+        // Fallback to native form post if fetch fails (e.g. CORS/network).
+        HTMLFormElement.prototype.submit.call(form);
+      } finally {
+        if (submitButton instanceof HTMLButtonElement) {
+          submitButton.disabled = false;
+          submitButton.textContent = 'Book demo';
+        }
+      }
+    });
+  })();
+</script>
+

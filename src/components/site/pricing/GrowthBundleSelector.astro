@@ -1,0 +1,96 @@
+---
+import type { GrowthBundleOption } from './pricing.config';
+
+interface Props {
+  bundles: GrowthBundleOption[];
+  selectedBundleId?: string;
+}
+
+const { bundles, selectedBundleId } = Astro.props;
+
+if (!bundles.length) {
+  throw new Error('GrowthBundleSelector requires at least one bundle option.');
+}
+
+const selectedBundle = bundles.find((bundle) => bundle.id === selectedBundleId) ?? bundles[0];
+const selectId = 'growth-pages';
+---
+
+<div class="pl-growth-selector" data-growth-selector>
+  <select
+    id={selectId}
+    name="growth_bundle"
+    class="pl-growth-selector-select"
+    data-growth-select
+    aria-label="Growth article range"
+  >
+    {
+      bundles.map((bundle) => (
+        <option
+          value={bundle.id}
+          selected={bundle.id === selectedBundle.id}
+          data-price-label={bundle.priceLabel}
+        >
+          {bundle.label}
+        </option>
+      ))
+    }
+  </select>
+</div>
+
+<script is:inline>
+  (() => {
+    const bindSelector = (container) => {
+      const select = container.querySelector('[data-growth-select]');
+      if (!(select instanceof HTMLSelectElement)) return;
+      if (select.dataset.bound === 'true') return;
+      select.dataset.bound = 'true';
+
+      const growthCard = container.closest('[data-plan="growth"]');
+      if (!(growthCard instanceof HTMLElement)) return;
+
+      const priceNode = growthCard.querySelector('[data-growth-price]');
+      if (!(priceNode instanceof HTMLElement)) return;
+
+      const update = () => {
+        const selectedOption = select.options[select.selectedIndex];
+        if (!selectedOption) return;
+
+        const priceLabel = selectedOption.dataset.priceLabel?.trim();
+
+        if (priceLabel) {
+          priceNode.textContent = priceLabel;
+        }
+      };
+
+      select.addEventListener('change', function () {
+        update();
+        // Track when users change the Growth plan bundle selection on the pricing page.
+        // Captures the selected bundle details to understand which tiers users explore.
+        var opt = select.options[select.selectedIndex];
+        if (opt && window.posthog) {
+          window.posthog.capture('pricing_bundle_changed', {
+            bundle_id: opt.value,              // e.g., 'growth_50', 'growth_100'
+            bundle_label: opt.textContent.trim(),  // e.g., '50 articles', '100 articles'
+            price_label: (opt.dataset.priceLabel || '').trim(),  // e.g., '$199/mo'
+          });
+        }
+      });
+      update();
+    };
+
+    const init = () => {
+      document.querySelectorAll('[data-growth-selector]').forEach((container) => {
+        if (container instanceof HTMLElement) bindSelector(container);
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init, { once: true });
+    } else {
+      init();
+    }
+
+    document.addEventListener('astro:page-load', init);
+  })();
+</script>
