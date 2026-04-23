@@ -1,0 +1,555 @@
+---
+/**
+ * Write the Docs Portland 2026 — Conference Calendar
+ *
+ * Absolute-positioned time grid — events across days align vertically by
+ * real clock time.  Overlapping events (Talks + Unconference) sit side-by-side.
+ * Promptless blocks get a thick all-around border in brand blue to pop
+ * against the left-border-only WTD events.
+ */
+
+interface CalendarEvent {
+  id: string;
+  title: string;
+  startHour: number;   // decimal, e.g. 15.75 = 3:45 PM
+  endHour: number;
+  time: string;
+  type: 'writing' | 'talks' | 'unconference' | 'social' | 'promptless';
+  link?: string;
+  location?: string;
+  address?: string;
+  promptlessFaces?: boolean;
+  cta?: { label: string; href: string };
+}
+
+interface CalendarDay {
+  key: string;
+  dateShort: string;
+  subtitle: string;
+  events: CalendarEvent[];
+}
+
+// ── Shared time axis ──
+const RANGE_START = 8;   // 8 AM
+const RANGE_END = 22;    // 10 PM
+const REM_PER_HOUR = 3.5;
+const MIN_BLOCK_REM = 1.5;
+const BODY_HEIGHT = (RANGE_END - RANGE_START) * REM_PER_HOUR; // 26rem
+
+// ── Schedule ──
+const days: CalendarDay[] = [
+  {
+    key: 'sat',
+    dateShort: 'Sat, May 2',
+    subtitle: 'Pre-Conference',
+    events: [
+      { id: 'sat-lunch', title: 'Lunch at Nob Hill Food Carts', startHour: 12.5, endHour: 13.67, time: '12:30 – 1:40 PM', type: 'social', link: 'https://www.writethedocs.org/conf/portland/2026/hike/' },
+      { id: 'sat-hike', title: 'Conference Hike', startHour: 14, endHour: 17, time: '2 – 5 PM', type: 'social', link: 'https://www.writethedocs.org/conf/portland/2026/hike/', promptlessFaces: true },
+    ],
+  },
+  {
+    key: 'sun',
+    dateShort: 'Sun, May 3',
+    subtitle: 'Writing Day',
+    events: [
+      { id: 'sun-writing', title: 'Writing Day', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'writing', link: 'https://www.writethedocs.org/conf/portland/2026/writing-day/' },
+      { id: 'sun-reception', title: 'Sunday Reception', startHour: 17, endHour: 19, time: '5 – 7 PM', type: 'social' },
+      { id: 'sun-pl-dinner', title: 'Promptless Dinner', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'promptless', link: 'https://maps.app.goo.gl/1ZhubfeFBjnzXYtx5', location: 'East Burn', address: '1800 E Burnside St, Portland, OR 97214', promptlessFaces: true, cta: { label: 'RSVP', href: 'https://luma.com/1m13xfc3' } },
+    ],
+  },
+  {
+    key: 'mon',
+    dateShort: 'Mon, May 4',
+    subtitle: 'Conference Day 1',
+    events: [
+      { id: 'mon-talks', title: 'Conference Talks', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'talks', link: 'https://www.writethedocs.org/conf/portland/2026/schedule/' },
+      { id: 'mon-unconf', title: 'Unconference', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'unconference', link: 'https://www.writethedocs.org/conf/portland/2026/unconference/' },
+      { id: 'mon-pl-dinner', title: 'Promptless Dinner', startHour: 17.5, endHour: 19, time: '5:30 – 7 PM', type: 'promptless', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (downstairs)', cta: { label: 'RSVP', href: 'https://luma.com/tpl91l3a' } },
+      { id: 'mon-social', title: 'Monday Night Social', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'social', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (upstairs)' },
+    ],
+  },
+  {
+    key: 'tue',
+    dateShort: 'Tue, May 5',
+    subtitle: 'Conference Day 2',
+    events: [
+      { id: 'tue-talks', title: 'Conference Talks', startHour: 9, endHour: 15.75, time: '9 AM – 3:45 PM', type: 'talks', link: 'https://www.writethedocs.org/conf/portland/2026/schedule/' },
+      { id: 'tue-unconf', title: 'Unconference', startHour: 9, endHour: 15.75, time: '9 AM – 3:45 PM', type: 'unconference', link: 'https://www.writethedocs.org/conf/portland/2026/unconference/' },
+    ],
+  },
+];
+
+// ── Layout helpers ──
+interface EventGroup {
+  startHour: number;
+  endHour: number;
+  events: CalendarEvent[];
+}
+
+interface PositionedGroup {
+  top: number;
+  height: number;
+  events: CalendarEvent[];
+  z: number;
+}
+
+function groupOverlapping(events: CalendarEvent[]): EventGroup[] {
+  const sorted = [...events].sort((a, b) => a.startHour - b.startHour);
+  const groups: EventGroup[] = [];
+  for (const ev of sorted) {
+    const last = groups[groups.length - 1];
+    if (last && ev.startHour < last.endHour) {
+      last.events.push(ev);
+      last.endHour = Math.max(last.endHour, ev.endHour);
+    } else {
+      groups.push({ startHour: ev.startHour, endHour: ev.endHour, events: [ev] });
+    }
+  }
+  return groups;
+}
+
+function position(events: CalendarEvent[]): PositionedGroup[] {
+  return groupOverlapping(events).map((g, i) => ({
+    top: (g.startHour - RANGE_START) * REM_PER_HOUR,
+    height: Math.max(MIN_BLOCK_REM, (g.endHour - g.startHour) * REM_PER_HOUR),
+    events: g.events,
+    z: i + 1,
+  }));
+}
+
+const dayLayouts = days.map(d => ({ ...d, groups: position(d.events) }));
+
+// Time-axis labels (every 2 h)
+const ticks: { label: string; top: number }[] = [];
+for (let h = RANGE_START; h <= RANGE_END; h += 2) {
+  const d = h > 12 ? h - 12 : h;
+  ticks.push({ label: `${d} ${h >= 12 ? 'PM' : 'AM'}`, top: (h - RANGE_START) * REM_PER_HOUR });
+}
+---
+
+<div class="wtd-cal not-content">
+  <div class="wtd-cal-header">
+    <h2 class="wtd-cal-title">Promptless is the Keystone Sponsor of Write the Docs Portland 2026</h2>
+    <p class="wtd-cal-sub">May 2 – 5 &middot; Portland, Oregon</p>
+    <a class="wtd-cal-gcal-btn" href="https://calendar.google.com/calendar/embed?src=c_97af215d12d262b0d36061d2c4596b54db79d796e2d7a398ae777103b571b87d%40group.calendar.google.com&ctz=America%2FLos_Angeles" target="_blank" rel="noopener noreferrer">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+      Add to Google Calendar
+    </a>
+  </div>
+
+  <div class="wtd-cal-scroll">
+    <div class="wtd-cal-grid">
+      {/* Shared time axis */}
+      <div class="wtd-cal-axis">
+        <div class="wtd-cal-axis-head"></div>
+        <div class="wtd-cal-axis-body" style={`height:${BODY_HEIGHT}rem`}>
+          {ticks.map(t => (
+            <span class="wtd-cal-tick" style={`top:${t.top}rem`}>{t.label}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Day columns */}
+      {dayLayouts.map(day => (
+        <div class="wtd-cal-day">
+          <div class="wtd-cal-day-head">
+            <span class="wtd-cal-day-date">{day.dateShort}</span>
+            <span class="wtd-cal-day-sub">{day.subtitle}</span>
+          </div>
+          <div class="wtd-cal-day-body" style={`height:${BODY_HEIGHT}rem`}>
+            {/* faint gridlines */}
+            {ticks.map(t => (
+              <span class="wtd-cal-gridline" style={`top:${t.top}rem`} aria-hidden="true"></span>
+            ))}
+
+            {day.groups.map(group => {
+              const isParallel = group.events.length > 1;
+              return (
+                <div
+                  class={`wtd-cal-slot${isParallel ? ' is-par' : ''}`}
+                  style={`top:${group.top}rem; height:${group.height}rem; z-index:${group.z}`}
+                >
+                  {group.events.map(ev => (
+                    <div class="wtd-cal-block" data-type={ev.type}>
+                      {ev.link && (
+                        <a class="wtd-cal-block-link" href={ev.link} target="_blank" rel="noopener noreferrer">
+                          <span class="sr-only">{ev.title}</span>
+                        </a>
+                      )}
+                      <span class="wtd-cal-block-time">{ev.time}</span>
+                      <span class="wtd-cal-block-title">{ev.title}{ev.location && <span class="wtd-cal-block-loc"> at {ev.location}</span>}</span>
+                      {ev.address && <span class="wtd-cal-block-addr">{ev.address}</span>}
+                      {(ev.promptlessFaces || ev.cta) && (
+                        <div class="wtd-cal-bottom">
+                          {ev.promptlessFaces && (
+                            <div class="wtd-cal-faces">
+                              <span class="wtd-cal-face">
+                                <img src="/assets/frances.jpg" alt="Frances" />
+                                <span class="wtd-cal-face-badge">P</span>
+                              </span>
+                              <span class="wtd-cal-face">
+                                <img src="/assets/prithvi.jpg" alt="Prithvi" />
+                                <span class="wtd-cal-face-badge">P</span>
+                              </span>
+                            </div>
+                          )}
+                          {ev.cta && (
+                            <a class="wtd-cal-cta" href={ev.cta.href} target="_blank" rel="noopener noreferrer">
+                              {ev.cta.label}
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ── Palette ── */
+  .wtd-cal {
+    --c-social: #d97706;
+    --c-social-bg: #fef3c7;
+    --c-writing: #0d9488;
+    --c-writing-bg: #ccfbf1;
+    --c-talks: #7c3aed;
+    --c-talks-bg: #ede9fe;
+    --c-unconf: #0891b2;
+    --c-unconf-bg: #cffafe;
+    --c-pl: #506aea;
+    --c-pl-bg: #eef1fd;
+  }
+
+  /* ── Header ── */
+  .wtd-cal-header { margin-bottom: 1.25rem; }
+
+  .wtd-cal-title {
+    margin: 0;
+    font-size: clamp(1.35rem, 3vw, 1.7rem);
+    letter-spacing: -0.02em;
+    color: #111827;
+  }
+
+  .wtd-cal-sub {
+    margin: 0.25rem 0 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+  }
+
+  /* ── Google Calendar button ── */
+  .wtd-cal-gcal-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.65rem;
+    padding: 0.4rem 0.85rem;
+    background: var(--c-pl);
+    color: #fff !important;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-radius: 0.4rem;
+    text-decoration: none;
+    transition: background 140ms ease;
+  }
+
+  .wtd-cal-gcal-btn:visited,
+  .wtd-cal-gcal-btn:hover,
+  .wtd-cal-gcal-btn:active {
+    color: #fff !important;
+  }
+
+  .wtd-cal-gcal-btn:hover {
+    background: #3d56d4;
+  }
+
+  .wtd-cal-gcal-btn svg {
+    flex-shrink: 0;
+  }
+
+  /* ── Scroll container ── */
+  .wtd-cal-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.5rem;
+  }
+
+  .wtd-cal-scroll::-webkit-scrollbar { height: 6px; }
+  .wtd-cal-scroll::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 3px; }
+  .wtd-cal-scroll::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+  /* ── Grid: axis + 4 days ── */
+  .wtd-cal-grid {
+    display: grid;
+    grid-template-columns: 3.2rem repeat(4, minmax(14rem, 1fr));
+    gap: 0 0.5rem;
+    align-items: start;
+  }
+
+  /* ── Time axis ── */
+  .wtd-cal-axis-head {
+    height: 3.1rem; /* match day heads */
+  }
+
+  .wtd-cal-axis-body {
+    position: relative;
+  }
+
+  .wtd-cal-tick {
+    position: absolute;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #9ca3af;
+    text-align: right;
+    padding-right: 0.35rem;
+    white-space: nowrap;
+    line-height: 1;
+  }
+
+  /* ── Day column ── */
+  .wtd-cal-day {
+    min-width: 0;
+  }
+
+  .wtd-cal-day-head {
+    height: 3.1rem;
+    padding: 0.55rem 0.65rem 0;
+    display: grid;
+    gap: 0.06rem;
+    align-content: center;
+  }
+
+  .wtd-cal-day-date {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: #111827;
+  }
+
+  .wtd-cal-day-sub {
+    font-size: 0.76rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .wtd-cal-day-body {
+    position: relative;
+    border-left: 1px solid #e5e7eb;
+  }
+
+  /* ── Faint gridlines ── */
+  .wtd-cal-gridline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px dashed #ececee;
+    pointer-events: none;
+  }
+
+  /* ── Positioned slot (abs wrapper) ── */
+  .wtd-cal-slot {
+    position: absolute;
+    left: 0.35rem;
+    right: 0;
+  }
+
+  .wtd-cal-slot.is-par {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .wtd-cal-slot.is-par > .wtd-cal-block {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── Event block (conference events) ── */
+  .wtd-cal-block {
+    position: relative;
+    height: 100%;
+    border-radius: 0.45rem;
+    padding: 0.4rem 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.08rem;
+    transition: box-shadow 140ms ease;
+  }
+
+  .wtd-cal-block:has(.wtd-cal-block-link):hover {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Conference event colours — background only, no border */
+  .wtd-cal-block[data-type="social"]       { background: var(--c-social-bg); }
+  .wtd-cal-block[data-type="writing"]      { background: var(--c-writing-bg); }
+  .wtd-cal-block[data-type="talks"]        { background: var(--c-talks-bg); }
+  .wtd-cal-block[data-type="unconference"] { background: var(--c-unconf-bg); }
+
+  /* Promptless — thick border ALL around, very distinct */
+  .wtd-cal-block[data-type="promptless"] {
+    background: var(--c-pl-bg);
+    border: 2.5px solid var(--c-pl);
+    border-radius: 0.5rem;
+  }
+
+  /* ── Overlay link ── */
+  .wtd-cal-block-link {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    text-decoration: none;
+    color: transparent;
+  }
+
+  .wtd-cal-block-link:focus-visible {
+    outline: 2px solid var(--c-pl);
+    outline-offset: 2px;
+  }
+
+  /* ── Block text ── */
+  .wtd-cal-block-time {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #78716c;
+  }
+
+  .wtd-cal-block[data-type="promptless"] .wtd-cal-block-time {
+    color: color-mix(in srgb, var(--c-pl) 70%, #374151);
+  }
+
+  .wtd-cal-block-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.25;
+  }
+
+  .wtd-cal-block-loc {
+    font-weight: 500;
+  }
+
+  .wtd-cal-block-addr {
+    font-size: 0.68rem;
+    color: #6b7280;
+    line-height: 1.25;
+  }
+
+  .wtd-cal-block:has(.wtd-cal-block-link):hover:not(:has(.wtd-cal-cta:hover)) .wtd-cal-block-title {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* ── Bottom row (faces + CTA) ── */
+  .wtd-cal-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 0.2rem;
+    position: relative;
+    z-index: 2;
+  }
+
+  .wtd-cal-bottom:not(:has(.wtd-cal-faces)) {
+    position: absolute;
+    bottom: 0.35rem;
+    right: 0.45rem;
+    left: 0.45rem;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  /* ── CTA button ── */
+  .wtd-cal-cta,
+  .wtd-cal-cta:visited,
+  .wtd-cal-cta:hover,
+  .wtd-cal-cta:active {
+    padding: 0.25rem 0.6rem;
+    background: var(--c-pl);
+    color: #fff !important;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    border-radius: 0.35rem;
+    text-decoration: none;
+    margin-left: auto;
+    transition: background 140ms ease;
+  }
+
+  .wtd-cal-cta:hover {
+    background: #3d56d4;
+  }
+
+  /* ── Face avatars ── */
+  .wtd-cal-faces {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .wtd-cal-face {
+    position: relative;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .wtd-cal-face img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 999px;
+    display: block;
+  }
+
+  .wtd-cal-face-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -3px;
+    width: 0.68rem;
+    height: 0.68rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.12rem;
+    background: var(--c-pl);
+    color: #fff;
+    font-size: 0.42rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  /* ── SR only ── */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .wtd-cal-grid {
+      grid-template-columns: 2.6rem repeat(4, minmax(11rem, 1fr));
+    }
+
+    .wtd-cal-tick {
+      font-size: 0.58rem;
+    }
+  }
+</style>

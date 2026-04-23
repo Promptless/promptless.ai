@@ -1,0 +1,85 @@
+---
+import type { PricingPlanId } from './pricing.config';
+import { CirclePlus, Rocket, TrendingUp, ShieldCheck } from '@lucide/astro';
+
+interface Props {
+  planId: PricingPlanId;
+  title: string;
+  summary: string;
+  priceLabel: string;
+  usageLabel?: string;
+  leadIn?: string;
+  features: string[];
+  ctaLabel: string;
+  ctaHref: string;
+  ctaAction?: string;
+  featured?: boolean;
+  badge?: string;
+  priceDataAttr?: string;
+  usageDataAttr?: string;
+}
+
+const {
+  planId,
+  title,
+  summary,
+  priceLabel,
+  usageLabel,
+  leadIn,
+  features,
+  ctaLabel,
+  ctaHref,
+  ctaAction,
+  featured = false,
+  badge,
+  priceDataAttr,
+  usageDataAttr,
+} = Astro.props;
+
+const priceAttrs = priceDataAttr ? { [priceDataAttr]: '' } : {};
+const usageAttrs = usageDataAttr ? { [usageDataAttr]: '' } : {};
+const PLAN_ICONS: Record<PricingPlanId, typeof Rocket> = {
+  startup: Rocket,
+  growth: TrendingUp,
+  enterprise: ShieldCheck,
+};
+const PlanIcon = PLAN_ICONS[planId];
+---
+
+<article class:list={['pl-site-pricing-card', `plan-${planId}`, { featured }]} data-plan={planId}>
+  <div class="pl-site-pricing-top">
+    <div class="pl-site-pricing-headline">
+      <p class="pl-site-pricing-name">
+        <span class="pl-site-pricing-name-icon">
+          <PlanIcon size={16} stroke-width={2.2} aria-hidden="true" />
+        </span>
+        <span>{title}</span>
+      </p>
+      {badge ? <span class="pl-site-pricing-badge">{badge}</span> : null}
+    </div>
+
+    <p class="pl-site-pricing-summary">{summary}</p>
+
+    <p class="pl-site-pricing-price" {...priceAttrs}>{priceLabel}</p>
+    {usageLabel ? <p class="pl-site-pricing-units" {...usageAttrs}>{usageLabel}</p> : null}
+
+    <slot name="selector" />
+  </div>
+
+  <div class="pl-site-pricing-divider" aria-hidden="true"></div>
+
+  <div class="pl-site-pricing-bottom">
+    {leadIn ? (
+      <p class="pl-site-pricing-leadin">
+        <CirclePlus size={16} stroke-width={2.2} aria-hidden="true" />
+        <span>{leadIn}</span>
+      </p>
+    ) : null}
+
+    <ul>
+      {features.map((feature) => <li>{feature}</li>)}
+    </ul>
+  </div>
+
+  <a href={ctaHref} data-track-action={ctaAction} data-track-funnel="conversion" data-track-location={`pricing_${planId}`}>{ctaLabel}</a>
+</article>
