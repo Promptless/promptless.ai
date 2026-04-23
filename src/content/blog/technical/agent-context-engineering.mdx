@@ -1,0 +1,100 @@
+---
+title: 'What is Agent Context Engineering? And How is it Different from Prompt and Harness Engineering?'
+subtitle: Published March 2026
+description: >-
+  Learn what agent context engineering is, how it differs from prompt and harness engineering, why most agent failures are context failures, and a four-layer framework for building reliable AI agents.
+date: '2026-03-30T00:00:00.000Z'
+tag: Technical
+section: Use Cases
+author: Frances
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+import Frame from '@components/fern/Frame.astro';
+
+For the past few years, prompt engineering was the dominant focus in applied AI. More recently, the term context engineering has come to the foreground. Building with language models is becoming less about carefully phrasing instructions and more about answering a broader question: does the model have everything it needs to complete the task?
+
+AI agents can manage some of their own context within a session, through compression and memory maintenance. Claude Code, for example, will compact its context window when it fills up. But what agents can't manage is the quality of the information environment external to themselves: the underlying knowledge, tool definitions, and behavioral guardrails that sit outside any given session. That part remains a human responsibility, and it's where most of the real work lives.
+
+Shopify's CEO Tobi Lütke and AI researcher Andrej Karpathy both wrote about the shift in mid-2025. "I really like the term 'context engineering' over prompt engineering," wrote Tobi. Karpathy agreed, noting that people associate prompts with short instructions, whereas in every serious LLM application, context engineering is "the delicate art and science of filling the context window with just the right information for each step."
+
+<Frame>
+  ![Andrej Karpathy tweet about context engineering](/assets/karpathy_tweet.png)
+</Frame>
+
+## Context Engineering vs. Prompt Engineering
+
+Prompt engineering mattered more when models were worse at understanding intent. The early practice involved carefully phrasing instructions (role definitions, trigger phrases, output-format examples) to coax models that needed heavy guidance to stay on track. Current state-of-the-art LLMs have largely solved the "what should I do" problem: they follow instructions well, and you don't need to spend much time engineering the prompt itself.
+
+What they can't solve on their own is the "how we do it here" problem. Models trained on public data know how the world generally works, but not how your organization or your product specifically operates. Context engineering is the work of making that private, product-specific knowledge available to the agent at the right time.
+
+Andrej Karpathy's analogy is useful here: think of the LLM as a CPU and its context window as RAM. The CPU can only operate on what's in RAM, and it doesn't matter how capable the processor is if the wrong data is loaded. Context engineering is the discipline of deciding what gets loaded, and ensuring it's accurate and well-structured enough to be useful.
+
+For agents specifically, wrong context compounds in a way it doesn't for single-turn assistants. Each step in an agent's execution uses the outputs of prior steps as inputs, so a stale policy retrieved in step two becomes the assumption underlying steps three, four, and five. By the time the agent produces a final answer, it may be confidently wrong. Not because of a reasoning failure, but because the information it reasoned from was bad from the start.
+
+## Context Engineering vs. Harness Engineering
+
+Context engineering is often conflated with harness engineering, but they're different layers of the same system and they fail in different ways.
+
+Harness engineering is about how the agent is structured and orchestrated. For long-running agents, Anthropic describes [the core challenge](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) as agents having to work across discrete sessions where "each new session begins with no memory of what came before." The harness solves this: it coordinates how work gets broken down and handed off across sessions, handles retry logic and error recovery, and routes tasks between specialized sub-agents.
+
+Context engineering operates at a different level entirely. A well-designed harness doesn't fix bad context. You can have a perfectly orchestrated planner-generator-evaluator pipeline and still get systematically wrong answers if the knowledge base the agents draw from is stale or poorly structured. The harness ensures the agent makes progress; context engineering ensures that progress is in the right direction.
+
+When the harness fails, the agent breaks visibly: sessions stall, state gets corrupted. When context fails, nothing breaks. The agent runs exactly as designed, does the wrong thing confidently, and gives no signal that anything is off.
+
+## Most Agent Failures Are Context Failures
+
+Most agent failures aren't model failures. They fall into three categories:
+
+**Missing or stale context.** The agent either didn't have the information it needed, or it had information that used to be correct. A policy or API changes silently, and the knowledge base doesn't. [Outdated documents score just as high on semantic similarity as current ones](https://glenrhodes.com/data-freshness-rot-as-the-silent-failure-mode-in-production-rag-systems-and-treating-document-shelf-life-as-a-first-class-reliability-concern/), so the retriever has no basis for preferring the accurate version. The agent answers confidently from what it finds.
+
+**Context the agent didn't know to retrieve.** The information existed, but the agent didn't know it was relevant. This is a metadata and structure problem: if documents aren't organized to make their scope clear, the agent can't match them to the right situation. A support agent may have the escalation policy in its knowledge base but never retrieve it because nothing in the user's query triggers that document. The failure looks like the agent ignoring a rule it was given, but the rule was simply invisible at the moment it was needed.
+
+**Missing, vague, or overlapping tool descriptions.** Tool descriptions determine which tool an agent selects. [Research across 17 models](https://arxiv.org/abs/2505.18135) found that improving a tool's description caused agents to use it over ten times more often, and the inverse is equally true. If a tool doesn't exist for what the agent needs to do, it will hallucinate or give up. If two tools have similar descriptions, the agent will pick one arbitrarily.
+
+<BlogNewsletterCTA />
+
+## A Four-Layer Framework for Agent Context
+
+To reason about agent context systematically, it helps to decompose it into four layers.
+
+### Layer 1: Instruction Context
+
+This is the layer most teams invest in first: the system prompt, the agent's goals and behavioral constraints, and any persona or policy definitions. Few-shot examples belong here too. Rather than trying to enumerate every possible edge case in the prompt, the more effective approach is to provide a set of diverse, representative examples that demonstrate the expected behavior, since a long laundry list of rules is harder for a model to apply consistently than a handful of well-chosen examples.
+
+### Layer 2: Knowledge Context
+
+This is where the knowledge the agent draws from at runtime lives. It's the layer most directly affected by retrieval pipelines and knowledge base quality, and it's where the difference between a demo and a production system usually lives. Not in which model you're using, but in how carefully that knowledge is structured and delivered at each step.
+
+This is also the layer most vulnerable to drift. Teams tend to treat knowledge systems as one-time projects: ingest documents, deploy, done. But sources change silently. Product docs and internal guides update regularly, while the agent's knowledge doesn't, because there's no automated sync. The result is a knowledge base that was accurate at launch and quietly wrong six months later, with no visible signal that anything has changed. Software engineering has spent decades building tools to manage change in code (version control, automated testing); agent knowledge needs the same rigor.
+
+### Layer 3: Operational Context
+
+This is the runtime state: the conversation so far, prior tool outputs, and any environmental signals like timestamps or session metadata. Managing this layer means deciding what to keep, what to summarize, and what to drop as the agent runs.
+
+For teams building their own agentic systems, this is an active engineering problem. Long-running agents accumulate tokens across many LLM and tool calls, and left unmanaged the growing context drives up cost and degrades performance. But if you're using a managed agent like Claude Code, much of this is handled automatically: the agent manages its own memory and decides what to carry forward. In that case, your leverage sits almost entirely in the knowledge layer, not here.
+
+### Layer 4: Action Context
+
+This layer comprises the tools available to the agent: how they're defined, described, and scoped. If a human engineer can't definitively say which tool should be used in a given situation, an agent can't be expected to do better. Bloated tool sets and ambiguous descriptions are among the most common sources of agent misbehavior in production.
+
+Action context also includes what the agent is *not* allowed to do: the permission boundaries and escalation policies that prevent it from taking actions that are technically available but outside acceptable scope. Defining these constraints explicitly is as important as defining the tools themselves.
+
+## What You Actually Control
+
+There's a quiet misnomer in "context engineering" that becomes obvious once you deploy against a closed-source model.
+
+With agents like Claude Code, Codex, or Gemini, you do not actually decide which piece of context the agent retrieves or weighs at each step. The agent does. You can shape how your retrieval pipeline is configured, but once the agent is running, the model determines what it finds relevant. You are not engineering the context; you are engineering the environment the agent operates inside.
+
+This distinction matters practically. Teams who think of themselves as "doing context engineering" often focus on prompt structure and retrieval tuning. Those things matter. But the lever you actually have the most control over, and that has the most impact on output quality, is the accuracy and structure of the underlying information the agent can access. If your docs are stale or poorly structured, no amount of retrieval tuning fixes it. The model will confidently surface the wrong answer, because that is what it found.
+
+Context engineering, properly understood, is less about controlling what goes into the context window at runtime and more about maintaining the information environment that the agent draws from. The question stops being "how do I get the right chunk into the context window?" and becomes "is everything in my knowledge layer accurate enough that it doesn't matter which chunk the model retrieves?"
+
+## How Promptless Keeps the Knowledge Layer Fresh
+
+Of the four layers described above, the knowledge layer is the one that drifts the fastest and is hardest to maintain manually. Every time your product ships a feature or deprecates an API, the docs that feed your agents risk becoming stale. Stale docs don't throw errors; they produce confident, wrong answers that erode customer trust.
+
+Promptless is purpose-built for this problem. It continuously monitors your documentation against your actual product and codebase, automatically surfacing what's outdated or missing. Instead of waiting for a support ticket to reveal that your agent is recommending a deprecated API pattern, Promptless flags the gap before the agent ever serves it. The result is agents that give correct answers not just on day one, but on day 100 and day 1,000.
+
+<BlogRequestDemo />

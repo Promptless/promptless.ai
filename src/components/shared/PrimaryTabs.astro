@@ -1,0 +1,50 @@
+---
+import {
+  TOP_NAV_ITEMS,
+  getActiveSection,
+  type SiteSection,
+  type TopNavLinkItem,
+} from '@lib/site-navigation';
+import NavIcon from './NavIcon.astro';
+
+interface Props {
+  activeSection?: SiteSection;
+  class?: string;
+}
+
+const { activeSection = getActiveSection(Astro.url.pathname), class: className } = Astro.props;
+
+type NavItemWithActive = TopNavLinkItem & { active: boolean };
+
+const navItems: NavItemWithActive[] = TOP_NAV_ITEMS.map((item) => ({
+  ...item,
+  active: item.section === activeSection,
+}));
+---
+
+<nav class:list={['pl-site-tabs', className]} aria-label="Primary">
+  {
+    navItems.map((item) => (
+      <a
+        aria-current={item.active ? 'page' : undefined}
+        class:list={['pl-site-tab', { active: item.active }]}
+        href={item.href}
+        target={item.external ? '_blank' : undefined}
+        rel={item.external ? 'noopener noreferrer' : undefined}
+      >
+        {item.icon && <NavIcon name={item.icon} />}
+        <span>{item.label}</span>
+        {item.external && (
+          <img
+            class="pl-site-tab-external"
+            src="/site/link.svg"
+            alt=""
+            aria-hidden="true"
+            width="14"
+            height="14"
+          />
+        )}
+      </a>
+    ))
+  }
+</nav>

@@ -1,0 +1,208 @@
+---
+---
+
+<!--
+  Cal.com booking widget + email capture.
+
+  The Cal.com embed is always visible. Below it, a simple email form lets
+  visitors leave their email if they prefer not to book immediately.
+
+  If the visitor already provided their email (stored in sessionStorage by
+  the homepage hero or blog CTA), it's prefilled into the Cal.com embed.
+
+  No-JS fallback: a plain link to the Cal.com booking page via <noscript>.
+-->
+
+<div id="book">
+  <div id="demo-calendar" class="pl-site-meet-calendar">
+    <div class="pl-site-meet-calendar-mount" id="cal-inline-demo-booking"></div>
+  </div>
+
+  <noscript>
+    <p>
+      <a href="https://app.cal.com/team/promptless/15m-discovery-call">
+        Book a 15-minute demo &rarr;
+      </a>
+    </p>
+  </noscript>
+
+  <div id="demo-email-gate" class="demo-email-gate">
+    <p class="demo-email-label">Not ready to book? Leave your email and we'll follow up.</p>
+    <form id="demo-email-form" class="pl-site-form-row">
+      <label class="sr-only" for="demo-gate-email">Work email</label>
+      <input
+        id="demo-gate-email"
+        type="email"
+        name="email"
+        placeholder="Work email"
+        required
+      />
+      <button type="submit">Send</button>
+    </form>
+    <p id="demo-email-status" class="demo-email-status" aria-live="polite"></p>
+  </div>
+</div>
+
+<style>
+  .demo-email-label {
+    margin: 0 0 0.5rem;
+    font-size: 0.92rem;
+    color: #475569;
+  }
+
+  .demo-email-status {
+    margin: 0.35rem 0 0;
+    font-size: 0.84rem;
+    line-height: 1.4;
+    color: #16a34a;
+    min-height: 1.2em;
+  }
+</style>
+
+<script is:inline>
+(() => {
+  var EMAIL_KEY = 'pl_demo_email';
+  var form = document.getElementById('demo-email-form');
+  var statusEl = document.getElementById('demo-email-status');
+  var namespace = 'demo-booking';
+  var elementSelector = '#cal-inline-demo-booking';
+
+  function getStoredEmail() {
+    try { return sessionStorage.getItem(EMAIL_KEY); } catch { return null; }
+  }
+
+  function storeEmail(email) {
+    try { sessionStorage.setItem(EMAIL_KEY, email); } catch {}
+  }
+
+  function bootCal() {
+    var mountEl = document.querySelector(elementSelector);
+    if (!mountEl || mountEl.dataset.calMounted === 'true') return;
+
+    (function (C, A, L) {
+      var p = function (a, ar) { a.q.push(ar); };
+      var d = C.document;
+      C.Cal = C.Cal || function () {
+        var cal = C.Cal;
+        var ar = arguments;
+        if (!cal.loaded) {
+          cal.ns = {};
+          cal.q = cal.q || [];
+          d.head.appendChild(d.createElement('script')).src = A;
+          cal.loaded = true;
+        }
+        if (ar[0] === L) {
+          var api = function () { p(api, arguments); };
+          var ns = ar[1];
+          api.q = api.q || [];
+          if (typeof ns === 'string') {
+            cal.ns[ns] = cal.ns[ns] || api;
+            p(cal.ns[ns], ar);
+            p(cal, ['initNamespace', ns]);
+          } else { p(cal, ar); }
+          return;
+        }
+        p(cal, ar);
+      };
+    })(window, 'https://app.cal.com/embed/embed.js', 'init');
+
+    var calLink = 'team/promptless/15m-discovery-call';
+    var storedEmail = getStoredEmail();
+    var ph = window.posthog;
+    var distinctId = null;
+    var sessionId = null;
+    try { distinctId = sessionStorage.getItem('pl_ph_distinct_id'); } catch (_) {}
+    try { sessionId = sessionStorage.getItem('pl_ph_session_id'); } catch (_) {}
+    try {
+      if (!distinctId && ph && typeof ph.get_distinct_id === 'function') distinctId = ph.get_distinct_id();
+      if (!sessionId && ph && typeof ph.get_session_id === 'function') sessionId = ph.get_session_id();
+    } catch (_) {}
+
+    var params = new URLSearchParams();
+    if (storedEmail) params.set('email', storedEmail);
+    if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
+    if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
+    var qs = params.toString();
+    if (qs) calLink += '?' + qs;
+
+    window.Cal('init', namespace, { origin: 'https://app.cal.com' });
+    window.Cal.ns[namespace]('inline', {
+      elementOrSelector: elementSelector,
+      config: { layout: 'month_view', useSlotsViewOnSmallScreen: 'true' },
+      calLink: calLink,
+    });
+    window.Cal.ns[namespace]('ui', {
+      hideEventTypeDetails: false,
+      layout: 'month_view',
+    });
+
+    mountEl.dataset.calMounted = 'true';
+  }
+
+  // Query param override: ?demo=reset — clear stored email
+  var params = new URLSearchParams(window.location.search);
+  var demoParam = params.get('demo');
+  if (demoParam === 'reset') {
+    try { sessionStorage.removeItem(EMAIL_KEY); } catch {}
+  }
+
+  bootCal();
+
+  // Scroll to #book if the URL hash targets it (e.g. /demo#book)
+  if (window.location.hash === '#book') {
+    var bookEl = document.getElementById('book');
+    if (bookEl) {
+      setTimeout(function () { bookEl.scrollIntoView({ behavior: 'smooth' }); }, 100);
+    }
+  }
+
+  if (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var input = form.querySelector('input[name="email"]');
+      var email = input && input.value ? input.value.trim() : '';
+      if (!email) return;
+
+      storeEmail(email);
+
+      // Submit to Formspark so the lead is captured
+      try {
+        fetch('https://submit-form.com/roBOd2Oxb', {
+          method: 'POST',
+          body: new URLSearchParams({ email }).toString(),
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json',
+          },
+        });
+      } catch (_) {}
+
+      if (window.posthog) {
+        window.posthog.capture('email_captured', {
+          intent: 'demo',
+          location: 'demo_page',
+          campaign: '',
+          $set: { email: email },
+        });
+      }
+
+      try {
+        var phNow = window.posthog;
+        var did = phNow && phNow.get_distinct_id && phNow.get_distinct_id();
+        var sid = phNow && phNow.get_session_id && phNow.get_session_id();
+        if (did) sessionStorage.setItem('pl_ph_distinct_id', did);
+        if (sid) sessionStorage.setItem('pl_ph_session_id', sid);
+      } catch (_) {}
+
+      if (statusEl) {
+        statusEl.textContent = 'Thanks! We\u2019ll be in touch.';
+      }
+      form.style.display = 'none';
+    });
+  }
+
+  document.addEventListener('astro:page-load', function () {
+    bootCal();
+  });
+})();
+</script>

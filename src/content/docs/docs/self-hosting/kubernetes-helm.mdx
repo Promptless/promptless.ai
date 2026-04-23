@@ -1,0 +1,538 @@
+---
+title: Kubernetes + Helm Deployment
+description: Complete guide for deploying Promptless on Kubernetes using Helm charts
+slug: docs/self-hosting/kubernetes-helm
+sidebar:
+  hidden: true
+  order: 68
+---
+import Steps from '@components/fern/Steps.astro';
+import Step from '@components/fern/Step.astro';
+import Card from '@components/fern/Card.astro';
+import CardGroup from '@components/fern/CardGroup.astro';
+import Accordion from '@components/fern/Accordion.astro';
+import AccordionGroup from '@components/fern/AccordionGroup.astro';
+import ParamField from '@components/fern/ParamField.astro';
+import Info from '@components/fern/Info.astro';
+import Tip from '@components/fern/Tip.astro';
+import Warning from '@components/fern/Warning.astro';
+import Success from '@components/fern/Success.astro';
+
+<Warning>
+**Enterprise Only**: This deployment guide is exclusively for Enterprise customers. Self-hosting requires an Enterprise license and access to our private Helm chart repository. [Contact us](mailto:hello@gopromptless.ai) to discuss your self-hosting requirements and get access.
+</Warning>
+
+# Kubernetes + Helm Deployment Guide
+
+This guide provides the complete installation checklist for deploying Promptless on Kubernetes using Helm charts. Everything is parameterized through `values.yaml`—you should never need to edit the Helm chart itself.
+
+## Quick Start Checklist
+
+This is the happy-path installation checklist for prospects:
+
+<Steps>
+  <Step title="Prerequisites">
+    - AWS account with EKS cluster version 1.27+, IRSA enabled
+    - `kubectl`, `helm`, and `aws-cli` installed locally
+    - Route 53 hosted zone for `promptless.<corp>.com`
+  </Step>
+  
+  <Step title="Provision Infrastructure">
+    - EKS cluster & node groups
+    - RDS PostgreSQL 
+    - S3-compatibile document store (e.g. a bucket named `promptless-doc-store`)
+    - VPC Endpoints for RDS, S3, Bedrock (if using language models restricted within your AWS VPC)
+    - IAM roles with scoped policies
+  </Step>
+  
+  <Step title="Configure Container Images">
+    Choose Option A (direct pull) or Option B (private registry)
+  </Step>
+  
+  <Step title="Create Kubernetes Secrets">
+    Set up database credentials and authentication secrets
+  </Step>
+  
+  <Step title="Configure values.yaml">
+    Customize deployment settings for your environment
+  </Step>
+  
+  <Step title="Install Dependencies">
+    Install cert-manager if not already present
+  </Step>
+  
+  <Step title="Deploy Promptless">
+    Install via Helm chart
+  </Step>
+  
+  <Step title="Post-Installation">
+    Verify deployment and configure user access
+  </Step>
+</Steps>
+
+## Architecture
+
+The self-hosted deployment uses a microservices architecture running on Kubernetes:
+
+<CardGroup cols={2}>
+  <Card title="API Server" icon="server">
+    Handles REST API requests, authentication, and core business logic
+  </Card>
+  <Card title="Worker Processes" icon="cogs">
+    Processes documentation generation jobs and integrations
+  </Card>
+  <Card title="Web Dashboard" icon="desktop">
+    User interface for project management and configuration
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+Before installing Promptless, ensure you have the following:
+
+### Infrastructure Requirements
+
+<AccordionGroup>
+  <Accordion title="AWS Account & EKS Cluster">
+    - AWS account with EKS cluster version 1.27 or higher
+    - IRSA (IAM Roles for Service Accounts) enabled
+    - Node groups configured (including GPU nodes if using local LLMs)
+  </Accordion>
+
+  <Accordion title="Database Services">
+    - RDS PostgreSQL instance (recommended: Aurora PostgreSQL)
+  </Accordion>
+
+  <Accordion title="Storage & Networking">
+    - S3 bucket for document storage (e.g., `promptless-doc-store`)
+    - Route 53 hosted zone for your domain (e.g., `promptless.corp.com`)
+    - VPC Endpoints for AWS services: STS, Bedrock, S3, Secrets Manager (plus GitHub Enterprise if applicable)
+  </Accordion>
+</AccordionGroup>
+
+### IAM Roles
+
+Create the following IAM roles with scoped policies:
+
+- `promptless-api`: Access to Bedrock, S3, and Secrets Manager
+- `promptless-worker`: Background job processing permissions
+- `promptless-dashboard`: Web interface permissions
+
+<Tip>
+We can provide Terraform modules to provision the baseline infrastructure. Contact our support team at help@gopromptless.ai for infrastructure templates and IAM policy examples.
+</Tip>
+
+## Installation Guide
+
+Follow these steps to install Promptless on your Kubernetes cluster:
+
+<Steps>
+  <Step title="Provision Infrastructure">
+    Set up the baseline AWS infrastructure. You can use the Terraform modules we provide or create resources manually.
+
+    **Required Resources:**
+    - EKS cluster with node groups (including GPU nodes if using local LLMs)
+    - RDS PostgreSQL
+    - S3 bucket `promptless-doc-store`
+    - VPC Endpoints for: STS, Bedrock, S3, Secrets Manager (plus GitHub Enterprise if applicable)
+    - IAM roles: `promptless-api`, `promptless-worker`, `promptless-dashboard` with scoped policies for Bedrock, S3, RDS
+
+    <Tip>
+    Contact our support team for Terraform modules and infrastructure templates.
+    </Tip>
+  </Step>
+
+  <Step title="Configure Container Images">
+    Choose your container image strategy:
+
+    **Option A: Direct Pull (Recommended)**
+    ```bash
+    # Allow EKS to pull directly from our public registry
+    # No additional configuration needed - images pulled from:
+    # public.ecr.aws/promptless/*
+    ```
+
+    **Option B: Private Registry**
+    ```bash
+    # Import images to your private ECR and configure values.yaml:
+    image:
+      registry: <account-id>.dkr.ecr.<region>.amazonaws.com
+    ```
+  </Step>
+
+  <Step title="Create Kubernetes Secrets">
+    Create a secret containing your database credentials and other sensitive configuration:
+
+    ```bash
+    kubectl create secret generic promptless-secrets \
+      --from-literal=POSTGRES_URL="postgresql://user:password@host:5432/promptless" \
+      --from-literal=JWT_SECRET="your-jwt-secret-key" \
+      --from-literal=OIDC_CLIENT_SECRET="your-oidc-client-secret"
+    ```
+
+  </Step>
+
+  <Step title="Configure values.yaml">
+    Create a `values.yaml` file with your deployment configuration:
+
+    ```yaml title="values.yaml"
+    global:
+      domain: promptless.corp.acme.com
+
+    auth:
+      provider: oidc
+      oidcIssuerURL: https://sso.acme.com
+
+    llm:
+      provider: bedrock
+      model: anthropic.claude-3-sonnet-20240229-v1:0
+
+    observability:
+      mode: cloudwatch
+
+    integrations:
+      github:
+        enabled: true
+        apiBaseURL: https://github.acme.com/api/v3
+
+    # Resource configuration
+    api:
+      replicas: 2
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "250m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+
+    ```
+
+    <Accordion title="Configuration Options">
+      **Authentication Providers:**
+      - `oidc`: OpenID Connect (recommended for enterprise)
+      - `saml`: SAML 2.0
+      - `oauth`: OAuth 2.0 with various providers
+
+      **LLM Providers:**
+      - `bedrock`: AWS Bedrock (recommended)
+      - `openai`: OpenAI API
+      - `anthropic`: Anthropic Claude API
+      - `local`: Self-hosted models
+
+      **Observability:**
+      - `cloudwatch`: AWS CloudWatch
+      - `datadog`: DataDog
+      - `prometheus`: Prometheus + Grafana
+    </Accordion>
+  </Step>
+
+  <Step title="Install cert-manager">
+    If you don't already have cert-manager installed:
+
+    ```bash
+    helm repo add jetstack https://charts.jetstack.io
+    helm install cert-manager jetstack/cert-manager \
+      --namespace cert-manager \
+      --create-namespace \
+      --set installCRDs=true
+    ```
+  </Step>
+
+  <Step title="Install Promptless">
+    Add the Promptless Helm repository and install:
+
+    ```bash
+    # Add Helm repository
+    helm repo add promptless https://charts.promptless.com
+    helm repo update
+
+    # Install Promptless
+    helm upgrade --install promptless promptless/server \
+      --namespace promptless \
+      --create-namespace \
+      -f values.yaml
+    ```
+
+    <Info>
+    The installation typically takes 3-5 minutes. Monitor the deployment with:
+    ```bash
+    kubectl get pods -n promptless -w
+    ```
+    </Info>
+  </Step>
+
+  <Step title="Post-Installation Verification">
+    After installation, verify your deployment:
+
+    ```bash
+    # Check pod status
+    kubectl get pods -n promptless
+
+    # Verify database migrations succeeded
+    kubectl logs -l app=promptless-api -n promptless
+
+    # Check service endpoints
+    kubectl get services -n promptless
+    ```
+
+    **Verification Checklist:**
+    - [ ] All pods are running and ready
+    - [ ] Database migrations completed successfully
+    - [ ] Services are accessible
+    - [ ] SSL certificates are issued
+  </Step>
+
+  <Step title="Configure User Access">
+    Set up user access through your identity provider:
+
+    1. **Invite Users**: Use your IdP group mapping to grant access
+    2. **Verify Authentication**: Test that users can log in successfully
+
+    ```yaml title="Example IdP Configuration"
+    auth:
+      provider: oidc
+      oidcIssuerURL: https://sso.acme.com
+      groupMappings:
+        - idpGroup: "promptless-admins"
+          role: "admin"
+        - idpGroup: "promptless-users"
+          role: "user"
+    ```
+  </Step>
+
+  <Step title="Test Documentation Generation">
+    Verify the system is working by:
+
+    1. **Access Dashboard**: Navigate to your Promptless domain
+    2. **Create Project**: Set up a test project with integrations
+    3. **Trigger Test Ingestion**: Test documentation generation via UI
+    4. **Validate S3 Objects**: Check S3 bucket for generated assets
+    5. **Validate Bedrock Calls**: Ensure LLM integration is working
+    6. **Monitor Logs**: Check CloudWatch logs for any errors
+
+    <Success>
+    If documentation generation completes successfully, your installation is ready for production use!
+    </Success>
+  </Step>
+</Steps>
+
+## Configuration Reference
+
+### Environment Variables
+
+Key environment variables for customizing your deployment:
+
+<ParamField path="POSTGRES_URL" type="string" required={true}>
+  PostgreSQL connection string for the application database
+</ParamField>
+
+<ParamField path="JWT_SECRET" type="string" required={true}>
+  Secret key for JWT token signing and verification
+</ParamField>
+
+<ParamField path="S3_BUCKET" type="string" required={true}>
+  S3 bucket name for document and asset storage
+</ParamField>
+
+<ParamField path="AWS_REGION" type="string" required={true}>
+  AWS region for Bedrock and other AWS services
+</ParamField>
+
+### Helm Chart Values
+
+The Promptless Helm chart supports extensive customization through values.yaml:
+
+<AccordionGroup>
+  <Accordion title="Global Configuration">
+    ```yaml
+    global:
+      domain: promptless.example.com
+      environment: production
+      imageRegistry: public.ecr.aws/promptless
+    ```
+  </Accordion>
+
+  <Accordion title="Authentication Settings">
+    ```yaml
+    auth:
+      provider: oidc
+      oidcIssuerURL: https://auth.example.com
+      sessionTimeout: 24h
+      mfaRequired: true
+    ```
+  </Accordion>
+
+  <Accordion title="Resource Limits">
+    ```yaml
+    api:
+      replicas: 2
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "250m"
+        limits:
+          memory: "1Gi"
+          cpu: "500m"
+    ```
+  </Accordion>
+
+  <Accordion title="Integration Configuration">
+    ```yaml
+    integrations:
+      github:
+        enabled: true
+        apiBaseURL: https://api.github.com
+      slack:
+        enabled: true
+      linear:
+        enabled: true
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Maintenance & Operations
+
+### Upgrades
+
+Keep your Promptless installation up to date:
+
+```bash
+# Update Helm repository
+helm repo update
+
+# Upgrade to latest version
+helm upgrade promptless promptless/server \
+  --namespace promptless \
+```
+
+<Warning>
+Always review the changelog before upgrading and test in a staging environment first.
+</Warning>
+
+## Troubleshooting
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Pods Not Starting">
+    **Symptoms:** Pods stuck in `Pending` or `CrashLoopBackOff` state
+
+    **Solutions:**
+    1. Check resource availability: `kubectl describe nodes`
+    2. Verify secrets exist: `kubectl get secrets -n promptless`
+    3. Check pod logs: `kubectl logs <pod-name> -n promptless`
+    4. Validate values.yaml configuration
+  </Accordion>
+
+  <Accordion title="Database Connection Issues">
+    **Symptoms:** API server logs show database connection errors
+
+    **Solutions:**
+    1. Verify PostgreSQL URL in secrets
+    2. Check RDS security groups and network connectivity
+    3. Ensure database exists and migrations can run
+    4. Test connection from a debug pod
+  </Accordion>
+
+  <Accordion title="Authentication Problems">
+    **Symptoms:** Users cannot log in or receive authentication errors
+
+    **Solutions:**
+    1. Verify OIDC/SAML configuration in values.yaml
+    2. Check IdP connectivity and certificate validity
+    3. Review authentication provider logs
+    4. Validate redirect URLs and client secrets
+  </Accordion>
+
+  <Accordion title="Documentation Generation Failures">
+    **Symptoms:** Jobs fail or documents are not generated
+
+    **Solutions:**
+    1. Check worker pod logs for errors
+    2. Verify Bedrock/LLM provider connectivity
+    3. Ensure S3 bucket permissions are correct
+  </Accordion>
+</AccordionGroup>
+
+### Getting Help
+
+If you encounter issues not covered in this guide:
+
+1. **Check Logs**: Review CloudWatch logs for error messages
+2. **Contact Support**: Email [help@gopromptless.ai](mailto:help@gopromptless.ai) with:
+   - Deployment configuration (sanitized)
+   - Error logs and symptoms
+   - Steps to reproduce the issue
+
+<Info>
+Our support team typically responds within 1 business hour for self-hosted deployments.
+</Info>
+
+## Security Considerations
+
+### Network Security
+
+- Use private subnets for database instances
+- Configure security groups to restrict access to necessary ports only
+- Enable VPC Flow Logs for network monitoring
+- Use AWS PrivateLink/VPC Endpoints for AWS service access
+
+### Data Protection
+
+- Enable encryption at rest for RDS and S3
+- Use TLS 1.2+ for all communications
+- Implement proper IAM roles with least privilege access
+- Regular security updates and vulnerability scanning
+
+### Compliance
+
+Self-hosted Promptless supports various compliance requirements:
+
+- **SOC 2**: Audit logging and access controls
+- **GDPR**: Data residency and privacy controls  
+- **HIPAA**: Enhanced encryption and access logging
+- **FedRAMP**: Government cloud deployment options
+
+Contact our team to discuss specific compliance requirements for your deployment.
+## Example Architecture Diagram
+
+The following diagram illustrates a typical EKS + Bedrock deployment architecture with self-hosted GitHub Enterprise and Slack integrations:
+
+![Mermaid diagram](/mermaid/aa7e9f8299af36bb.svg)
+
+### Architecture Components
+
+<CardGroup cols={2}>
+  <Card title="Kubernetes Deployments" icon="dharmachakra">
+    - **Backend API**: Handles REST requests and core business logic
+    - **Frontend Dashboard**: Web interface served at `promptless.corp.com`
+    - **Worker Processes**: Background jobs for documentation generation
+  </Card>
+
+  <Card title="AWS Services" icon="aws">
+    - **RDS PostgreSQL**: Application database with VPC endpoint
+    - **S3 Bucket**: Document and asset storage with VPC endpoint
+    - **Bedrock**: LLM service for AI-powered documentation generation
+  </Card>
+
+  <Card title="External Integrations" icon="plug">
+    - **GitHub Enterprise**: Self-hosted Git platform integration
+    - **Slack**: Corporate messaging platform integration
+    - **VPC Connectivity**: Secure connections via VPC endpoints
+  </Card>
+
+  <Card title="Security Features" icon="shield-alt">
+    - **VPC Endpoints**: Private connectivity to AWS services
+    - **Security Groups**: Network-level access controls
+    - **IAM Roles**: Service-specific permissions with IRSA
+  </Card>
+</CardGroup>
+
+### Key Architectural Benefits
+
+- **Data Sovereignty**: All data remains within your AWS VPC
+- **Secure Connectivity**: VPC endpoints eliminate internet traffic for AWS services
+- **Scalable Design**: Kubernetes deployments can scale based on demand
+- **Enterprise Integration**: Direct connectivity to self-hosted GitHub and Slack
+- **Compliance Ready**: Architecture supports SOC 2, GDPR, HIPAA, and FedRAMP requirements

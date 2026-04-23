@@ -1,0 +1,39 @@
+<script is:inline>
+(function initClickTracker() {
+  if (window.__plClickTrackerAttached) return;
+  window.__plClickTrackerAttached = true;
+
+  document.addEventListener('click', function (event) {
+    var target = event.target;
+    if (!(target instanceof Element)) return;
+    var tracked = target.closest('[data-track-action]');
+    if (!tracked) return;
+
+    var action = tracked.getAttribute('data-track-action') || '';
+    var funnel = tracked.getAttribute('data-track-funnel') || '';
+    var location = tracked.getAttribute('data-track-location') || '';
+    var campaign = tracked.getAttribute('data-track-campaign') || '';
+    var linkUrl = tracked.getAttribute('href') || '';
+
+    if (typeof gtag === 'function') {
+      gtag('event', 'cta_click', {
+        funnel_stage: funnel,
+        action: action,
+        location: location,
+        campaign: campaign,
+        link_url: linkUrl,
+      });
+    }
+
+    window.posthog?.capture('cta_clicked', {
+      action: action,
+      funnel_stage: funnel,
+      location: location,
+      campaign: campaign,
+      link_url: linkUrl,
+    }, {
+      transport: 'sendBeacon',
+    });
+  }, true);
+})();
+</script>
