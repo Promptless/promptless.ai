@@ -1,10 +1,10 @@
-export type WebsitePageId = 'home' | 'demo' | 'pricing' | 'jobs' | 'wtd-portland-2026';
+export type WebsitePageId = 'home' | 'pricing' | 'jobs' | 'wtd-portland-2026';
 
 export interface WebsiteNavItem {
   id: WebsitePageId;
   href: string;
   label: string;
-  icon: 'overview' | 'video' | 'pricing' | 'jobs' | 'calendar';
+  icon: 'overview' | 'pricing' | 'jobs' | 'calendar';
 }
 
 interface WebsiteSidebarLink {
@@ -15,7 +15,6 @@ interface WebsiteSidebarLink {
 
 export const WEBSITE_NAV_ITEMS: WebsiteNavItem[] = [
   { id: 'home', href: '/', label: 'Overview', icon: 'overview' },
-  { id: 'demo', href: '/demo', label: 'Book a demo', icon: 'video' },
   { id: 'pricing', href: '/pricing', label: 'Pricing', icon: 'pricing' },
   { id: 'jobs', href: '/jobs', label: 'Work at Promptless!', icon: 'jobs' },
   { id: 'wtd-portland-2026', href: '/wtd-portland-2026', label: 'WTD 2026', icon: 'calendar' },

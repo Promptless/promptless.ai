@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import BlogAuthorCard from '@components/site/BlogAuthorCard.astro';
 
 export async function getStaticPaths() {
   const entries = await getCollection('blog', ({ data }) => !data.hidden);
@@ -33,6 +34,7 @@ const baseHead = [
 ];
 
 const pageHead = [...baseHead, ...socialImageHead];
+const hasAuthor = Boolean(entry.data.author);
 ---
 
 <StarlightPage
@@ -46,14 +48,26 @@ const pageHead = [...baseHead, ...socialImageHead];
     head: pageHead,
   }}
 >
-  <p class="collection-back-link">
-    <a href="/blog">← Back to Blog</a>
-  </p>
-  {entry.data.author && (
-    <p class="collection-post-author">By {entry.data.author}</p>
-  )}
-  <Content />
-  <p class="collection-back-link collection-back-link-bottom">
-    <a href="/blog">← Back to Blog</a>
-  </p>
+  <div class:list={['blog-layout', { 'blog-layout--has-aside': hasAuthor }]}>
+    <div class="blog-prose">
+      <p class="collection-back-link">
+        <a href="/blog">← Back to Blog</a>
+      </p>
+      <Content />
+      <p class="collection-back-link collection-back-link-bottom">
+        <a href="/blog">← Back to Blog</a>
+      </p>
+    </div>
+
+    {hasAuthor && (
+      <aside class="blog-author-aside">
+        <div class="blog-author-sticky">
+          <BlogAuthorCard
+            author={entry.data.author!}
+            pageUrl={pageUrl}
+          />
+        </div>
+      </aside>
+    )}
+  </div>
 </StarlightPage>

@@ -11,6 +11,58 @@
       debug: location.hostname === 'localhost' || location.hostname === '127.0.0.1'
     })
 
+    // Track homepage section views (50%+ visible, once per section per page load).
+    // Elements opt in with data-section-tracked="<name>" — section_viewed fires
+    // once per name per page load when a matching element reaches 50% visibility.
+    // Uses a data attribute (not id) so display:none variants (e.g. mobile vs
+    // desktop testimonials) can share a name without duplicate ids.
+    // Runs on DOMContentLoaded since this script lives in <head>/top-of-body
+    // and the sections it observes render later in the document.
+    if (location.pathname === '/') {
+      var startSectionObserver = function () {
+        var viewedSections = {}; // Dedupe across multiple elements with the same name
+        var sectionObs = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            var name = entry.target.getAttribute('data-section-tracked');
+            if (!name || viewedSections[name]) return;
+            viewedSections[name] = true;
+            posthog.capture('section_viewed', { section: name, page: location.pathname });
+          });
+        }, { threshold: 0.5 });
+        var els = document.querySelectorAll('[data-section-tracked]');
+        for (var i = 0; i < els.length; i++) sectionObs.observe(els[i]);
+      };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startSectionObserver);
+      } else {
+        startSectionObserver();
+      }
+    }
+
+    // Track scroll depth on blog posts (25/50/75/100%, once per milestone per page load).
+    // Fires 'scroll_depth' at each milestone as the user scrolls through an article.
+    // Excludes the blog index (/blog/) and all-posts page (/blog/all) since those
+    // aren't article content. Uses passive listener for better scroll performance.
+    if (location.pathname.indexOf('/blog/') === 0 && location.pathname !== '/blog/' && location.pathname !== '/blog/all') {
+      var scrollMilestones = [25, 50, 75, 100];
+      var firedMilestones = {}; // Tracks which milestones already fired to avoid duplicates
+      var scrollHandler = function () {
+        // Calculate scrollable height (total doc height minus viewport)
+        var docHeight = document.documentElement.scrollHeight - window.innerHeight;
+        if (docHeight <= 0) return; // Page fits in viewport, no scroll tracking needed
+        // Calculate current scroll percentage
+        var pct = Math.round((window.scrollY / docHeight) * 100);
+        scrollMilestones.forEach(function (m) {
+          if (pct >= m && !firedMilestones[m]) {
+            firedMilestones[m] = true;
+            posthog.capture('scroll_depth', { percent: m, page: location.pathname });
+          }
+        });
+      };
+      window.addEventListener('scroll', scrollHandler, { passive: true }); // passive for perf
+    }
+
     // Unmask the Pagefind search input and track search queries.
     new MutationObserver(function(_, obs) {
       var input = document.querySelector('site-search input, .pagefind-ui__search-input');
