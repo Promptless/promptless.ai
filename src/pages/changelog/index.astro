@@ -1,0 +1,40 @@
+---
+import { getCollection } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+
+const posts = (await getCollection('changelog', ({ data }) => !data.hidden)).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+---
+
+<StarlightPage
+  hasSidebar={false}
+  frontmatter={{
+    title: 'Changelog',
+    description: 'Promptless product updates in descending chronological order.',
+    template: 'doc',
+    tableOfContents: false,
+    editUrl: false,
+  }}
+>
+  {
+    posts.length ? (
+      <ul class="collection-feed" role="list">
+        {posts.map((entry) => (
+          <li>
+            <article class="collection-feed-item">
+              <h2 class="collection-feed-title">
+                <a href={`/changelog/${entry.slug}`}>{entry.data.title}</a>
+              </h2>
+              {(entry.data.subtitle || entry.data.description) && (
+                <p class="collection-feed-description">{entry.data.subtitle || entry.data.description}</p>
+              )}
+            </article>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="collection-feed-empty">No changelog entries yet.</p>
+    )
+  }
+</StarlightPage>
