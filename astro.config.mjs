@@ -98,6 +98,14 @@ export default defineConfig({
           attrs: { name: 'twitter:image', content: 'https://promptless.ai/assets/social-card.png' },
         },
         {
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: 'https://www.youtube-nocookie.com' },
+        },
+        {
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: 'https://i.ytimg.com' },
+        },
+        {
           tag: 'script',
           attrs: { type: 'text/partytown', src: 'https://www.googletagmanager.com/gtag/js?id=G-NHEW11ZR9F' },
         },
