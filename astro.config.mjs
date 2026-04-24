@@ -2,6 +2,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
+import partytown from '@astrojs/partytown';
 
 import generatedSidebar from './src/lib/generated/sidebar.json' with { type: 'json' };
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
@@ -41,6 +42,11 @@ export default defineConfig({
   redirects,
   integrations: [
     react(),
+    partytown({
+      config: {
+        forward: ['dataLayer.push', 'gtag'],
+      },
+    }),
     sitemap({
       filter: createSitemapPathFilter(hiddenSitemapPaths),
     }),
@@ -93,14 +99,16 @@ export default defineConfig({
         },
         {
           tag: 'script',
-          attrs: { src: 'https://www.googletagmanager.com/gtag/js?id=G-NHEW11ZR9F', async: true },
+          attrs: { type: 'text/partytown', src: 'https://www.googletagmanager.com/gtag/js?id=G-NHEW11ZR9F' },
         },
         {
           tag: 'script',
+          attrs: { type: 'text/partytown' },
           content: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-NHEW11ZR9F');`,
         },
         {
           tag: 'script',
+          attrs: { type: 'text/partytown' },
           content: `!function(key){if(window.reb2b)return;window.reb2b={loaded:true};var s=document.createElement("script");s.async=true;s.src="https://b2bjsstore.s3.us-west-2.amazonaws.com/b/"+key+"/"+key+".js.gz";document.getElementsByTagName("script")[0].parentNode.insertBefore(s,document.getElementsByTagName("script")[0]);}("4N210HEGE36Z");`,
         },
       ],
