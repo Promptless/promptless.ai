@@ -137,6 +137,7 @@ export const GET: APIRoute = async ({ props }) => {
     const body = normalizeMdxForMarkdown(matter(raw).content);
 
     const lines: string[] = [`# ${entry.title}`];
+    lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
     if (entry.description) lines.push('', entry.description);
     if (body) lines.push('', body);
 
