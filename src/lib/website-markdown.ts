@@ -45,6 +45,7 @@ export async function createWebsiteMarkdownResponse(routePath: string) {
   if (!entry) return new Response('Not found', { status: 404 });
 
   const lines = [`# ${entry.title}`];
+  lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
   if (entry.description) lines.push('', entry.description);
   if (entry.body) lines.push('', entry.body);
 
