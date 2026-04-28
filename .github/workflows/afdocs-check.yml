@@ -51,17 +51,15 @@ jobs:
         run: |
           echo "Checking local preview: http://localhost:4321"
 
-          # Run afdocs check and capture output
           set +e
-          OUTPUT=$(npx afdocs check "http://localhost:4321/docs" --format json 2>&1)
+          OUTPUT=$(npx -y afdocs@latest check "http://localhost:4321/docs" --format json --score 2>&1)
           EXIT_CODE=$?
           set -e
 
           echo "afdocs output:"
-          echo "$OUTPUT"
+          printf '%s\n' "$OUTPUT"
 
-          # Parse the score from JSON output
-          SCORE=$(echo "$OUTPUT" | grep -o '"score":[0-9]*' | head -1 | cut -d: -f2)
+          SCORE=$(printf '%s' "$OUTPUT" | jq -r '.scoring.overall // empty')
 
           if [ -z "$SCORE" ]; then
             echo "::error::Could not parse afdocs score from output"
