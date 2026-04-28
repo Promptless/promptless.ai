@@ -52,19 +52,22 @@ jobs:
           echo "Checking local preview: http://localhost:4321"
 
           # Run afdocs check and capture output
+          # Use root URL - /docs is a redirect and won't work
           set +e
-          OUTPUT=$(npx afdocs check "http://localhost:4321/docs" --format json 2>&1)
+          OUTPUT=$(npx afdocs check "http://localhost:4321" --format json --score 2>&1)
           EXIT_CODE=$?
           set -e
 
           echo "afdocs output:"
           echo "$OUTPUT"
 
-          # Parse the score from JSON output
-          SCORE=$(echo "$OUTPUT" | grep -o '"score":[0-9]*' | head -1 | cut -d: -f2)
+          # Parse the score from JSON output (handles spaces and decimals)
+          SCORE=$(echo "$OUTPUT" | grep -oE '"score"\s*:\s*[0-9]+' | head -1 | grep -oE '[0-9]+$')
 
           if [ -z "$SCORE" ]; then
             echo "::error::Could not parse afdocs score from output"
+            echo "Raw output for debugging:"
+            echo "$OUTPUT" | head -100
             exit 1
           fi
 
