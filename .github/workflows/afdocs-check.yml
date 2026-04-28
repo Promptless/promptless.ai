@@ -1,0 +1,69 @@
+name: Agent-Friendly Docs Check
+
+on:
+  deployment_status:
+
+jobs:
+  afdocs-check:
+    # Only run on successful Vercel deployments
+    if: >
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment_status.target_url, 'vercel.app')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run afdocs check
+        id: afdocs
+        run: |
+          DEPLOY_URL="${{ github.event.deployment_status.target_url }}"
+          echo "Checking deployment: $DEPLOY_URL"
+
+          # Run afdocs check and capture output
+          set +e
+          OUTPUT=$(npx afdocs check "$DEPLOY_URL/docs" --format json 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "afdocs output:"
+          echo "$OUTPUT"
+
+          # Parse the score from JSON output
+          SCORE=$(echo "$OUTPUT" | grep -o '"score":[0-9]*' | head -1 | cut -d: -f2)
+
+          if [ -z "$SCORE" ]; then
+            echo "::error::Could not parse afdocs score from output"
+            exit 1
+          fi
+
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Agent-Friendly Docs Score: $SCORE"
+
+          if [ "$SCORE" -lt 100 ]; then
+            echo "::error::Agent-Friendly Docs score is $SCORE, expected 100"
+            exit 1
+          fi
+
+          echo "Agent-Friendly Docs check passed with score $SCORE"
+
+      - name: Create commit status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = '${{ steps.afdocs.outputs.score }}' || 'unknown';
+            const success = '${{ steps.afdocs.outcome }}' === 'success';
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ github.event.deployment_status.deployment.sha }}',
+              state: success ? 'success' : 'failure',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              description: success ? `Score: ${score}/100` : `Score: ${score}/100 (minimum: 100)`,
+              context: 'afdocs / agent-friendly-docs'
+            });
