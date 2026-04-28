@@ -1,31 +1,59 @@
 name: Agent-Friendly Docs Check
 
 on:
-  deployment_status:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'astro.config.mjs'
+      - 'package.json'
 
 jobs:
   afdocs-check:
-    # Only run on successful Vercel deployments
-    if: >
-      github.event.deployment_status.state == 'success' &&
-      contains(github.event.deployment_status.target_url, 'vercel.app')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+
+      - name: Start preview server
+        run: |
+          npm run preview &
+          echo $! > .preview-pid
+
+      - name: Wait for server to be ready
+        run: |
+          echo "Waiting for preview server to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:4321 > /dev/null 2>&1; then
+              echo "Server is ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start"
+          exit 1
 
       - name: Run afdocs check
         id: afdocs
         run: |
-          DEPLOY_URL="${{ github.event.deployment_status.target_url }}"
-          echo "Checking deployment: $DEPLOY_URL"
+          echo "Checking local preview: http://localhost:4321"
 
           # Run afdocs check and capture output
           set +e
-          OUTPUT=$(npx afdocs check "$DEPLOY_URL/docs" --format json 2>&1)
+          OUTPUT=$(npx afdocs check "http://localhost:4321/docs" --format json 2>&1)
           EXIT_CODE=$?
           set -e
 
@@ -50,20 +78,9 @@ jobs:
 
           echo "Agent-Friendly Docs check passed with score $SCORE"
 
-      - name: Create commit status
+      - name: Stop preview server
         if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const score = '${{ steps.afdocs.outputs.score }}' || 'unknown';
-            const success = '${{ steps.afdocs.outcome }}' === 'success';
-
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: '${{ github.event.deployment_status.deployment.sha }}',
-              state: success ? 'success' : 'failure',
-              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
-              description: success ? `Score: ${score}/100` : `Score: ${score}/100 (minimum: 100)`,
-              context: 'afdocs / agent-friendly-docs'
-            });
+        run: |
+          if [ -f .preview-pid ]; then
+            kill $(cat .preview-pid) 2>/dev/null || true
+          fi
