@@ -64,8 +64,18 @@ function normalizeMdxForMarkdown(body: string): string {
       return caption ? `\n${decodeHtmlEntities(caption)}\n` : '\n';
     })
     .replace(/<\/Frame>/g, '\n')
-    .replace(/<(Note|Info|Tip|Warning|CardGroup)\b[^>]*>/g, '\n')
-    .replace(/<\/(Note|Info|Tip|Warning|CardGroup)>/g, '\n')
+    .replace(/<Step\b([^>]*)>/g, (_match, attrs) => {
+      const title = getAttribute(attrs, 'title');
+      return title ? `\n**${decodeHtmlEntities(title)}**\n` : '\n';
+    })
+    .replace(/<\/Step>/g, '\n')
+    .replace(/<Accordion\b([^>]*)>/g, (_match, attrs) => {
+      const title = getAttribute(attrs, 'title');
+      return title ? `\n**${decodeHtmlEntities(title)}**\n` : '\n';
+    })
+    .replace(/<\/Accordion>/g, '\n')
+    .replace(/<(Note|Info|Tip|Warning|CardGroup|Steps|AccordionGroup)\b[^>]*>/g, '\n')
+    .replace(/<\/(Note|Info|Tip|Warning|CardGroup|Steps|AccordionGroup)>/g, '\n')
     .replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, (_match, level, content) => {
       return `\n${'#'.repeat(Number(level))} ${normalizeInlineMarkup(content).trim()}\n`;
     })
@@ -137,6 +147,7 @@ export const GET: APIRoute = async ({ props }) => {
     const body = normalizeMdxForMarkdown(matter(raw).content);
 
     const lines: string[] = [`# ${entry.title}`];
+    lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
     if (entry.description) lines.push('', entry.description);
     if (body) lines.push('', body);
 
