@@ -1,0 +1,103 @@
+---
+interface Props {
+  campaign: string;
+  href: string;
+  text: string;
+}
+
+const { campaign, href, text } = Astro.props;
+const storageKey = `pl_pill_dismissed_${campaign}`;
+---
+
+<div
+  class="pl-announcement-pill-wrapper"
+  id="pl-announcement-pill"
+  data-storage-key={storageKey}
+  hidden
+>
+  <a
+    class="pl-announcement-pill"
+    href={href}
+    data-track-action="pill_cta"
+    data-track-funnel="conversion"
+    data-track-location="announcement_pill"
+    data-track-campaign={campaign}
+  >
+    <span class="pl-announcement-pill-text">{text}</span>
+    <span class="pl-announcement-pill-arrow" aria-hidden="true">↗</span>
+  </a>
+</div>
+
+<script is:inline>
+(function initPill() {
+  function setup() {
+    var pill = document.getElementById('pl-announcement-pill');
+    if (!pill) return;
+
+    var storageKey = pill.getAttribute('data-storage-key');
+    if (!storageKey) return;
+
+    if (localStorage.getItem(storageKey)) return;
+
+    pill.removeAttribute('hidden');
+  }
+
+  if (document.readyState !== 'loading') {
+    setup();
+  } else {
+    document.addEventListener('DOMContentLoaded', setup);
+  }
+
+  document.addEventListener('astro:page-load', setup);
+})();
+</script>
+
+<style>
+  @layer starlight.core {
+    .pl-announcement-pill-wrapper {
+      display: flex;
+      justify-content: center;
+      padding: 0.625rem 1rem;
+      background: var(--sl-color-bg);
+    }
+
+    .pl-announcement-pill-wrapper[hidden] {
+      display: none;
+    }
+
+    .pl-announcement-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.875rem;
+      background: linear-gradient(135deg, var(--pl-accent, #4f46e5) 0%, #7c3aed 100%);
+      color: #fff;
+      font-size: var(--sl-text-sm);
+      font-weight: 500;
+      text-decoration: none;
+      border-radius: 9999px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .pl-announcement-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+      text-decoration: none;
+      color: #fff;
+    }
+
+    .pl-announcement-pill-text {
+      line-height: 1.4;
+    }
+
+    .pl-announcement-pill-arrow {
+      font-size: 0.875em;
+      transition: transform 0.15s ease;
+    }
+
+    .pl-announcement-pill:hover .pl-announcement-pill-arrow {
+      transform: translate(1px, -1px);
+    }
+  }
+</style>
