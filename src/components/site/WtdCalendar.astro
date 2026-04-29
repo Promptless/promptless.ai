@@ -8,6 +8,12 @@
  * against the left-border-only WTD events.
  */
 
+interface SubEvent {
+  time: string;
+  title: string;
+  speaker: string;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -20,6 +26,7 @@ interface CalendarEvent {
   address?: string;
   promptlessFaces?: boolean;
   cta?: { label: string; href: string };
+  subEvents?: SubEvent[];
 }
 
 interface CalendarDay {
@@ -62,8 +69,19 @@ const days: CalendarDay[] = [
     dateShort: 'Mon, May 4',
     subtitle: 'Conference Day 1',
     events: [
-      { id: 'mon-talks', title: 'Conference Talks', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'talks', link: 'https://www.writethedocs.org/conf/portland/2026/schedule/' },
-      { id: 'mon-unconf', title: 'Unconference', startHour: 9, endHour: 17, time: '9 AM – 5 PM', type: 'unconference', link: 'https://www.writethedocs.org/conf/portland/2026/unconference/' },
+      {
+        id: 'mon-marthas',
+        title: "Coffee & Workshops at Martha's",
+        startHour: 10,
+        endHour: 12,
+        time: '10 AM – 12 PM',
+        type: 'promptless' as const,
+        subEvents: [
+          { time: '10:00 AM', title: 'Context Engineering for Agents', speaker: 'Manny Silva' },
+          { time: '10:45 AM', title: 'Docs as Code: Starting from Scratch', speaker: 'Mike Jang' },
+          { time: '11:30 AM', title: 'Docs Observability: Measure Less, Learn More', speaker: 'Mano Toth' },
+        ],
+      },
       { id: 'mon-pl-dinner', title: 'Promptless Dinner', startHour: 17.5, endHour: 19, time: '5:30 – 7 PM', type: 'promptless', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (downstairs)', cta: { label: 'RSVP', href: 'https://luma.com/tpl91l3a' } },
       { id: 'mon-social', title: 'Monday Night Social', startHour: 19, endHour: 21, time: '7 – 9 PM', type: 'social', link: 'https://maps.app.goo.gl/usiEh2wMt7BDS7cU7', address: 'Jupiter NEXT (upstairs)' },
     ],
@@ -73,8 +91,15 @@ const days: CalendarDay[] = [
     dateShort: 'Tue, May 5',
     subtitle: 'Conference Day 2',
     events: [
-      { id: 'tue-talks', title: 'Conference Talks', startHour: 9, endHour: 15.75, time: '9 AM – 3:45 PM', type: 'talks', link: 'https://www.writethedocs.org/conf/portland/2026/schedule/' },
-      { id: 'tue-unconf', title: 'Unconference', startHour: 9, endHour: 15.75, time: '9 AM – 3:45 PM', type: 'unconference', link: 'https://www.writethedocs.org/conf/portland/2026/unconference/' },
+      {
+        id: 'tue-doc-audit',
+        title: "Manny's Doc Audit",
+        startHour: 9,
+        endHour: 12,
+        time: '9 AM – 12 PM',
+        type: 'promptless' as const,
+        cta: { label: 'Book 15 min →', href: 'https://cal.com/team/promptless/manny-docs-process-audit' },
+      },
     ],
   },
 ];
@@ -129,11 +154,20 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
 
 <div class="wtd-cal not-content">
   <div class="wtd-cal-header">
-    <h2 class="wtd-cal-title">Promptless is the Keystone Sponsor of Write the Docs Portland 2026</h2>
+    <h2 class="wtd-cal-title">Promptless at Write the Docs Portland 2026</h2>
     <p class="wtd-cal-sub">May 2 – 5 &middot; Portland, Oregon</p>
-    <a class="wtd-cal-gcal-btn" href="https://calendar.google.com/calendar/embed?src=c_97af215d12d262b0d36061d2c4596b54db79d796e2d7a398ae777103b571b87d%40group.calendar.google.com&ctz=America%2FLos_Angeles" target="_blank" rel="noopener noreferrer">
+    <a class="wtd-cal-gcal-btn" href="/wtd-portland-2026.ics">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
-      Add to Google Calendar
+      Add to Calendar
+    </a>
+  </div>
+
+  <div class="wtd-cal-manny-banner">
+    <div class="wtd-cal-manny-banner-text">
+      <strong>Get a free doc audit with Manny</strong> — On Tuesday May 5, Manny Silva is holding open office hours for 15-minute documentation audits. Grab a slot and get actionable feedback on your docs.
+    </div>
+    <a class="wtd-cal-manny-banner-btn" href="https://cal.com/team/promptless/manny-docs-process-audit" target="_blank" rel="noopener noreferrer">
+      Book 15 min →
     </a>
   </div>
 
@@ -179,6 +213,17 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
                       <span class="wtd-cal-block-time">{ev.time}</span>
                       <span class="wtd-cal-block-title">{ev.title}{ev.location && <span class="wtd-cal-block-loc"> at {ev.location}</span>}</span>
                       {ev.address && <span class="wtd-cal-block-addr">{ev.address}</span>}
+                      {ev.subEvents && ev.subEvents.length > 0 && (
+                        <ul class="wtd-cal-block-talks">
+                          {ev.subEvents.map(sub => (
+                            <li class="wtd-cal-block-talk">
+                              <span class="wtd-cal-block-talk-time">{sub.time}</span>
+                              <span class="wtd-cal-block-talk-title">{sub.title}</span>
+                              <span class="wtd-cal-block-talk-speaker">{sub.speaker}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                       {(ev.promptlessFaces || ev.cta) && (
                         <div class="wtd-cal-bottom">
                           {ev.promptlessFaces && (
@@ -542,6 +587,83 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
     border: 0;
   }
 
+  /* ── Manny CTA banner ── */
+  .wtd-cal-manny-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--c-pl-bg);
+    border: 2px solid var(--c-pl);
+    border-radius: 0.6rem;
+  }
+
+  .wtd-cal-manny-banner-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #111827;
+    line-height: 1.45;
+  }
+
+  .wtd-cal-manny-banner-btn {
+    flex-shrink: 0;
+    padding: 0.45rem 1rem;
+    background: var(--c-pl);
+    color: #fff !important;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border-radius: 0.4rem;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 140ms ease;
+  }
+
+  .wtd-cal-manny-banner-btn:hover {
+    background: #3d56d4;
+  }
+
+  /* ── Sub-event talk list ── */
+  .wtd-cal-block-talks {
+    list-style: none;
+    margin: 0.3rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1;
+    overflow: visible;
+  }
+
+  .wtd-cal-block-talk {
+    display: flex;
+    flex-direction: column;
+    gap: 0.02rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--c-pl);
+  }
+
+  .wtd-cal-block-talk-time {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--c-pl) 80%, #374151);
+    line-height: 1;
+  }
+
+  .wtd-cal-block-talk-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.2;
+  }
+
+  .wtd-cal-block-talk-speaker {
+    font-size: 0.68rem;
+    color: #6b7280;
+    line-height: 1;
+  }
+
   /* ── Responsive ── */
   @media (max-width: 600px) {
     .wtd-cal-grid {
@@ -550,6 +672,12 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
 
     .wtd-cal-tick {
       font-size: 0.58rem;
+    }
+
+    .wtd-cal-manny-banner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.65rem;
     }
   }
 </style>
