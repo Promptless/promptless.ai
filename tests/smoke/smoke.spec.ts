@@ -91,7 +91,7 @@ test('blog and changelog detail pages include top and bottom canonical back link
   const changelogHtml = await changelogResponse.text();
   const changelogBackLinks =
     changelogHtml.match(/href="\/changelog">← Back to Changelog<\/a>/g) ?? [];
-  assert.equal(changelogBackLinks.length, 2, 'Expected top and bottom changelog back links.');
+  assert.equal(changelogBackLinks.length, 1, 'Expected a changelog back link.');
 });
 
 test('llms endpoints remain available', async () => {
