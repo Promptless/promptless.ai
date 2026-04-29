@@ -214,15 +214,20 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
                       <span class="wtd-cal-block-title">{ev.title}{ev.location && <span class="wtd-cal-block-loc"> at {ev.location}</span>}</span>
                       {ev.address && <span class="wtd-cal-block-addr">{ev.address}</span>}
                       {ev.subEvents && ev.subEvents.length > 0 && (
-                        <ul class="wtd-cal-block-talks">
-                          {ev.subEvents.map(sub => (
-                            <li class="wtd-cal-block-talk">
-                              <span class="wtd-cal-block-talk-time">{sub.time}</span>
-                              <span class="wtd-cal-block-talk-title">{sub.title}</span>
-                              <span class="wtd-cal-block-talk-speaker">{sub.speaker}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <div class="wtd-cal-talks-wrapper" data-event-id={ev.id}>
+                          <ul class="wtd-cal-block-talks">
+                            {ev.subEvents.map(sub => (
+                              <li class="wtd-cal-block-talk">
+                                <span class="wtd-cal-block-talk-time">{sub.time}</span>
+                                <span class="wtd-cal-block-talk-title">{sub.title}</span>
+                                <span class="wtd-cal-block-talk-speaker">{sub.speaker}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <button class="wtd-cal-expand-btn" type="button" aria-expanded="false" hidden>
+                            <span class="wtd-cal-expand-text"></span>
+                          </button>
+                        </div>
                       )}
                       {(ev.promptlessFaces || ev.cta) && (
                         <div class="wtd-cal-bottom">
@@ -625,6 +630,57 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
   }
 
   /* ── Sub-event talk list ── */
+  .wtd-cal-talks-wrapper {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .wtd-cal-talks-wrapper.is-collapsed {
+    max-height: 5.5rem;
+  }
+
+  .wtd-cal-talks-wrapper.is-collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2.5rem;
+    background: linear-gradient(to bottom, transparent 0%, var(--c-pl-bg) 100%);
+    pointer-events: none;
+  }
+
+  .wtd-cal-talks-wrapper.is-expanded {
+    max-height: none;
+  }
+
+  .wtd-cal-expand-btn {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .wtd-cal-expand-text {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--c-pl);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .wtd-cal-expand-btn:hover .wtd-cal-expand-text {
+    color: #3d56d4;
+  }
+
   .wtd-cal-block-talks {
     list-style: none;
     margin: 0.3rem 0 0;
@@ -681,3 +737,72 @@ for (let h = RANGE_START; h <= RANGE_END; h += 2) {
     }
   }
 </style>
+
+<script>
+  function initCalendarExpand() {
+    const wrappers = document.querySelectorAll('.wtd-cal-talks-wrapper');
+
+    wrappers.forEach((wrapper) => {
+      const talksList = wrapper.querySelector('.wtd-cal-block-talks');
+      const expandBtn = wrapper.querySelector('.wtd-cal-expand-btn');
+      const expandText = wrapper.querySelector('.wtd-cal-expand-text');
+
+      if (!talksList || !expandBtn || !expandText) return;
+
+      const talks = talksList.querySelectorAll('.wtd-cal-block-talk');
+      const collapsedHeight = 88; // ~5.5rem in pixels
+
+      // Check if content overflows
+      const checkOverflow = () => {
+        const needsCollapse = talksList.scrollHeight > collapsedHeight;
+
+        if (needsCollapse && !wrapper.classList.contains('is-expanded')) {
+          wrapper.classList.add('is-collapsed');
+          expandBtn.hidden = false;
+
+          // Count hidden events
+          let hiddenCount = 0;
+          talks.forEach((talk, idx) => {
+            const rect = talk.getBoundingClientRect();
+            const wrapperRect = wrapper.getBoundingClientRect();
+            if (rect.bottom > wrapperRect.bottom) {
+              hiddenCount++;
+            }
+          });
+
+          if (hiddenCount > 0) {
+            expandText.textContent = `+${hiddenCount} more event${hiddenCount > 1 ? 's' : ''}`;
+          }
+        }
+      };
+
+      // Toggle expand/collapse
+      expandBtn.addEventListener('click', () => {
+        const isExpanded = wrapper.classList.contains('is-expanded');
+
+        if (isExpanded) {
+          wrapper.classList.remove('is-expanded');
+          wrapper.classList.add('is-collapsed');
+          expandBtn.setAttribute('aria-expanded', 'false');
+          expandText.textContent = expandText.dataset.collapsedText || expandText.textContent;
+        } else {
+          wrapper.classList.remove('is-collapsed');
+          wrapper.classList.add('is-expanded');
+          expandBtn.setAttribute('aria-expanded', 'true');
+          expandText.dataset.collapsedText = expandText.textContent;
+          expandText.textContent = 'Show less';
+        }
+      });
+
+      // Initial check
+      requestAnimationFrame(checkOverflow);
+    });
+  }
+
+  // Run on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCalendarExpand);
+  } else {
+    initCalendarExpand();
+  }
+</script>
