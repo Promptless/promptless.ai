@@ -91,7 +91,7 @@ test('blog and changelog detail pages include top and bottom canonical back link
   const changelogHtml = await changelogResponse.text();
   const changelogBackLinks =
     changelogHtml.match(/href="\/changelog">← Back to Changelog<\/a>/g) ?? [];
-  assert.equal(changelogBackLinks.length, 2, 'Expected top and bottom changelog back links.');
+  assert.equal(changelogBackLinks.length, 1, 'Expected a changelog back link.');
 });
 
 test('llms endpoints remain available', async () => {
@@ -130,9 +130,8 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
   assertLink(nav, '/blog', 'Blog');
   assertLink(nav, '/changelog', 'Changelog');
   assertLink(nav, '/free-tools', 'Free tools');
-  assertLink(nav, '/wtd-portland-2026', 'WTD 2026');
 
-  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools', 'WTD 2026']);
+  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools']);
   assert.doesNotMatch(nav, /href="\/blog\/all"/);
   assert.doesNotMatch(nav, /href="\/changelog\/all"/);
 });

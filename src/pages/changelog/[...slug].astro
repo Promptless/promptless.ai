@@ -3,14 +3,20 @@ import { getCollection, render } from 'astro:content';
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 
 export async function getStaticPaths() {
-  const entries = await getCollection('changelog', ({ data }) => !data.hidden);
-  return entries.map((entry) => ({
+  const entries = (await getCollection('changelog', ({ data }) => !data.hidden)).sort(
+    (a, b) => b.data.date.getTime() - a.data.date.getTime()
+  );
+  return entries.map((entry, i) => ({
     params: { slug: entry.slug },
-    props: { entry },
+    props: {
+      entry,
+      newer: entries[i - 1] ?? null,
+      older: entries[i + 1] ?? null,
+    },
   }));
 }
 
-const { entry } = Astro.props;
+const { entry, newer, older } = Astro.props;
 const { Content, headings } = await render(entry);
 ---
 
@@ -28,7 +34,22 @@ const { Content, headings } = await render(entry);
     <a href="/changelog">← Back to Changelog</a>
   </p>
   <Content />
-  <p class="collection-back-link collection-back-link-bottom">
-    <a href="/changelog">← Back to Changelog</a>
-  </p>
+  <div class="pl-changelog-chain">
+    <div>
+      {older && (
+        <>
+          <span class="pl-changelog-chain-label">← Older</span>
+          <a href={`/changelog/${older.slug}`}>{older.data.title}</a>
+        </>
+      )}
+    </div>
+    <div style="text-align: right;">
+      {newer && (
+        <>
+          <span class="pl-changelog-chain-label">Newer →</span>
+          <a href={`/changelog/${newer.slug}`}>{newer.data.title}</a>
+        </>
+      )}
+    </div>
+  </div>
 </StarlightPage>

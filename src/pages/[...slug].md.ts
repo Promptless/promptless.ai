@@ -103,6 +103,18 @@ function normalizeMdxForMarkdown(body: string): string {
   return decodeHtmlEntities(normalized).trim();
 }
 
+function resolveRelativeLinks(body: string, routePath: string): string {
+  const base = `https://x${routePath.endsWith('/') ? routePath : `${routePath}/`}`;
+  return body.replace(/\[([^\]]*)\]\((\.[^)]*)\)/g, (_match, label, href) => {
+    try {
+      const resolved = new URL(href, base).pathname;
+      return `[${label}](${resolved})`;
+    } catch {
+      return _match;
+    }
+  });
+}
+
 function contentPathFromRoute(route: RouteManifestEntry): string {
   if (route.contentType === 'docs') {
     return path.join(
@@ -146,7 +158,7 @@ export const GET: APIRoute = async ({ props }) => {
 
   try {
     const raw = await readFile(filePath, 'utf8');
-    const body = normalizeMdxForMarkdown(matter(raw).content);
+    const body = resolveRelativeLinks(normalizeMdxForMarkdown(matter(raw).content), entry.routePath);
 
     const lines: string[] = [`# ${entry.title}`];
     lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
@@ -185,6 +197,22 @@ export const GET: APIRoute = async ({ props }) => {
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
   } catch {
-    return new Response('Not found', { status: 404 });
+    const body = [
+      '# 404 – Page Not Found',
+      '',
+      'This page does not exist in its markdown form.',
+      '',
+      'You may be looking for:',
+      '',
+      '- [Documentation](/docs/getting-started/welcome)',
+      '- [Blog](/blog)',
+      '- [Changelog](/changelog)',
+      '- [Full content index](/llms.txt)',
+      '- [Full content with text](/llms-full.txt)',
+    ].join('\n');
+    return new Response(body, {
+      status: 404,
+      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    });
   }
 };
