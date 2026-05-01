@@ -56,6 +56,22 @@ npm run dev              # dev server at localhost:4321
 npm run build            # production build
 npm run check            # typecheck + build
 npm run test:smoke       # smoke tests
+npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
+```
+
+## Diagrams
+
+Mermaid diagram sources live in `src/diagrams/*.mmd`. The compiled SVGs in
+`public/mermaid/` are committed to the repo and must be rebuilt locally when
+a diagram changes — run `npm run build:diagrams` and commit the updated SVG.
+This step is intentionally excluded from the production build because it
+requires a local Chromium install via `@mermaid-js/mermaid-cli`.
+
+Each `.mmd` file supports optional rendering directives in comments at the top:
+
+```
+%% mmdc-width: 750
+%% mmdc-height: 600
 ```
 
 ## Good Docs Project Templates
