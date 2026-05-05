@@ -14,10 +14,6 @@ AI agents eliminate docs drift and automate the most painful parts of docs maint
 
 ## Testimonials
 
-### Manny Silva, Creator at Doc Detective
-
-"Promptless is a core part of my self-healing docs toolchain, proactively fixing problems before I knew I had them."
-
 ### Mo King, Senior Technical Writer at Runpod
 
 "Promptless dramatically speeds up my time-to-first-draft. My team literally calls me a 10x tech writer."
