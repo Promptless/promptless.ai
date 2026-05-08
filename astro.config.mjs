@@ -26,7 +26,6 @@ const redirects = {
   '/docs': '/docs/getting-started/welcome',
   '/page': '/',
   '/wtd': '/',
-  '/wtd-oss': '/docs/getting-started/wtd-oss',
   '/hn': '/',
   '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
   '/use-cases': '/',
