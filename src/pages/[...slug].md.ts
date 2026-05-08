@@ -54,6 +54,8 @@ function normalizeMdxForMarkdown(body: string): string {
 
   const normalized = withoutImports
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/<BlogNewsletterCTA\s*\/>/g, '\n\n*We regularly share actionable insights grounded in research, experiments, and real-world product learnings. [Subscribe to get future posts in your inbox](/blog).*\n\n')
+    .replace(/<BlogRequestDemo\s*\/>/g, '\n\n[Book a demo](https://promptless.ai/meet#book)\n\n')
     .replace(/<Card\b([^>]*)>/g, (_match, attrs) => {
       const title = getAttribute(attrs, 'title');
       return title ? `\n### ${decodeHtmlEntities(title)}\n` : '\n';
@@ -162,6 +164,34 @@ export const GET: APIRoute = async ({ props }) => {
     lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
     if (entry.description) lines.push('', entry.description);
     if (body) lines.push('', body);
+
+    if (entry.contentType === 'blog') {
+      const category = entry.routePath.split('/')[2] ?? '';
+      const allBlog = routeEntries.filter((e) => e.contentType === 'blog' && !e.hidden && e.routePath !== entry.routePath);
+      const sameCategory = allBlog.filter((e) => e.routePath.split('/')[2] === category);
+      const different = allBlog.filter((e) => e.routePath.split('/')[2] !== category);
+      const related = [...sameCategory, ...different].slice(0, 3);
+      if (related.length > 0) {
+        lines.push('', '## More from the blog');
+        for (const post of related) {
+          const postCategory = post.routePath.split('/')[2] ?? '';
+          const tag = postCategory.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          lines.push(`- [${post.title}](${post.routePath})${tag}`);
+        }
+      }
+    }
+
+    if (entry.contentType === 'changelog') {
+      const allChangelog = routeEntries.filter((e) => e.contentType === 'changelog' && !e.hidden);
+      const idx = allChangelog.findIndex((e) => e.routePath === entry.routePath);
+      const newer = idx > 0 ? allChangelog[idx - 1] : null;
+      const older = idx >= 0 && idx < allChangelog.length - 1 ? allChangelog[idx + 1] : null;
+      if (older || newer) {
+        lines.push('');
+        if (older) lines.push(`← Older [${older.title}](${older.routePath})`);
+        if (newer) lines.push(`Newer → [${newer.title}](${newer.routePath})`);
+      }
+    }
 
     return new Response(lines.join('\n'), {
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },

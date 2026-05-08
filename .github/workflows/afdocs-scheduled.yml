@@ -1,0 +1,39 @@
+name: Agent-Friendly Docs Check (Scheduled)
+
+on:
+  schedule:
+    - cron: '0 17 * * *' # 10am PT (UTC-7, PDT)
+  workflow_dispatch:
+
+jobs:
+  afdocs-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Run afdocs check against production
+        id: afdocs
+        run: |
+          set +e
+          OUTPUT=$(npx -y afdocs@latest check "https://promptless.ai" --format json --score)
+          EXIT_CODE=$?
+          set -e
+
+          echo "afdocs output:"
+          printf '%s\n' "$OUTPUT"
+
+          SCORE=$(printf '%s' "$OUTPUT" | jq -r '.scoring.overall // empty')
+
+          if [ -z "$SCORE" ]; then
+            echo "::error::Could not parse afdocs score from output"
+            exit 1
+          fi
+
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Agent-Friendly Docs Score: $SCORE"
+
+          if [ "$SCORE" -lt 100 ]; then
+            echo "::error::Agent-Friendly Docs score is $SCORE, expected 100"
+            exit 1
+          fi
+
+          echo "Agent-Friendly Docs check passed with score $SCORE"
