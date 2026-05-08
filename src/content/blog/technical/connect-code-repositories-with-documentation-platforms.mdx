@@ -1,0 +1,67 @@
+---
+title: 'How to Connect Code Repositories with Documentation Platforms'
+subtitle: Published April 2026
+description: >-
+  If you're looking to connect a docs repo to Fern, Readme, GitBook, or Mintlify — that's easy and each platform covers it. This is about the harder problem: connecting your product code so docs stay current when the product changes.
+date: '2026-04-29T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+If you're adopting Docs-as-Code there's a good chance you're trying to wire up Fern, Readme, GitBook, or Mintlify to pull from a GitHub repo so your documentation deploys automatically on push.
+
+Each of those platforms has their own onboarding guide that walks through the OAuth connection, the branch to watch, and the directory where your content lives. If that's your question, their documentation will answer it faster than this article can.
+
+This article is about a different problem.
+
+## The Problem with Product Code
+
+Connecting a docs repository to a documentation platform is the easy half. The harder half is connecting your *product* code repository (the one your engineers merge PRs into every day) to your documentation, so that when the product changes, the docs change with it.
+
+Your API endpoints, SDK methods, configuration options, and authentication flows are all described somewhere in your documentation. None of it stays synchronized automatically.
+
+When an engineer ships parameter changes, removes an endpoint, or changes the response data layout, that merge goes through review, gets tested, and deploys to production. The documentation page describing the old behavior stays exactly where it was.
+
+Six weeks later, your users are filing support tickets about something your docs say still works the old way.
+
+## Two Ways to Wire Up Product Code
+
+There are two patterns for keeping documentation current with product code changes, and they work at different points in your development process.
+
+### Pattern 1: Generate documentation from code artifacts
+
+The cleanest version of this is when your product already produces a machine-readable source of truth. REST APIs described by an OpenAPI spec, GraphQL schemas, and typed SDKs can all generate documentation directly. Tools like Fern, Readme, and Stoplight consume a spec that lives in your product repository and publish updated API reference automatically when it changes.
+
+The spec file lives in your product repo. A CI step validates it on pull request. On merge to main, the spec gets pushed to the documentation platform and the reference updates. What's published reflects what's deployed.
+
+This works best when your product has well-maintained machine-readable contracts. If your API has an OpenAPI spec that actually matches what's running in production, generated docs eliminate an entire category of drift.
+
+### Pattern 2: Push documentation on merge
+
+When documentation is written by hand (which most product documentation still is), the connection is a CI/CD pipeline that runs on merge and pushes the relevant docs files to wherever they need to go.
+
+[Squarespace's engineering team](https://engineering.squarespace.com/blog/2025/making-documentation-simpler-and-practical-our-docs-as-code-journey) documented this approach in 2025, storing documentation alongside the product code and running a CI/CD pipeline that automatically updates Backstage after every merge. [Swiftlane](https://swiftlane.com/blog/syncing-docs-from-code-repositories-to-notion/) built a similar pipeline to Notion using `git-notion`. For Confluence, [`confluence-sync`](https://github.com/zonkyio/confluence-sync) handles the push in a pipeline step.
+
+The setup follows the same pattern across all of them. A CI job triggers on push to main, handles any format conversion the platform requires, and sends the file to the destination via API. Pre-built tools exist for the common platforms. If none fit, those three steps are still the whole thing.
+
+## Where to Keep the Source of Truth
+
+In both patterns, the repository is the source of truth. The documentation platform receives content; it does not produce it.
+
+This matters for the same reason any distributed system needs a single authority. When two sources can both be edited, they will diverge. If engineers can update a Confluence page directly and separately from the code, they will. Eventually the page reflects something that no longer matches the product, and nobody knows which one is right.
+
+Keeping the source of truth in the repository solves this by making documentation a step in the same workflow as the code. A change to the product requires a change to the docs file in the same PR. The pipeline delivers it. The documentation platform is the display layer, not the storage layer.
+
+## What This Does Not Solve
+
+Connecting your repository to your documentation platform keeps published docs current with what's written in the repository. It does not catch the case where something changed in the product and nobody updated the docs file in the first place.
+
+A pipeline that pushes `/docs/api-reference.md` to your documentation platform will keep that page current. It will not catch a renamed endpoint that nobody reflected in `api-reference.md`. [That's a drift detection problem](/blog/technical/documentation-drift-detection-problem), and it lives upstream of any sync pipeline.
+
+The connection handles getting accurate content to the right place. The harder part is knowing when a product change requires a documentation change in the first place, before it ships rather than after users notice. Treating that as [a continuous monitoring task](/blog/technical/how-teams-keep-docs-up-to-date-with-promptless) rather than a periodic review is what separates teams whose docs stay current from teams that are perpetually catching up.
+
+<BlogRequestDemo />
