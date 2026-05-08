@@ -12,17 +12,17 @@ hidden: false
 import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
 import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
 
-A developer searches for how to authenticate with your API. Google returns your v1 docs. They implement the deprecated OAuth flow. Their integration ships. Three weeks later, they open a support ticket when the endpoint stops responding.
+A developer searches for how to authenticate with your API. Google returns your v1 docs. They implement the deprecated OAuth flow, ship the integration, and three weeks later open a support ticket when the endpoint stops responding.
 
-You have a version selector. The current docs are accurate. Nobody landed on them.
+The version selector exists and the current docs are accurate. Nobody landed on them.
 
-This is the core problem with documentation versioning: adding a version selector is easy. The hard part is making sure your versioning setup doesn't quietly multiply your maintenance debt while developers keep landing on the wrong pages.
+The core problem with documentation versioning is that adding a version selector is easy. The hard part is ensuring your versioning setup doesn't multiply your maintenance debt while developers keep landing on the wrong pages.
 
 ## Old pages don't go away on their own
 
 When you publish versioned documentation, every old version stays live on a public URL. Search engines index all of it. A developer searching for "how to use your webhook API" may land on a v1 page that hasn't been touched since 2022, with no indication that v3 exists.
 
-The fix is a canonical URL configuration. Most documentation platforms (Read the Docs, MkDocs Material, Docusaurus) support a `canonical_version` setting that tells search engines which version to prefer. Set it to your latest stable release. This doesn't remove old pages, but it concentrates organic search traffic on the version you actually maintain.
+The fix is a canonical URL configuration. Read the Docs, MkDocs Material, and Docusaurus all support a `canonical_version` setting that tells search engines which version to prefer. Set it to your latest stable release. Old pages remain indexed, but organic search traffic concentrates on the version you actually maintain.
 
 Without it, you are effectively competing against yourself in search results. Your v1, v2, and v3 authentication pages are all indexed. Developers land on whichever one Google serves them. If your v1 page has more inbound links than your v3 page, it will rank higher regardless of accuracy.
 
@@ -32,11 +32,11 @@ This is a five-minute configuration change with a meaningful impact on how often
 
 The deeper problem is what happens inside your team after you ship v2, then v3, then v4.
 
-Most teams budget writing time for documentation. They don't budget maintenance time across versions. When you have one set of docs, a product change requires one fix. When you have four live versions, that same change requires four fixes, in four places, with four separate reviews and deploys. If you're using a branch-per-version strategy (the default in Docusaurus and Antora), those fixes typically have to be cherry-picked across branches manually.
+Most teams budget writing time for documentation. Maintenance time across versions is a different story. When you have one set of docs, a product change requires one fix. When you have four live versions, that same change requires four fixes, in four places, with four separate reviews and deploys. If you're using Docusaurus or Antora's default branch-per-version strategy, those fixes typically have to be cherry-picked across branches manually.
 
-[Docusaurus documentation](https://docusaurus.io/docs/versioning) explicitly warns: "Try to keep the number of your versions below 10, as you will very likely have a lot of obsolete versioned documentation that nobody even reads anymore." The recommendation exists because teams routinely underestimate how expensive old versions become over time.
+[Docusaurus documentation](https://docusaurus.io/docs/versioning) warns teams to keep the number of versions below 10, citing the near-certainty of accumulating obsolete documentation nobody reads. The recommendation exists because teams routinely underestimate how expensive old versions become over time.
 
-The math is straightforward. If you spend four hours a month maintaining one version, you don't spend five hours maintaining five versions. You spend twenty. Each version is a separate drift surface. A factual error introduced after a branching point can exist in one version, several, or all of them, depending on when the underlying product changed and how carefully your team tracked it.
+Four hours a month on one version becomes twenty hours on five. Each version is a separate drift surface. A factual error introduced after a branching point can exist in one version, several, or all of them, depending on when the underlying product changed and how carefully your team tracked it.
 
 <BlogNewsletterCTA />
 
@@ -48,25 +48,25 @@ There are two main approaches to versioning documentation.
 
 **Single-source with conditional content** keeps one set of source files and uses conditionals or variables to render version-specific differences. GitHub Docs uses this approach for their product, which spans multiple GitHub plans and deployment types simultaneously. The tradeoff is higher setup complexity upfront. Writers need to learn the conditional syntax, and mistakes in conditional logic can cause content to appear in the wrong version. But the payoff is that shared content only exists once. When it needs updating, one edit propagates across all versions.
 
-For teams maintaining two or three long-lived API versions, branch-per-version is manageable. For teams maintaining five or more, the duplication cost is almost always worth solving. The Docusaurus team [recommends thinking carefully before adding each new version](https://docusaurus.io/docs/versioning), specifically because most teams don't plan for the long-term maintenance implications.
+For teams maintaining two or three long-lived API versions, branch-per-version is manageable. For teams maintaining five or more, the duplication cost is usually worth solving. The Docusaurus team [recommends thinking carefully before adding each new version](https://docusaurus.io/docs/versioning), specifically because most teams don't plan for the long-term maintenance implications.
 
 ## Deprecation timelines rarely hold
 
-The hardest part of a versioning strategy isn't setting it up. It's following through on deprecation.
+The hardest part of a versioning strategy is following through on deprecation, not setting it up.
 
-A typical API deprecation cycle looks like this: a 6-month announcement, 12 months of active migration support, and full removal at 18-24 months. In practice, teams extend these timelines repeatedly because users don't migrate on schedule. Without data on which clients are still using deprecated versions, it's impossible to know whether it's safe to remove them.
+A typical API deprecation cycle runs a 6-month announcement, 12 months of active migration support, and full removal at 18-24 months. In practice, teams extend these timelines repeatedly because users don't migrate on schedule. Without data on which clients are still using deprecated versions, it's impossible to know whether it's safe to remove them.
 
 The result is that teams accumulate live documentation versions indefinitely. You can't deprecate what you can't measure. Deprecation is a usage metrics problem as much as a communication problem.
 
-Tracking version-specific traffic and API call patterns lets you make deprecation decisions based on actual adoption rather than guesswork. If 0.3% of your traffic is on v1 after two years, that's different from 12%. The first case justifies removal. The second suggests your migration path needs work before you pull the version.
+Tracking version-specific traffic and API call patterns lets you make deprecation decisions based on actual adoption data, not guesswork. If 0.3% of your traffic is on v1 after two years, that's different from 12%. Low adoption justifies removal; high adoption means your migration path needs work before you pull the version.
 
-Announcing a deprecation timeline without this data produces the same outcome every time: repeated extensions, mounting maintenance cost, and documentation drift accumulating across every version you can't remove.
+Announcing a deprecation timeline without this data produces repeated extensions, mounting maintenance cost, and documentation drift accumulating across every version you can't remove.
 
 ## Versioning doesn't prevent drift inside each version
 
 A well-configured versioning setup solves the problem of organizing past releases. It doesn't solve the problem of documentation staying accurate after a branch is cut.
 
-Once you create a versioned snapshot of your docs, that snapshot starts diverging from reality the moment the product changes. Bug fixes, renamed parameters, updated authentication flows, new required fields: any change to the product after a branching point can invalidate documentation in a live version. Teams that track this manually, by checking docs after every release, don't scale. Teams that don't track it at all accumulate [documentation drift](/blog/technical/documentation-drift-detection-problem) silently, across every live version simultaneously.
+Once you create a versioned snapshot of your docs, that snapshot starts diverging from reality the moment the product changes. Any product change after a branching point can invalidate documentation in a live version. That includes bug fixes, renamed parameters, updated authentication flows, and new required fields. Teams that track this manually, by checking docs after every release, don't scale. Teams that don't track it at all accumulate [documentation drift](/blog/technical/documentation-drift-detection-problem) across every live version simultaneously.
 
 The versioning strategy manages the structure. The drift problem requires a separate monitoring layer.
 
