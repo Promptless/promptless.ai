@@ -65,12 +65,12 @@ npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 
 ## Shared Agent Tools
 
-- Use the shared `promptless-internal` plugin for Slack and reusable Promptless
-  workflows.
-- Use `generate-article` and `launch-post` from the shared plugin for the edu
-  campaign/blog pipeline.
-- Do not add repo-local skills unless they truly cannot live in the central
-  plugin.
+- Use the shared `promptless-internal` plugin for Slack, PR review, and generic
+  Promptless workflows.
+- Website-owned content skills live in `.agents/skills/` in this repo. Use
+  `generate-article` and `launch-post` for the edu campaign/blog pipeline.
+- Keep new repo-local skills limited to workflows that depend on this checkout's
+  content collections, scripts, or file layout.
 
 ## Diagrams
 
