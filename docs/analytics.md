@@ -149,6 +149,5 @@ comparison clicks.
 4. `/pricing`
 5. `/jobs`
 6. `/blog`
-7. `/wtd-portland-2026`
-8. `/free-tools`
-9. `/changelog`
+7. `/free-tools`
+8. `/changelog`
