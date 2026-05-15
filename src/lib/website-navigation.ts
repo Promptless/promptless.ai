@@ -1,10 +1,10 @@
-export type WebsitePageId = 'home' | 'pricing' | 'jobs' | 'wtd-portland-2026';
+export type WebsitePageId = 'home' | 'pricing' | 'jobs';
 
 export interface WebsiteNavItem {
   id: WebsitePageId;
   href: string;
   label: string;
-  icon: 'overview' | 'pricing' | 'jobs' | 'calendar';
+  icon: 'overview' | 'pricing' | 'jobs';
 }
 
 interface WebsiteSidebarLink {
@@ -17,7 +17,6 @@ export const WEBSITE_NAV_ITEMS: WebsiteNavItem[] = [
   { id: 'home', href: '/', label: 'Overview', icon: 'overview' },
   { id: 'pricing', href: '/pricing', label: 'Pricing', icon: 'pricing' },
   { id: 'jobs', href: '/jobs', label: 'Work at Promptless!', icon: 'jobs' },
-  { id: 'wtd-portland-2026', href: '/wtd-portland-2026', label: 'WTD 2026', icon: 'calendar' },
 ];
 
 export function getWebsiteSidebarLinks(): WebsiteSidebarLink[] {
