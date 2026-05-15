@@ -33,7 +33,6 @@ test('collects hidden website pages', () => {
   const hiddenPaths = getHiddenWebsitePaths(new URL('../../src/content/website/', import.meta.url));
 
   assert(hiddenPaths.has('/jobs'));
-  assert(hiddenPaths.has('/wtd-portland-2026'));
   assert(!hiddenPaths.has('/demo'));
 });
 
@@ -50,12 +49,10 @@ test('filters hidden sitemap pages while preserving public ones', () => {
   const hiddenPaths = new Set([
     '/docs/core-concepts',
     '/docs/internal/component-fixtures',
-    '/wtd-portland-2026',
   ]);
   const filter = createSitemapPathFilter(hiddenPaths);
 
   assert.equal(filter('https://promptless.ai/docs/core-concepts/'), false);
   assert.equal(filter('https://promptless.ai/docs/internal/component-fixtures/'), false);
-  assert.equal(filter('https://promptless.ai/wtd-portland-2026/'), false);
   assert.equal(filter('https://promptless.ai/demo/'), true);
 });
