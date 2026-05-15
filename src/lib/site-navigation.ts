@@ -1,5 +1,5 @@
-export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd' | 'none';
-export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'wtd';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'none';
+export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs';
 
 interface TopNavBaseItem {
   section: SiteSection;
@@ -39,7 +39,6 @@ export function getActiveSection(pathname: string): SiteSection {
   }
   if (normalized === '/pricing') return 'pricing';
   if (normalized === '/jobs') return 'jobs';
-  if (normalized === '/wtd-portland-2026') return 'wtd';
   if (normalized.startsWith('/docs')) return 'docs';
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
