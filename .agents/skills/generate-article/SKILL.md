@@ -10,6 +10,11 @@ description: |
   Even if the user just says something like "pick a keyword and write an article" or "run the content pipeline", use this skill.
 ---
 
+## Repository Context
+
+Use this skill from the `Promptless/promptless.ai` repository. If the current checkout is different, first locate the website/docs repo, usually `~/promptless/promptless.ai`, and run commands there. If that repo is unavailable, explain that this skill requires the Promptless website repo.
+
+
 # Generate Article (Edu Campaign)
 
 Automated content pipeline for the Promptless blog. This skill replaces the `generate-article.ts` script by using Claude Code's native tools (web search, file writing, git, gh CLI, agent-slack) instead of calling the Anthropic API programmatically.

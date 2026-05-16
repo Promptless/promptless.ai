@@ -22,6 +22,11 @@ description: |
   A typical week produces zero or one post; a typical month produces 2–4.
 ---
 
+## Repository Context
+
+Use this skill from the `Promptless/promptless.ai` repository. If the current checkout is different, first locate the website/docs repo, usually `~/promptless/promptless.ai`, and run commands there. If that repo is unavailable, explain that this skill requires the Promptless website repo.
+
+
 # Launch Post
 
 Triages recent Promptless changelog entries, picks out the ones that genuinely warrant a launch article, and writes one focused single-feature article per qualifier.
@@ -48,7 +53,7 @@ There are four invocation modes. Pick the one that matches the user's request.
 Scan commits on the changelog directory from the last 7 days:
 
 ```bash
-cd ~/dev/docs
+cd ~/promptless/promptless.ai
 git fetch origin main
 git log --since="7 days ago" origin/main -- src/content/changelog/changelogs/ \
   --pretty=format:'%H%x09%ai%x09%s'
@@ -75,7 +80,7 @@ The user names a specific feature ("write a post for the AGENTS.md support"). Tr
 The user asks to backfill a specific month ("backfill March 2026", "generate launch posts for February 2026"). Scan all commits that touched the changelog directory within that calendar month:
 
 ```bash
-cd ~/dev/docs
+cd ~/promptless/promptless.ai
 git fetch origin main
 # Example: March 2026
 git log --since="2026-03-01" --until="2026-04-01" origin/main \
@@ -224,7 +229,7 @@ For each feature, extract:
 - **Who benefits most** — which team type or workflow
 - **Any setup required** — configuration, opt-in, caveats
 
-If a PR description is thin, check linked issues: `gh issue view {number} --repo Promptless/promptless`. The local repo at `~/dev/promptless` is available too, but `gh` on the remote is usually faster.
+If a PR description is thin, check linked issues: `gh issue view {number} --repo Promptless/promptless`. The local repo at `~/promptless/promptless` is available too, but `gh` on the remote is usually faster.
 
 Don't over-research. 2–3 concrete facts is enough.
 

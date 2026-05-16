@@ -2,6 +2,10 @@
 
 Astro + Starlight site. Deployed to Vercel.
 
+Shared Promptless agent safety rules and reusable skills live in
+`Promptless/agent-instructions` via the `promptless-internal` plugin. Keep this
+file focused on website/docs repo facts.
+
 ## Documentation Map
 
 Maintain a map of every file in `docs/` here. When you add, remove, or rename
@@ -58,6 +62,15 @@ npm run check            # typecheck + build
 npm run test:smoke       # smoke tests
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 ```
+
+## Shared Agent Tools
+
+- Use the shared `promptless-internal` plugin for Slack, PR review, and generic
+  Promptless workflows.
+- Website-owned content skills live in `.agents/skills/` in this repo. Use
+  `generate-article` and `launch-post` for the edu campaign/blog pipeline.
+- Keep new repo-local skills limited to workflows that depend on this checkout's
+  content collections, scripts, or file layout.
 
 ## Diagrams
 
