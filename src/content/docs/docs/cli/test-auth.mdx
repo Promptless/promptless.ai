@@ -1,0 +1,375 @@
+---
+title: 'Test spec: authentication happy path'
+description: Step-by-step spec for the promptless login → whoami → logout flow against a local fake-server fixture.
+slug: docs/cli/test-auth
+sidebar:
+  hidden: true
+---
+
+## What to do with this file
+
+You are a coding agent. Your job is to execute this test spec by running
+commands in a shell, step by step, from Phase 0 through Phase 7. For each
+step:
+
+1. Run the command shown in the code block.
+2. Read the output.
+3. Check every **Assert** listed for that step.
+4. Record the result: PASS or FAIL with the actual output.
+5. When a step says **Capture**, save the value into the named variable and
+   use it in subsequent steps (e.g., `$URL` gets reused later).
+
+At the end, produce a summary table showing which phases passed and which
+failed, with the actual vs. expected values for any failures.
+
+If a prerequisite is not met (binary not found, fixture script missing), stop
+and report that instead of continuing.
+
+## What this test is checking
+
+This spec covers the **happy path** for `promptless login`, `whoami`, and
+`logout`: a developer with no cached credentials runs `login`, ends up with
+exactly one API key on disk in the right place with the right permissions,
+uses it via `whoami`, then `logout`s back to a clean state. Every assertion
+on this path is on the critical line — if any of them break, the most
+common user-visible behavior of the CLI is broken.
+
+It does **not** cover:
+
+- Config file path resolution rules — see
+  [Test spec: config file paths](/docs/cli/test-auth-config-paths).
+- How the `PROMPTLESS_CLI_API_SECRET` env var interacts with the cached
+  file — see [Test spec: env-var precedence](/docs/cli/test-auth-env-precedence).
+- `logout` edge cases (preserving unrelated keys, idempotency, env-var
+  warning) — see [Test spec: logout edge cases](/docs/cli/test-auth-logout-cases).
+
+The four files share the same fixture (`promptless-test-fixture`),
+described in full below. The other three files reference this spec
+instead of duplicating the contract.
+
+## Prerequisites
+
+The `promptless` binary and the `promptless-test-fixture` helper must be on
+`$PATH`. No external infrastructure (Clerk, the real Promptless API) is
+required.
+
+As a quick smoke test:
+
+```
+$ promptless --help | head -1
+```
+
+If this succeeds, proceed. If it fails, stop and report the error.
+
+## Fixture: promptless-test-fixture
+
+The `promptless-test-fixture` helper provides a fake server that stands in
+for both the web app and the API. This contract is shared by all four
+`test-auth*.md` specs.
+
+The `start-fake-server` subcommand does the following:
+
+1. Binds an HTTP server to `127.0.0.1` on a random free port.
+2. Pre-allocates a deterministic test API key (`plk_test_<random>`).
+3. Serves `GET /cli/auth?public_key=&key_type=&redirect_uri=&state=` by:
+   - Validating that `redirect_uri` is `http://127.0.0.1:*/auth/callback`.
+   - Validating that `key_type` is `v1` (the protocol version currently
+     supported by the CLI; see [CLI auth protocol](/docs/cli/cli-auth-protocol)).
+   - Importing `public_key` as a base64url SPKI DER RSA public key.
+   - RSA-OAEP-256-encrypting the pre-allocated API key with that public
+     key.
+   - Issuing a server-side **POST** (not a redirect) to `redirect_uri`
+     with `Content-Type: application/json`, `Origin: <fixture URL>`,
+     and body `{ "encrypted_key": "<base64url>", "state": "<state>",
+     "key_type": "v1" }`. The POST must use raw `http.request` (or
+     equivalent), **not** `fetch` — the Fetch spec forbids setting the
+     `Origin` header from client code and undici silently drops it,
+     which fails the CLI's CORS check.
+   - Responding to the original GET with `200` and a small text body
+     summarizing the callback result, after the POST completes.
+4. Serves `GET /v1/me` by validating
+   `Authorization: Bearer <pre-allocated key>` and returning a fixed user
+   JSON. Any other key returns `401`.
+
+It prints four `KEY=VALUE` lines on stdout, suitable for `eval`:
+
+```
+URL=http://127.0.0.1:NNNNN
+API_KEY=plk_test_xxxxxxxxxxxxxxxx
+EMAIL=cli-test@gopromptless.ai
+PID=NNNNN
+```
+
+`stop-fake-server <PID>` shuts it down. The fixture deliberately collapses
+the two real services (web app and API) into one process — the CLI talks
+to whatever URLs `PROMPTLESS_APP_BASE_URL` and `PROMPTLESS_API_BASE_URL`
+point at.
+
+## Notation
+
+- `$CFG` — absolute path to the test config file.
+- `$URL` — base URL of the fake server.
+- `$API_KEY` — API key the fake server hands out.
+- `$EMAIL` — test user's email.
+- Lines starting with `$` inside code blocks are commands to run.
+
+---
+
+## Phase 0: Isolate the config location
+
+The first thing that has to be true is that the test cannot read, write, or
+clobber the developer's real `~/.config/promptless/env`. The CLI's
+`PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE` env var is exactly this escape
+hatch — when set, every other resolution path is ignored. Pointing it at a
+fresh `/tmp` path also makes the rest of the test trivially clean up.
+
+```
+$ export PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE=$(mktemp -u /tmp/promptless-test-XXXXXX.env)
+$ unset PROMPTLESS_CLI_API_SECRET
+$ unset XDG_CONFIG_HOME
+```
+
+**Capture** the path as `$CFG`.
+
+If something is already at that path the test is meaningless — every later
+assertion about file contents could pass for the wrong reason.
+
+```
+$ test -e $CFG && echo "exists" || echo "missing"
+```
+
+**Assert:** Output is `missing`.
+
+---
+
+## Phase 1: Start the fake server
+
+Bring up the fixture and `eval` its output into the current shell. Then
+point both CLI base URLs at it.
+
+```
+$ eval "$(promptless-test-fixture start-fake-server)"
+$ echo "URL=$URL API_KEY=$API_KEY EMAIL=$EMAIL PID=$PID"
+$ export PROMPTLESS_APP_BASE_URL=$URL
+$ export PROMPTLESS_API_BASE_URL=$URL
+```
+
+**Assert:**
+- `$URL`, `$API_KEY`, `$EMAIL`, `$PID` are all non-empty.
+- `$URL` starts with `http://127.0.0.1:`.
+- `$API_KEY` starts with `plk_test_`.
+
+---
+
+## Phase 2: Baseline — not logged in
+
+Confirm the CLI agrees we're not logged in. If this returns success, the
+test environment is contaminated by a leaked env var or a stale file, and
+nothing downstream is meaningful.
+
+```
+$ promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is non-zero.
+- stderr contains `not logged in` and a hint to run `promptless login`.
+
+---
+
+## Phase 3: Run promptless login end-to-end
+
+`promptless login` is meant to be driven by a real browser, but for an
+automated test we play the role of the browser ourselves. The flow is:
+
+1. CLI generates an RSA-OAEP-2048 keypair in memory and a state nonce.
+2. CLI binds a one-shot HTTP server on a random `127.0.0.1` port.
+3. CLI prints
+   `…/cli/auth?public_key=…&key_type=v1&redirect_uri=…&state=…` to stderr
+   and waits for a POST to `/auth/callback`.
+4. (Normally a real browser opens this URL.)
+5. The web app calls the backend, which encrypts a freshly created API
+   key with the public key and returns the ciphertext.
+6. The web app `fetch()`s the CLI's local server with a JSON POST.
+7. CLI decrypts with its private key, saves to `$CFG`, and exits.
+
+We replace step 4 with `curl`. The fixture's `GET /cli/auth` handler
+itself performs the POST to the CLI's `/auth/callback` (steps 5 and 6)
+before responding to curl. `--no-browser` keeps the CLI from launching
+the host's GUI browser as a side effect.
+
+```
+$ promptless login --no-browser > $CFG.login.stderr 2>&1 &
+$ LOGIN_PID=$!
+```
+
+The auth URL appears on the first stderr line containing `?public_key=`.
+Poll for up to one second.
+
+```
+$ for i in 1 2 3 4 5; do
+    AUTH_URL=$(grep -o "$URL/cli/auth?[^ ]*" $CFG.login.stderr 2>/dev/null | head -1)
+    [ -n "$AUTH_URL" ] && break
+    sleep 0.2
+  done
+$ echo "$AUTH_URL"
+```
+
+**Capture** as `$AUTH_URL`.
+
+**Assert:**
+- `$AUTH_URL` is non-empty.
+- Contains `public_key=`, `key_type=v1`, `redirect_uri=`, and `state=`
+  query parameters.
+- The `redirect_uri` value starts with `http://127.0.0.1:` and ends in
+  `/auth/callback`.
+
+Drive the fixture. `curl` GETs the auth URL; the fixture posts the
+encrypted key to the CLI's `/auth/callback` synchronously inside its
+own handler, then responds to curl with `200`.
+
+```
+$ curl -s "$AUTH_URL" -o /dev/null -w "%{http_code}\n"
+```
+
+**Assert:** Output is `200`. If this is `400` or `403`, either the
+RSA-OAEP round-trip failed (key/ciphertext format mismatch) or the
+CLI's CORS check rejected the fixture's `Origin` header — usually
+because the fixture used `fetch` instead of `http.request`, which
+silently drops the `Origin` header per the Fetch spec.
+
+The background login should exit cleanly. The CLI does a `whoami`
+verification call before exiting, so this proves the freshly minted key
+actually works end-to-end.
+
+```
+$ wait $LOGIN_PID; echo "login exit: $?"
+$ cat $CFG.login.stderr
+```
+
+**Assert:**
+- Login exit code is `0`.
+- stderr contains `Saved API key to $CFG`.
+- stderr contains `Logged in as $EMAIL`.
+
+---
+
+## Phase 4: Verify the cached config file
+
+The config file is the only persistent artifact of login. Its location,
+contents, and Unix permissions are all load-bearing for the security
+model.
+
+```
+$ test -f $CFG && echo "found" || echo "missing"
+$ cat $CFG
+```
+
+**Assert:**
+- File exists.
+- Exactly one assignment: `PROMPTLESS_CLI_API_SECRET=$API_KEY`.
+- No additional keys, comments, or stray text.
+
+```
+$ stat -f '%Lp' $CFG 2>/dev/null || stat -c '%a' $CFG
+```
+
+**Assert:** Output is `600`. (Group- or world-readable here means any other
+user on the box can exfiltrate the bearer token.)
+
+---
+
+## Phase 5: whoami uses the cached key
+
+With the key cached, `promptless whoami` should hit the fake API and
+return the test user. This is a tight loop that exercises three things at
+once: the config file is read, the bearer token is attached correctly to
+the request, and the response is parsed and rendered.
+
+```
+$ promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is `0`.
+- stdout's first line starts with `$EMAIL` (optionally followed by ` (name)`).
+
+`--json` should produce a strict JSON document with stable field names.
+Downstream tooling keys off these names.
+
+```
+$ promptless whoami --json
+```
+
+**Assert:**
+- Output parses as JSON.
+- Contains string fields `user_id` and `email`.
+- `email` equals `$EMAIL`.
+
+---
+
+## Phase 6: logout returns to clean state
+
+`logout` removes `PROMPTLESS_CLI_API_SECRET` from the config file. Since
+the file only contains that one key on the happy path, the file itself
+should be deleted — not left as a zero-byte artifact.
+
+```
+$ promptless logout; echo "exit: $?"
+$ test -e $CFG && echo "exists" || echo "missing"
+```
+
+**Assert:**
+- Exit code is `0`.
+- stderr contains `Removed API key from $CFG`.
+- File no longer exists.
+
+---
+
+## Phase 7: Post-logout state matches the baseline, then tear down
+
+The whole point of `logout` is to put the CLI back to where it was before
+`login`. Phase 7 confirms that by re-running the Phase 2 check.
+
+```
+$ promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is non-zero.
+- stderr contains `not logged in`.
+
+Now tear the fixture down. Leaving the fake server running blocks future
+test runs on the same port; leaving temp files around defeats the
+isolation guarantee.
+
+```
+$ promptless-test-fixture stop-fake-server $PID
+$ curl -s -o /dev/null -w "%{http_code}" --max-time 2 $URL/v1/me || true
+```
+
+**Assert:**
+- Fixture confirms the server was stopped.
+- curl output is `000` (connection refused / timed out), not a real HTTP
+  status.
+
+```
+$ rm -f $CFG $CFG.login.stderr
+```
+
+**Assert:** No `/tmp/promptless-test-*` files remain.
+
+---
+
+## Summary of Key Assertions
+
+| Phase | What is tested | Key assertion |
+|-------|---------------|---------------|
+| 0 | Isolation | Fresh `$CFG` path; nothing already there |
+| 1 | Fixture up | Fake server printing `URL`, `API_KEY`, `EMAIL`, `PID` |
+| 2 | Baseline | `whoami` exits non-zero ("not logged in") |
+| 3 | login round-trip | Auth URL has secret/redirect/state; curl callback → 200; login exits 0 |
+| 4 | Cached config | One `PROMPTLESS_CLI_API_SECRET=…` line; mode `0600` |
+| 5 | whoami | Exits 0; output and JSON match `$EMAIL` |
+| 6 | logout | File deleted; exit 0 |
+| 7 | Post-state + teardown | `whoami` matches Phase 2; fake server stopped; temp files removed |
