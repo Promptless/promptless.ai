@@ -1,0 +1,89 @@
+---
+title: Promptless CLI
+description: A command-line companion that surfaces Promptless suggestions, lints LLM prose tells, and exposes agent-readable views of your published pages from the terminal.
+slug: docs/cli
+sidebar:
+  hidden: false
+  order: 1
+---
+
+A command-line companion for tech writers. The CLI surfaces docs work the Promptless platform has done on your behalf — detected prose tells, pending suggestions, agent-readable views of your published pages — without forcing you out of the terminal.
+
+## How it works
+
+Promptless runs as a hosted service that watches your docs and produces suggestions, audits, and analyses. The CLI is the local-side handle on that service. It authenticates once, then offers focused commands that each map to a single thing you would otherwise click through the web app to do.
+
+This means you can:
+
+- Triage open suggestions from your editor or terminal
+- Lint your own drafts for LLM prose tells before committing
+- See exactly what markdown a coding agent will read when it crawls a published page
+- Drop authenticated calls into scripts and CI without juggling browser cookies
+
+## Getting started
+
+```
+npm install -g github:Promptless/promptless-cli
+promptless login
+promptless whoami
+```
+
+`login` pops a browser, completes the Clerk handshake, and writes a long-lived API key to a config file under `~/.config/promptless/`. Every other command reads that file. See [Configuration](/docs/cli/configuration) for path resolution and [Environment variables](/docs/cli/environment-variables) for the overrides used by tests and staging.
+
+## Commands
+
+`promptless login`, `promptless logout`, `promptless whoami`, `promptless suggestions`, `promptless slop-cop`, `promptless agentview`, and `promptless completion`. See the full [command reference](/docs/cli/commands).
+
+The short alias `pless` is installed alongside `promptless` and accepts the same arguments.
+
+## A day with promptless
+
+Suppose you maintain the docs for a small developer tool. Here's what a typical morning might look like.
+
+### Check what's waiting for you
+
+```
+$ promptless suggestions
+
+  ID         STATUS     REMOTE              PR      PAGE                                          TRIGGER                CREATED
+  sg_a1b2c   pr_open    Promptless/docs     #3402   src/content/docs/docs/getting-started.mdx     slack C0B2WNQ3CM9      38m ago
+  sg_d3e4f   pr_open    Promptless/docs     #3398   src/content/docs/docs/integrations/linear…    PR promptless#3398     5h ago
+  sg_g5h6i   pr_open    Promptless/runtime  #3401   runtime/dispatch/prompts/notification_skill…  slack C0B2WNQ3CM9      5h ago
+  ...
+
+  Showing 10 of 23. Use --limit, --all, or filters to narrow.
+```
+
+Ten open suggestions, newest first. The default is intentionally short — see [Suggestions](/docs/cli/suggestions) for filtering by docs location, trigger, status, label, or free-text query, and the `--stat` flag for a `git diff --stat`-style per-file breakdown.
+
+### Read one in full
+
+```
+$ promptless suggestions --id sg_a1b2c
+```
+
+The list view is compact on purpose. `--id` shows the full body and suggested diff for a single suggestion.
+
+### Draft a fix and lint it before you push
+
+```
+$ promptless slop-cop docs/intro.md
+```
+
+`slop-cop` flags the rhetorical and structural tells of LLM-generated prose so you can fix them before they ship. It is the only command that does no network I/O — pure local linting.
+
+### See the page the way an agent will
+
+```
+$ promptless agentview https://docs.example.com/intro
+```
+
+Coding agents do not see your CSS or chrome — they see the markdown extracted from `<main>`. `agentview` prints exactly that, so you can audit what an agent will actually quote back.
+
+## Configuration
+
+The CLI stores a single piece of state: the cached API key. Path resolution, env-var overrides, and file permissions are documented in [Configuration](/docs/cli/configuration).
+
+Server endpoints (`app.gopromptless.ai` and `api.gopromptless.ai` by default) can be pointed at staging or a local stack via the variables in [Environment variables](/docs/cli/environment-variables).
+
+The login flow and the contract between the CLI and the Promptless web app is documented separately in [CLI auth protocol](/docs/cli/cli-auth-protocol), which is primarily of interest if you are working on the CLI itself.
