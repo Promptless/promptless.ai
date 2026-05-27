@@ -1,0 +1,202 @@
+---
+title: 'Test spec: env-var precedence'
+description: How PROMPTLESS_CLI_API_SECRET in the environment overrides the cached config file across login, whoami, and bogus-token scenarios.
+slug: docs/cli/test-auth-env-precedence
+sidebar:
+  hidden: true
+---
+
+## What to do with this file
+
+You are a coding agent. Your job is to execute this test spec by running
+commands in a shell, step by step, from Phase 0 through Phase 6. For each
+step:
+
+1. Run the command shown in the code block.
+2. Read the output.
+3. Check every **Assert** listed for that step.
+4. Record the result: PASS or FAIL with the actual output.
+
+At the end, produce a summary table showing which phases passed and which
+failed.
+
+## What this test is checking
+
+The CLI's secret-resolution logic (`src/lib/config.ts:getApiSecret`) gives
+the `$PROMPTLESS_CLI_API_SECRET` environment variable strict priority
+over the value cached in the config file. This single decision point has
+a few important consequences:
+
+- Operators can override the cached identity for a single command without
+  editing or deleting the file.
+- A bogus value in the environment must produce a clear auth failure,
+  not silently fall back to the file.
+- The CLI can run with **only** the env var set (no file at all) — useful
+  for CI and for one-shot scripts.
+
+This spec tests each of those properties as a separate phase, all driven
+against the same fake server set up in Phase 0.
+
+The fixture contract (`promptless-test-fixture start-fake-server`,
+`stop-fake-server`) is defined in [Test spec: authentication happy path](/docs/cli/test-auth).
+For the linear happy path, see the same document. For the path-resolution
+rules, see [Test spec: config file paths](/docs/cli/test-auth-config-paths).
+
+## Prerequisites
+
+The `promptless` binary and `promptless-test-fixture` must be on `$PATH`.
+
+```
+$ promptless --help | head -1
+```
+
+---
+
+## Phase 0: Setup — fake server up, valid key cached in the file
+
+We need a known-good API key on disk for the precedence tests to mean
+anything. Run a one-shot login to plant it.
+
+```
+$ export PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE=$(mktemp -u /tmp/promptless-prec-XXXXXX.env)
+$ unset PROMPTLESS_CLI_API_SECRET
+$ unset XDG_CONFIG_HOME
+$ eval "$(promptless-test-fixture start-fake-server)"
+$ export PROMPTLESS_APP_BASE_URL=$URL
+$ export PROMPTLESS_API_BASE_URL=$URL
+$ promptless login --no-browser > /tmp/promptless-prec-login.stderr 2>&1 &
+$ LOGIN_PID=$!
+$ for i in 1 2 3 4 5; do
+    AUTH_URL=$(grep -o "$URL/cli/auth?[^ ]*" /tmp/promptless-prec-login.stderr 2>/dev/null | head -1)
+    [ -n "$AUTH_URL" ] && break
+    sleep 0.2
+  done
+$ curl -sL "$AUTH_URL" -o /dev/null
+$ wait $LOGIN_PID
+$ grep -c PROMPTLESS_CLI_API_SECRET $PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE
+```
+
+**Assert:**
+- Output is `1` — the config file contains exactly one
+  `PROMPTLESS_CLI_API_SECRET` line.
+- `$API_KEY` is non-empty.
+
+---
+
+## Phase 1: Baseline — no env var, cached file works
+
+Sanity check: with no env var set, `whoami` reads the cached file and
+succeeds. This is the "no override" baseline that every later phase will
+contrast against.
+
+```
+$ unset PROMPTLESS_CLI_API_SECRET
+$ promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is `0`.
+- stdout starts with `$EMAIL`.
+
+---
+
+## Phase 2: Bogus env var beats a valid file
+
+Set `$PROMPTLESS_CLI_API_SECRET` to an obviously-wrong value. The CLI
+must send the env-var value to the API and report a `401`, **not**
+silently fall back to the valid value in the file.
+
+```
+$ PROMPTLESS_CLI_API_SECRET=plk_bogus_definitely_not_real promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is non-zero.
+- stderr mentions authentication failure (or `401`).
+
+If this assertion fails — i.e. the call succeeds — the env-var precedence
+is broken and every operator-override scenario is unsafe.
+
+---
+
+## Phase 3: Matching env var works
+
+Now set `$PROMPTLESS_CLI_API_SECRET` to the **same** value as the file.
+This should succeed, proving the env-var path is otherwise wired correctly
+(not just defaulting to "always fail").
+
+```
+$ PROMPTLESS_CLI_API_SECRET=$API_KEY promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is `0`.
+- stdout starts with `$EMAIL`.
+
+---
+
+## Phase 4: Env-only mode — env var works with no file
+
+Delete the cached file via `logout`. With no file present, `whoami`
+should still succeed when `$PROMPTLESS_CLI_API_SECRET` is exported in the
+shell. This is the supported CI / one-shot pattern.
+
+```
+$ promptless logout
+$ test -e $PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE && echo "exists" || echo "missing"
+```
+
+**Assert:** File is `missing`.
+
+```
+$ PROMPTLESS_CLI_API_SECRET=$API_KEY promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is `0`.
+- stdout starts with `$EMAIL`.
+
+---
+
+## Phase 5: Without env var or file → not logged in
+
+Confirm that the env var was the only thing keeping Phase 4 alive. With
+neither the file nor the env var set, the CLI must report "not logged
+in" — not crash, not hang, not silently use some other default.
+
+```
+$ unset PROMPTLESS_CLI_API_SECRET
+$ promptless whoami; echo "exit: $?"
+```
+
+**Assert:**
+- Exit code is non-zero.
+- stderr contains `not logged in`.
+
+---
+
+## Phase 6: Teardown
+
+```
+$ promptless-test-fixture stop-fake-server $PID
+$ rm -f $PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE /tmp/promptless-prec-login.stderr
+$ unset PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE PROMPTLESS_APP_BASE_URL PROMPTLESS_API_BASE_URL
+```
+
+**Assert:**
+- Fake server stopped.
+- No `/tmp/promptless-prec-*` files remain.
+
+---
+
+## Summary of Key Assertions
+
+| Phase | What is tested | Key assertion |
+|-------|---------------|---------------|
+| 0 | Setup | Valid key cached in file via one-shot login |
+| 1 | Baseline | No env var → file used → whoami succeeds |
+| 2 | Bogus env var beats file | Wrong env value → 401, even though file is valid |
+| 3 | Matching env var works | Correct env value → success (env-var path is functional) |
+| 4 | Env-only mode | After logout, env var alone is sufficient |
+| 5 | No env, no file | Clean "not logged in" failure |
+| 6 | Teardown | Server stopped, temp files removed |
