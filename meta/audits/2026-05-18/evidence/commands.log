@@ -1,0 +1,52 @@
+# Command log — audit 2026-05-18
+# Format: TIMESTAMP | EXIT | COMMAND
+# Recorded for reproducibility per Preflight exit gate.
+
+2026-05-18T00:00:00Z | 0 | git rev-parse HEAD                             # HEAD=a5dfcfb7
+2026-05-18T00:00:00Z | 0 | git branch --show-current                      # main
+2026-05-18T00:00:00Z | 0 | git status --porcelain | wc -l                 # 0 (clean)
+2026-05-18T00:00:00Z | 1 | node --version                                 # MISSING — see skipped-checks.md
+2026-05-18T00:00:00Z | 0 | python3 --version                              # 3.9.6
+2026-05-18T00:00:00Z | 0 | rg --version                                   # 14.1.1
+2026-05-18T00:00:00Z | 0 | jq --version                                   # 1.7.1
+2026-05-18T00:00:00Z | 0 | find src/content/docs -name '*.mdx' -not -path '*/internal/*' | wc -l   # 59
+2026-05-18T00:00:00Z | 0 | ls src/content/docs/internal/                  # component-fixtures.mdx (verified: fixture only)
+2026-05-18T00:00:00Z | 0 | mkdir -p meta/audits/2026-05-18/evidence/{raw/ai-tells,heuristics,tools-config}
+
+# Subsequent commands appended below as audit proceeds.
+
+# === Amendment pass (Node installed mid-audit) ===
+2026-05-18T21:25:00Z | 0 | nvm current                              # v24.15.0
+2026-05-18T21:25:00Z | 0 | node --version                           # v24.15.0
+2026-05-18T21:25:00Z | 0 | npm --version                            # 11.12.1
+2026-05-18T21:26:00Z | 0 | npm ci --no-audit --no-fund              # 948 packages, 32s
+2026-05-18T21:28:00Z | 0 | npm run check                            # 132 pages built, Pagefind indexed 185 HTML
+2026-05-18T21:29:00Z | 0 | npm run test:smoke                       # 14/14 passed, 5.9s
+2026-05-18T21:29:00Z | 0 | node external-link-check.mjs             # 27/28 OK, 1 anti-bot 403 (false positive)
+2026-05-18T21:30:00Z | 0 | npm install --no-save gray-matter remark remark-mdx unist-util-visit
+2026-05-18T21:30:00Z | 0 | node meta/audits/2026-05-18/evidence/build-inventory-ast.mjs   # 59 pages, AST counts
+2026-05-18T21:31:00Z | 0 | npx markdownlint-cli2 (MD040 + MD045)    # 8 untagged-code errors (matches AST)
+2026-05-18T21:31:00Z | 0 | npx alex src/content/docs/docs/          # clean
+2026-05-18T21:31:00Z | 0 | npx afdocs check https://promptless.ai   # 21 pass / 1 warn / 1 skip
+2026-05-18T21:32:00Z | 0 | python3 -m http.server 4321 --directory dist & npx pa11y --standard WCAG2AA http://localhost:4321/docs/getting-started/welcome/   # 3 WCAG 1.4.3 errors on footer
+2026-05-18T21:32:00Z | 0 | awk '/^```bash$/,/^```$/' kubernetes-helm.mdx > helm-block.sh; bash -n   # exit 0 (parser-tolerant)
+2026-05-18T21:32:00Z | 0 | npx shellcheck@latest helm-block.sh      # only flagged SC2148 (missing shebang); did NOT catch F-0001
+
+# === Synthesis pass — page-data merger + DARI spec + Execution Profile update ===
+2026-05-18T22:50:00Z | 0 | gh api repos/mupt-ai/dari-docs           # fetched DARI metadata + README for the Phase 13 sub-lens design
+2026-05-18T22:51:00Z | 0 | gh run list --workflow=afdocs-scheduled.yml --limit 5   # 5 successful daily runs confirmed
+2026-05-18T22:52:00Z | 0 | gh run view <id> --log                   # AFDocs scorecard JSON (overall=100); cached locally for the merger
+2026-05-18T22:55:00Z | 0 | node build-page-data.mjs                 # 1st pass; F-NNNN backlinks 0; iterated regex
+2026-05-18T22:57:00Z | 0 | node build-page-data.mjs                 # 2nd pass; F-NNNN backlinks too permissive (F-0029 leak)
+2026-05-18T22:58:00Z | 0 | node build-page-data.mjs                 # 3rd pass; block-trim fixed; backlinks now F-0001/F-0003 only (correct)
+2026-05-18T22:59:00Z | 0 | wc -l page-data.csv                      # 60 (1 header + 59 rows)
+2026-05-18T22:59:00Z | 0 | jq '.total_pages' page-data.json         # 59
+2026-05-18T22:59:30Z | 0 | diff (before) (after) build-page-data    # idempotent — empty diff
+
+# === Phase 8 fold-into-Phase-13 refactor (user correction) ===
+2026-05-18T23:30:00Z | 0 | rg -i 'doc-detective' src/content/docs/ -l   # confirmed: only the integration description; no inline markers
+2026-05-18T23:30:00Z | 0 | rg '\{\s*\*doc-detective|<!--\s*doc-detective' src/content/docs/   # 0 matches — zero inline tests
+2026-05-18T23:30:00Z | 0 | cat .doc-detective.json .doc-detective.ci.json   # confirmed input: src/content/docs; detectSteps: false
+2026-05-18T23:35:00Z | 0 | node build-page-data.mjs                  # added DD columns; first attempt — execSync rg failed (shell function)
+2026-05-18T23:36:00Z | 0 | node build-page-data.mjs                  # refactored to Node-native fs scanning; 1 spec, 0 inline, 17 procedures detected
+2026-05-18T23:36:30Z | 0 | wc -l page-data.csv                       # still 60 (1 header + 59 rows)
