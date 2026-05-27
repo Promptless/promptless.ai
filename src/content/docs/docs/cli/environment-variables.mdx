@@ -1,0 +1,146 @@
+---
+title: Environment variables
+description: Every environment variable the Promptless CLI reads, with defaults, formats, and usage examples.
+slug: docs/cli/environment-variables
+sidebar:
+  hidden: false
+  order: 5
+---
+
+Every environment variable the Promptless CLI reads, in one place. Variables
+are listed alphabetically. For how the config file interacts with these,
+see [Configuration](/docs/cli/configuration).
+
+## Summary
+
+| Variable | Purpose | Default | Read by |
+|----------|---------|---------|---------|
+| `PROMPTLESS_API_BASE_URL` | Base URL of the Promptless API | `https://api.gopromptless.ai` | every authenticated command |
+| `PROMPTLESS_APP_BASE_URL` | Base URL of the Promptless web app | `https://app.gopromptless.ai` | `login` |
+| `PROMPTLESS_CLI_API_SECRET` | Long-lived API key (bearer token) | `` (read from config file) | every authenticated command |
+| `PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE` | Override the config file path | `` (falls through to XDG, then `~/.config`) | `login`, `logout`, `whoami` |
+| `XDG_CONFIG_HOME` | XDG base directory for the config file | `` (falls through to `~/.config`) | `login`, `logout`, `whoami` |
+
+---
+
+## `PROMPTLESS_API_BASE_URL`
+
+Base URL the CLI sends API requests to. Used by every command that needs to
+present a bearer token, including the `whoami` verification step that
+runs at the end of `login`.
+
+- **Default:** `https://api.gopromptless.ai`
+- **Format:** any HTTP/HTTPS URL. Trailing slashes are stripped.
+- **Typical use:** pointing the CLI at a staging API or a local dev server.
+
+```sh
+export PROMPTLESS_API_BASE_URL=http://localhost:8080
+promptless whoami
+```
+
+---
+
+## `PROMPTLESS_APP_BASE_URL`
+
+Base URL of the Promptless web app. Used by `promptless login` to build
+the `…/cli/auth?public_key=&key_type=&redirect_uri=&state=` URL opened
+in the browser, and to enforce the CORS allow-list on the local
+callback server — only requests whose `Origin` matches this URL are
+accepted.
+
+- **Default:** `https://app.gopromptless.ai`
+- **Format:** any HTTP/HTTPS URL. Trailing slashes are stripped.
+- **Typical use:** pointing `login` at a staging deploy of the web app, or
+  at the local Next.js dev server.
+
+```sh
+export PROMPTLESS_APP_BASE_URL=http://localhost:3000
+promptless login
+```
+
+In practice you usually set `PROMPTLESS_APP_BASE_URL` and
+`PROMPTLESS_API_BASE_URL` together — staging environments expose both.
+
+---
+
+## `PROMPTLESS_CLI_API_SECRET`
+
+The long-lived API key the CLI uses as a bearer token. Resolution order:
+
+1. This env var, if set and non-empty.
+2. The `PROMPTLESS_CLI_API_SECRET=` line in the config file.
+
+`promptless login` writes this value to the config file on success.
+`promptless logout` removes the line from the config file (it does not
+unset the env var in your current shell — see the note in
+[Configuration](/docs/cli/configuration#inspecting-and-removing-the-config)).
+
+- **Default:** unset; the CLI falls back to the config file.
+- **Format:** the opaque token issued by the backend (currently prefixed
+  `plk_`).
+- **Typical use:** running a single command as a different user without
+  overwriting the cached identity:
+
+```sh
+PROMPTLESS_CLI_API_SECRET=plk_some_other_key promptless whoami
+```
+
+Keep this value out of shell history (use a leading space if your shell
+honors `HISTCONTROL=ignorespace`) and out of source control. Anyone with
+the token can act as you against the Promptless API until it's revoked.
+
+---
+
+## `PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE`
+
+Overrides the location of the config file. When set to a non-empty value,
+its literal value is used as the path — `$XDG_CONFIG_HOME` and
+`~/.config/promptless/env` are ignored.
+
+- **Default:** unset; the CLI falls through to XDG, then `~/.config`.
+- **Format:** an absolute or relative filesystem path.
+- **Typical use:** isolating tests, or running multiple Promptless
+  identities side by side from different shells.
+
+```sh
+export PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE=/tmp/promptless-staging.env
+promptless login   # writes to /tmp/promptless-staging.env
+```
+
+The CLI creates the parent directory if it doesn't already exist (with
+mode `0700`), so it's fine to point this at a path under `/tmp` or any
+other writable location — no need to `mkdir` first.
+
+---
+
+## `XDG_CONFIG_HOME`
+
+Standard XDG base directory for user-specific configuration. The CLI
+honors this only when `PROMPTLESS_CLI_DEVELOPER_CONFIG_FILE` is not set.
+
+- **Default:** unset; the CLI falls through to `~/.config/promptless/env`.
+- **Format:** an absolute path to an existing or createable directory.
+- **Resolved file:** `$XDG_CONFIG_HOME/promptless/env`.
+
+```sh
+export XDG_CONFIG_HOME=$HOME/.dotfiles/config
+promptless login   # writes to $HOME/.dotfiles/config/promptless/env
+```
+
+The XDG spec says clients should fall back to `~/.config` when the
+variable is unset or empty, and that is exactly what the CLI does.
+
+---
+
+## Variables the CLI does *not* read
+
+For completeness, a few variables you might expect the CLI to honor but it
+does not:
+
+- `NO_COLOR` / `FORCE_COLOR` — `promptless` does not emit color from the
+  auth commands. (`promptless slop-cop` has its own `--color` / `--no-color`
+  flags.)
+- `HTTP_PROXY` / `HTTPS_PROXY` — the CLI uses Node's built-in `fetch`,
+  which does not consult proxy env vars by default. If you need to route
+  through a proxy, set up the proxy at the OS level or open an issue.
+- `PROMPTLESS_DEBUG` / `DEBUG` — there is no debug logging at present.
