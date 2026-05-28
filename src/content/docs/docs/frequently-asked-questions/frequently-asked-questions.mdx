@@ -12,6 +12,45 @@ Here you'll find answers to common questions about using Promptless.
 
 For account creation and team management questions, please see our [Account Management](/docs/account-management/account-management) page.
 
+## Troubleshooting
+
+### My PR triggered but no suggestion appeared
+
+Several configuration settings can prevent a PR from generating a suggestion:
+
+1. **Directory filters**: If your project uses [directory-specific triggers](/docs/configuring-promptless/triggers/git-hub-p-rs#directory-specific-triggers), only PRs touching those directories trigger suggestions. Check your project settings to confirm the directories match your PR's changed files.
+
+2. **Repository topics**: If you've configured [repository topic filtering](/docs/configuring-promptless/triggers/git-hub-p-rs#repository-topics), the repository must have at least one of the specified topics.
+
+3. **Draft PRs**: Promptless skips draft pull requests. Convert your PR to "Ready for review" to trigger documentation updates.
+
+4. **Dot-files and config**: PRs containing only changes to dot-directories (`.github/`, `.circleci/`) or root-level dot-files (`.gitignore`, `.editorconfig`) are skipped. These typically don't need documentation.
+
+5. **Relevance assessment**: Promptless may determine that the changes don't require documentation updates. If you believe documentation is needed, @mention Promptless in a PR comment with specific instructions about what to document.
+
+### Suggestions don't match my docs style
+
+Promptless learns your writing style over time. To improve style matching:
+
+1. **Give it time**: Promptless analyzes your existing documentation during [initial ingestion](/docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs) and continues learning as you provide feedback.
+
+2. **Provide feedback**: Use the [Request Changes](/docs/how-to-use-promptless/providing-feedback#1-request-changes) button or inline comments to correct style issues. Check "Remember feedback for future suggestions" to save your preferences.
+
+3. **Create AGENTS.md**: Add an `AGENTS.md` file to your docs repository root with your style guidelines, terminology preferences, and formatting conventions. See [Custom Agent Instructions](/docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs#custom-agent-instructions-with-agentsmd) for details.
+
+4. **Contact support**: If style matching remains inconsistent after providing feedback, contact [help@gopromptless.ai](mailto:help@gopromptless.ai) for help with Voice Match tuning.
+
+### How do I undo a merged Promptless PR?
+
+Use Git's standard revert process:
+
+1. Navigate to the merged Promptless PR in GitHub
+2. Click **Revert** to create a revert PR, or run `git revert <commit-sha>` locally
+3. Review the revert PR to confirm it removes the unwanted changes
+4. Merge the revert PR
+
+After reverting, provide feedback through the Promptless dashboard explaining why the suggestion was incorrect. This helps Promptless avoid similar issues in future suggestions.
+
 ## Platform Usage
 
 ### What platforms does Promptless integrate with?
@@ -45,6 +84,44 @@ Promptless follows strict data handling practices:
 - All data is encrypted in transit (TLS 1.2+) and at rest (AES-256)
 
 For detailed information, see our [Data Handling documentation](/docs/security-and-privacy/data-handling-and-classification).
+
+## Configuration & Setup
+
+### Can I use Promptless with a monorepo?
+
+Yes. Promptless supports monorepos in two ways:
+
+**For trigger repositories** (where code changes happen): Use [directory-specific triggers](/docs/configuring-promptless/triggers/git-hub-p-rs#directory-specific-triggers) to monitor only the directories you care about. If your API code lives in `services/api/`, configure the trigger to respond only to changes in that directory.
+
+**For documentation repositories**: When setting up a doc collection, you can specify a subdirectory if your docs live alongside code. Contact [help@gopromptless.ai](mailto:help@gopromptless.ai) to configure the documentation path for your monorepo.
+
+### How do I exclude certain file types from triggers?
+
+Promptless doesn't filter by file type directly, but you have several options:
+
+1. **Directory-specific triggers**: Configure your project to trigger only on specific directories. Files outside those paths are excluded.
+
+2. **Repository topics**: Use [GitHub topic filtering](/docs/configuring-promptless/triggers/git-hub-p-rs#repository-topics) to control which repositories trigger documentation updates.
+
+3. **Automatic exclusions**: Promptless already skips PRs that contain only changes to dot-directories (`.github/`, `.circleci/`) and root-level dot-files.
+
+If you need more granular file type filtering, contact [help@gopromptless.ai](mailto:help@gopromptless.ai) to discuss your use case.
+
+### What's the difference between triggers and context sources?
+
+**Triggers** initiate documentation updates. When a trigger event occurs (like a PR opening or a Slack message), Promptless analyzes it and may create a documentation suggestion. Triggers define when documentation automation runs.
+
+**Context sources** provide additional information to enrich suggestions. They're read-only integrations that Promptless queries in real-time to gather business context. They don't initiate documentation work on their own. Context sources are what Promptless knows beyond the trigger event itself.
+
+| Aspect | Triggers | Context Sources |
+|--------|----------|-----------------|
+| Purpose | Initiate documentation work | Provide additional context |
+| Access | Read from source | Read-only |
+| Examples | GitHub PRs, Slack messages, API calls | Linear issues, Jira tickets, Confluence pages |
+
+For example, when a GitHub PR triggers an update, Promptless might query Linear (a context source) to find related issues that explain the business context behind the code changes.
+
+Learn more in [Configuring Promptless → Triggers](/docs/configuring-promptless/triggers) and [Configuring Promptless → Context Sources](/docs/configuring-promptless/context-sources).
 
 ## Have more questions?
 
