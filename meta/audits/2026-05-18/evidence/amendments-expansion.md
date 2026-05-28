@@ -323,3 +323,93 @@ This data is now visible in `page-data.csv` and summarized in `journey-report.md
 - **F-0006 severity unchanged** (Significant). It now lives under Phase 13 rather than straddling Phase 3 / Phase 8.
 - **Phase 13 finding counts updated:** Significant 4 → 5 (F-0006 moved in); Moderate stays 4. Total active findings remain 37.
 - **Lens count: 13 → 12.** Phase 8 row in scoreboard is now `folded`; numbering preserved.
+
+---
+
+## Fifth-pass addendum (2026-05-27, team-shareable HTML report)
+
+User request: *"Create the report according to the previously generated results."* — generate a single team-shareable HTML report from the audit deliverables.
+
+### Design choices (captured per prior turn)
+
+- **Style:** neutral utilitarian (system fonts, no brand colors).
+- **Interactivity:** rich (inline SVG charts, filterable findings, sortable tables, search, drill-downs).
+- **Self-contained:** single HTML file with embedded CSS + JS; no external CDN.
+
+### Output
+
+- **`meta/audits/2026-05-18/report.html`** — 290,663 bytes single HTML file
+- **`meta/audits/2026-05-18/evidence/build-report.mjs`** — the generator (~1100 lines); idempotent
+
+### Sections rendered
+
+1. Header banner with 8 count cards (37 active findings, severity breakdown, lens count, page count, audit-pass count)
+2. Executive summary (4 paragraphs, leadership-friendly)
+3. At-a-glance dashboard:
+   - Severity stacked-bar (inline SVG)
+   - Lens-status donut + legend
+   - Audit pass timeline (5 nodes, 5 evolution passes)
+   - Lens scoreboard table (sortable on every column)
+   - Top 5 findings cards (Critical + first 3 Significant)
+4. The 12-lens framework (Phase 8 marked folded; cards for each phase)
+5. Process narrative (5 passes told as a story + audit-infrastructure lessons)
+6. Findings (40 cards: 37 active + 3 withdrawn; severity-chip filter; lens dropdown; search box; collapsible per-card)
+7. Per-page data explorer (59 rows × 15 default cols; sortable + searchable; CSV download button)
+8. Per-lens reports (7 embedded Tier 2 reports as collapsible details: inventory, IA, metrics, drift, theater, audience-fit, journey)
+9. Recommendations & sequencing (15 items grouped T1/T2/T3)
+10. Reusable artifacts
+11. Appendix (severity rubric, finding schema, amendments log, evidence trail, about-this-report)
+
+### Charts (vanilla inline SVG, no chart library)
+
+- Severity stacked horizontal bar
+- Lens-status donut
+- 5-node audit-pass timeline
+- 8-cell journey-stage strip
+- AI-tell signal histogram
+- 6×6 persona × page-type heatmap
+
+### Interactivity (vanilla JS)
+
+- TOC scrollspy
+- Severity chip filter on findings
+- Lens dropdown filter
+- Full-text search on findings titles + entity
+- Sortable tables (lens scoreboard, page-data)
+- Page-data search-as-you-type
+- CSV download button (Blob URL of filtered table)
+- Collapsible per-finding cards; hash-driven auto-expand for `#F-NNNN` deep-links
+- Print stylesheet (sidebar hidden, all sections expanded, sensible page breaks)
+
+### Generator iterations + bug-fixes (recorded for the checklist)
+
+1. **First run:** parser counted F-0007 and F-0018 twice each (they appear under their original severity *and* in the Low cross-reference section). 42 findings registered for 40 unique IDs.
+2. **Dedupe by ID:** kept first occurrence's schema content, applied last occurrence's severity. Got to 40 unique with 36 active + 3 withdrawn = 39 (1 short of expected 40).
+3. **Block-trim:** F-0029 was the last F-NNNN in findings.md; its block extended into the working-notes section, picking up a stray `**Severity:**` line from W3-05. Fix: split each block at the next `### `, `## `, or `---` heading. Recovered F-0029 to its correct Low classification, but Moderate count still short by 1.
+4. **Severity normalization:** F-0035's explicit `**Severity:** Moderate (baseline only; needs project dictionary curation before enforcement)` was being captured verbatim, so `severity === 'Moderate'` filter excluded it. Fix: normalize to the first severity keyword. Now matches docs exactly.
+5. **Idempotent verification:** re-running the generator produces a byte-identical `report.html`.
+
+### Final counts (HTML report)
+
+- 2 Critical, 11 Significant, 19 Moderate, 5 Low (37 active)
+- 3 Withdrawn (F-0005, F-0031, F-0032)
+- 40 total finding cards in the HTML
+- 13 lens rows in scoreboard (1 folded, 1 preliminary, 11 complete)
+- 59 page-data rows
+- 15 recommendations grouped into 3 ROI tiers
+
+### What does NOT update
+
+- No source markdown was modified by the report generation; the report is a derived view, and the per-lens markdown reports remain canonical.
+- No new findings; the report renders the existing finding set.
+- No changes to plan file; Addendum 4 documents the work plan.
+
+### Files added/changed in this pass
+
+| Path | Status |
+|---|---|
+| `meta/audits/2026-05-18/report.html` | new (290 KB) |
+| `meta/audits/2026-05-18/evidence/build-report.mjs` | new generator |
+| `meta/audits/2026-05-18/README.md` | updated to point at `report.html` as the team-shareable front door |
+| `meta/audits/2026-05-18/evidence/commands.log` | appended fifth-pass commands |
+| `meta/audits/2026-05-18/evidence/amendments-expansion.md` | this addendum |
