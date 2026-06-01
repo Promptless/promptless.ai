@@ -90,6 +90,7 @@ Send a JSON body with your documentation instructions:
 |-------|------|----------|-------------|
 | `instructions` | string | Yes | What you want Promptless to document. Be specific about which docs to update and what changes to make. |
 | `context` | object | No | Additional metadata to include with the request. This appears in trigger history for reference. |
+| `doc_collection_id` | string | No | Target a specific doc collection by its ID. When provided, the trigger only routes to API projects connected to that collection instead of all API projects in your organization. |
 
 ### Example Request
 
@@ -106,6 +107,22 @@ curl -X POST "https://api.gopromptless.ai/triggers" \
   }'
 ```
 
+### Targeting a Specific Doc Collection
+
+If your organization has multiple doc collections, you can target a specific one using the `doc_collection_id` parameter. Without this parameter, the trigger routes to all API projects in your organization.
+
+```bash
+curl -X POST "https://api.gopromptless.ai/triggers" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "instructions": "Update the API reference for the new endpoints",
+    "doc_collection_id": "your-collection-id"
+  }'
+```
+
+You can find your doc collection ID in the URL when viewing a doc collection in the dashboard, or through the dashboard settings.
+
 ### Response
 
 A successful request returns a `202 Accepted` response:
@@ -121,7 +138,7 @@ A successful request returns a `202 Accepted` response:
 | Status | Error | Description |
 |--------|-------|-------------|
 | 401 | `authentication_failed` | The API key is missing, invalid, or revoked |
-| 409 | `no_eligible_pipelines` | No API projects are configured for your organization |
+| 409 | `no_eligible_pipelines` | No API projects are configured for your organization, or the specified `doc_collection_id` has no associated API project |
 | 422 | Validation error | The request body is invalid (e.g., empty instructions) |
 
 ## Viewing API Triggers
@@ -141,7 +158,7 @@ Filter by "API" source in [Change History](https://app.gopromptless.ai/change-hi
 When you submit an API request:
 
 1. **Validation**: Promptless validates your API key and request format
-2. **Routing**: The request is routed to all API projects in your organization
+2. **Routing**: The request is routed to your API projects—either all of them, or just those connected to a specific doc collection if you provided a `doc_collection_id`
 3. **Processing**: Promptless analyzes your instructions along with configured context sources
 4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions
 
