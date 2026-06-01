@@ -1,0 +1,102 @@
+---
+title: Custom Skills
+description: Extend Promptless with custom Claude Code skills that add specialized behaviors to your documentation agent
+slug: docs/how-to-use-promptless/custom-skills
+sidebar:
+  hidden: false
+  order: 29
+---
+import Note from '@components/fern/Note.astro';
+import Tip from '@components/fern/Tip.astro';
+import Warning from '@components/fern/Warning.astro';
+
+Promptless uses Claude Code under the hood, which supports custom skills. You can add skills to your docs repository to give Promptless specialized behaviors for your documentation workflow.
+
+## What are skills?
+
+Skills are reusable instructions that teach Claude Code how to handle specific tasks. Each skill is a directory containing a `SKILL.md` file that defines what the skill does and when to use it.
+
+When you add a skill to your docs repository, Promptless loads it automatically and can invoke it during documentation tasks.
+
+## Adding custom skills
+
+Create a skill directory in one of two locations:
+
+- `.claude/skills/<skill-name>/SKILL.md`
+- `.agents/skills/<skill-name>/SKILL.md`
+
+Each skill directory must contain a `SKILL.md` file. Promptless ignores directories without this file.
+
+### Example structure
+
+```
+your-docs-repo/
+├── .claude/
+│   └── skills/
+│       └── format-api-docs/
+│           └── SKILL.md
+├── .agents/
+│   └── skills/
+│       └── screenshot-workflow/
+│           └── SKILL.md
+└── docs/
+    └── ...
+```
+
+### Writing a SKILL.md file
+
+A skill file includes frontmatter that defines the skill name and description, followed by instructions:
+
+```markdown
+---
+name: format-api-docs
+description: |
+  Format API documentation to match our style guide.
+  Use this skill when documenting API endpoints or parameters.
+---
+
+# Format API Docs
+
+When documenting an API endpoint, follow these conventions:
+
+1. Use the endpoint path as the page title
+2. Include request and response examples
+3. List all parameters in a table with type and description columns
+
+[Additional instructions...]
+```
+
+The `name` in the frontmatter becomes the skill identifier. The `description` helps Claude Code decide when to invoke the skill automatically.
+
+## Skill namespacing
+
+Promptless namespaces your skills to prevent collisions with built-in functionality. Your skills appear as `<org-slug>:<skill-name>`, where `<org-slug>` comes from your organization name.
+
+For example, if your organization is "Acme Corp" and you create a skill called `format-api-docs`, it becomes `acme-corp:format-api-docs`.
+
+<Note>
+Built-in Promptless skills use the `system:` namespace. You cannot create skills that override built-in functionality.
+</Note>
+
+## Collision handling
+
+If you define the same skill name in both `.claude/skills/` and `.agents/skills/`, Promptless uses the one in `.claude/skills/` and ignores the other.
+
+<Tip>
+Pick one location for your skills. Most teams use `.claude/skills/` since it follows Claude Code conventions.
+</Tip>
+
+## Example use cases
+
+Custom skills are useful for:
+
+- **Style enforcement**: Teach Promptless your specific formatting rules, terminology, or voice guidelines
+- **Template workflows**: Define how to structure certain types of documentation (API references, tutorials, release notes)
+- **Integration-specific behaviors**: Add instructions for how documentation should reference internal tools or systems
+- **Review checklists**: Create a skill that runs through a checklist before finalizing documentation changes
+
+## Limitations
+
+- Skills run only during documentation agent sessions, not during dispatch or routing
+- Skills cannot override Promptless's core behaviors or built-in skills
+- Each skill must have a `SKILL.md` file in its root directory
