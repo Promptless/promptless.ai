@@ -80,3 +80,60 @@ Use your `AGENTS.md` file to communicate:
 #### Relationship with CLAUDE.md
 
 If your repository already has a `CLAUDE.md` file (used by Claude Code CLI), Promptless uses that instead. The `AGENTS.md` file is only loaded when no `CLAUDE.md` is present, maintaining compatibility with existing Claude Code configurations.
+
+### Custom Skills for Doc Agents
+
+Beyond static instructions in `AGENTS.md`, you can create executable skills that Promptless doc agents automatically discover and invoke. Skills encode repeatable documentation workflows, formatting conventions, operational procedures, or content patterns that the agent runs when a task matches the skill's description.
+
+#### How It Works
+
+Place skill files in `.claude/skills/` or `.agents/skills/` in your docs repository. Each skill is a directory containing a `SKILL.md` file with YAML frontmatter:
+
+```
+your-docs-repo/
+├── .claude/
+│   └── skills/
+│       └── api-docs-format/
+│           └── SKILL.md
+```
+
+When Promptless starts a documentation task, it scans these directories for skills. If a skill's description matches what the agent is about to do, it invokes that skill instead of deriving the workflow from scratch.
+
+#### Skill File Format
+
+A `SKILL.md` file has two parts: YAML frontmatter with metadata, and markdown content with the skill's instructions.
+
+```markdown
+---
+name: api-docs-format
+description: |
+  Use when writing or updating API reference documentation.
+  Ensures consistent formatting for endpoints, parameters, and response examples.
+---
+
+# API Documentation Format
+
+When documenting API endpoints, follow these conventions:
+
+## Endpoint Structure
+- Start with the HTTP method and path: `GET /api/v1/users`
+- Include authentication requirements
+- List all parameters in a table
+
+## Response Examples
+- Show both success and error responses
+- Include realistic example data
+```
+
+The `description` field determines when the skill applies. The agent reads all skill descriptions and invokes the one that best matches the current task.
+
+#### Examples
+
+- **Changelog formatting**: Enforce a specific changelog structure, categories, and linking conventions.
+- **Component documentation**: Define how to document UI components, including required sections for props, usage examples, and accessibility notes.
+- **Code example style**: Specify how code snippets should be formatted, commented, and which languages to use.
+- **Translation workflow**: Instructions for preparing content for localization, including which elements to mark as translatable.
+
+#### Skills vs. AGENTS.md
+
+Use `AGENTS.md` for general guidelines that apply to all documentation work. Use skills for specific, repeatable workflows that run only when the task matches. Skills are invoked programmatically; `AGENTS.md` content is always included in the agent's context.
