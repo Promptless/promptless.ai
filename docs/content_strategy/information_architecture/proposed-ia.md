@@ -15,7 +15,7 @@ companion: ia-gap-analysis.md
 changelog, free-tools, or jobs sections of [site-navigation.ts](../../../src/lib/site-navigation.ts).
 
 **Method — CUJ-first, not content-first.** This IA is designed from the
-[critical user journeys](../journeys/_overview.md) — what the five
+[critical user journeys](../journeys/_overview.md) — what the six
 [personas](../personas/_overview.md) need to *accomplish* — **not** from the topics that
 happen to have pages today. Where a journey needs content that doesn't exist yet, the section
 appears here anyway and is flagged `[NEW]`. The mapping of these gaps to current content is in

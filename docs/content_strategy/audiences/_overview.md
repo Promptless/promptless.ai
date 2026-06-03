@@ -17,7 +17,7 @@ audiences:
 audience has its own file in this directory. Audiences were derived bottom-up from
 digested customer and prospect calls, not from assumption. Personas
 (`../personas/`), journeys (`../journeys/`), and the proposed Docs IA
-(`../information_architecture/`) all trace back to these five segments.
+(`../information_architecture/`) all trace back to these six segments.
 
 **It does NOT cover:** marketing positioning, pricing tiers, or competitive analysis.
 

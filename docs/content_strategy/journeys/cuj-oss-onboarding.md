@@ -8,7 +8,7 @@ entry_point: /docs/getting-started/promptless-oss
 success_criteria: "The project is connected via a read-only app across its repos, with doc updates auto-drafted for changes contributors skipped — at no cost to the project."
 steps:
   - { stage: "Understand the OSS program & eligibility", doc: /docs/getting-started/promptless-oss, exists: true }
-  - { stage: "Install the read-only GitHub app", doc: "/docs/integrations/github#read-only-oss", exists: partial, note: "Read-only/public-repo path under-documented vs commercial install" }
+  - { stage: "Install the read-only GitHub app", doc: "/docs/getting-started/promptless-oss#install-the-github-app", exists: true, note: "OSS quickstart documents the read-only (public-repo) GitHub app" }
   - { stage: "Connect multiple project repos", doc: /docs/configuring-promptless/doc-collections/git-hub-repos-docs-as-code, exists: true }
   - { stage: "Route across versions (see multi-repo-routing)", doc: cuj-multi-repo-routing, exists: ref }
   - { stage: "Set up localization (see localization)", doc: cuj-localization, exists: ref }

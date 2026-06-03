@@ -24,16 +24,16 @@ This gap list is the intended deliverable — it shows where docs must grow to s
 | getting-started/setup-quickstart | Start here → Quickstart |
 | getting-started/promptless-oss | Start here → Open-source quickstart |
 | getting-started/getting-help | Reference & help → Getting help |
-| integrations/github · github-enterprise · bitbucket | Connect your stack → Source control |
+| integrations/github-integration · github-enterprise-integration · bitbucket-integration | Connect your stack → Source control |
 | configuring-promptless/triggers/* | Connect your stack → Triggers |
-| configuring-promptless/context-sources/* · integrations/atlassian · linear | Connect your stack → Context sources |
+| configuring-promptless/context-sources/* · integrations/atlassian-integration · linear-integration | Connect your stack → Context sources |
 | configuring-promptless/doc-collections/git-hub-repos-docs-as-code · how-promptless-learns-your-docs | Connect your stack → Doc locations & collections |
 | configuring-promptless/customizing-notifications | Tune → Notifications |
 | integrations/launchdarkly-integration-beta | Tune → Release timing & feature flags |
 | how-to-use-promptless/providing-feedback | Tune → Teaching conventions (also Work the queue) |
 | how-to-use-promptless/using-the-web-interface | Work the queue → web interface / inbox |
-| how-to-use-promptless/interacting-with-promptless-prs | Work the queue → Reviewing & editing PRs |
-| how-to-use-promptless/working-with-slack · integrations/slack · microsoft-teams · intercom-beta | Work the queue → Slack/Teams (+ Connect → Triggers) |
+| how-to-use-promptless/interacting-with-promptless-p-rs | Work the queue → Reviewing & editing PRs |
+| how-to-use-promptless/working-with-slack · integrations/slack-integration · microsoft-teams-integration · intercom-integration-beta | Work the queue → Slack/Teams (+ Connect → Triggers) |
 | how-to-use-promptless/using-promptless-capture | Get the most out of → Screenshots |
 | how-to-use-promptless/deep-analysis | Get the most out of → Deep Analysis |
 | configuring-promptless/doc-collections/doc-detective-integration | Get the most out of → Agent-friendly docs |
@@ -42,8 +42,8 @@ This gap list is the intended deliverable — it shows where docs must grow to s
 | security-and-privacy/* | Security & deployment |
 | self-hosting · self-hosting/kubernetes-helm | Security & deployment → Self-hosting |
 | integrations/* (full set) | Reference & help → Integrations reference |
-| frequently-asked-questions | Reference & help → FAQ |
-| account-management | Reference & help → Account management |
+| frequently-asked-questions/frequently-asked-questions | Reference & help → FAQ |
+| account-management/account-management | Reference & help → Account management |
 
 ## 2. `[NEW]` — content the CUJs require that does not exist
 
