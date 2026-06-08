@@ -11,6 +11,7 @@ a file in `docs/`, update this map.
 docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
++-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
 ```
 
 ## Project Structure
@@ -74,14 +75,17 @@ Each `.mmd` file supports optional rendering directives in comments at the top:
 %% mmdc-height: 600
 ```
 
-## Good Docs Project Templates
+## Docs & Audience Strategy
 
-The Good Docs Project template bundle is stored at:
+Audience, persona, journey (CUJ), and proposed Docs-tab IA definitions live in
+`docs/content_strategy/` (internal; not built into the site). Read the relevant file on demand —
+do not inline. Derived from customer/prospect call evidence.
 
-`meta/reference/good-docs-project-template-1.5.0/`
+- `docs/content_strategy/README.md` — index + how the IDs link (start here)
+- `docs/content_strategy/audiences/` — 6 target segments (`aud-*`), incl. a cross-cutting brownfield segment
+- `docs/content_strategy/personas/` — 1 minimal persona per audience (`persona-*`)
+- `docs/content_strategy/journeys/` — 16 critical user journeys (`cuj-*`), steps → `/docs/...`
+- `docs/content_strategy/information_architecture/` — CUJ-driven Docs-tab IA + gap analysis
 
-Use these files as read-only reference material when planning documentation information architecture, page types, explanation flow, templates, and writing patterns.
-
-Do not edit, rewrite, reformat, rename, delete, or regenerate files under `meta/reference/good-docs-project-template-1.5.0/` unless the user explicitly asks to update the vendored template bundle itself.
-
-When applying recommendations from the templates, make changes in the Promptless documentation source files instead, such as files under `src/content/docs/`.
+When planning docs IA, page types, or content priorities, consult `proposed-ia.md` and
+`ia-gap-analysis.md`, and make actual content changes under `src/content/docs/`.
