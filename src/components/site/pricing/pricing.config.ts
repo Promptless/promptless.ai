@@ -55,22 +55,22 @@ export const ENTERPRISE_PLAN: PricingPlanConfig = {
 export const GROWTH_BUNDLE_OPTIONS: GrowthBundleOption[] = [
   {
     id: 'growth-200-500',
-    label: '200-500 Pages',
+    label: '200-500 Pages*',
     priceLabel: '$500-$1,000/mo',
   },
   {
     id: 'growth-500-1000',
-    label: '500-1,000 Pages',
+    label: '500-1,000 Pages*',
     priceLabel: '$1,000-$1,500/mo',
   },
   {
     id: 'growth-1000-2000',
-    label: '1,000-2,000 Pages',
+    label: '1,000-2,000 Pages*',
     priceLabel: '$1,500-$2,000/mo',
   },
   {
     id: 'growth-2000-5000',
-    label: '2,000-5,000 Pages',
+    label: '2,000-5,000 Pages*',
     priceLabel: '$2,000-$4,000/mo',
   },
 ];
