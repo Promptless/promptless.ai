@@ -285,10 +285,10 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /Up to 200 Pages\*/);
   assert.match(pricingHtml, /Pages are normalized/);
   assert.match(pricingHtml, /name=\"growth_bundle\"/);
-  assert.match(pricingHtml, /200-500 Pages/);
-  assert.match(pricingHtml, /500-1,000 Pages/);
-  assert.match(pricingHtml, /1,000-2,000 Pages/);
-  assert.match(pricingHtml, /2,000-5,000 Pages/);
+  assert.match(pricingHtml, /200-500 Pages\*/);
+  assert.match(pricingHtml, /500-1,000 Pages\*/);
+  assert.match(pricingHtml, /1,000-2,000 Pages\*/);
+  assert.match(pricingHtml, /2,000-5,000 Pages\*/);
   assert.match(pricingHtml, /Slack \+ GitHub integrations/);
   assert.match(pricingHtml, /Open-source, non-commercial project\?/);
   assert.match(pricingHtml, /href=\"https:\/\/promptless\.ai\/docs\/getting-started\/promptless-oss\"/);
