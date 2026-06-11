@@ -4,9 +4,12 @@
  * a dark gradient, with a product screenshot floated on the right.
  *
  * Lightweight pipeline — no browser:
- *   build an SVG  ->  rasterize with @resvg/resvg-js (using vendored Inter
- *   TTFs)  ->  downscale to the exact target size with sharp  ->  compress
- *   under the size cap.
+ *   Satori lays out a flexbox tree -> SVG (text as vector paths)
+ *   -> @resvg/resvg-js rasterizes -> sharp downscales to the exact size and
+ *   compresses under the cap.
+ *
+ * Satori gives us a real flex layout engine, so the headline wraps inside its
+ * column automatically — no manual text measurement or baseline math.
  *
  * Usage:
  *   npm run marketing:image -- \
@@ -15,7 +18,7 @@
  *     --out public/assets/marketing/docs-in-sync.png
  *
  * Options (defaults in []):
- *   --headline    Headline text. Use "|" or "\n" for line breaks. (required)
+ *   --headline    Headline text. Use "|" or "\n" for hard line breaks. (required)
  *   --screenshot  Product screenshot to embed. (required)
  *   --out         Output PNG path. (required)
  *   --eyebrow     Small accent label above the headline.
@@ -24,15 +27,16 @@
  *   --height      Canvas height [768]
  *   --max-kb      Max output size in KB [1024]
  *   --scale       Supersampling factor for crispness [2]
- *   --bg-from     Gradient start color [#0b0d12]
- *   --bg-to       Gradient end color   [#1b1e27]
- *   --fg          Headline color       [#ffffff]
- *   --accent      Eyebrow color        [#8ea2ff]
+ *   --bg-top      Gradient color at the top    [#15171d] (almost black)
+ *   --bg-bottom   Gradient color at the bottom [#000000] (pure black)
+ *   --fg          Headline color               [#ffffff]
+ *   --accent      Eyebrow color                [#8ea2ff]
  */
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
 import sharp from 'sharp';
 
@@ -47,23 +51,10 @@ function parseArgs(argv) {
     if (!token.startsWith('--')) continue;
     const key = token.slice(2);
     const next = argv[i + 1];
-    if (next === undefined || next.startsWith('--')) {
-      args[key] = true;
-    } else {
-      args[key] = next;
-      i++;
-    }
+    if (next === undefined || next.startsWith('--')) args[key] = true;
+    else args[key] = next, i++;
   }
   return args;
-}
-
-function escapeXml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }
 
 function resolveRepoPath(p) {
@@ -97,6 +88,11 @@ async function compressUnder(rawPng, width, height, maxBytes) {
   return { buffer: out, note: 'jpeg q78 (still over cap)', jpeg: true };
 }
 
+// Tiny element helpers so the layout below reads like JSX.
+// Satori wants `src`/`width`/`height` as element props (not style) on <img>.
+const box = (style, children) => ({ type: 'div', props: { style, ...(children !== undefined ? { children } : {}) } });
+const img = (src, width, height, style) => ({ type: 'img', props: { src, width, height, style } });
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const missing = ['headline', 'screenshot', 'out'].filter((k) => !args[k] || args[k] === true);
@@ -110,33 +106,31 @@ async function main() {
   const H = parseInt(args.height, 10) || 768;
   const scale = parseInt(args.scale, 10) || 2;
   const maxBytes = (parseInt(args['max-kb'], 10) || 1024) * 1024;
-  const bgFrom = args['bg-from'] || '#0b0d12';
-  const bgTo = args['bg-to'] || '#1b1e27';
+  const bgTop = args['bg-top'] || '#15171d';
+  const bgBottom = args['bg-bottom'] || '#000000';
   const fg = args.fg || '#ffffff';
   const accent = args.accent || '#8ea2ff';
   const logoPath = args.logo || 'public/assets/logo_darkbg.svg';
   const eyebrow = args.eyebrow && args.eyebrow !== true ? String(args.eyebrow) : null;
 
-  // --- Layout geometry (logical px) ---
+  // --- Geometry (logical px) ---
   const padX = 88;
   const logoH = 44;
   const logoBottom = 84;
   const shotLeft = Math.round(W * 0.49);
-  const shotRightBleed = 44;
-  const shotBoxW = W - shotLeft + shotRightBleed;
+  const shotBleed = 44;
+  const shotBoxW = W - shotLeft + shotBleed;
+  const textColW = shotLeft - 48 - padX; // left column, kept clear of the screenshot
   const radius = 16;
+  const headlineSize = 60;
 
   // --- Assets ---
   const shotMeta = await sharp(resolveRepoPath(args.screenshot)).metadata();
-  const shotAspect = shotMeta.width / shotMeta.height;
-  const shotBoxH = Math.round(shotBoxW / shotAspect);
-  const shotY = Math.round((H - shotBoxH) / 2);
-
+  const shotBoxH = Math.round(shotBoxW / (shotMeta.width / shotMeta.height));
   const logoMeta = await sharp(resolveRepoPath(logoPath), { density: 384 }).metadata();
   const logoW = Math.round(logoH * (logoMeta.width / logoMeta.height));
-  const logoY = H - logoBottom - logoH;
 
-  const [shotData, logoData, ...fontBuffers] = await Promise.all([
+  const [shotData, logoData, interRegular, interSemibold, interBold] = await Promise.all([
     imageToPngDataUri(args.screenshot, shotBoxH * scale),
     imageToPngDataUri(logoPath, logoH * scale),
     readFile(path.join(fontsDir, 'Inter-Regular.ttf')),
@@ -144,64 +138,63 @@ async function main() {
     readFile(path.join(fontsDir, 'Inter-Bold.ttf')),
   ]);
 
-  // --- Text layout (we control breaks via "|"/"\n", so no auto-wrap needed) ---
-  const eyebrowSize = 22;
-  const headlineSize = 60;
-  const headlineLineStep = Math.round(headlineSize * 1.06);
-  const lines = String(args.headline).split(/\\n|\|/).map((l) => l.trim());
+  const headlineLines = String(args.headline)
+    .split(/\\n|\|/)
+    .map((l) => l.trim())
+    .filter(Boolean);
 
-  let cursorY = 100;
-  const textNodes = [];
+  // --- Flexbox layout (Satori) ---
+  const copyChildren = [];
   if (eyebrow) {
-    const baseline = cursorY + Math.round(eyebrowSize * 0.8);
-    textNodes.push(
-      `<text x="${padX}" y="${baseline}" font-family="Inter" font-weight="600" font-size="${eyebrowSize}" letter-spacing="0.2" fill="${accent}">${escapeXml(eyebrow)}</text>`,
+    copyChildren.push(
+      box({ fontSize: 22, fontWeight: 600, letterSpacing: 0.2, color: accent, marginBottom: 22 }, eyebrow),
     );
-    cursorY = baseline + Math.round(eyebrowSize * 0.4) + 22;
   }
-  let baseline = cursorY + Math.round(headlineSize * 0.8);
-  for (const line of lines) {
-    textNodes.push(
-      `<text x="${padX}" y="${baseline}" font-family="Inter" font-weight="600" font-size="${headlineSize}" letter-spacing="-1.3" fill="${fg}">${escapeXml(line)}</text>`,
-    );
-    baseline += headlineLineStep;
-  }
+  copyChildren.push(
+    box(
+      { display: 'flex', flexDirection: 'column', fontSize: headlineSize, fontWeight: 600, letterSpacing: -1.4, lineHeight: 1.06, color: fg },
+      headlineLines.map((line) => box({}, line)),
+    ),
+  );
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${bgFrom}"/>
-      <stop offset="1" stop-color="${bgTo}"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0.8" y1="0" x2="0.4" y2="0.7">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.05"/>
-      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <clipPath id="shotClip">
-      <rect x="${shotLeft}" y="${shotY}" width="${shotBoxW}" height="${shotBoxH}" rx="${radius}" ry="${radius}"/>
-    </clipPath>
-  </defs>
+  const tree = box(
+    {
+      width: W,
+      height: H,
+      display: 'flex',
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: 'Inter',
+      backgroundImage: `linear-gradient(to bottom, ${bgTop}, ${bgBottom})`,
+    },
+    [
+      // Product screenshot, floated right and bleeding off the edge.
+      img(shotData, shotBoxW, shotBoxH, {
+        position: 'absolute',
+        left: shotLeft,
+        top: Math.round((H - shotBoxH) / 2),
+        borderRadius: radius,
+        border: '1px solid rgba(255,255,255,0.10)',
+        objectFit: 'cover',
+      }),
+      // Headline + eyebrow column.
+      box({ position: 'absolute', top: 100, left: padX, width: textColW, display: 'flex', flexDirection: 'column' }, copyChildren),
+      // Logo.
+      img(logoData, logoW, logoH, { position: 'absolute', left: padX, top: H - logoBottom - logoH }),
+    ],
+  );
 
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <rect width="${W}" height="${H}" fill="url(#sheen)"/>
-
-  <g clip-path="url(#shotClip)">
-    <image href="${shotData}" x="${shotLeft}" y="${shotY}" width="${shotBoxW}" height="${shotBoxH}" preserveAspectRatio="xMidYMid slice"/>
-  </g>
-  <rect x="${shotLeft}" y="${shotY}" width="${shotBoxW}" height="${shotBoxH}" rx="${radius}" ry="${radius}"
-        fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="1"/>
-
-  ${textNodes.join('\n  ')}
-
-  <image href="${logoData}" x="${padX}" y="${logoY}" width="${logoW}" height="${logoH}"/>
-</svg>`;
-
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: 'width', value: W * scale },
-    font: { fontBuffers, loadSystemFonts: false, defaultFontFamily: 'Inter' },
+  const svg = await satori(tree, {
+    width: W,
+    height: H,
+    fonts: [
+      { name: 'Inter', data: interRegular, weight: 400, style: 'normal' },
+      { name: 'Inter', data: interSemibold, weight: 600, style: 'normal' },
+      { name: 'Inter', data: interBold, weight: 700, style: 'normal' },
+    ],
   });
-  const rawPng = resvg.render().asPng();
 
+  const rawPng = new Resvg(svg, { fitTo: { mode: 'width', value: W * scale } }).render().asPng();
   const { buffer, note, jpeg } = await compressUnder(rawPng, W, H, maxBytes);
 
   let outPath = resolveRepoPath(args.out);
