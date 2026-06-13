@@ -92,7 +92,7 @@ doc_collections:
 
 ## Context Sources
 
-Context sources give Promptless read-only access to your organization's tools. They're used for narrowing scope when you want to limit which projects, spaces, or databases Promptless can query.
+Context sources give Promptless read-only access to your organization's tools. They're used for narrowing scope when you want to limit which projects, spaces, or databases Promptless can query. Each entry requires a `source_type` field.
 
 <Info>
 An empty entry (or no entry) for a context source means full access to that integration. Only add entries when you need to restrict scope.
@@ -101,25 +101,29 @@ An empty entry (or no entry) for a context source means full access to that inte
 ```yaml
 context_sources:
   jira:
+    source_type: jira
     project_keys:
       - DOCS
       - PLATFORM
   confluence:
+    source_type: confluence
     space_keys:
       - ENGINEERING
   linear:
+    source_type: linear
     team_keys:
       - engineering
       - product
   notion:
+    source_type: notion
     database_ids:
       - abc123def456
 ```
 
 ### Available Sources
 
-| Source | Scope Field | Description |
-|--------|-------------|-------------|
+| Source Type | Scope Fields | Description |
+|-------------|--------------|-------------|
 | `jira` | `project_keys` | Restrict to specific Jira project keys |
 | `confluence` | `space_keys` | Restrict to specific Confluence space keys |
 | `linear` | `team_keys` | Restrict to specific Linear team identifiers |
@@ -127,27 +131,29 @@ context_sources:
 
 ## Triggers
 
-Triggers define events that automatically initiate documentation work. These are passive intake events that require explicit configuration.
+Triggers define events that automatically initiate documentation work. These are passive intake events that require explicit configuration. Each trigger has a `trigger_type` and a `match` list—the trigger fires when any clause in the list matches, and fields within a clause are ANDed together.
 
 ```yaml
 triggers:
   github-prs:
-    type: github_pr
-    trigger_on:
-      - opened
-      - first_approval
-    repos:
-      - acme/backend
-      - acme/api
-    trigger_directories:
-      - src/
-      - lib/
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/api
+        trigger_on:
+          - opened
+          - first_approval
+        trigger_directories:
+          - src/
+          - lib/
 
   slack-support:
-    type: slack_listen
-    channels:
-      - support
-      - customer-questions
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - support
+          - customer-questions
 ```
 
 ### Trigger Types
@@ -156,36 +162,41 @@ triggers:
   <Accordion title="github_pr">
     Triggers when pull requests are opened, approved, or merged in specified repositories.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `repos` | List of repositories to monitor (`owner/repo` format) |
+    | `repos` | Required. The literal `all` or a list of repositories (`owner/repo` format) |
     | `excluded_repos` | Repositories to exclude from monitoring |
-    | `trigger_on` | Events that fire: `opened`, `first_approval`, `merge` |
+    | `trigger_on` | Required. Events that fire: `opened`, `first_approval`, `merge` |
     | `trigger_directories` | Only trigger when changes touch these directories |
     | `branches` | Only trigger for PRs targeting these branches |
     | `repo_topics` | Only trigger for repos with these GitHub topics |
+    | `repo_owners` | Only trigger for repos owned by these owners (the `owner` segment of `owner/repo`) |
   </Accordion>
   
   <Accordion title="github_commit">
     Triggers when commits are pushed to specified branches.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `repos` | List of repositories to monitor |
+    | `repos` | Required. The literal `all` or a list of repositories |
     | `excluded_repos` | Repositories to exclude |
-    | `branches` | Branches to monitor (defaults to default branch) |
+    | `branches` | Branches to monitor (omit to match only the default branch) |
     | `trigger_directories` | Only trigger when changes touch these directories |
     | `repo_topics` | Only trigger for repos with these GitHub topics |
+    | `repo_owners` | Only trigger for repos owned by these owners |
   </Accordion>
   
   <Accordion title="gitlab_mr">
     Triggers when merge requests are opened or merged in GitLab projects.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `repos` | List of GitLab projects to monitor |
+    | `repos` | Required. The literal `all` or a list of GitLab projects |
     | `excluded_repos` | Projects to exclude |
-    | `trigger_on` | Events that fire: `opened`, `merge` |
+    | `trigger_on` | Required. Events that fire: `opened`, `merge` |
     | `trigger_directories` | Only trigger when changes touch these directories |
     | `branches` | Only trigger for MRs targeting these branches |
   </Accordion>
@@ -193,11 +204,12 @@ triggers:
   <Accordion title="bitbucket_pr">
     Triggers when pull requests are opened or merged in Bitbucket repositories.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `repos` | List of Bitbucket repositories to monitor |
+    | `repos` | Required. The literal `all` or a list of Bitbucket repositories |
     | `excluded_repos` | Repositories to exclude |
-    | `trigger_on` | Events that fire: `opened`, `merge` |
+    | `trigger_on` | Required. Events that fire: `opened`, `merge` |
     | `trigger_directories` | Only trigger when changes touch these directories |
     | `branches` | Only trigger for PRs targeting these branches |
   </Accordion>
@@ -205,9 +217,10 @@ triggers:
   <Accordion title="slack_listen">
     Passively monitors specified Slack channels for documentation-worthy conversations.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `channels` | List of channel names to monitor (no `#` prefix) |
+    | `channels` | Required. List of channel names to monitor (no `#` prefix) |
     
     <Tip>
     Channel names are automatically updated when channels are renamed in Slack.
@@ -217,17 +230,19 @@ triggers:
   <Accordion title="msteams_listen">
     Passively monitors specified Microsoft Teams channels.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `channel_ids` | List of Teams channel conversation IDs to monitor |
+    | `channel_ids` | Required. List of Teams channel conversation IDs to monitor |
   </Accordion>
   
   <Accordion title="clickup">
     Triggers when ClickUp tasks reach specified statuses.
     
+    **Match clause fields:**
     | Field | Description |
     |-------|-------------|
-    | `statuses` | List of task statuses that trigger documentation work |
+    | `statuses` | Required. List of task statuses that trigger documentation work |
   </Accordion>
 </AccordionGroup>
 
@@ -311,29 +326,36 @@ doc_collections:
 
 context_sources:
   jira:
+    source_type: jira
     project_keys:
       - DOCS
       - ENG
   linear:
+    source_type: linear
     team_keys:
       - engineering
 
+# Built-in triggers (api, github_mention, msteams_mention, slack_mention, web)
+# are always on for connected integrations and are not configured here;
+# their keys remain valid in policies rules.
 triggers:
   main-repos:
-    type: github_pr
-    trigger_on:
-      - opened
-      - first_approval
-    repos:
-      - acme/backend
-      - acme/frontend
-    trigger_directories:
-      - src/
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/frontend
+        trigger_on:
+          - opened
+          - first_approval
+        trigger_directories:
+          - src/
 
   support-channel:
-    type: slack_listen
-    channels:
-      - customer-support
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - customer-support
 
 policies:
   default:
