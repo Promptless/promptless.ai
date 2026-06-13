@@ -8,6 +8,51 @@ This documentation is written and maintained by [Promptless](https://promptless.
 
 ---
 
+## Repository Structure
+
+This is an [Astro](https://astro.build) site using [Starlight](https://starlight.astro.build) for documentation, deployed to Vercel.
+
+```
+src/
+├── pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/)
+├── components/
+│   ├── site/           # Marketing page components (Hero, DemoBooking, PricingCards, VideoEmbed)
+│   ├── starlight/      # Starlight component overrides (Header, Footer, Sidebar)
+│   └── shared/         # Cross-cutting components (AnalyticsClickTracker, AnnouncementBanner)
+├── content/
+│   ├── docs/           # Starlight documentation content (MDX)
+│   ├── blog/           # Blog posts (MDX)
+│   ├── changelog/      # Changelog entries (MDX)
+│   ├── website/        # Marketing page content (MDX)
+│   └── legal/          # Privacy policy, terms of service
+├── lib/                # Shared utilities (navigation, route manifest, content ordering)
+└── styles/             # Global CSS
+
+docs/                   # Internal meta-docs (not published to the site)
+├── analytics.md        # PostHog setup and event catalog
+└── content_strategy/   # Audience, persona, journey, and IA strategy artifacts
+
+scripts/                # Build and migration scripts
+tests/smoke/            # Smoke tests
+```
+
+### Content Organization
+
+- **Documentation** (`src/content/docs/`): Product docs served at `/docs`, organized by topic (getting-started, core-concepts, integrations, security, etc.)
+- **Blog** (`src/content/blog/`): Blog posts served at `/blog`
+- **Changelog** (`src/content/changelog/`): Product changelog entries served at `/changelog`
+- **Marketing pages** (`src/content/website/`): Landing page content
+- **Legal** (`src/content/legal/`): Privacy policy and terms
+
+### Key Configuration Files
+
+- `astro.config.mjs`: Astro config, redirects, Starlight setup
+- `vercel.json`: Vercel deploy config and generated redirects
+- `src/lib/generated/sidebar.json`: Auto-generated sidebar navigation
+- `src/lib/generated/redirects.json`: Route redirects from migration scripts
+
+---
+
 ## Building These Docs Locally
 
 ### Prerequisites
