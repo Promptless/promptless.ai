@@ -29,10 +29,10 @@ For teams with larger docs sites and broader integrations.
 
 ### Available bundles
 
-- 200-500 Pages: $500-$1,000/mo
-- 500-1,000 Pages: $1,000-$1,500/mo
-- 1,000-2,000 Pages: $1,500-$2,000/mo
-- 2,000-5,000 Pages: $2,000-$4,000/mo
+- 200-500 Pages*: $500-$1,000/mo
+- 500-1,000 Pages*: $1,000-$1,500/mo
+- 1,000-2,000 Pages*: $1,500-$2,000/mo
+- 2,000-5,000 Pages*: $2,000-$4,000/mo
 
 ### Everything in Startup, plus
 
