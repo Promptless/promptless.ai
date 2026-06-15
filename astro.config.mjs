@@ -32,6 +32,8 @@ const redirects = {
   '/faq': '/',
   '/api-reference': '/',
   '/oss': '/docs/getting-started/promptless-oss',
+  '/media-kit': '/docs/media-kit',
+  '/brand': '/docs/media-kit',
   '/blog/all': '/blog',
   '/changelog/all': '/changelog',
   ...Object.fromEntries(redirectEntries),
