@@ -1,0 +1,88 @@
+---
+title: 'Agent Context Files Explained: AGENTS.md, CLAUDE.md, and llms.txt'
+subtitle: Published June 2026
+description: >-
+  AGENTS.md, CLAUDE.md, and llms.txt give AI agents the product-specific context they need to work correctly. Here's what each file does and why they go stale.
+date: '2026-06-18T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Your latest API version deprecated the `createUser` endpoint three weeks ago. The migration guide is live. Your AGENTS.md still points to the old one. Every coding agent your enterprise customers are running just read it, believed it, and generated code against a deprecated endpoint.
+
+Nobody noticed because the agent didn't error. It ran exactly as designed.
+
+This is what context rot looks like in practice: not a crash, but a confident wrong answer that takes days to trace back to a stale file.
+
+## The three files and what they do
+
+AGENTS.md, CLAUDE.md, and llms.txt all give AI agents product-specific context, but they operate at different scopes.
+
+**AGENTS.md** became the cross-platform standard for agent configuration in mid-2025, co-promoted by Anthropic, OpenAI, Google, Sourcegraph, Cursor, JetBrains, and others. It replaced the earlier fragmented ecosystem of per-tool files like `.cursorrules`, `.clinerules`, and `CLAUDE.md`. Put AGENTS.md at the repo root and every major coding agent reads it: Claude Code, Codex CLI, Cursor, Aider, Devin, Sourcegraph Amp, and more.
+
+**CLAUDE.md** predates AGENTS.md and is specific to Anthropic tools. Many teams still use it, particularly in Claude Code workflows. If you're writing context for cross-agent use, AGENTS.md is the better target. If you're running a Claude-specific deployment, CLAUDE.md remains valid and lets you include Claude-specific behavioral instructions.
+
+**llms.txt** is different in scope. It's a machine-readable index of your documentation site: a structured list of pages with brief descriptions that tells agents what exists and where to find it. [As covered in an earlier post](/blog/technical/llms-txt-is-not-what-most-teams-think), it's not a search ranking signal and it doesn't improve AI model training. For developer-facing companies, its value is navigational: when a coding agent needs to look up your API reference, llms.txt tells it which URL to fetch rather than forcing it to guess or scrape your nav.
+
+AGENTS.md and CLAUDE.md give behavioral and knowledge instructions. llms.txt gives structural navigation. Both are necessary for agents to work reliably with your product.
+
+## What actually belongs in them
+
+The most common mistake is treating AGENTS.md like a prompt. Teams write instructions about coding style, preferred patterns, or general best practices — things any capable language model already follows.
+
+An ETH Zurich study published in early 2026 found that LLM-generated AGENTS.md files often hurt agent performance. Generic instructions add noise. The files that helped were short and specific: they contained facts the model couldn't infer from the code or public documentation.
+
+The test for what belongs in a context file: could the agent figure this out by reading the codebase and your public docs? If yes, leave it out. If no, put it in.
+
+What agents can't infer on their own:
+- Which endpoints are deprecated and what replaced them
+- Which internal packages exist and what they're for
+- Constraints that don't appear in public docs (for example: "operation X fails silently when Y is already active")
+- Which parts of the codebase should never be modified by automated agents
+- Ownership boundaries (which team is responsible for which subsystem)
+
+What agents can already figure out: general coding style, framework conventions, standard error handling patterns, common library idioms.
+
+Context files should be short. Every line should earn its place by carrying product-specific information the model doesn't already have.
+
+<BlogNewsletterCTA />
+
+## Why context files go stale
+
+Context files start accurate. The problem starts after launch.
+
+Your product evolves: new API versions ship, endpoints get deprecated, packages get renamed, schemas get migrated. The code changes. The AGENTS.md doesn't. Nobody set up a review trigger for it. Nobody owns it. Unlike your main docs, there's no support ticket feedback loop that surfaces when it's wrong.
+
+The degradation is invisible because agents don't flag it. A developer reading docs that reference an old API version might notice something feels dated. Agents take docs at face value. They believe what they read and reason forward from there. A stale instruction in step two becomes the unquestioned premise for steps three, four, and five.
+
+Salesforce's AI Research team published a study in 2025 showing enterprise AI agents fail 65% of multi-turn tasks. Single-turn performance is significantly higher. The gap reflects how errors compound across turns when context carries forward bad assumptions. What starts as one wrong premise becomes a confident incorrect answer by the end of a multi-step workflow.
+
+The blast radius is larger than it looks. Every coding agent your developers or your users have installed reads your context files. A single stale instruction propagates to Cursor, Claude Code, Copilot, and every other agent that queries your docs or operates in your repo. It doesn't matter that the instruction was accurate when you wrote it.
+
+## Treating context files like code
+
+The maintenance problem is an ownership problem. Most teams create AGENTS.md once and move on. No one's job is to update it when an endpoint changes.
+
+The fix requires three things:
+
+**Assign ownership.** One person or team is responsible for each context file, the same way someone owns an API reference page. Without a named owner, nobody reviews it.
+
+**Define review triggers.** AGENTS.md belongs on the review checklist for any PR that deprecates an endpoint, changes a package boundary, or modifies a behavioral constraint. The file should be updated in the same commit as the code change, not as an afterthought.
+
+**Use section metadata.** Add a "last reviewed" comment to each section. Reviewers can immediately see which sections are months old and need verification.
+
+The harder version of this problem is detecting drift automatically: knowing that a line in AGENTS.md references an endpoint that no longer exists, without relying on a reviewer to spot it. That requires comparing the file's content against the actual state of the codebase, which is a tooling problem.
+
+## Documentation accuracy as agent reliability
+
+[Agent context engineering](/blog/technical/agent-context-engineering) frameworks treat the knowledge layer as the one that drifts fastest and is hardest to maintain manually. Context files are that layer made concrete. They're the runtime ground truth for every agent that touches your product.
+
+[Documentation drift](/blog/technical/documentation-drift-detection-problem) is a detection problem. The damage happens long before anyone notices. Agents have already served the bad context dozens of times. The fix needs to happen before deployment.
+
+Promptless monitors your documentation and context files against your actual codebase, surfacing when something in AGENTS.md or your API docs no longer matches what your product does. The same mechanism that keeps your developer docs accurate keeps your agent context files accurate. Both fail in the same way when they're not maintained.
+
+<BlogRequestDemo />
