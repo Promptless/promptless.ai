@@ -47,7 +47,13 @@ vercel.json             # Vercel deploy config, generated redirects
   Docs live in `src/content/docs/`. Blog in `src/content/blog/`.
 - **Redirects**: Defined in `astro.config.mjs` (static) and generated from
   `src/lib/generated/redirects.json` (migration script output).
-- **Sidebar**: Generated from `src/lib/generated/sidebar.json`.
+- **Sidebar**: `src/lib/generated/sidebar.json` is generated from docs
+  frontmatter by `scripts/generate-manifest.ts` (run via `generate:manifest` /
+  `prebuild`) — do not hand-edit it. Nav structure comes from each page's
+  `slug`; placement, visibility, and labels come from `sidebar.order`,
+  `sidebar.hidden`, and `sidebar.label`. Group labels come from the group's
+  index page (`sidebar.label ?? title`) or a title-cased slug segment. Adjust a
+  page's frontmatter and regenerate rather than editing `sidebar.json`.
 
 ## Commands
 
