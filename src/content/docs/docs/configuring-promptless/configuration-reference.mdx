@@ -44,7 +44,7 @@ When you complete the setup wizard, Promptless creates your `promptless.yaml` wi
 
 | Connected Integration | Generated Trigger | Generated Context Source |
 |-----------------------|-------------------|--------------------------|
-| GitHub (docs or trigger app) | `github_pr` (opened, first_approval, merge) and `github_commit` with `repos: all` | — |
+| GitHub (docs or trigger app) | `github_pr` (opened, first_approval, merge) with `repos: all` | — |
 | GitLab | `gitlab_mr` (opened, merge) with `repos: all` | — |
 | Bitbucket | `bitbucket_pr` (opened, merge) with `repos: all` | — |
 | Jira / Confluence | — | Unscoped `jira` and/or `confluence` entries |
@@ -52,13 +52,32 @@ When you complete the setup wizard, Promptless creates your `promptless.yaml` wi
 | Notion | — | Unscoped `notion` entry |
 | Slite | — | Unscoped `slite` entry |
 
-These broad defaults let Promptless start listening for documentation-worthy events immediately. You can edit your configuration anytime to narrow scope, like restricting triggers to specific repositories or limiting context sources to particular projects.
+Onboarding seeds pull request triggers only; [commit triggers](/docs/configuring-promptless/triggers/git-hub-commits) are opt-in and stay off until you add a `github_commit` trigger yourself. These broad defaults let Promptless start listening for documentation-worthy events immediately. You can edit your configuration anytime to narrow scope, like restricting triggers to specific repositories or limiting context sources to particular projects.
 
 <Note>
 Automatic configuration is additive and idempotent. If you've already manually configured a trigger type or context source, onboarding won't overwrite it.
 </Note>
 
 Connecting Jira, Confluence, Linear, or Notion *after* onboarding works the same way: Promptless adds a broad, unscoped context source for that tool if you don't already have one. Existing entries and any scoping you've set are left untouched.
+
+### Adding a commit trigger
+
+A commit trigger (`github_commit`) fires when commits are pushed to a branch you monitor, rather than when a pull request opens or merges. Without a `branches` filter, it watches only the repository's default branch. Add one when you want Promptless to react to commits directly:
+
+```yaml
+triggers:
+  default-branch-commits:
+    trigger_type: github_commit
+    match:
+      - repos:
+          - acme/backend
+        branches:
+          - main          # omit to match only the default branch
+        trigger_directories:
+          - src/
+```
+
+In a typical pull request workflow, this overlaps with your PR triggers: merging a pull request also pushes a merge commit to the default branch, so the commit trigger fires alongside the `github_pr` merge event. A commit trigger earns its place when changes reach a branch without a pull request—hotfixes or commits pushed straight to the default branch, for example—so Promptless still documents those changes. See [GitHub Commits](/docs/configuring-promptless/triggers/git-hub-commits) for the full workflow.
 
 ## File Structure
 
