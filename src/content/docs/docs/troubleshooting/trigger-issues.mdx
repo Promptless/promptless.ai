@@ -1,0 +1,164 @@
+---
+title: Trigger Issues
+description: Fix problems with PRs not triggering Promptless, Slack mentions not responding, and webhook failures.
+slug: docs/troubleshooting/trigger-issues
+sidebar:
+  hidden: false
+  order: 26
+---
+import Accordion from '@components/fern/Accordion.astro';
+
+This page helps when Promptless doesn't respond to events that should trigger documentation work.
+
+## GitHub PR Triggers
+
+<Accordion title="PR was opened but Promptless didn't respond">
+**Symptoms**: A pull request was opened or updated, but Promptless didn't create a suggestion or acknowledge the PR.
+
+**Likely causes**:
+- No pipeline is configured to trigger on this repository
+- The PR doesn't match your trigger filters (directories, file types, topics)
+- The trigger is set to fire after approval, not on PR open
+- Webhook delivery failed
+
+**Solutions**:
+1. **Check pipeline configuration**: Go to [Projects](https://app.gopromptless.ai/projects) and verify a pipeline exists for this repository with GitHub PR triggers enabled.
+2. **Review trigger settings**: Check if the trigger has directory filters, file type filters, or repository topic filters that exclude this PR.
+3. **Check trigger timing**: Some configurations trigger after first approval rather than on open. If your PR hasn't been approved, wait for approval or adjust the configuration.
+4. **Verify webhook delivery**: In GitHub, go to the repository Settings → Webhooks and check recent deliveries for failures.
+5. **Check the Triggers page**: Look at [app.gopromptless.ai/triggers](https://app.gopromptless.ai/triggers) to see if the event was received but filtered out.
+</Accordion>
+
+<Accordion title="PR triggered but Promptless decided no update was needed">
+**Symptoms**: Promptless acknowledged the PR (with a reaction or comment) but didn't create a suggestion.
+
+**Likely causes**:
+- Promptless analyzed the changes and determined they don't require documentation updates
+- The changes are internal implementation details without user-facing impact
+- The relevant documentation already covers this functionality
+
+**Solutions**:
+1. **Check the Triggers page**: Find the event at [app.gopromptless.ai/triggers](https://app.gopromptless.ai/triggers) and review the reasoning for why no suggestion was created.
+2. **Provide more context**: If you believe docs should be updated, @mention Promptless in the PR with specific instructions about what documentation needs to change.
+3. **Use explicit requests**: Comment "@Promptless please update the API reference to document this new parameter" to override the automated decision.
+</Accordion>
+
+<Accordion title="Only some PRs trigger Promptless">
+**Symptoms**: Some PRs in a repository trigger Promptless while others don't.
+
+**Likely causes**:
+- Directory or file type filters are configured
+- Repository topic filters are excluding certain PRs
+- The non-triggering PRs don't modify files Promptless monitors
+
+**Solutions**:
+1. **Review filter configuration**: In [Projects](https://app.gopromptless.ai/projects), check the trigger settings for path includes/excludes and file type filters.
+2. **Compare triggering vs non-triggering PRs**: Look at what files were changed. Triggering PRs likely modify files that match your filters.
+3. **Adjust filters**: If the filtering is too restrictive, update your pipeline configuration to include the desired directories or file types.
+</Accordion>
+
+## Slack Triggers
+
+<Accordion title="Promptless doesn't respond to @mentions">
+**Symptoms**: You @mention Promptless in a Slack channel but nothing happens—no reaction, no acknowledgment.
+
+**Likely causes**:
+- Promptless isn't in the channel
+- The Slack integration is disconnected
+- No pipeline is configured for Slack triggers
+- The channel is private and Promptless wasn't invited
+
+**Solutions**:
+1. **Invite Promptless to the channel**: Type `/invite @Promptless` in the channel.
+2. **Check integration status**: Verify Slack shows as connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+3. **Check pipeline configuration**: Ensure a pipeline exists with Slack triggers enabled.
+4. **Try the message action**: Click the three dots on a message and look for "Update Docs" or other Promptless actions. If actions appear but @mention doesn't work, the integration is connected but Promptless may need to be invited to the channel.
+</Accordion>
+
+<Accordion title="Slack message action isn't available">
+**Symptoms**: When you click the three dots on a Slack message, you don't see Promptless actions like "Update Docs."
+
+**Likely causes**:
+- The Promptless Slack app isn't installed in your workspace
+- You're looking in a workspace where Promptless isn't connected
+
+**Solutions**:
+1. **Check integration status**: Go to [Integrations](https://app.gopromptless.ai/integrations) and verify Slack is connected.
+2. **Reinstall the Slack app**: If Slack shows as connected but actions don't appear, disconnect and reconnect the integration.
+3. **Check workspace**: Make sure you're in the Slack workspace that's connected to your Promptless organization.
+</Accordion>
+
+<Accordion title="Passive channel listening isn't working">
+**Symptoms**: You enabled passive listening for a channel, but Promptless doesn't pick up conversations that should trigger documentation work.
+
+**Likely causes**:
+- The specific channel isn't added to passive listening configuration
+- The conversation doesn't match the criteria Promptless uses to identify documentation needs
+- Passive listening was recently enabled and hasn't synced
+
+**Solutions**:
+1. **Verify channel configuration**: Check that the specific channel is selected in your passive listening settings.
+2. **Allow time for sync**: After enabling passive listening, give it a few minutes to take effect.
+3. **Use explicit triggers for important items**: If a conversation should definitely trigger docs, use @Promptless mention or the message action rather than relying on passive detection.
+</Accordion>
+
+## Microsoft Teams Triggers
+
+<Accordion title="Teams mentions don't trigger Promptless">
+**Symptoms**: @mentioning Promptless in Teams doesn't produce a response.
+
+**Likely causes**:
+- The Promptless app isn't added to the team or channel
+- The Teams integration is disconnected
+- Teams admin policies block third-party bots
+
+**Solutions**:
+1. **Add Promptless to the team**: In Teams, go to Apps → search "Promptless" → Add to a team.
+2. **Check integration status**: Verify Teams shows as connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+3. **Contact your Teams admin**: Some organizations require approval for third-party apps. Check if Promptless needs admin approval.
+</Accordion>
+
+## API Triggers
+
+<Accordion title="API trigger returns success but nothing happens">
+**Symptoms**: Your API call to trigger Promptless returns a 200 status, but no suggestion is created.
+
+**Likely causes**:
+- The API payload is missing required fields
+- The instructions don't match any configured pipeline
+- The trigger was processed but Promptless determined no update was needed
+
+**Solutions**:
+1. **Check the API response**: The response includes a trigger event ID. Use this to find the event on the [Triggers page](https://app.gopromptless.ai/triggers).
+2. **Review the payload**: Ensure your request includes meaningful instructions that specify what documentation should change.
+3. **Check pipeline configuration**: Verify a pipeline exists that handles API triggers.
+4. **Review the event details**: The Triggers page shows whether the event was processed and why no suggestion was created.
+</Accordion>
+
+<Accordion title="API returns authentication errors">
+**Symptoms**: API calls return 401 Unauthorized errors.
+
+**Likely causes**:
+- The API key is missing from the request
+- The API key was revoked or is invalid
+- The Authorization header format is incorrect
+
+**Solutions**:
+1. **Check header format**: The API key should be sent as `Authorization: Bearer YOUR_API_KEY`.
+2. **Verify the key**: Go to [Settings](https://app.gopromptless.ai/settings) to view or regenerate your API key.
+3. **Check for typos**: Ensure there are no extra spaces or characters in the key.
+</Accordion>
+
+## General Trigger Debugging
+
+When troubleshooting any trigger issue:
+
+1. **Start with the Triggers page**: [app.gopromptless.ai/triggers](https://app.gopromptless.ai/triggers) shows all events Promptless received. If your event appears, you can see how it was processed. If it doesn't appear, the event wasn't received (likely a webhook or integration issue).
+
+2. **Check integration status**: The [Integrations page](https://app.gopromptless.ai/integrations) shows whether each service is connected.
+
+3. **Review pipeline configuration**: Go to [Projects](https://app.gopromptless.ai/projects) to verify triggers are enabled and configured correctly for your use case.
+
+4. **Look at successful triggers**: If some triggers work and others don't, compare what's different—repository, channel, file types, or configuration.
+
+5. **Contact support**: When reaching out to [help@gopromptless.ai](mailto:help@gopromptless.ai), include the event details (PR URL, Slack message link, or API request) so we can investigate.
