@@ -5,7 +5,7 @@ description: >-
 slug: docs/configuring-promptless/customizing-notifications
 sidebar:
   hidden: false
-  order: 15
+  order: 22
 ---
 import Note from '@components/fern/Note.astro';
 import Tip from '@components/fern/Tip.astro';
@@ -21,6 +21,7 @@ policies:
   default:
     notification:
       slack_channel: docs-updates
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
   
   rules:
     - if:
@@ -30,7 +31,7 @@ policies:
           slack_channel: internal-docs-team
 ```
 
-Channel names don't need the `#` prefix. When Slack channels are renamed, Promptless automatically updates your configuration.
+Slack channel names don't need the `#` prefix. When Slack channels are renamed, Promptless automatically updates your configuration. `slack_channel` and `msteams_channel` are independent—set either, both, or neither.
 
 See the [Configuration Reference](/docs/configuring-promptless/configuration-reference#policies) for the complete policies schema.
 
@@ -83,6 +84,38 @@ When you have the [Slack integration](/docs/integrations/slack-integration) conn
 <Tip>
   Promptless automatically detects protected branches in your documentation repository. When detected, Slack notifications show "Create PR" or "View PR" buttons instead of "Publish" to prevent merge errors.
 </Tip>
+
+## Microsoft Teams Notifications
+
+When the [Microsoft Teams integration](/docs/integrations/microsoft-teams-integration) is connected, you can have Promptless announce documentation suggestions in a Teams channel by setting `msteams_channel` in your policies. Unlike Slack channels, which use a name, Teams channels are addressed by their conversation ID—a value that looks like `19:…@thread.tacv2`. Copy it from Teams; it's the same ID you use for an `msteams_listen` trigger.
+
+`slack_channel` and `msteams_channel` are independent, so a single policy can notify Slack, Teams, or both.
+
+<Note>
+The Promptless bot needs prior activity in a Teams channel before it can deliver notifications there. If Promptless can't reach the configured channel, it replies in the originating thread instead.
+</Note>
+
+## Suggestion Status Updates
+
+When enabled, Promptless posts a follow-up reply in each suggestion's original Slack thread when the suggestion resolves. This closes the loop for anyone who requested documentation updates via Slack.
+
+Promptless posts a follow-up when a suggestion reaches one of these final states:
+
+- **Merged** — The documentation PR was merged
+- **Closed** — The documentation PR was closed without merging
+- **Rejected** — The suggestion was rejected from the dashboard
+- **Archived** — The suggestion was auto-archived for staleness
+
+Delivery is best-effort. The lifecycle transition always completes, even if the Slack post fails.
+
+### Enabling Status Updates
+
+1. Go to **Organization Settings** in the [Promptless dashboard](https://app.gopromptless.ai/settings)
+2. Find the **Suggestion Status Updates** section
+3. Check **Post Slack follow-ups when suggestions are resolved**
+4. Save your changes
+
+Once enabled, follow-ups appear in the Slack thread where Promptless originally announced each suggestion.
 
 ## Getting Help
 
