@@ -4,10 +4,12 @@ slug: docs/configuring-promptless/triggers
 sidebar:
   hidden: false
   order: 8
+  label: Triggers
 ---
 import Card from '@components/fern/Card.astro';
 import CardGroup from '@components/fern/CardGroup.astro';
 import Info from '@components/fern/Info.astro';
+import Warning from '@components/fern/Warning.astro';
 
 Triggers are events that initiate automated documentation updates in Promptless. When a trigger event occurs, Promptless analyzes the context and determines if documentation updates are needed.
 
@@ -24,6 +26,10 @@ Triggers are events that initiate automated documentation updates in Promptless.
 
   <Card title="GitHub Issues" iconSrc="/assets/github-logo.svg" iconAlt="GitHub logo" href="/docs/configuring-promptless/triggers/git-hub-issues">
     Mention @Promptless in issues to request documentation updates
+  </Card>
+
+  <Card title="GitLab Merge Requests" iconSrc="/assets/gitlab-logo.svg" iconAlt="GitLab logo" href="/docs/configuring-promptless/triggers/git-lab-merge-requests">
+    Automatically triggered when merge requests are opened in your GitLab projects
   </Card>
 
   <Card title="Slack" iconSrc="/assets/slack-logo.svg" iconAlt="Slack logo" href="/docs/configuring-promptless/triggers/slack-messages">
@@ -54,23 +60,36 @@ When a trigger event occurs:
 
 ## Configuring Triggers
 
-Triggers are configured at the project level in your [projects page](https://app.gopromptless.ai/projects). For each project, you can:
+Triggers are configured in your organization's [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section of your `promptless.yaml` file. For each trigger, you can:
 
-- Select which trigger types to enable
-- Configure trigger-specific settings (e.g., repository filters, channel selections)
-- Set up auto-publish behavior for documentation updates
-- Define notification preferences for your team
+- Specify which repositories or channels to monitor
+- Configure trigger-specific settings (e.g., directory filters, branch targeting)
+- Set up publishing behavior through policy rules
+
+See the [Configuration Reference](/docs/configuring-promptless/configuration-reference) for the complete YAML schema.
 
 <Info>
 Need a trigger type that isn't currently supported? Contact us at [help@gopromptless.ai](mailto:help@gopromptless.ai) - we regularly add new trigger types based on user feedback.
 </Info>
 
-## Auto-publish Mode
+## Automatic PR Creation
 
-When auto-publish is enabled for your project, Promptless automatically creates pull requests in your documentation repository with suggested changes. For [commit triggers](/docs/configuring-promptless/triggers/git-hub-commits), you can optionally enable auto-merge to automatically merge documentation PRs as soon as they're created.
+When automatic PR creation is enabled in your [publishing policies](/docs/configuring-promptless/configuration-reference#policies), Promptless automatically creates pull requests in your documentation repository with suggested changes. For [commit triggers](/docs/configuring-promptless/triggers/git-hub-commits), you can optionally enable auto-merge to automatically merge documentation PRs as soon as they're created.
 
-Auto-publish is available for all Git-hosted documentation platforms.
+Automatic PR creation is available for all Git-hosted documentation platforms.
 
 ## Trigger Events in Documentation PRs
 
 When Promptless creates a pull request for documentation updates, it automatically includes a list of the trigger events that led to those changes in the PR description. This provides valuable context for reviewers and creates clear traceability between documentation updates and their originating events.
+
+## Backfill Suggestions
+
+Backfill suggestions lets you run Promptless on pull requests that already exist, so you can catch up on documentation for work that merged before a trigger was watching. It's available on saved pull request and merge request triggers: GitHub PRs, GitLab merge requests, and Bitbucket PRs.
+
+Open the **Backfill suggestions** panel on a trigger row, choose a window of the **last 14 days**, **last 30 days**, or **last 90 days**, and select **Preview**. The preview lists every pull request the trigger would have matched in that window, using the same repository, directory, and branch filters as the live webhook. Each result links to the pull request and shows whether it's open or merged.
+
+When the preview looks right, select **Launch backfill** to run it. Promptless processes each pull request live, exactly as it does for a new event: your publishing policy applies, so backfilled pull requests can create documentation PRs and send notifications. The panel updates with progress as the run works through the list.
+
+<Warning>
+Launching a backfill runs every matched pull request live. With automatic PR creation or auto-merge enabled, a backfill can create or merge documentation PRs and send notifications across all of those pull requests. Preview the list first so you know exactly which pull requests Promptless processes.
+</Warning>

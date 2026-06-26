@@ -24,15 +24,9 @@ API triggers work well when you want to:
 
 ## Setting Up API Triggers
 
-### 1. Create an API Project
+API triggers are a built-in trigger type that's always active when an API key exists, no YAML configuration required.
 
-1. Navigate to your [Projects page](https://app.gopromptless.ai/projects)
-2. Click **New Project**
-3. Select **API** as the trigger type
-4. Choose your doc collection
-5. Save the project
-
-### 2. Generate an API Key
+### Generate an API Key
 
 API keys are managed in your organization's Settings page.
 
@@ -121,7 +115,7 @@ A successful request returns a `202 Accepted` response:
 | Status | Error | Description |
 |--------|-------|-------------|
 | 401 | `authentication_failed` | The API key is missing, invalid, or revoked |
-| 409 | `no_eligible_pipelines` | No API projects are configured for your organization |
+| 409 | `no_eligible_pipelines` | No doc collections are configured for your organization |
 | 422 | Validation error | The request body is invalid (e.g., empty instructions) |
 
 ## Viewing API Triggers
@@ -140,11 +134,87 @@ Filter by "API" source in [Change History](https://app.gopromptless.ai/change-hi
 
 When you submit an API request:
 
-1. **Validation**: Promptless validates your API key and request format
-2. **Routing**: The request is routed to all API projects in your organization
-3. **Processing**: Promptless analyzes your instructions along with configured context sources
-4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions
+1. **Validation**: Promptless validates your API key and request format.
+2. **Routing**: The request is routed to your configured doc collections.
+3. **Processing**: Promptless analyzes your instructions along with configured context sources.
+4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions.
 
 <Note>
-API triggers use the same processing pipeline as other trigger types. The suggestions appear in your dashboard and follow your configured auto-publish and notification settings.
+API triggers use the same processing pipeline as other trigger types. The suggestions appear in your dashboard and follow your configured [publishing policies](/docs/configuring-promptless/configuration-reference#policies).
 </Note>
+
+## Managing Doc Collections via API
+
+Your API key also lets you manage doc collections programmatically—list, create, update, and delete them without using the dashboard.
+
+### List Doc Collections
+
+```
+GET /organizations/{org_id}/doc_collections
+```
+
+Returns all doc collections for your organization.
+
+```bash
+curl "https://api.gopromptless.ai/organizations/{org_id}/doc_collections" \
+  -H "Authorization: Bearer plk_your-api-key"
+```
+
+### Create a Doc Collection
+
+```
+POST /organizations/{org_id}/doc_collections
+```
+
+```bash
+curl -X POST "https://api.gopromptless.ai/organizations/{org_id}/doc_collections" \
+  -H "Authorization: Bearer plk_your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "github",
+    "collection_name": "acme/docs",
+    "upstream_repo_url": "https://github.com/acme/docs",
+    "default_branch": "main"
+  }'
+```
+
+### Update a Doc Collection
+
+```
+PATCH /organizations/{org_id}/doc_collections/{doc_collection_id}
+```
+
+Update editable fields like `docs_root_url` or `docs_framework`:
+
+```bash
+curl -X PATCH "https://api.gopromptless.ai/organizations/{org_id}/doc_collections/{doc_collection_id}" \
+  -H "Authorization: Bearer plk_your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "docs_root_url": "https://docs.acme.example"
+  }'
+```
+
+### Delete a Doc Collection
+
+```
+DELETE /organizations/{org_id}/doc_collections/{doc_collection_id}
+```
+
+Soft-deletes a doc collection. The collection no longer appears in the API or dashboard, but you can recover it by contacting support.
+
+```bash
+curl -X DELETE "https://api.gopromptless.ai/organizations/{org_id}/doc_collections/{doc_collection_id}" \
+  -H "Authorization: Bearer plk_your-api-key"
+```
+
+**Error responses:**
+
+| Status | Description |
+|--------|-------------|
+| 404 | Doc collection not found or belongs to a different organization |
+| 409 | Doc collection has active projects (pipelines) attached—delete or detach them first |
+
+<Tip>
+Detach any projects using a doc collection before deleting it. The API returns a 409 error listing the IDs of any blocking projects.
+</Tip>
