@@ -3,14 +3,15 @@ title: GitLab Integration
 slug: docs/integrations/gitlab-integration
 sidebar:
   hidden: false
-  order: 30
+  order: 31
 ---
+import Note from '@components/fern/Note.astro';
 import Tip from '@components/fern/Tip.astro';
 import Warning from '@components/fern/Warning.astro';
 
-**Used for: Triggers**
+**Used for: Triggers, Context**
 
-Promptless integrates with GitLab using group access token authentication, monitoring merge requests in your repositories for documentation updates.
+Promptless integrates with GitLab using group access token authentication, monitoring merge requests in your repositories for documentation updates and providing read access to source code for deeper context.
 
 ## Installation
 
@@ -67,14 +68,37 @@ To set up directory-specific triggers:
 2. Under **Advanced Options**, enable **Directory-Specific Triggers**.
 3. Enter the directories you want to monitor, separated by commas (e.g., `src/api, docs/reference`).
 
+## Source Code Reading
+
+Promptless can read source files directly from your GitLab projects when processing merge requests or researching documentation updates. This provides context from implementation details that aren't visible in MR diffs alone.
+
+Promptless uses the GitLab CLI (`glab`) to fetch file contents from your repositories. This is useful when:
+
+- A merge request references code in files that weren't changed
+- A new feature needs to be understood in the context of existing code
+- Documentation requires accurate details about implementation behavior
+
+<Note>
+Source code reading works with GitLab.com projects. Self-hosted GitLab instances support webhook-based triggers but not source code reading.
+</Note>
+
 ## Authentication Model
 
 The GitLab integration uses group access token authentication:
 
 - **Group Access Token**: A secure token with the `api` scope for full API access
-- **Instance Access**: Works with both GitLab.com and self-hosted GitLab instances
+- **Webhook Triggers**: Work with both GitLab.com and self-hosted GitLab instances
+- **Source Code Reading**: Works with GitLab.com only
 
 This authentication model ensures that Promptless only has access to the projects and actions you explicitly authorize through the token's permissions.
+
+### Token Scope Considerations
+
+GitLab group access tokens have read-write `api` scope by default. Promptless only performs read operations with these tokens: viewing merge requests, reading repository files, and fetching project metadata. Promptless never pushes code, creates merge requests, or modifies your GitLab projects through this token.
+
+<Tip title="Using Read-Only Tokens">
+If your organization requires stricter access controls, you can provision a group access token with the `read_api` scope instead of `api`. This limits the token to read-only operations at the GitLab API level, providing an additional layer of security beyond Promptless's behavioral restrictions.
+</Tip>
 
 ## Webhook Management
 
