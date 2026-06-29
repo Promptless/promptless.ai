@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightOpenAPI, { openAPISidebarGroups } from 'starlight-openapi';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
@@ -30,7 +31,7 @@ const redirects = {
   '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
   '/use-cases': '/',
   '/faq': '/',
-  '/api-reference': '/',
+  '/api-reference': '/api/',
   '/oss': '/docs/getting-started/promptless-oss',
   '/media-kit': '/docs/media-kit',
   '/brand': '/docs/media-kit',
@@ -63,7 +64,16 @@ export default defineConfig({
       },
       favicon: '/favicon.ico',
       customCss: ['./src/styles/custom.css', './src/styles/site.css'],
-      sidebar: generatedSidebar,
+      plugins: [
+        starlightOpenAPI([
+          {
+            base: 'api',
+            schema: './public/openapi/api-triggers.yaml',
+            sidebar: { label: 'API Reference' },
+          },
+        ]),
+      ],
+      sidebar: [...generatedSidebar, ...openAPISidebarGroups],
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
         Header: './src/components/starlight/Header.astro',
