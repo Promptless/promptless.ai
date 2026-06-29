@@ -1,9 +1,9 @@
 ---
-title: 'Promptless Can Now Read Your Google Drive'
+title: 'Google Drive as a Context Source for Documentation Suggestions'
 subtitle: Published June 2026
 description: >-
-  Connect Google Drive as a read-only context source so Promptless can search and read Google Docs, Sheets, and Slides when generating documentation suggestions.
-date: '2026-06-26T00:00:00.000Z'
+  Promptless can now read your Google Drive as a context source. Connect Drive on the Integrations page and Promptless searches your Docs, Sheets, and Slides when generating documentation suggestions.
+date: '2026-06-29T00:00:00.000Z'
 author: Frances
 tag: Product Updates
 section: Featured
@@ -12,48 +12,49 @@ hidden: false
 import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
 import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
 
-Promptless now reads your Google Drive when generating documentation suggestions. Connect it on the Integrations page and the agent draws on your Docs, Sheets, and Slides the same way it draws on Confluence or Notion.
+Promptless can now read your Google Drive as a read-only context source. Connect Drive on the Integrations page, and Promptless searches your files when generating documentation suggestions. Google Docs are read as Markdown, Sheets as CSV, and Slides as plain text.
 
 ## The problem
 
-A lot of product knowledge lives in Google Drive. PRDs, architecture notes, API spec drafts, meeting summaries, onboarding guides—teams that use Docs and Sheets heavily tend to put the authoritative version of decisions in Drive rather than in a wiki or code comment. Until now, Promptless couldn't see any of it. When generating suggestions for a code change, the agent worked from the diff, linked Jira or Linear tickets, and any Confluence or Notion pages in your configuration. Anything stored in Drive was invisible.
+A lot of product knowledge lives in Google Drive: specs, design decisions, onboarding guides, internal runbooks. For teams where Drive is the primary working surface, that content wasn't visible to Promptless. When a PR came in and Promptless generated documentation suggestions, it couldn't see what the product was supposed to do according to a Google Doc that described it in detail.
 
-If your team's internal context was in Drive, suggestions were missing that context.
+The result was suggestions that reflected the code change in isolation, missing context that existed in the organization and was simply stored in a different place.
 
-## What changed
+## What it does now
 
-Google Drive is now a supported context source. Connect it on the **Integrations** page and Promptless includes Drive content when pulling context for each suggestion.
+When Drive is connected, Promptless searches your files as part of its normal context-gathering process. It reads file content and uses what it finds to inform suggestions. Files the agent can't read as text (images, PDFs, binary exports) are skipped.
 
-The agent can search your Drive and read file content: Google Docs come through as Markdown, Sheets as CSV, and Slides and plain-text formats as plain text. Unsupported types—images, PDFs, compiled files—return metadata only: filename, type, and last modified date.
+By default, access covers your entire connected Drive. You can narrow it by adding `drive_ids` or `folder_ids` to the `google_drive` context source entry in your `promptless.yaml`. This lets you point Promptless at a specific shared drive for your product team, or a folder where your current-quarter specs live, without granting visibility into unrelated personal files.
 
-Access is scoped at your discretion. Leave the integration unscoped for full Drive access, or add `drive_ids` and `folder_ids` to the `google_drive` entry in your `promptless.yaml` to limit access to specific shared drives or folders. The integration card shows which Google account authorized the connection, so you can verify whose access the agent inherits.
+The integration card on the Integrations page shows which Google account authorized the connection, so you can confirm whose access the agent inherits before going live.
 
-Promptless connects with read-only OAuth scopes and never writes to Drive.
+Promptless connects with read-only scopes and never modifies your Drive.
 
 <BlogNewsletterCTA />
 
 ## Who benefits most
 
-Teams whose internal product knowledge lives in Google Drive. If engineers write architecture decision records in Docs, PMs maintain spec documents in shared drives, and onboarding content lives in a Google Doc—Promptless can now draw on that material when generating documentation for code changes. The agent uses Drive content the same way it uses any context source: to understand what a change is for, what terminology is correct, and what already exists.
+Teams where Google Workspace is the default writing surface for product knowledge. If your spec documents, feature briefs, or API decision records live in Google Docs rather than a wiki or a repo, this closes the gap between what Promptless knows and what your organization has already written down.
 
-This is also relevant to teams that have tried other context sources (Confluence, Notion, Linear) and found their canonical reference material is still in Drive rather than in a structured wiki.
+It's also useful if you maintain a shared Drive folder with evergreen reference content: style decisions, terminology lists, architecture notes. Once connected, Promptless can pull from that material when generating suggestions, instead of reasoning from scratch.
 
-## How to set it up
+## How to use it
 
-1. Go to the **Integrations** page in your Promptless dashboard.
-2. Find the **Google Drive** tile and click **Connect**.
-3. Authorize with the Google account that has access to the content you want Promptless to read. The integration card will show which account is connected.
-4. Optionally, add scoping to your `promptless.yaml`:
+1. Go to the **Integrations page** in the Promptless dashboard.
+2. Connect Google Drive. Authorize with the Google account that has access to the files you want Promptless to read.
+3. Promptless will add an unscoped `google_drive` context source entry to your `promptless.yaml` automatically.
+
+To scope access to specific drives or folders, edit the entry in your configuration:
 
 ```yaml
 context_sources:
-  - source_type: google_drive
+  - type: google_drive
     drive_ids:
-      - your-shared-drive-id
+      - 0AExampleDriveIdUk9PVA
     folder_ids:
-      - your-folder-id
+      - 1BExampleFolderIdXyZ
 ```
 
-Leave `drive_ids` and `folder_ids` out entirely to allow access to the full Drive. See the [Google Drive context source docs](/docs/configuring-promptless/context-sources/google-drive) for configuration details.
+Leave `drive_ids` and `folder_ids` empty (or omit them) to allow access to everything the connected account can read.
 
 <BlogRequestDemo />
