@@ -14,10 +14,9 @@ import Info from '@components/fern/Info.astro';
 
 When Vale is enabled, Promptless:
 
-- Downloads external style packages your config references when those styles aren't already vendored in your repository
-- Lints every prose file it creates or substantially edits
-- Fixes findings according to your config's `MinAlertLevel`: when you set an alert level, Promptless fixes every finding Vale reports; when it's unset, Promptless fixes error-severity findings and uses judgment on warnings and suggestions
-- Reproduces your repository's Vale CI invocation on the changed files and confirms they pass before creating the suggestion
+- Downloads external style packages your config references when those styles aren't already vendored in your repository.
+- Lints every prose file it creates or substantially edits.
+- Fixes findings according to your config's `MinAlertLevel`: when you set an alert level, Promptless fixes every finding Vale reports; when it's unset, Promptless treats error-severity violations as blocking and fixes them before creating the suggestion.
 
 This keeps suggestions aligned with your style guide from the start, reducing back-and-forth during review.
 
@@ -46,8 +45,8 @@ If your Vale config references external style packages (like Microsoft, Google, 
 
 Promptless runs Vale after drafting prose content:
 
-1. **Sync packages** - Downloads any external style packages your config references. Promptless skips this step when those styles are already vendored under your config's `StylesPath`, so it never overwrites your checked-in style files.
-2. **Lint prose** - Runs Vale on created or edited prose files using your config.
+1. **Sync packages** - Downloads any external style packages your config references.
+2. **Lint prose** - Runs Vale on created or edited prose files.
 3. **Apply your alert level** - Reads your config's `MinAlertLevel` and uses it to decide which findings to fix (see [Severity handling](#severity-handling)).
 4. **Match your CI** - Reads the Vale job in your repository's GitHub Actions workflows and reproduces that invocation locally on the changed files, confirming they pass before creating the suggestion.
 
@@ -55,7 +54,16 @@ Vale only runs on prose content. Code blocks, commands, configuration, frontmatt
 
 ## Severity handling
 
-How Promptless treats findings depends on whether your config sets `MinAlertLevel`.
+Vale classifies violations into three severity levels:
+
+| Severity | Behavior |
+|----------|----------|
+| **error** | Blocking. Promptless fixes these before creating the suggestion. |
+| **warning** | Advisory. Promptless evaluates against your existing style and fixes when appropriate. |
+| **suggestion** | Advisory. Promptless considers these but may preserve intentional style choices. |
+
+
+Promptless treats findings depends on whether your config sets `MinAlertLevel`.
 
 ### When MinAlertLevel is set
 
@@ -65,15 +73,7 @@ For example, with `MinAlertLevel = suggestion`, Promptless fixes every error, wa
 
 ### When MinAlertLevel is unset
 
-When your config doesn't set `MinAlertLevel`, Promptless falls back to error-first handling:
-
-| Severity | Behavior |
-|----------|----------|
-| **error** | Blocking. Promptless fixes these before creating the suggestion. |
-| **warning** | Advisory. Promptless evaluates against your existing style and fixes when appropriate. |
-| **suggestion** | Advisory. Promptless considers these but may preserve intentional style choices. |
-
-In this mode, error-severity rules are hard constraints, while Promptless treats warning and suggestion rules as guidance and balances them against the established voice and conventions in your docs.
+When your config doesn't set `MinAlertLevel`, Promptless falls back to treating error-severity rules as hard constraints, while Promptless treats warning and suggestion rules as guidance and balances them against the established voice and conventions in your docs.
 
 ## CI integration
 
