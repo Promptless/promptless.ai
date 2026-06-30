@@ -14,10 +14,9 @@ import Info from '@components/fern/Info.astro';
 
 When Vale is enabled, Promptless:
 
-- Syncs external style packages referenced in your Vale config once per session
-- Lints every prose file it creates or substantially edits
-- Treats error-severity violations as blocking and fixes them before creating the suggestion
-- Weighs warning and suggestion-severity results against your established style before acting
+- Downloads external style packages your config references when those styles aren't already vendored in your repository.
+- Lints every prose file it creates or substantially edits.
+- Fixes findings according to your config's `MinAlertLevel`: when you set an alert level, Promptless fixes every finding Vale reports; when it's unset, Promptless treats error-severity violations as blocking and fixes them before creating the suggestion.
 
 This keeps suggestions aligned with your style guide from the start, reducing back-and-forth during review.
 
@@ -46,10 +45,10 @@ If your Vale config references external style packages (like Microsoft, Google, 
 
 Promptless runs Vale after drafting prose content:
 
-1. **Sync packages** - Downloads any external style packages your config references (runs once per session)
-2. **Lint prose** - Runs Vale on created or edited prose files
-3. **Evaluate results** - Parses Vale's output and categorizes violations by severity
-4. **Fix or flag** - Automatically fixes error-severity violations; evaluates warnings and suggestions against your docs style
+1. **Sync packages** - Downloads any external style packages your config references.
+2. **Lint prose** - Runs Vale on created or edited prose files.
+3. **Apply your alert level** - Reads your config's `MinAlertLevel` and uses it to decide which findings to fix (see [Severity handling](#severity-handling)).
+4. **Match your CI** - Reads the Vale job in your repository's GitHub Actions workflows and reproduces that invocation locally on the changed files, confirming they pass before creating the suggestion.
 
 Vale only runs on prose content. Code blocks, commands, configuration, frontmatter, schemas, and tables are excluded from linting.
 
@@ -63,7 +62,18 @@ Vale classifies violations into three severity levels:
 | **warning** | Advisory. Promptless evaluates against your existing style and fixes when appropriate. |
 | **suggestion** | Advisory. Promptless considers these but may preserve intentional style choices. |
 
-Error-severity rules are hard constraints. Warning and suggestion rules are guidance that Promptless balances against the established voice and conventions in your docs.
+
+Promptless treats findings depends on whether your config sets `MinAlertLevel`.
+
+### When MinAlertLevel is set
+
+Setting `MinAlertLevel` is a deliberate choice about the severity bar your docs hold to, so Promptless honors it and fixes every finding Vale reports at or above that level, including warnings and suggestions. This mirrors what your Vale CI surfaces, so Promptless resolves the findings you'd otherwise see as review comments before the suggestion reaches you.
+
+For example, with `MinAlertLevel = suggestion`, Promptless fixes every error, warning, and suggestion Vale reports. To have Promptless fix fewer findings, raise the level (for instance, to `warning` or `error`) rather than relying on it to weigh advisory results.
+
+### When MinAlertLevel is unset
+
+When your config doesn't set `MinAlertLevel`, Promptless falls back to treating error-severity rules as hard constraints, while Promptless treats warning and suggestion rules as guidance and balances them against the established voice and conventions in your docs.
 
 ## CI integration
 
