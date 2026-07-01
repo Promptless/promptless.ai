@@ -1,0 +1,108 @@
+---
+title: Vale Integration
+description: Enforce prose style standards in documentation suggestions with Vale
+slug: docs/configuring-promptless/doc-collections/vale-integration
+sidebar:
+  hidden: false
+  order: 22
+---
+import Info from '@components/fern/Info.astro';
+
+[Vale](https://vale.sh/) is an open-source prose linter that enforces style rules across documentation. When Vale is configured for a doc collection, Promptless lints prose before creating suggestions, catching style violations before they reach your review queue.
+
+## What Promptless does
+
+When Vale is enabled, Promptless:
+
+- Downloads external style packages your config references when those styles aren't already vendored in your repository.
+- Lints every prose file it creates or substantially edits.
+- Fixes findings according to your config's `MinAlertLevel`: when you set an alert level, Promptless fixes every finding Vale reports; when it's unset, Promptless treats error-severity violations as blocking and fixes them before creating the suggestion.
+
+This keeps suggestions aligned with your style guide from the start, reducing back-and-forth during review.
+
+## Setup
+
+Vale is enabled automatically when Promptless detects a Vale configuration file in your docs repository.
+
+### Automatic detection
+
+During doc collection setup, Promptless scans your repository for `.vale.ini` or `vale.ini`. If found, Vale linting activates automatically using that config file's location.
+
+### Manual configuration
+
+You can also set the Vale config path manually:
+
+1. Open the Promptless dashboard.
+2. Go to your doc collection.
+3. Click the edit button.
+4. Under **Vale config**, enter the repo-relative path to your Vale configuration file (e.g., `.vale.ini` or `docs/.vale.ini`).
+
+<Info>
+If your Vale config references external style packages (like Microsoft, Google, or write-good), Promptless downloads them automatically the first time it lints during a session.
+</Info>
+
+## How it works
+
+Promptless runs Vale after drafting prose content:
+
+1. **Sync packages** - Downloads any external style packages your config references.
+2. **Lint prose** - Runs Vale on created or edited prose files.
+3. **Apply your alert level** - Reads your config's `MinAlertLevel` and uses it to decide which findings to fix (see [Severity handling](#severity-handling)).
+4. **Match your CI** - Reads the Vale job in your repository's GitHub Actions workflows and reproduces that invocation locally on the changed files, confirming they pass before creating the suggestion.
+
+Vale only runs on prose content. Code blocks, commands, configuration, frontmatter, schemas, and tables are excluded from linting.
+
+## Severity handling
+
+Vale classifies violations into three severity levels:
+
+| Severity | Behavior |
+|----------|----------|
+| **error** | Blocking. Promptless fixes these before creating the suggestion. |
+| **warning** | Advisory. Promptless evaluates against your existing style and fixes when appropriate. |
+| **suggestion** | Advisory. Promptless considers these but may preserve intentional style choices. |
+
+
+Promptless treats findings depends on whether your config sets `MinAlertLevel`.
+
+### When MinAlertLevel is set
+
+Setting `MinAlertLevel` is a deliberate choice about the severity bar your docs hold to, so Promptless honors it and fixes every finding Vale reports at or above that level, including warnings and suggestions. This mirrors what your Vale CI surfaces, so Promptless resolves the findings you'd otherwise see as review comments before the suggestion reaches you.
+
+For example, with `MinAlertLevel = suggestion`, Promptless fixes every error, warning, and suggestion Vale reports. To have Promptless fix fewer findings, raise the level (for instance, to `warning` or `error`) rather than relying on it to weigh advisory results.
+
+### When MinAlertLevel is unset
+
+When your config doesn't set `MinAlertLevel`, Promptless falls back to treating error-severity rules as hard constraints, while Promptless treats warning and suggestion rules as guidance and balances them against the established voice and conventions in your docs.
+
+## CI integration
+
+Vale errors that slip through or arise from later edits are caught by Promptless's automated CI handling. When Vale fails in a GitHub Actions workflow on a Promptless PR, Promptless analyzes the failure and pushes fixes to the branch automatically.
+
+This works alongside other CI checks like broken link detection and Doc Detective tests, giving you layered quality gates without manual triage.
+
+## Creating a Vale config
+
+If you don't have a Vale configuration yet, create a `.vale.ini` file in your docs repository root:
+
+```ini
+StylesPath = .vale/styles
+MinAlertLevel = warning
+
+[*.md]
+BasedOnStyles = Vale
+```
+
+This minimal config enables Vale's built-in rules. For more comprehensive style enforcement, add external packages:
+
+```ini
+StylesPath = .vale/styles
+MinAlertLevel = warning
+
+Packages = Microsoft, write-good
+
+[*.md]
+BasedOnStyles = Vale, Microsoft, write-good
+```
+
+See the [Vale documentation](https://vale.sh/docs/) for detailed configuration options and available style packages.

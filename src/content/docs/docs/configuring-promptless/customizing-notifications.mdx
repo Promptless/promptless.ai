@@ -9,6 +9,7 @@ sidebar:
 ---
 import Note from '@components/fern/Note.astro';
 import Tip from '@components/fern/Tip.astro';
+import Frame from '@components/fern/Frame.astro';
 
 Promptless sends notifications to your team when documentation suggestions are ready for review. You can configure notification channels in your organization's `promptless.yaml` file using the policies section.
 
@@ -32,6 +33,26 @@ policies:
 ```
 
 Slack channel names don't need the `#` prefix. When Slack channels are renamed, Promptless automatically updates your configuration. `slack_channel` and `msteams_channel` are independent—set either, both, or neither.
+
+### Disabling an Inherited Channel
+
+A rule can turn off a channel that it would otherwise inherit from `policies.default` or an earlier rule by setting the field to `null`:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+
+  rules:
+    - if:
+        doc_collection: acme/internal-docs
+      then:
+        notification:
+          slack_channel: null
+```
+
+Here, suggestions for `acme/internal-docs` send no Slack notification, while every other collection still notifies `docs-updates`. Channels resolve by field presence: `slack_channel: null` disables the inherited channel, and omitting the field entirely inherits it. `msteams_channel` works the same way, and the two channels are disabled independently.
 
 See the [Configuration Reference](/docs/configuring-promptless/configuration-reference#policies) for the complete policies schema.
 
@@ -75,11 +96,27 @@ Include enough context that someone new to the thread can understand why Promptl
 
 ## Slack Notification Features
 
-When you have the [Slack integration](/docs/integrations/slack-integration) connected, Promptless sends rich notifications with:
+With the [Slack integration](/docs/integrations/slack-integration) connected, Promptless sends rich notifications that include:
 
-- **Interactive buttons**: Quickly publish suggestions or open PRs for review directly from Slack
-- **Diff file attachments**: See the full diff of documentation changes in a thread reply
-- **Channel support**: Receive notifications in specific channels by name, not just by ID
+- **Clickable preview cards**: Suggestion notifications appear as preview cards showing the title, status, description excerpt, trigger source, and file change stats. Click anywhere on the card to open the suggestion in Promptless.
+- **Interactive buttons**: Publish suggestions or open PRs for review directly from Slack. These actions appear within the preview card.
+- **Diff file attachments**: View the full diff of documentation changes in a thread reply
+- **Channel support**: Receive notifications in channels by name, not just by ID
+
+### Suggestion Preview Cards
+
+Slack suggestion notifications include a preview card with:
+
+- **Title**: The suggestion title
+- **Status badge**: Shows "New suggestion" for first notifications or "Updated suggestion" for follow-ups
+- **Description**: A short excerpt of the suggestion description
+- **Triggered by**: A descriptive label linking to the source that triggered the suggestion, such as "Merged GitHub PR #123 in acme/docs" or "Slack direct @mention"
+- **Files**: The number of files changed
+- **Status**: The current suggestion lifecycle status (Open, Pull Request, Published, or Rejected)
+
+<Frame>
+  <img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/slack-suggestion-preview-card-4fa69850.png" alt="Slack suggestion preview card showing the title, description, files with line change stats, Triggered by link, created timestamp, Pull Request status badge, and Publish and Review in Promptless buttons" />
+</Frame>
 
 <Tip>
   Promptless automatically detects protected branches in your documentation repository. When detected, Slack notifications show "Create PR" or "View PR" buttons instead of "Publish" to prevent merge errors.
