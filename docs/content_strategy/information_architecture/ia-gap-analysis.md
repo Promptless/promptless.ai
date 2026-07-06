@@ -36,7 +36,7 @@ This gap list is the intended deliverable — it shows where docs must grow to s
 | how-to-use-promptless/working-with-slack · integrations/slack-integration · microsoft-teams-integration · intercom-integration-beta | Work the queue → Slack/Teams (+ Connect → Triggers) |
 | how-to-use-promptless/using-promptless-capture | Get the most out of → Screenshots |
 | how-to-use-promptless/deep-analysis | Get the most out of → Deep Analysis |
-| configuring-promptless/doc-collections/doc-detective-integration | Get the most out of → Agent-friendly docs |
+| configuring-promptless/doc-collections/doc-detective-integration | Audit & keep your docs healthy → Validate code samples & API contracts (Doc Detective) |
 | how-to-use-promptless/agent-knowledge-base | Get the most out of → Agent knowledge base |
 | how-to-use-promptless/managing-environment-variables | Scale across teams → Env variables |
 | security-and-privacy/* | Security & deployment |
@@ -62,7 +62,6 @@ Ordered by leverage (impact on pilot success / deals × frequency in the corpus)
 | **Access & permissions (read-only/least-privilege posture)** | connect-sources, enterprise-security-review | Recurring security/IT gating; ties access scope to the security story | P1 |
 | **Release notes & changelogs** | release-notes | No release-notes process is common; explicit demand (multiple customers) | P1 |
 | **Localization** (locale modeling, propagation, TMS/Phrase) | localization | Translations years behind (OSS projects); TMS hook (an enterprise team) | P2 |
-| **Agent-friendly docs: llms.txt + SDK/API accuracy** | agent-friendly-docs | Agents are now primary consumers (multiple customers); forward-looking | P2 |
 | **Reporting & ROI** | prove-value | Value-proof gates expansion & champion's role (multiple customers; one cited ~40% of doc PRs) | P2 |
 | **Content audit (surface stale/inconsistent existing pages)** | remediate-legacy-content, overhaul-ia | Long-tail staleness no one can audit by hand (one enterprise's ~4k pages; another's debt-as-noise) | P2 |
 | **Remediate existing pages at scale** (update/consolidate, distinct from gap backfill) | remediate-legacy-content | Brownfield corpora full of stale/duplicate pages (multiple customers) | P2 |
@@ -84,6 +83,12 @@ Ordered by leverage (impact on pilot success / deals × frequency in the corpus)
 - The proposed IA is intentionally more **journey-shaped** than the current
   concept/configure/how-to split. The biggest single change is promoting **calibration** and
   the **review queue** to top-level — the two areas the corpus shows decide retention.
+- **Agent-readiness is deferred.** A standalone "make your docs agent-ready" area
+  (agent-friendliness score, `llms.txt`, MCP server for docs, serving Markdown to agents,
+  maintaining agent instructions) is intentionally **not** part of this IA — it waits until the
+  Starport feature ships. The only agent-related piece with a shipping capability today,
+  **Doc Detective code-sample/API-contract validation**, now lives under **Audit & keep your docs
+  healthy** rather than in an agent-ready section, so it is no longer listed as a `[NEW]` gap.
 - Nothing here changes nav code or content. Implementing it would mean creating the `[NEW]`
   pages, consolidating the concepts duplication, and updating
   [site-navigation.ts](../../../src/lib/site-navigation.ts) + the generated sidebar — a separate
