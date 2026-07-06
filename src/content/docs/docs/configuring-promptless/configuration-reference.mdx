@@ -346,10 +346,30 @@ policies:
 **notification**
 | Field | Description |
 |-------|-------------|
-| `slack_channel` | Slack channel name for notifications (no `#` prefix) |
-| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications |
+| `slack_channel` | Slack channel name for notifications (no `#` prefix), or `null` to disable an inherited Slack channel |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications, or `null` to disable an inherited Teams channel |
 
 `slack_channel` and `msteams_channel` are independent—set either, both, or neither. The Teams conversation ID is the same value you paste into an `msteams_listen` trigger; copy it from Teams. A Teams channel must have prior Promptless bot activity before notifications can be delivered there.
+
+- **Omitting** the field inherits the channel from `policies.default` or an earlier rule.
+- Setting it to **`null`** disables the channel for that scope, overriding any inherited channel so no notification is sent.
+- Setting it to a **channel name** (or Teams conversation ID) routes notifications there.
+
+Because resolution depends on field presence, an omitted field and an explicit `null` are not the same: `null` means disable, absent means inherit. The two channels resolve independently, so you can disable one while leaving the other inherited.
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-notifications
+
+  rules:
+    - if:
+        doc_collection: acme/internal-docs
+      then:
+        notification:
+          slack_channel: null   # silence Slack for this collection
+```
 
 **publishing**
 | Field | Description |
