@@ -85,8 +85,7 @@ Ordered by leverage (impact on pilot success / deals × frequency in the corpus)
   the **review queue** to top-level — the two areas the corpus shows decide retention.
 - **Agent-readiness is deferred.** A standalone "make your docs agent-ready" area
   (agent-friendliness score, `llms.txt`, MCP server for docs, serving Markdown to agents,
-  maintaining agent instructions) is intentionally **not** part of this IA — it waits until the
-  Starport feature ships. The only agent-related piece with a shipping capability today,
+  maintaining agent instructions) is intentionally **not** part of this IA — it waits for now. The only agent-related piece with a shipping capability today,
   **Doc Detective** — whose largest use is validating UI procedures, with code samples and API
   contracts as additional uses — now lives under **Audit & keep your docs healthy** rather than in
   an agent-ready section, so it is no longer listed as a `[NEW]` gap.

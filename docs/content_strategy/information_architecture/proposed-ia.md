@@ -143,8 +143,7 @@ Every CUJ has a home; no journey is orphaned.
 
 > **Deferred: "Make your docs agent-ready."** An earlier draft proposed a standalone
 > agent-readiness area (agent-friendliness score, `llms.txt`, an MCP server for docs, serving
-> Markdown to agents, maintaining agent instructions). We are **not** carving that out yet — it
-> waits until the Starport feature ships. For now, the one piece that has a shipping capability
+> Markdown to agents, maintaining agent instructions). We are **not** carving that out yet. For now, the one piece that has a shipping capability
 > today, **Doc Detective — whose largest use is validating UI procedures, with code samples and
 > API contracts as additional uses — lives under "Audit & keep your docs healthy."** The rest of
 > the agent-ready material is intentionally out of scope for this IA.
