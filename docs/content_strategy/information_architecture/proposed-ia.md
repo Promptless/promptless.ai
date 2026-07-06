@@ -77,7 +77,7 @@ appears here anyway and is flagged `[NEW]`. The mapping of these gaps to current
 │
 ├── Audit & keep your docs healthy          ← cuj-remediate-legacy-content, cuj-overhaul-ia  [NEW section]
 │   ├── Audit existing content for staleness          [NEW]
-│   ├── Validate code samples & API contracts (Doc Detective)
+│   ├── Validate UI procedures, code samples & API contracts (Doc Detective)
 │   ├── Remediate & restandardize legacy pages        [NEW]
 │   └── Restructure your information architecture     [NEW]
 │
@@ -120,7 +120,7 @@ Every CUJ has a home; no journey is orphaned.
 | cuj-screenshots | Get the most out of → screenshots |
 | cuj-backfill-debt | Get the most out of → Deep Analysis |
 | cuj-release-notes | Get the most out of → release notes |
-| cuj-agent-friendly-docs | Audit & keep your docs healthy → Doc Detective (code-sample validation only; agent-discoverability deferred — see note) |
+| cuj-agent-friendly-docs | Audit & keep your docs healthy → Doc Detective (UI-procedure validation, plus code samples & API contracts; agent-discoverability deferred — see note) |
 | cuj-localization | Get the most out of → localization |
 | cuj-multi-repo-routing | Scale across teams |
 | cuj-remediate-legacy-content | Audit & keep your docs healthy |
@@ -135,7 +135,7 @@ Every CUJ has a home; no journey is orphaned.
   (they decide pilot success).
 - **Reframes** "How to use Promptless" as outcome-oriented jobs ("Get the most out of…").
 - **Adds** journey-driven areas that don't exist today: Migrate to docs-as-code, Measure
-  impact, **Audit & keep your docs healthy** (audit, code-sample validation via Doc Detective,
+  impact, **Audit & keep your docs healthy** (audit, UI-procedure/code-sample validation via Doc Detective,
   remediate/restandardize, restructure IA), and (as pages) noise/timing tuning,
   assignment/routing, multi-repo & versioned routing, localization, and connection-health
   troubleshooting.
@@ -145,8 +145,9 @@ Every CUJ has a home; no journey is orphaned.
 > agent-readiness area (agent-friendliness score, `llms.txt`, an MCP server for docs, serving
 > Markdown to agents, maintaining agent instructions). We are **not** carving that out yet — it
 > waits until the Starport feature ships. For now, the one piece that has a shipping capability
-> today, **Doc Detective code-sample/API-contract validation, lives under "Audit & keep your docs
-> healthy."** The rest of the agent-ready material is intentionally out of scope for this IA.
+> today, **Doc Detective — whose largest use is validating UI procedures, with code samples and
+> API contracts as additional uses — lives under "Audit & keep your docs healthy."** The rest of
+> the agent-ready material is intentionally out of scope for this IA.
 
 See [ia-gap-analysis.md](ia-gap-analysis.md) for the page-level current→proposed mapping and the
 full gap list.

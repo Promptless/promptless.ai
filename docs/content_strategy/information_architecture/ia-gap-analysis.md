@@ -36,7 +36,7 @@ This gap list is the intended deliverable — it shows where docs must grow to s
 | how-to-use-promptless/working-with-slack · integrations/slack-integration · microsoft-teams-integration · intercom-integration-beta | Work the queue → Slack/Teams (+ Connect → Triggers) |
 | how-to-use-promptless/using-promptless-capture | Get the most out of → Screenshots |
 | how-to-use-promptless/deep-analysis | Get the most out of → Deep Analysis |
-| configuring-promptless/doc-collections/doc-detective-integration | Audit & keep your docs healthy → Validate code samples & API contracts (Doc Detective) |
+| configuring-promptless/doc-collections/doc-detective-integration | Audit & keep your docs healthy → Validate UI procedures, code samples & API contracts (Doc Detective) |
 | how-to-use-promptless/agent-knowledge-base | Get the most out of → Agent knowledge base |
 | how-to-use-promptless/managing-environment-variables | Scale across teams → Env variables |
 | security-and-privacy/* | Security & deployment |
@@ -87,8 +87,9 @@ Ordered by leverage (impact on pilot success / deals × frequency in the corpus)
   (agent-friendliness score, `llms.txt`, MCP server for docs, serving Markdown to agents,
   maintaining agent instructions) is intentionally **not** part of this IA — it waits until the
   Starport feature ships. The only agent-related piece with a shipping capability today,
-  **Doc Detective code-sample/API-contract validation**, now lives under **Audit & keep your docs
-  healthy** rather than in an agent-ready section, so it is no longer listed as a `[NEW]` gap.
+  **Doc Detective** — whose largest use is validating UI procedures, with code samples and API
+  contracts as additional uses — now lives under **Audit & keep your docs healthy** rather than in
+  an agent-ready section, so it is no longer listed as a `[NEW]` gap.
 - Nothing here changes nav code or content. Implementing it would mean creating the `[NEW]`
   pages, consolidating the concepts duplication, and updating
   [site-navigation.ts](../../../src/lib/site-navigation.ts) + the generated sidebar — a separate
