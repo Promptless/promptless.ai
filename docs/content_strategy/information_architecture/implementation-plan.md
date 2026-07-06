@@ -45,8 +45,9 @@ post-review IA and does not schedule any agent-ready work.
 We sequence the migration **by target section**, in the backbone-journey order that
 `proposed-ia.md` defines (start → connect → tune → work the queue → outcomes → scale → audit →
 migrate → secure → measure → reference). One phase brings each section fully to its proposed
-shape: it re-homes existing pages to their new slugs, scaffolds the section's `[NEW]` pages, and
-updates the sidebar and redirects in the same PR. A phase may split into a
+shape: it re-homes existing pages to their new slugs (setting the `slug`/`sidebar.*` frontmatter
+that drives the nav), scaffolds the section's `[NEW]` pages, and adds the redirects in the same
+PR. A phase may split into a
 few PRs (for example, "move existing pages" separately from "add a large net-new page"), but a
 phase never leaves the tree half-built across a merge.
 
@@ -60,19 +61,28 @@ not mergeable:
    its frontmatter `slug`/`sidebar` fields).
 2. **Add a redirect** from the old path to the new path in `src/lib/generated/redirects.json`
    (see §2.2). Old URLs must keep resolving.
-3. **Update `src/lib/generated/sidebar.json` by hand** to reflect the new location, label, and
-   ordering (see §1.3). This is mandatory — it is the single most common way pages silently
-   disappear from the nav in this repo.
+3. **Get the page's nav placement from its frontmatter, not from a hand-edited
+   `sidebar.json`** (see §1.3). The `slug` and `sidebar.*` fields set in step 1 are what place
+   the page in the sidebar; `src/lib/generated/sidebar.json` regenerates from that frontmatter at
+   build time. Do **not** hand-edit `sidebar.json` — a hand edit is overwritten on the next
+   build. Getting the frontmatter right is the single most important step; it is how pages land in
+   (or silently drop out of) the nav in this repo.
 
-### 1.3 Sidebar maintenance is a required, hand-edited step in every phase
+### 1.3 Sidebar placement is controlled by page frontmatter, not by hand-editing sidebar.json
 
-**`src/lib/generated/sidebar.json` is hand-maintained, not reliably regenerated from
-frontmatter.** Adding, moving, renaming, or removing a page does **not** update the sidebar on
-its own; pages have silently dropped out of the nav when this step was skipped. Treat a matching
-`sidebar.json` edit as part of the same PR as any page add/move/rename/remove — add or move the
-entry into the correct section, match the existing `label` + `slug` shape, set the ordering, and
-omit `hidden` pages. A phase's PR is not review-ready until its `sidebar.json` diff matches its
-content diff exactly.
+**`src/lib/generated/sidebar.json` is auto-generated from page frontmatter — do not hand-edit
+it.** `scripts/generate-manifest.ts` rebuilds the file from the docs frontmatter in its
+`buildSidebar()` step, and that script runs through `prebuild`/`generate:manifest`, which npm
+executes before every `build`. CI and Vercel therefore regenerate the sidebar on each deploy, so
+a hand edit to `sidebar.json` never survives — the next build overwrites it.
+
+Control nav placement through each page's **frontmatter** instead. Set `slug` to put the page in
+the right section, and set `sidebar.order`, `sidebar.hidden`, and `sidebar.label` for its
+ordering, visibility, and label. Adding, moving, renaming, or removing a page is a frontmatter
+change, and the sidebar follows from it, so keep the page's frontmatter in the same PR as any
+add, move, rename, or removal. To make the committed `sidebar.json` cache reflect the change on
+the branch, run `npm run generate:manifest` and commit the regenerated file rather than editing
+it by hand. A phase's PR should never carry a hand-authored `sidebar.json` diff.
 
 ### 1.4 Keeping the site shippable at every step
 
@@ -170,8 +180,10 @@ Establishes the rules so every later phase is mechanical and reviewable. Deliver
   `integrations.mdx`, `configuring-promptless` indexes) become which new section indexes, and
   which new sections need a fresh index page.
 - **`promptless-1-0` disposition** decided (changelog vs. fold into How Promptless works).
-- **Redirect + sidebar checklist** adopted as the definition-of-done for every migration PR
-  (§1.2–§1.4).
+- **Frontmatter + redirect checklist** adopted as the definition-of-done for every migration PR
+  (§1.2–§1.4): each moved page carries the `slug`/`sidebar.*` frontmatter that drives its nav
+  placement (the sidebar regenerates from it at build), plus a redirect entry — no hand-edited
+  `sidebar.json` diffs.
 - **CI gate confirmed**: `npm run build`, smoke tests, and the broken-link check run on each PR.
 
 This phase changes no published page location, so it is safe to merge first and de-risks
@@ -196,7 +208,7 @@ everything after it.
 **How incremental review works across phases:**
 
 - Within a phase, **moves land before net-new pages.** Rehoming existing pages (a
-  redirect-and-sidebar diff) is easy to review; net-new `[NEW]` pages are each their own PR
+  frontmatter-and-redirect diff) is easy to review; net-new `[NEW]` pages are each their own PR
   slotted into the already-migrated section. A large section may therefore be one "moves" PR
   plus several small "new page" PRs.
 - **Ordering is by leverage where it matters.** P0 gaps cluster in Phases 2–5 (connection
@@ -253,8 +265,9 @@ The cut-over is **done** when all of the following hold:
   retired `getting-started/core-concepts` and `core-concepts/*` paths redirected.
 - Every P0 and P1 gap page from §4 exists and is linked from its section; P2 pages are tracked as
   remaining backlog but do not block cut-over.
-- `src/lib/generated/sidebar.json` lists **only** the new sections in backbone order, with no
-  leftover old grouping, and matches the on-disk content exactly.
+- The generated `src/lib/generated/sidebar.json` lists **only** the new sections in backbone
+  order, with no leftover old grouping — which follows from every page's frontmatter being set to
+  its new placement, since the sidebar regenerates from that frontmatter on each build.
 
 **Retiring the old structure:**
 
@@ -263,8 +276,10 @@ The cut-over is **done** when all of the following hold:
   once their children have moved, redirecting each retired index URL to its successor section
   index.
 - Delete emptied directories under `src/content/docs/docs/` after their pages have moved.
-- Do a final pass on `redirects.json` to confirm no old path is orphaned, and a final
-  `sidebar.json` review to confirm the nav is the proposed IA and nothing else.
+- Do a final pass on `redirects.json` to confirm no old path is orphaned, then run
+  `npm run generate:manifest` and confirm the regenerated `sidebar.json` is the proposed IA and
+  nothing else (fix any stray entry by correcting the offending page's frontmatter, not the
+  generated file).
 - Update `AGENTS.md`'s Documentation Map and the `docs/content_strategy/` references so the repo's
   own map reflects the new structure.
 
