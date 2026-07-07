@@ -1,9 +1,13 @@
 ---
 title: June 2026
-subtitle: File-first configuration, multiple doc collections during onboarding, sidebar suggestion count, filtering improvements, and bug fixes.
+subtitle: Doc agents use your existing skills, file-first configuration, simplified onboarding, multiple doc collections, sidebar suggestion count, filtering improvements, and bug fixes.
 date: '2026-06-01T00:00:00.000Z'
 hidden: false
 ---
+
+**What's New:**
+
+* **Doc agents use your existing skills:** If you already keep Agent Skills in your documentation repository, Promptless now uses them automatically—no extra setup required. Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/` are picked up, and when a documentation task matches a skill's description, the agent runs that skill instead of deriving the workflow from scratch. You can guide when and how Promptless reaches for your skills by adding instructions to the `PROMPTLESS.md` file in your Knowledge Base. See [How Promptless Learns Your Docs](/docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs#using-your-existing-skills) for details.
 
 **Major Update:**
 
@@ -11,16 +15,43 @@ hidden: false
 
 **New Features:**
 
+* **Structured configuration editor:** The [Configuration page](/docs/configuring-promptless/configuration-reference) now opens in a structured **Form** editor that groups your `promptless.yaml` into Doc collections, Triggers, Context sources, and Policies tabs, so you can manage everything without hand-editing YAML. Form mode saves one item at a time and commits each change to your Agent Knowledge Base right away, with pickers that autocomplete from your connected repos, Slack channels, and Jira, Confluence, Linear, and Notion inventory. The raw YAML editor stays available behind the **YAML** toggle.
+
+* **Backfill suggestions for pull request triggers:** Pull request and merge request triggers (GitHub PRs, GitLab merge requests, and Bitbucket PRs) now have a **Backfill suggestions** panel that runs Promptless on pull requests that already merged. Preview the pull requests a trigger would have matched over the last 14, 30, or 90 days, then launch a backfill to process them live. See [Backfill Suggestions](/docs/configuring-promptless/triggers#backfill-suggestions).
+
+* **Microsoft Teams notification channel:** Promptless can now announce documentation suggestions in a Microsoft Teams channel, not just Slack. Add `msteams_channel` to your notification policy with the channel's conversation ID (e.g. `19:…@thread.tacv2`) on the [Configuration page](https://app.gopromptless.ai/configuration). Slack and Teams channels are independent, so you can notify either or both. See [Customizing Notifications](/docs/configuring-promptless/customizing-notifications) for details.
+
 * **Slite integration:** Connect your Slite knowledge base to Promptless as a read-only context source. Once connected, Promptless can search your Slite notes when creating documentation suggestions, ensuring your docs align with internal product knowledge. Connect via API key from the [Integrations page](https://app.gopromptless.ai/integrations).
 
 **Improvements:**
 
+* **Trigger reviews by mentioning @promptless in a PR:** Add an `@promptless` mention to a pull request's title or description and Promptless reviews the PR no matter your listening configuration. The mention triggers a review on open even in "first approval" mode, and even on PRs opened directly against your documentation repository—normally outside source scope. It works from automated accounts too, so a GitHub Action can post an `@promptless` comment to request docs from CI.
+
+* **Rebuilt onboarding as a connect-only flow:** The onboarding wizard is now five streamlined steps focused on connecting integrations: Connect Chat (Slack/Teams), Connect Docs (GitHub), Connect Triggers (GitHub/GitLab/Bitbucket), Connect Context (Atlassian/Notion/Linear/Slite), and Review Set-up (optional setup call). Only Connect Docs is required—the rest are skippable. Configuration now lives in your `promptless.yaml` file, which you can view and edit anytime on the [Configuration page](/docs/configuring-promptless/configuration-reference).
+* **GitLab source code reading:** Promptless can now read source files directly from your GitLab.com repositories when processing merge requests. This allows Promptless to gather context from implementation details beyond what's visible in MR diffs, resulting in more accurate documentation suggestions. See [GitLab Integration](/docs/integrations/gitlab-integration#source-code-reading) for details.
+
+* **Inline Citations in Slack Research Replies:** When you ask Promptless a research question via @mention or DM that requires fetching external URLs, the reply now includes inline citations linking each fact back to its source. The linked phrase is the specific claim being cited, with bold formatting when it's the headline of the claim. Failed fetches are acknowledged in prose with a link to the attempted URL, so you see what Promptless tried even when it couldn't retrieve the content.
+
+* **Provider-Branded Status Pills:** Suggestion cards now show status as a colored pill on the title row instead of an avatar icon. Open docs PRs display a green "PR #123" chip linking directly to the PR, merged PRs show a merged-colored "Merged" chip, and closed suggestions show a gray "Closed" pill—or a red "Closed PR #N" chip if a docs PR existed. Each chip displays the correct brand logo for GitHub, GitLab, or Bitbucket, with GitLab merge requests labeled "MR."
+
+* **Trigger Event Timeline:** Triggers now appear beneath each suggestion card on a vertical spine, showing how the suggestion was created. Each trigger displays a brand-colored pill—GitHub triggers show the PR or issue number with lifecycle state (open, approved, merged), Slack triggers show "Took Action" or "Noticed in #channel" with a message preview, and Promptless triggers show the task type. Follow-on triggers collapse into a "+N more" pill unless Debug info is enabled.
+
+* **Always-On Bulk Selection:** Every suggestion card now has a checkbox for bulk selection—no need to enter a separate "Select" mode first. A master toggle appears beside the status tabs, and the Close and Open PR actions move inline to the header row as soon as you check any suggestion.
+
+* **Sort Control Relocated:** The "Sort by" dropdown moved from the filters row to the tab row, opposite the status tabs for quicker access.
+
+* **Search by Docs PR Number:** The `pr:` search qualifier now lets you find suggestions by their docs PR number—type `pr:123` or `pr:#123` to locate the suggestion that opened PR #123. Suggestions with an open docs PR also display a clickable badge linking directly to the PR.
+
+* **Vale Prose Linting:**  Promptless has long been able to lint prose with Vale when your docs repository includes a Vale configuration file (`.vale.ini` or `vale.ini`). Now I'm just getting around to telling people about it. Error-severity violations are fixed automatically before suggestions are created, and warning-level rules are evaluated against your established style. This catches style guide violations earlier in the review process. See [Vale Integration](/docs/configuring-promptless/doc-collections/vale-integration) for setup details.
+* **Triggers page grouping and date filtering:** The Triggers page now includes a Group by control to organize triggers by event source or date, with collapsible group headers. A new date-range filter lets you search across your full trigger history, not just the default 30-day window.
 * **Multiple doc collections during onboarding:** The onboarding wizard now lets you add multiple documentation repositories in a single setup flow. Click "+ New Doc Collection" to add additional repositories, each with its own directory scope and configuration. Previously, onboarding supported only one doc collection at a time.
+
 
 * **Sidebar suggestion count:** The **Suggestions** item in the sidebar now displays your org-wide count of open suggestions (Ready or PR Open status). The count is hidden when zero for a cleaner empty state.
 
+* **Automatic trigger and context source configuration:** Completing the setup wizard now automatically populates your `promptless.yaml` with broad triggers and context sources based on the integrations you connected. GitHub, GitLab, and Bitbucket connections generate a broad pull request trigger with `repos: all`; commit triggers stay opt-in and aren't seeded automatically. Jira, Confluence, Linear, Notion, and Google Drive connections generate unscoped context source entries. Connecting one of these tools later does the same—Promptless adds a broad context source if you don't already have one for that tool. This means Promptless starts listening immediately after onboarding—no manual configuration required to get started. You can always narrow scope later in the [Configuration page](https://app.gopromptless.ai/configuration).
 
-* **Automatic trigger and context source configuration:** Completing the setup wizard now automatically populates your `promptless.yaml` with broad triggers and context sources based on the integrations you connected. GitHub, GitLab, and Bitbucket connections generate PR and commit triggers with `repos: all`. Jira, Confluence, Linear, and Notion connections generate unscoped context source entries. This means Promptless starts listening immediately after onboarding—no manual configuration required to get started. You can always narrow scope later in the [Configuration page](https://app.gopromptless.ai/configuration).
+* **Google Drive as a context source:** Promptless now reads your Google Drive as a read-only [context source](/docs/configuring-promptless/context-sources/google-drive). Connect Google Drive on the [Integrations page](https://app.gopromptless.ai/integrations), and Promptless searches your Drive and reads file content—Google Docs as Markdown, Sheets as CSV, and Slides as plain text—to inform documentation suggestions. Scope access to specific shared drives or folders with `drive_ids` and `folder_ids` in your `promptless.yaml`, or leave it unscoped for full access. Promptless connects with read-only scopes and never modifies your Drive. The integration card shows which Google account authorized the connection, so you can confirm whose access the agent inherits.
 
 
 * **Media Kit and brand assets:** A new [Media Kit](/docs/media-kit) is available at promptless.ai/media-kit with official logos, brand colors, and product screenshots for press, partners, and integrations. All assets are kept current by Promptless itself, so screenshots always reflect the latest interface.
@@ -32,15 +63,20 @@ hidden: false
 
 * **Org-aware suggestion link previews in Slack:** When you share a suggestion link in Slack, the link preview now shows "Documentation suggestion for &lt;Your Org&gt;". This makes it easier to identify which organization a suggestion belongs to at a glance.
 
-* **Admin-only Agent Knowledge Base editing:** Editing Agent Knowledge Base files now requires the Admin role. This keeps files that steer agent behavior org-wide under admin control, while all members can still view them for transparency. Non-admins see a read-only editor with "View only — admins can edit" instead of the Save button.
+* **Responsive sidebar on narrower screens:** The dashboard sidebar collapses to a compact icon rail on screens under 1600 pixels wide. Hover over any icon to see its label, or hover over the Configure icon to access settings, integrations, and doc collections from a flyout menu. On wider viewports, the full sidebar with text labels remains visible.
 
+* **Admin-only Agent Knowledge Base editing:** Editing Agent Knowledge Base files now requires the Admin role. This keeps files that steer agent behavior org-wide under admin control, while all members can still view them for transparency. Non-admins see a read-only editor with "View only — admins can edit" instead of the Save button.
 * **Configuration page accessible to all members:** All organization members can now view the Configuration page to see how Promptless is set up. Only admins can edit and save changes.
+
+* **Reconnect Slack to update permissions in place:** A new Reconnect button on the connected Slack card grants Promptless updated permissions without disconnecting. Reconnecting re-runs Slack authorization while keeping your existing connection, channel memberships, and configuration intact—use it whenever a Slack feature stops working because a permission is missing.
 
 **Bug Fixes:**
 
 * **Confusing Slack trigger links for private messages:** Clicking Slack trigger links in docs PR descriptions led to Slack's "There's been a glitch" error when the original message was in a private DM or group conversation. Link labels now clarify which messages are private and include a fallback link to the suggestion's Triggers & Analysis tab for reviewers without Slack access to that conversation.
 
 * **Suggestion Diff Editor Markdown Rendering:** Fixed bold formatting bleeding into subsequent lines when inline code appeared alongside bold text in the suggestion diff editor—markdown now renders correctly regardless of formatting combinations.
+
+* **Slack "Triggered by" Labels:** Fixed Slack suggestion previews showing a vague "source request" label in the "Triggered by" field instead of descriptive labels like "Merged GitHub PR #3575 in Promptless/promptless" or "Slack direct @mention." The field now displays the specific trigger type and source for all trigger types including merged PRs, issues, commits, and Slack/Teams threads.
 
 * **Refresh button on Slack suggestion previews:** Fixed the refresh control on Slack suggestion preview cards getting stuck on "Refreshing…" and never updating. Clicking refresh now reloads the card in place with the suggestion's latest status, file change stats, and action buttons.
 
@@ -49,3 +85,7 @@ hidden: false
 * **Documentation PR titles and draft state:** Auto-created documentation PRs now follow the same conventions as every other publishing path. Their titles include the `docs:` prefix, and they open as drafts while the linked source pull request is still open. Once the source PR merges, the documentation PR opens ready for review.
 
 * **Microsoft Teams connection showed a raw tenant ID:** The Integrations page displayed your Microsoft Teams connection's raw Azure AD tenant ID (a GUID) instead of a readable name. It now shows your tenant's organization name—for example, "Contoso"—as the "Connected to" identity, matching how Slack, GitHub, and Notion display a human-readable name. Promptless reads the name automatically as part of the existing connection, so there are no new permissions to grant and nothing to reconnect.
+
+* **@promptless mentions from bots in PR comments:** Promptless dropped comments from automated accounts before checking for an @promptless mention, so a CI or review GitHub Action that tagged Promptless in a pull request comment never created a documentation suggestion. A direct @promptless mention now takes priority over the bot filter, so a mention from a bot—such as a GitHub Action running Diataxis, Doc Detective, snippets, or AGENTS.md checks—triggers documentation work just like a mention from a person. Bot comments that don't mention Promptless are still ignored.
+
+* **@promptless mentions from bots on documentation PRs:** Previously, Promptless ignored PR comments from bots, so a CI or review GitHub Action that tagged Promptless on a docs PR couldn't request a follow-on revision. A direct `@Promptless` mention now triggers Promptless to respond, regardless of the comment author. Bot comments without a mention are still ignored.

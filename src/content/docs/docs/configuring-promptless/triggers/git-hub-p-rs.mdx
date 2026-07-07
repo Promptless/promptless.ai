@@ -35,9 +35,20 @@ The first-approval mode only triggers once per PR—on the first approval. Subse
 When a pull request event occurs in your monitored repositories (either opened or first approval, depending on your configuration):
 
 1. **Automatic Detection**: Promptless receives notification of the new PR
-2. **Analysis**: The system processes the code diff, PR title, and PR description to understand the context
+2. **Analysis**: The system processes the full PR context to understand the changes
 3. **Relevance Assessment**: Promptless determines if the changes require documentation updates
 4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions
+
+### What Promptless Reads
+
+Promptless analyzes the full pull request context, not just the description:
+
+- **PR title and description**: The summary provided when opening the PR
+- **Code changes**: The actual diff showing what files changed and how
+- **Review comments and conversations**: Feedback from reviewers, including line comments and general discussion
+- **Commit messages**: All commits in the PR, including those added after the initial submission
+
+This means Promptless understands the *why* behind changes, even when reviewers request modifications that aren't reflected in the PR description. When a reviewer asks for changes and the author addresses them with new commits, Promptless picks up the feedback explaining what needed to change and the commits that address it.
 
 <Note>
 Information from PRs is processed in real-time and not stored by Promptless. The analysis happens only when the configured trigger event occurs.
@@ -154,6 +165,26 @@ Promptless automatically skips pull requests that only contain changes to dot-di
 
 If a PR contains both dot-files and regular source files, Promptless processes it normally—it only skips when the entire PR is dot-file changes.
 
+## Requesting Documentation via PR Title or Description
+
+An `@promptless` mention in a PR's title or description is a direct request, so Promptless reviews the PR regardless of your listening configuration. If your project only reviews after a first approval, the mention triggers a review as soon as the PR opens. If the PR targets your documentation repository—normally outside your source scope—the mention pulls it in anyway. Tagging Promptless does what you expect: Promptless reviews the PR.
+
+Include the mention anywhere in the title or description:
+
+```markdown
+## Summary
+
+Added new authentication endpoints for SSO integration.
+
+@promptless please document these API changes
+```
+
+Mention `@promptless` or `@promptless-for-oss` (matching is case-insensitive).
+
+<Info>
+The mention only triggers on PR open, reopen, or ready-for-review events. A mention left in a merged PR's description does not re-trigger on merge.
+</Info>
+
 ## Requesting Documentation via PR Comments
 
 Beyond automatic triggers, you can request documentation updates by @mentioning Promptless in a comment on any source pull request.
@@ -184,10 +215,30 @@ Promptless responds to comment mentions on pull requests in any state:
 - Merged PRs
 - Closed PRs
 
+### Triggering from automated accounts
+
+A direct `@promptless` mention doesn't have to come from a person. It takes priority over Promptless's bot filter, so a comment from an automated account—like a GitHub Actions workflow—triggers documentation work just as a comment from a teammate does. This lets you build docs requests into your CI: have an Action post an `@promptless` comment whenever you want docs updated or reviewed.
+
+For example, a GitHub Actions step can comment on a pull request to ask Promptless to document the change:
+
+```yaml
+- name: Ask Promptless for docs
+  run: gh pr comment "$PR_NUMBER" --body "@promptless please update the docs for this change"
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    PR_NUMBER: ${{ github.event.pull_request.number }}
+```
+
+The comment must include a direct `@promptless` mention—Promptless still ignores bot comments that don't mention it. This works for any automated account, including CI or review Actions that run checks like Doc Detective or snippet validation.
+
 ### Requirements
 
 - The GitHub integration must be installed for your repository
 - You must explicitly @mention Promptless in the comment—comments without a direct mention are ignored
+
+<Info>
+When you mention `@promptless` in a PR title, description, or comment, Promptless adds a 👀 reaction so you know it saw your request. The reaction shows up even when Promptless decides no documentation change is needed, so a missing suggestion doesn't mean your mention was ignored.
+</Info>
 
 ## Setup Instructions
 
