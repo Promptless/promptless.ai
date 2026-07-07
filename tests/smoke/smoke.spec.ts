@@ -113,13 +113,13 @@ test('homepage and docs pages include the llms.txt directive in html', async () 
   assert.equal(homepage.status, 200);
   assert.match(await homepage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 
-  const docsPage = await fetch(`${preview.baseUrl}/docs/getting-started/welcome`);
+  const docsPage = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
   assert.equal(docsPage.status, 200);
   assert.match(await docsPage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 });
 
 test('primary nav keeps canonical routes with free tools tab', async () => {
-  const response = await fetch(`${preview.baseUrl}/docs/getting-started/welcome`);
+  const response = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
   assert.equal(response.status, 200);
   const html = await response.text();
   const nav = getPrimaryNav(html);
@@ -140,7 +140,7 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   const websiteHtml = await (await fetch(`${preview.baseUrl}/`)).text();
   const websitePricingHtml = await (await fetch(`${preview.baseUrl}/pricing`)).text();
   const meetHtml = await (await fetch(`${preview.baseUrl}/meet`)).text();
-  const docsHtml = await (await fetch(`${preview.baseUrl}/docs/getting-started/welcome`)).text();
+  const docsHtml = await (await fetch(`${preview.baseUrl}/docs/start-here/welcome`)).text();
   const blogHtml = await (await fetch(`${preview.baseUrl}/blog`)).text();
   const changelogHtml = await (await fetch(`${preview.baseUrl}/changelog`)).text();
   const freeToolsIndexHtml = await (await fetch(`${preview.baseUrl}/free-tools`)).text();
@@ -291,7 +291,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /2,000-5,000 Pages\*/);
   assert.match(pricingHtml, /Slack \+ GitHub integrations/);
   assert.match(pricingHtml, /Open-source, non-commercial project\?/);
-  assert.match(pricingHtml, /href=\"https:\/\/promptless\.ai\/docs\/getting-started\/promptless-oss\"/);
+  assert.match(pricingHtml, /href=\"https:\/\/promptless\.ai\/docs\/start-here\/open-source-quickstart\"/);
   assert.match(pricingHtml, /Book demo/);
   assert.doesNotMatch(pricingHtml, /<h3>Compare plans<\/h3>/);
 });
