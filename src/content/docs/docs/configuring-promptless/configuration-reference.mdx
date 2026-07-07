@@ -1,5 +1,5 @@
 ---
-title: Configuration Reference
+title: Configuration reference
 description: Complete reference for the promptless.yaml configuration file
 slug: docs/configuring-promptless/configuration-reference
 sidebar:
@@ -16,7 +16,7 @@ import Warning from '@components/fern/Warning.astro';
 
 All Promptless configuration lives in a single `promptless.yaml` file in your organization's Agent Knowledge Base. This file defines your doc collections, triggers, context sources, and publishing policies in one place.
 
-## Configuration Editor
+## Configuration editor
 
 View and edit your configuration in the dashboard at [app.gopromptless.ai/configuration](https://app.gopromptless.ai/configuration). The page opens in **Form** mode, a structured editor that groups your configuration into four tabs—**Doc collections**, **Triggers**, **Context sources**, and **Policies**—so you can manage everything without hand-editing YAML. Each tab shows how many items it holds and surfaces the fields for that section directly.
 
@@ -28,7 +28,7 @@ In Form mode, Promptless fills in fields from your connected integrations. The d
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save, and warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so you never end up with a rule pointing at something that no longer exists.
 
-### Permissions and Conflict Detection
+### Permissions and conflict detection
 
 Every organization member can view the configuration, but only admins can edit and save changes. Non-admins see a read-only view.
 
@@ -38,7 +38,7 @@ The editor uses compare-and-swap to avoid overwriting concurrent changes. If som
 Changes saved in the Configuration page take effect immediately for new triggers. Policies resolve at publish time, so mid-session config edits apply when suggestions are finalized.
 </Info>
 
-## Initial Configuration from Onboarding
+## Initial configuration from onboarding
 
 When you complete the setup wizard, Promptless creates your `promptless.yaml` with sensible defaults based on the integrations you connected:
 
@@ -80,7 +80,7 @@ triggers:
 
 In a typical pull request workflow, this overlaps with your PR triggers: merging a pull request also pushes a merge commit to the default branch, so the commit trigger fires alongside the `github_pr` merge event. A commit trigger earns its place when changes reach a branch without a pull request—hotfixes or commits pushed straight to the default branch, for example—so Promptless still documents those changes. See [GitHub Commits](/docs/configuring-promptless/triggers/git-hub-commits) for the full workflow.
 
-## File Structure
+## File structure
 
 The configuration file has four top-level sections:
 
@@ -93,7 +93,7 @@ policies:          # Publishing and notification rules
 
 All sections are optional. Unknown keys are rejected with validation errors.
 
-## Doc Collections
+## Doc collections
 
 Doc collections define the documentation repositories where Promptless publishes updates. Each collection is keyed by its GitHub repository name in `owner/repo` format.
 
@@ -125,7 +125,7 @@ doc_collections:
 One repository can have at most one doc collection per organization. Collection "names" are the repository names. There's no separate display name field.
 </Note>
 
-### Path Scope (filter)
+### Path scope (filter)
 
 The `filter` field controls which files Promptless can modify:
 
@@ -141,7 +141,7 @@ doc_collections:
       - CHANGELOG.md    # Only this specific file
 ```
 
-## Context Sources
+## Context sources
 
 Context sources give Promptless access to your organization's tools for additional context. They're used for narrowing scope when you want to limit which projects, spaces, or databases Promptless can query. Each entry requires a `source_type` field.
 
@@ -173,7 +173,7 @@ context_sources:
     source_type: slite
 ```
 
-### Available Sources
+### Available sources
 
 | Source Type | Scope Fields | Description |
 |-------------|--------------|-------------|
@@ -210,7 +210,7 @@ triggers:
           - customer-questions
 ```
 
-### Trigger Types
+### Trigger types
 
 <AccordionGroup>
   <Accordion title="github_pr">
@@ -300,7 +300,7 @@ triggers:
   </Accordion>
 </AccordionGroup>
 
-### Built-in Triggers
+### Built-in triggers
 
 Some triggers are always active when their integration is connected and don't appear in the YAML:
 
@@ -341,15 +341,35 @@ policies:
           slack_channel: internal-docs-team
 ```
 
-### Policy Fields
+### Policy fields
 
 **notification**
 | Field | Description |
 |-------|-------------|
-| `slack_channel` | Slack channel name for notifications (no `#` prefix) |
-| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications |
+| `slack_channel` | Slack channel name for notifications (no `#` prefix), or `null` to disable an inherited Slack channel |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications, or `null` to disable an inherited Teams channel |
 
 `slack_channel` and `msteams_channel` are independent—set either, both, or neither. The Teams conversation ID is the same value you paste into an `msteams_listen` trigger; copy it from Teams. A Teams channel must have prior Promptless bot activity before notifications can be delivered there.
+
+- **Omitting** the field inherits the channel from `policies.default` or an earlier rule.
+- Setting it to **`null`** disables the channel for that scope, overriding any inherited channel so no notification is sent.
+- Setting it to a **channel name** (or Teams conversation ID) routes notifications there.
+
+Because resolution depends on field presence, an omitted field and an explicit `null` are not the same: `null` means disable, absent means inherit. The two channels resolve independently, so you can disable one while leaving the other inherited.
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-notifications
+
+  rules:
+    - if:
+        doc_collection: acme/internal-docs
+      then:
+        notification:
+          slack_channel: null   # silence Slack for this collection
+```
 
 **publishing**
 | Field | Description |
@@ -358,7 +378,7 @@ policies:
 | `auto_merge` | Automatically merge documentation PRs |
 | `suppress_source_pr_comments` | Skip posting comments on source PRs |
 
-### Rule Matching
+### Rule matching
 
 Rules are evaluated in order. When multiple rules match, fields from later rules override earlier ones. The `if` clause supports:
 
@@ -371,7 +391,7 @@ Both conditions must match if both are specified (AND logic).
 Policies resolve at publish time, not when the trigger fires. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
 </Warning>
 
-## Example Configuration
+## Example configuration
 
 ```yaml
 doc_collections:
@@ -431,7 +451,7 @@ policies:
           suppress_source_pr_comments: true
 ```
 
-## Validation and Errors
+## Validation and errors
 
 The configuration editor validates your YAML before saving. Validation errors appear as inline markers at the relevant line, with details including:
 
@@ -450,7 +470,7 @@ Common validation errors:
 If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
 </Tip>
 
-## Repository Renames
+## Repository renames
 
 Promptless automatically updates your configuration when repositories or Slack channels are renamed:
 
@@ -459,7 +479,7 @@ Promptless automatically updates your configuration when repositories or Slack c
 
 These updates are committed directly to your Agent Knowledge Base.
 
-## Migration from Projects
+## Migration from projects
 
 Existing organizations are automatically migrated from the legacy Projects configuration to `promptless.yaml`. The migration preserves:
 
