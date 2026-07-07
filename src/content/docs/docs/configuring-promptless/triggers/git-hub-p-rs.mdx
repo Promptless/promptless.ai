@@ -13,15 +13,15 @@ import Warning from '@components/fern/Warning.astro';
 
 Promptless monitors your GitHub repositories for pull requests. You can choose when documentation updates trigger: when a PR is opened or when it receives its first approval.
 
-## Trigger Modes
+## Trigger modes
 
 GitHub PR triggers support two modes:
 
-### Opened (Default)
+### Opened (default)
 
 Triggers when a pull request is opened. This works well for teams that want documentation suggestions ready alongside code changes, giving reviewers time to evaluate both.
 
-### First Approval
+### First approval
 
 Triggers when a pull request receives its first approval from a reviewer. Use this mode when you want documentation updates to start only after code has been reviewed, so Promptless analyzes final changes rather than work in progress.
 
@@ -30,14 +30,25 @@ The first-approval mode only triggers once per PR—on the first approval. Subse
 </Info>
 
 
-## How It Works
+## How it works
 
 When a pull request event occurs in your monitored repositories (either opened or first approval, depending on your configuration):
 
 1. **Automatic Detection**: Promptless receives notification of the new PR
-2. **Analysis**: The system processes the code diff, PR title, and PR description to understand the context
+2. **Analysis**: The system processes the full PR context to understand the changes
 3. **Relevance Assessment**: Promptless determines if the changes require documentation updates
 4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions
+
+### What Promptless reads
+
+Promptless analyzes the full pull request context, not just the description:
+
+- **PR title and description**: The summary provided when opening the PR
+- **Code changes**: The actual diff showing what files changed and how
+- **Review comments and conversations**: Feedback from reviewers, including line comments and general discussion
+- **Commit messages**: All commits in the PR, including those added after the initial submission
+
+This means Promptless understands the *why* behind changes, even when reviewers request modifications that aren't reflected in the PR description. When a reviewer asks for changes and the author addresses them with new commits, Promptless picks up the feedback explaining what needed to change and the commits that address it.
 
 <Note>
 Information from PRs is processed in real-time and not stored by Promptless. The analysis happens only when the configured trigger event occurs.
@@ -65,7 +76,7 @@ triggers:
 
 See the [Configuration Reference](/docs/configuring-promptless/configuration-reference#triggers) for all available options.
 
-## Replay Recent PRs
+## Replay recent PRs
 
 When setting up a new GitHub PR trigger, you can enable "Replay recent PRs" to process pull requests from the last 30 days. This generates an initial batch of suggestions, which helps you:
 
@@ -86,7 +97,7 @@ Replay runs in the background and doesn't block normal trigger processing. New P
 Replay is also available for [GitLab merge requests](/docs/configuring-promptless/triggers/git-lab-merge-requests#replay-recent-merge-requests) and [Bitbucket pull requests](/docs/integrations/bitbucket-integration#replay-recent-prs). When you enable multiple code review triggers during onboarding, the replay preview groups results by provider.
 </Tip>
 
-## Directory-Specific Triggers
+## Directory-specific triggers
 
 You can configure Promptless to only trigger when changes are made to specific directories within your repositories. This is particularly useful when you want to focus documentation updates on changes to certain parts of your codebase.
 
@@ -103,7 +114,7 @@ To set up directory-specific triggers:
 
 When trigger directories are specified, Promptless considers only PRs that contain changes to those directories and ignores updates to other files.
 
-## Repository Topics
+## Repository topics
 
 If you have many repositories, you can use GitHub topics to control which ones trigger Promptless. This is especially helpful for organizations with dozens or hundreds of repos where only some need documentation automation.
 
@@ -117,11 +128,11 @@ If you have many repositories, you can use GitHub topics to control which ones t
 Learn more about GitHub repository topics in the [GitHub documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics).
 </Info>
 
-## Automatic PR Creation
+## Automatic PR creation
 
 When automatic PR creation is enabled in your [publishing policies](/docs/configuring-promptless/configuration-reference#policies), Promptless automatically creates a new PR in your documentation repository with suggested changes.
 
-## Source PR Comments
+## Source PR comments
 
 Promptless posts a summary comment on source PRs linking to any documentation changes. This keeps documentation updates visible alongside the code changes that triggered them.
 
@@ -131,7 +142,7 @@ The comment links directly to the documentation suggestions, so reviewers can se
 Slack notifications are separate from source PR comments and are always sent according to your project's notification settings.
 </Tip>
 
-### Suppressing Source PR Comments
+### Suppressing source PR comments
 
 Set `suppress_source_pr_comments: true` in your [publishing policies](/docs/configuring-promptless/configuration-reference#policies) to prevent comments on source PRs. Documentation suggestions are still created normally.
 
@@ -146,19 +157,19 @@ This option is commonly used:
 - During pilot or onboarding periods, before Promptless has been introduced to the broader engineering team
 - On public repositories, while keeping comments enabled for private repos
 
-## Draft Pull Requests
+## Draft pull requests
 
 <Warning>
 Promptless automatically skips draft pull requests. Documentation updates are only triggered when the pull request is marked as ready for review.
 </Warning>
 
-## Configuration Files and dot-Directories
+## Configuration files and dot-directories
 
 Promptless automatically skips pull requests that only contain changes to dot-directories (like `.github/`, `.circleci/`, `.beads/`) or root-level dot-files (like `.gitignore`, `.editorconfig`). These are typically CI and tooling configuration rather than product changes that need documentation updates.
 
 If a PR contains both dot-files and regular source files, Promptless processes it normally—it only skips when the entire PR is dot-file changes.
 
-## Requesting Documentation via PR Title or Description
+## Requesting documentation via PR title or description
 
 An `@promptless` mention in a PR's title or description is a direct request, so Promptless reviews the PR regardless of your listening configuration. If your project only reviews after a first approval, the mention triggers a review as soon as the PR opens. If the PR targets your documentation repository—normally outside your source scope—the mention pulls it in anyway. Tagging Promptless does what you expect: Promptless reviews the PR.
 
@@ -178,11 +189,11 @@ Mention `@promptless` or `@promptless-for-oss` (matching is case-insensitive).
 The mention only triggers on PR open, reopen, or ready-for-review events. A mention left in a merged PR's description does not re-trigger on merge.
 </Info>
 
-## Requesting Documentation via PR Comments
+## Requesting documentation via PR comments
 
 Beyond automatic triggers, you can request documentation updates by @mentioning Promptless in a comment on any source pull request.
 
-### How to Use
+### How to use
 
 Tag Promptless in a comment on a source PR to request documentation work:
 
@@ -190,7 +201,7 @@ Tag Promptless in a comment on a source PR to request documentation work:
 @promptless please update the docs for this API change
 ```
 
-### When to Use
+### When to use
 
 PR comment mentions are useful when:
 
@@ -199,7 +210,7 @@ PR comment mentions are useful when:
 - The automatic trigger didn't fire for your PR
 - You want to provide specific instructions about what to document
 
-### Supported PR States
+### Supported PR states
 
 Promptless responds to comment mentions on pull requests in any state:
 
@@ -233,6 +244,6 @@ The comment must include a direct `@promptless` mention—Promptless still ignor
 When you mention `@promptless` in a PR title, description, or comment, Promptless adds a 👀 reaction so you know it saw your request. The reaction shows up even when Promptless decides no documentation change is needed, so a missing suggestion doesn't mean your mention was ignored.
 </Info>
 
-## Setup Instructions
+## Setup instructions
 
 To connect GitHub to Promptless, see the [GitHub Integration](/docs/integrations/github-integration) setup guide.
