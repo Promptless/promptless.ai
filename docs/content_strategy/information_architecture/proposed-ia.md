@@ -29,7 +29,7 @@ appears here anyway and is flagged `[NEW]`. The mapping of these gaps to current
    where pilots are won or lost — get first-class sections instead of being buried in
    "configuring" and "how-to."
 3. **Outcome sections, not feature sections.** "Keep screenshots current," "Generate release
-   notes," "Make docs agent-friendly" are jobs users came for; reference detail sits behind them.
+   notes," "Pay down docs debt" are jobs users came for; reference detail sits behind them.
 4. **Forwardable security.** Security/deployment is its own standalone tree because non-docs
    reviewers read it.
 
@@ -67,7 +67,6 @@ appears here anyway and is flagged `[NEW]`. The mapping of these gaps to current
 │   ├── Keep screenshots current (Promptless Capture) ← cuj-screenshots  [NEW: auth/env/annotation depth]
 │   ├── Pay down docs debt (Deep Analysis)            ← cuj-backfill-debt
 │   ├── Generate release notes & changelogs           ← cuj-release-notes [NEW]
-│   ├── Make docs agent-friendly (llms.txt + Doc Detective)  ← cuj-agent-friendly-docs [NEW: llms.txt, SDK accuracy]
 │   ├── Keep translations current (localization)      ← cuj-localization [NEW]
 │   └── Build an agent knowledge base
 │
@@ -76,8 +75,9 @@ appears here anyway and is flagged `[NEW]`. The mapping of these gaps to current
 │   ├── Versioned docs                                [NEW]
 │   └── Managing environment variables
 │
-├── Maintain a large / brownfield corpus    ← cuj-remediate-legacy-content, cuj-overhaul-ia  [NEW section]
+├── Audit & keep your docs healthy          ← cuj-remediate-legacy-content, cuj-overhaul-ia  [NEW section]
 │   ├── Audit existing content for staleness          [NEW]
+│   ├── Validate UI procedures, code samples & API contracts (Doc Detective)
 │   ├── Remediate & restandardize legacy pages        [NEW]
 │   └── Restructure your information architecture     [NEW]
 │
@@ -120,11 +120,11 @@ Every CUJ has a home; no journey is orphaned.
 | cuj-screenshots | Get the most out of → screenshots |
 | cuj-backfill-debt | Get the most out of → Deep Analysis |
 | cuj-release-notes | Get the most out of → release notes |
-| cuj-agent-friendly-docs | Get the most out of → agent-friendly |
+| cuj-agent-friendly-docs | Audit & keep your docs healthy → Doc Detective (UI-procedure validation, plus code samples & API contracts; agent-discoverability deferred — see note) |
 | cuj-localization | Get the most out of → localization |
 | cuj-multi-repo-routing | Scale across teams |
-| cuj-remediate-legacy-content | Maintain a large / brownfield corpus |
-| cuj-overhaul-ia | Maintain a large / brownfield corpus |
+| cuj-remediate-legacy-content | Audit & keep your docs healthy |
+| cuj-overhaul-ia | Audit & keep your docs healthy |
 | cuj-migrate-to-docs-as-code | Migrate to docs-as-code |
 | cuj-enterprise-security-review | Security & deployment |
 | cuj-prove-value | Measure impact |
@@ -135,10 +135,18 @@ Every CUJ has a home; no journey is orphaned.
   (they decide pilot success).
 - **Reframes** "How to use Promptless" as outcome-oriented jobs ("Get the most out of…").
 - **Adds** journey-driven areas that don't exist today: Migrate to docs-as-code, Measure
-  impact, **Maintain a large / brownfield corpus** (audit, remediate/restandardize, restructure
-  IA), and (as pages) noise/timing tuning, assignment/routing, multi-repo & versioned routing,
-  localization, agent-friendliness, and connection-health troubleshooting.
+  impact, **Audit & keep your docs healthy** (audit, UI-procedure/code-sample validation via Doc Detective,
+  remediate/restandardize, restructure IA), and (as pages) noise/timing tuning,
+  assignment/routing, multi-repo & versioned routing, localization, and connection-health
+  troubleshooting.
 - **Keeps** the strong Security & deployment tree largely intact (best-covered journey).
+
+> **Deferred: "Make your docs agent-ready."** An earlier draft proposed a standalone
+> agent-readiness area (agent-friendliness score, `llms.txt`, an MCP server for docs, serving
+> Markdown to agents, maintaining agent instructions). We are **not** carving that out yet. For now, the one piece that has a shipping capability
+> today, **Doc Detective — whose largest use is validating UI procedures, with code samples and
+> API contracts as additional uses — lives under "Audit & keep your docs healthy."** The rest of
+> the agent-ready material is intentionally out of scope for this IA.
 
 See [ia-gap-analysis.md](ia-gap-analysis.md) for the page-level current→proposed mapping and the
 full gap list.
