@@ -19,9 +19,9 @@ import Tip from '@components/fern/Tip.astro';
   Make sure you have the [Slack integration](/docs/integrations/slack-integration) set up before using these features.
 </Note>
 
-## Four Ways to Interact
+## Four ways to interact
 
-### 1. Message Actions
+### 1. Message actions
 
 Use Slack's message actions to quickly trigger documentation updates from any message or thread. This is best used when you don't want to interrupt the flow of the conversation.
 
@@ -39,11 +39,11 @@ Use Slack's message actions to quickly trigger documentation updates from any me
   </Step>
 
   <Step title="Review Generated Content">
-    Promptless will analyze the full thread to generate relevant documentation updates, and DM you once it's done.
+    Promptless analyzes the full thread to generate relevant documentation updates, and DMs you once it's done.
   </Step>
 </Steps>
 
-### 2. Channel Mentions
+### 2. Channel mentions
 
 Tag Promptless directly in any channel to trigger documentation updates from ongoing discussions.
 
@@ -53,15 +53,15 @@ Tag Promptless directly in any channel to trigger documentation updates from ong
   </Step>
 
   <Step title="Thread Context Analysis">
-    Promptless will analyze the entire thread context to understand the discussion and generate relevant documentation. You can point Promptless to specific pages, or Promptless can infer based on the context.
+    Promptless analyzes the entire thread context to understand the discussion and generate relevant documentation. You can point Promptless to specific pages, or Promptless can infer based on the context.
   </Step>
 </Steps>
 
 <Tip title="Editing Suggestions in Slack">
-  Promptless will reply in the thread once it's done drafting updates. From there, you can add follow-on instructions in the same thread to refine the suggestion. See [Thread Auto-Reply](#thread-auto-reply) for how follow-up replies are handled and how to configure this behavior.
+  Promptless replies in the thread once it's done drafting updates. From there, you can add follow-on instructions in the same thread to refine the suggestion. See [Thread Auto-Reply](#thread-auto-reply) for how follow-up replies are handled and how to configure this behavior.
 </Tip>
 
-### Example Instructions
+### Example instructions
 
 ```txt wordWrap
 @Promptless please also add a troubleshooting section covering the error cases we discussed earlier in this thread
@@ -79,7 +79,23 @@ Tag Promptless directly in any channel to trigger documentation updates from ong
 @Promptless capture a screenshot of the new export dialog from our staging environment and add it to the export feature docs
 ```
 
-### 3. Direct Messages (DMs)
+### Inline citations in research replies
+
+When you ask Promptless a research question that requires fetching external URLs—documentation sites, articles, or video transcripts—the reply includes inline links citing each fact back to its source. The linked phrase is the specific claim or number, not the full sentence.
+
+For example, if you ask about API rate limits and Promptless fetches your docs and source code, the reply might look like:
+
+> The hard rate limit on `/v1/embed` is **60 requests per minute per API key**, enforced by the gateway's `rate_limiter.py` config.
+
+Each bolded term links directly to its source—the rate limit number links to your API reference, and the file name links to the repository.
+
+If a fetch fails, Promptless acknowledges the gap and still links to the URL it tried:
+
+> **Live status:** unverified. Your status page returned 503 when I checked, so I can't confirm whether you're currently throttled.
+
+Only sources that shaped the answer appear as citations. Background reads, dead ends, and unused fetches are omitted.
+
+### 3. Direct messages (DMs)
 
 Send direct messages to Promptless for private documentation requests or when you have very specific instructions.
 
@@ -93,11 +109,11 @@ Send direct messages to Promptless for private documentation requests or when yo
   </Step>
 
   <Step title="Wait for Promptless DM">
-    Promptless will DM you with the doc updates.
+    Promptless DMs you with the doc updates.
   </Step>
 </Steps>
 
-## Using Images and File Attachments
+## Using images and file attachments
 
 You can attach images and files when you trigger Promptless in Slack to provide additional context. Include screenshots, diagrams, design mockups, API responses, or configuration files in the same thread where you tag @Promptless or use the "Update Docs" action.
 
@@ -131,7 +147,7 @@ When you trigger Promptless, it reviews all text and attached files in the threa
 
 For technical details about how images are processed and managed, see the [Slack Integration page](/docs/integrations/slack-integration).
 
-## Requesting Screenshot Captures
+## Requesting screenshot captures
 
 If your organization has screenshot capture enabled, you can ask Promptless to capture fresh screenshots from your staging or production environment. Promptless navigates to your web application, captures the UI, and includes the screenshot in your documentation.
 
@@ -159,51 +175,43 @@ If your organization has screenshot capture enabled, you can ask Promptless to c
   Screenshot capture requires your organization to have the feature enabled and your environment configured. Contact your Promptless admin or [help@gopromptless.ai](mailto:help@gopromptless.ai) if you need to set this up.
 </Note>
 
-### 4. Passive Channel Listening
+### 4. Passive channel listening
 
 Have Promptless automatically monitor specific Slack channels and create documentation updates without requiring @mentions or message actions. This is ideal for documentation-focused or support channels where discussions frequently reveal documentation needs.
 
 When passive listening is enabled, Promptless monitors all messages in your selected channels and automatically creates documentation suggestions when threads become inactive.
 
-<Steps>
-  <Step title="Open Project Settings">
-    Go to the [projects page](https://app.gopromptless.ai/projects) and click the edit button on your Slack trigger project.
-  </Step>
+Add a `slack_listen` trigger to your [Configuration page](https://app.gopromptless.ai/configuration):
 
-  <Step title="Enable Passive Listening">
-    Check the box for "Listen for all messages in specific channels" under the trigger configuration.
+```yaml
+triggers:
+  support-channels:
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - customer-support
+          - docs-feedback
+```
 
-    <Frame caption="Enable passive listening and select channels">
-      <img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/slack-passive-listening-config-1759988967.png" alt="Project configuration showing passive listening checkbox and channel selection" />
-    </Frame>
-  </Step>
-
-  <Step title="Select Channels">
-    Choose which channels Promptless should monitor. You can select multiple channels.
-  </Step>
-
-  <Step title="Save Changes">
-    Click "Save" to activate passive listening for the selected channels.
-  </Step>
-</Steps>
+Channel names don't need the `#` prefix. See the [Configuration Reference](/docs/configuring-promptless/configuration-reference#triggers) for details.
 
 <Accordion title="Will Promptless create a new suggestion for every new message in the thread?">
   No. When passive listening is enabled, Promptless waits for a thread to go quiet before analyzing it. This prevents creating redundant suggestions as conversations evolve.
   
-  If new messages are added to a thread that Promptless has already processed, Promptless can update its existing suggestion rather than creating a duplicate. This means even if there are multiple triggers for the same thread, you'll see updates to a single suggestion rather than a flood of separate suggestions.
+  If new messages are added to a thread that Promptless has already processed, Promptless can update its existing suggestion rather than creating a duplicate. This means even if there are multiple triggers for the same thread, you see updates to a single suggestion rather than a flood of separate suggestions.
   
-  **Tip**: If you @mention Promptless in a thread that's being passively monitored, it will trigger immediately rather than waiting for the thread to go quiet.
+  **Tip**: If you @mention Promptless in a thread that's being passively monitored, it triggers immediately rather than waiting for the thread to go quiet.
 </Accordion>
 
 <Note>
   Passive listening is completely opt-in. Promptless only monitors channels you explicitly select in your project configuration. You can add or remove channels at any time.
 </Note>
 
-## Thread Auto-Reply
+## Thread auto-reply
 
 Once Promptless has been triggered in a Slack thread—through a message action, channel mention, DM, or passive listening—it keeps listening for new replies in that thread without needing another @mention. This makes it easy to refine a suggestion, add context, or share images and files as the conversation continues, without having to remember to tag `@Promptless` every time.
 
-Promptless reasons about each new reply to decide whether it's actionable, so not every message will produce a documentation update. To explicitly tell Promptless to ignore a message, start it with `aside` or `/aside`:
+Promptless reasons about each new reply to decide whether it's actionable, so not every message produces a documentation update. To explicitly tell Promptless to ignore a message, start it with `aside` or `/aside`:
 
 ```txt wordWrap
 aside @InlinePizza are these the ones your thing found or were there more?
