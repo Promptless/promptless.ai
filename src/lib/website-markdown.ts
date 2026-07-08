@@ -25,7 +25,7 @@ async function getWebsiteMarkdownByRoute(): Promise<Map<string, WebsiteMarkdownD
         title: entry.data.title,
         description: entry.data.description,
         routePath: normalizeRoutePath(entry.data.routePath),
-        body: entry.body.trim(),
+        body: (entry.body ?? '').trim(),
       });
     }
 

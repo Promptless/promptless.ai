@@ -1,0 +1,491 @@
+---
+title: Configuration reference
+description: Complete reference for the promptless.yaml configuration file
+slug: docs/reference/configuration-reference
+sidebar:
+  hidden: false
+  order: 61
+---
+import Accordion from '@components/fern/Accordion.astro';
+import AccordionGroup from '@components/fern/AccordionGroup.astro';
+import Frame from '@components/fern/Frame.astro';
+import Info from '@components/fern/Info.astro';
+import Note from '@components/fern/Note.astro';
+import Tip from '@components/fern/Tip.astro';
+import Warning from '@components/fern/Warning.astro';
+
+All Promptless configuration lives in a single `promptless.yaml` file in your organization's Agent Knowledge Base. This file defines your doc collections, triggers, context sources, and publishing policies in one place.
+
+## Configuration editor
+
+View and edit your configuration in the dashboard at [app.gopromptless.ai/configuration](https://app.gopromptless.ai/configuration). The page opens in **Form** mode, a structured editor that groups your configuration into four tabs—**Doc collections**, **Triggers**, **Context sources**, and **Policies**—so you can manage everything without hand-editing YAML. Each tab shows how many items it holds and surfaces the fields for that section directly.
+
+Form mode saves one item at a time. When you add or change a doc collection, trigger, or context source, you save that item on its own, and Promptless commits the change to your Agent Knowledge Base right away. Policies save as a single section. There's no separate review-and-commit step—each save is its own commit.
+
+When you need precise control over the file format, switch to **YAML** mode using the toggle at the top of the page. YAML mode is the raw editor with syntax highlighting, schema-driven completions, and inline validation. Use it when you want to copy configurations between environments or edit the file directly.
+
+In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, or GitHub Enterprise) comes from the integration that reaches the repository rather than a field you set, and the repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
+
+Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save, and warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so you never end up with a rule pointing at something that no longer exists.
+
+### Permissions and conflict detection
+
+Every organization member can view the configuration, but only admins can edit and save changes. Non-admins see a read-only view.
+
+The editor uses compare-and-swap to avoid overwriting concurrent changes. If someone else modifies the configuration while you're editing, you see a conflict warning and can reload to get the latest version.
+
+<Info>
+Changes saved in the Configuration page take effect immediately for new triggers. Policies resolve at publish time, so mid-session config edits apply when suggestions are finalized.
+</Info>
+
+## Initial configuration from onboarding
+
+When you complete the setup wizard, Promptless creates your `promptless.yaml` with sensible defaults based on the integrations you connected:
+
+| Connected Integration | Generated Trigger | Generated Context Source |
+|-----------------------|-------------------|--------------------------|
+| GitHub (docs or trigger app) | `github_pr` (opened, first_approval, merge) with `repos: all` | — |
+| GitLab | `gitlab_mr` (opened, merge) with `repos: all` | — |
+| Bitbucket | `bitbucket_pr` (opened, merge) with `repos: all` | — |
+| Jira / Confluence | — | Unscoped `jira` and/or `confluence` entries |
+| Linear | — | Unscoped `linear` entry |
+| Notion | — | Unscoped `notion` entry |
+| Google Drive | — | Unscoped `google_drive` entry |
+| Slite | — | Unscoped `slite` entry |
+
+Onboarding seeds pull request triggers only; [commit triggers](/docs/connect/triggers/github-commits) are opt-in and stay off until you add a `github_commit` trigger yourself. These broad defaults let Promptless start listening for documentation-worthy events immediately. You can edit your configuration anytime to narrow scope, like restricting triggers to specific repositories or limiting context sources to particular projects.
+
+<Note>
+Automatic configuration is additive and idempotent. If you've already manually configured a trigger type or context source, onboarding won't overwrite it.
+</Note>
+
+Connecting Jira, Confluence, Linear, or Notion *after* onboarding works the same way: Promptless adds a broad, unscoped context source for that tool if you don't already have one. Existing entries and any scoping you've set are left untouched.
+
+### Add a commit trigger
+
+A commit trigger (`github_commit`) fires when commits are pushed to a branch you monitor, rather than when a pull request opens or merges. Without a `branches` filter, it watches only the repository's default branch. Add one when you want Promptless to react to commits directly:
+
+```yaml
+triggers:
+  default-branch-commits:
+    trigger_type: github_commit
+    match:
+      - repos:
+          - acme/backend
+        branches:
+          - main          # omit to match only the default branch
+        trigger_directories:
+          - src/
+```
+
+In a typical pull request workflow, this overlaps with your PR triggers: merging a pull request also pushes a merge commit to the default branch, so the commit trigger fires alongside the `github_pr` merge event. A commit trigger earns its place when changes reach a branch without a pull request—hotfixes or commits pushed straight to the default branch, for example—so Promptless still documents those changes. See [GitHub Commits](/docs/connect/triggers/github-commits) for the full workflow.
+
+## File structure
+
+The configuration file has four top-level sections:
+
+```yaml
+doc_collections:   # Where documentation lives (keyed by repo)
+context_sources:   # Integrations for additional context
+triggers:          # Events that initiate documentation work
+policies:          # Publishing and notification rules
+```
+
+All sections are optional. Unknown keys are rejected with validation errors.
+
+## Doc collections
+
+Doc collections define the documentation repositories where Promptless publishes updates. Each collection is keyed by its GitHub repository name in `owner/repo` format.
+
+```yaml
+doc_collections:
+  acme/docs:
+    docs_framework: docusaurus
+    docs_root_url: https://docs.acme.com
+    filter:
+      - docs/
+      - guides/
+```
+
+### Fields
+
+| Field | Description |
+|-------|-------------|
+| `platform` | Repository platform: `github` (default), `github_oss`, or `github_enterprise` |
+| `host` | GitHub Enterprise hostname (required when `platform: github_enterprise`) |
+| `default_branch` | Branch to target for PRs (defaults to repository's default branch) |
+| `docs_framework` | Documentation framework (docusaurus, mkdocs, starlight, etc.) |
+| `docs_root_url` | Published documentation site URL |
+| `config_file_path` | Path to framework config file (e.g., `docusaurus.config.js`) |
+| `vale_config_path` | Path to Vale config file to enable prose linting |
+| `doc_detective` | Doc Detective configuration (presence enables the feature) |
+| `filter` | List of directory prefixes or file paths Promptless can modify |
+
+<Note>
+One repository can have at most one doc collection per organization. Collection "names" are the repository names. There's no separate display name field.
+</Note>
+
+### Path scope (filter)
+
+The `filter` field controls which files Promptless can modify:
+
+- **Empty or omitted**: Promptless can modify any file in the repository.
+- **Directory paths**: Entries ending with `/` allow modifications to any file in that directory tree.
+- **File paths**: Exact file paths allow only that specific file.
+
+```yaml
+doc_collections:
+  acme/docs:
+    filter:
+      - docs/           # All files under docs/
+      - CHANGELOG.md    # Only this specific file
+```
+
+## Context sources
+
+Context sources give Promptless access to your organization's tools for additional context. They're used for narrowing scope when you want to limit which projects, spaces, or databases Promptless can query. Each entry requires a `source_type` field.
+
+<Info>
+An empty entry (or no entry) for a context source means full access to that integration. Only add entries when you need to restrict scope.
+</Info>
+
+```yaml
+context_sources:
+  jira:
+    source_type: jira
+    project_keys:
+      - DOCS
+      - PLATFORM
+  confluence:
+    source_type: confluence
+    space_keys:
+      - ENGINEERING
+  linear:
+    source_type: linear
+    team_keys:
+      - engineering
+      - product
+  notion:
+    source_type: notion
+    database_ids:
+      - abc123def456
+  slite:
+    source_type: slite
+```
+
+### Available sources
+
+| Source Type | Scope Fields | Description |
+|-------------|--------------|-------------|
+| `jira` | `project_keys` | Restrict to specific Jira project keys |
+| `confluence` | `space_keys` | Restrict to specific Confluence space keys |
+| `linear` | `team_keys` | Restrict to specific Linear team identifiers |
+| `notion` | `database_ids`, `page_ids` | Restrict to specific Notion databases or pages |
+| `slite` | — | No scope fields—the whole Slite workspace is available when connected |
+
+## Triggers
+
+Triggers define events that automatically initiate documentation work. These are passive intake events that require explicit configuration. Each trigger has a `trigger_type` and a `match` list—the trigger fires when any clause in the list matches, and fields within a clause are ANDed together.
+
+```yaml
+triggers:
+  github-prs:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/api
+        trigger_on:
+          - opened
+          - first_approval
+        trigger_directories:
+          - src/
+          - lib/
+
+  slack-support:
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - support
+          - customer-questions
+```
+
+### Trigger types
+
+<AccordionGroup>
+  <Accordion title="github_pr">
+    Triggers when pull requests are opened, approved, or merged in specified repositories.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `repos` | Required. The literal `all` or a list of repositories (`owner/repo` format) |
+    | `excluded_repos` | Repositories to exclude from monitoring |
+    | `trigger_on` | Required. Events that fire: `opened`, `first_approval`, `merge` |
+    | `trigger_directories` | Only trigger when changes touch these directories |
+    | `branches` | Only trigger for PRs targeting these branches |
+    | `repo_topics` | Only trigger for repos with these GitHub topics |
+    | `repo_owners` | Only trigger for repos owned by these owners (the `owner` segment of `owner/repo`) |
+  </Accordion>
+  
+  <Accordion title="github_commit">
+    Triggers when commits are pushed to specified branches.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `repos` | Required. The literal `all` or a list of repositories |
+    | `excluded_repos` | Repositories to exclude |
+    | `branches` | Branches to monitor (omit to match only the default branch) |
+    | `trigger_directories` | Only trigger when changes touch these directories |
+    | `repo_topics` | Only trigger for repos with these GitHub topics |
+    | `repo_owners` | Only trigger for repos owned by these owners |
+  </Accordion>
+  
+  <Accordion title="gitlab_mr">
+    Triggers when merge requests are opened or merged in GitLab projects.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `repos` | Required. The literal `all` or a list of GitLab projects |
+    | `excluded_repos` | Projects to exclude |
+    | `trigger_on` | Required. Events that fire: `opened`, `merge` |
+    | `trigger_directories` | Only trigger when changes touch these directories |
+    | `branches` | Only trigger for MRs targeting these branches |
+  </Accordion>
+  
+  <Accordion title="bitbucket_pr">
+    Triggers when pull requests are opened or merged in Bitbucket repositories.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `repos` | Required. The literal `all` or a list of Bitbucket repositories |
+    | `excluded_repos` | Repositories to exclude |
+    | `trigger_on` | Required. Events that fire: `opened`, `merge` |
+    | `trigger_directories` | Only trigger when changes touch these directories |
+    | `branches` | Only trigger for PRs targeting these branches |
+  </Accordion>
+  
+  <Accordion title="slack_listen">
+    Passively monitors specified Slack channels for documentation-worthy conversations.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `channels` | Required. List of channel names to monitor (no `#` prefix) |
+    
+    <Tip>
+    Channel names are automatically updated when channels are renamed in Slack.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="msteams_listen">
+    Passively monitors specified Microsoft Teams channels.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `channel_ids` | Required. List of Teams channel conversation IDs to monitor |
+  </Accordion>
+  
+  <Accordion title="clickup">
+    Triggers when ClickUp tasks reach specified statuses.
+    
+    **Match clause fields:**
+    | Field | Description |
+    |-------|-------------|
+    | `statuses` | Required. List of task statuses that trigger documentation work |
+  </Accordion>
+</AccordionGroup>
+
+### Built-in triggers
+
+Some triggers are always active when their integration is connected and don't appear in the YAML:
+
+- **slack_mention** — @Promptless mentions in Slack channels
+- **msteams_mention** — @Promptless mentions in Microsoft Teams
+- **github_mention** — @Promptless mentions in GitHub issues and PR comments
+- **web** — Requests submitted through the web dashboard
+- **api** — Requests from the HTTP API
+
+Built-in triggers can't be disabled, but their keys are valid in policy rules.
+
+## Policies
+
+Policies control publishing behavior and notifications. They consist of a default overlay and ordered rules that apply based on trigger or doc collection.
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-notifications
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    publishing:
+      auto_create_pr: true
+      auto_merge: false
+      suppress_source_pr_comments: false
+
+  rules:
+    - if:
+        trigger: github-commits
+      then:
+        publishing:
+          auto_merge: true
+
+    - if:
+        doc_collection: acme/internal-docs
+      then:
+        notification:
+          slack_channel: internal-docs-team
+```
+
+### Policy fields
+
+**notification**
+| Field | Description |
+|-------|-------------|
+| `slack_channel` | Slack channel name for notifications (no `#` prefix), or `null` to disable an inherited Slack channel |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications, or `null` to disable an inherited Teams channel |
+
+`slack_channel` and `msteams_channel` are independent—set either, both, or neither. The Teams conversation ID is the same value you paste into an `msteams_listen` trigger; copy it from Teams. A Teams channel must have prior Promptless bot activity before notifications can be delivered there.
+
+- **Omitting** the field inherits the channel from `policies.default` or an earlier rule.
+- Setting it to **`null`** disables the channel for that scope, overriding any inherited channel so no notification is sent.
+- Setting it to a **channel name** (or Teams conversation ID) routes notifications there.
+
+Because resolution depends on field presence, an omitted field and an explicit `null` are not the same: `null` means disable, absent means inherit. The two channels resolve independently, so you can disable one while leaving the other inherited.
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-notifications
+
+  rules:
+    - if:
+        doc_collection: acme/internal-docs
+      then:
+        notification:
+          slack_channel: null   # silence Slack for this collection
+```
+
+**publishing**
+| Field | Description |
+|-------|-------------|
+| `auto_create_pr` | Automatically create PRs for suggestions |
+| `auto_merge` | Automatically merge documentation PRs |
+| `suppress_source_pr_comments` | Skip posting comments on source PRs |
+
+### Rule matching
+
+Rules are evaluated in order. When multiple rules match, fields from later rules override earlier ones. The `if` clause supports:
+
+- `trigger` — Match a specific trigger key (including built-in triggers like `slack_mention`)
+- `doc_collection` — Match a specific doc collection by repository name
+
+Both conditions must match if both are specified (AND logic).
+
+<Warning>
+Policies resolve at publish time, not when the trigger fires. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
+</Warning>
+
+## Example configuration
+
+```yaml
+doc_collections:
+  acme/documentation:
+    docs_framework: docusaurus
+    docs_root_url: https://docs.acme.com
+    config_file_path: docusaurus.config.js
+    filter:
+      - docs/
+
+context_sources:
+  jira:
+    source_type: jira
+    project_keys:
+      - DOCS
+      - ENG
+  linear:
+    source_type: linear
+    team_keys:
+      - engineering
+
+# Built-in triggers (api, github_mention, msteams_mention, slack_mention, web)
+# are always on for connected integrations and are not configured here;
+# their keys remain valid in policies rules.
+triggers:
+  main-repos:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/frontend
+        trigger_on:
+          - opened
+          - first_approval
+        trigger_directories:
+          - src/
+
+  support-channel:
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - customer-support
+
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+    publishing:
+      auto_create_pr: true
+      auto_merge: false
+
+  rules:
+    - if:
+        trigger: slack_mention
+      then:
+        publishing:
+          suppress_source_pr_comments: true
+```
+
+## Validation and errors
+
+The configuration editor validates your YAML before saving. Validation errors appear as inline markers at the relevant line, with details including:
+
+- **Path** — Which field has the error
+- **Line** — Line number in the YAML
+- **Message** — Description of what's wrong
+
+Common validation errors:
+
+- Unknown keys (typos or unsupported fields)
+- Invalid enum values (e.g., wrong trigger type)
+- Missing required fields (e.g., `host` for `github_enterprise` platform)
+- Duplicate repository keys in `doc_collections`
+
+<Tip>
+If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
+</Tip>
+
+## Repository renames
+
+Promptless automatically updates your configuration when repositories or Slack channels are renamed:
+
+- **GitHub repository renames**: The `doc_collections` key and any references in trigger `repos`/`excluded_repos` are updated.
+- **Slack channel renames**: Channel names in `slack_listen` triggers and `notification.slack_channel` policies are updated.
+
+These updates are committed directly to your Agent Knowledge Base.
+
+## Migration from projects
+
+Existing organizations are automatically migrated from the legacy Projects configuration to `promptless.yaml`. The migration preserves:
+
+- All trigger configurations and settings
+- Doc collection settings
+- Automatic PR creation and notification preferences
+- Context source scoping
+
+After migration, the Projects page is replaced by the Configuration page. Your triggers and doc collections continue working without any action required.
