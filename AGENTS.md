@@ -1,6 +1,11 @@
 # Promptless Website (promptless.ai)
 
-Astro + Starlight site. Deployed to Vercel.
+Astro + Starlight site. Deployed to Vercel. Migrated onto the Promptless
+[Starport template](https://github.com/Promptless/starport-template); the
+`.starport-template.json` marker at the repo root records which template version
+this site is on. Never delete it — Promptless reads it to run managed migrations.
+See [`CUSTOMIZE.md`](CUSTOMIZE.md) for where to change what, and [`adrs/`](adrs/)
+for architecture decisions (MADR format).
 
 ## Documentation Map
 
@@ -12,6 +17,7 @@ docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
 +-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
++-- starport-migration/ # Plan + ADRs for migrating the site onto the Starport Starlight template
 ```
 
 ## Project Structure
@@ -34,8 +40,11 @@ src/
 +-- styles/             # Global CSS (custom.css, site.css)
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
+adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
+CUSTOMIZE.md            # Starport "where to change what" map (branding, content, capabilities)
+.starport-template.json # Starport template version marker (managed migrations) — do not delete
 ```
 
 ## Key Conventions
