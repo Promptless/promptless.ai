@@ -6,8 +6,7 @@ sidebar:
   hidden: true
   order: 68
 ---
-import Steps from '@components/fern/Steps.astro';
-import Step from '@components/fern/Step.astro';
+import { Steps } from '@astrojs/starlight/components';
 import Card from '@components/fern/Card.astro';
 import CardGroup from '@components/fern/CardGroup.astro';
 import Accordion from '@components/fern/Accordion.astro';
@@ -33,43 +32,31 @@ This guide provides the complete installation checklist for deploying Promptless
 This is the happy-path installation checklist for prospects:
 
 <Steps>
-  <Step title="Prerequisites">
-    - AWS account with EKS cluster version 1.27+, IRSA enabled
-    - `kubectl`, `helm`, and `aws-cli` installed locally
-    - Route 53 hosted zone for `promptless.<corp>.com`
-  </Step>
-  
-  <Step title="Provision Infrastructure">
-    - EKS cluster & node groups
-    - RDS PostgreSQL 
-    - S3-compatibile document store (e.g. a bucket named `promptless-doc-store`)
-    - VPC Endpoints for RDS, S3, Bedrock (if using language models restricted within your AWS VPC)
-    - IAM roles with scoped policies
-  </Step>
-  
-  <Step title="Configure Container Images">
-    Choose Option A (direct pull) or Option B (private registry)
-  </Step>
-  
-  <Step title="Create Kubernetes Secrets">
-    Set up database credentials and authentication secrets
-  </Step>
-  
-  <Step title="Configure values.yaml">
-    Customize deployment settings for your environment
-  </Step>
-  
-  <Step title="Install Dependencies">
-    Install cert-manager if not already present
-  </Step>
-  
-  <Step title="Deploy Promptless">
-    Install via Helm chart
-  </Step>
-  
-  <Step title="Post-Installation">
-    Verify deployment and configure user access
-  </Step>
+
+1. **Prerequisites.**
+   - AWS account with EKS cluster version 1.27+, IRSA enabled
+   - `kubectl`, `helm`, and `aws-cli` installed locally
+   - Route 53 hosted zone for `promptless.<corp>.com`
+
+2. **Provision Infrastructure.**
+   - EKS cluster & node groups
+   - RDS PostgreSQL
+   - S3-compatibile document store (e.g. a bucket named `promptless-doc-store`)
+   - VPC Endpoints for RDS, S3, Bedrock (if using language models restricted within your AWS VPC)
+   - IAM roles with scoped policies
+
+3. **Configure Container Images.** Choose Option A (direct pull) or Option B (private registry)
+
+4. **Create Kubernetes Secrets.** Set up database credentials and authentication secrets
+
+5. **Configure values.yaml.** Customize deployment settings for your environment
+
+6. **Install Dependencies.** Install cert-manager if not already present
+
+7. **Deploy Promptless.** Install via Helm chart
+
+8. **Post-Installation.** Verify deployment and configure user access
+
 </Steps>
 
 ## Architecture
@@ -129,194 +116,177 @@ We can provide Terraform modules to provision the baseline infrastructure. Conta
 Follow these steps to install Promptless on your Kubernetes cluster:
 
 <Steps>
-  <Step title="Provision Infrastructure">
-    Set up the baseline AWS infrastructure. You can use the Terraform modules we provide or create resources manually.
 
-    **Required Resources:**
-    - EKS cluster with node groups (including GPU nodes if using local LLMs)
-    - RDS PostgreSQL
-    - S3 bucket `promptless-doc-store`
-    - VPC Endpoints for: STS, Bedrock, S3, Secrets Manager (plus GitHub Enterprise if applicable)
-    - IAM roles: `promptless-api`, `promptless-worker`, `promptless-dashboard` with scoped policies for Bedrock, S3, RDS
+1. **Provision Infrastructure.** Set up the baseline AWS infrastructure. You can use the Terraform modules we provide or create resources manually.
 
-    <Tip>
-    Contact our support team for Terraform modules and infrastructure templates.
-    </Tip>
-  </Step>
+   **Required Resources:**
+   - EKS cluster with node groups (including GPU nodes if using local LLMs)
+   - RDS PostgreSQL
+   - S3 bucket `promptless-doc-store`
+   - VPC Endpoints for: STS, Bedrock, S3, Secrets Manager (plus GitHub Enterprise if applicable)
+   - IAM roles: `promptless-api`, `promptless-worker`, `promptless-dashboard` with scoped policies for Bedrock, S3, RDS
 
-  <Step title="Configure Container Images">
-    Choose your container image strategy:
+   <Tip>
+   Contact our support team for Terraform modules and infrastructure templates.
+   </Tip>
 
-    **Option A: Direct Pull (Recommended)**
-    ```bash
-    # Allow EKS to pull directly from our public registry
-    # No additional configuration needed - images pulled from:
-    # public.ecr.aws/promptless/*
-    ```
+2. **Configure Container Images.** Choose your container image strategy:
 
-    **Option B: Private Registry**
-    ```bash
-    # Import images to your private ECR and configure values.yaml:
-    image:
-      registry: <account-id>.dkr.ecr.<region>.amazonaws.com
-    ```
-  </Step>
+   **Option A: Direct Pull (Recommended)**
+   ```bash
+   # Allow EKS to pull directly from our public registry
+   # No additional configuration needed - images pulled from:
+   # public.ecr.aws/promptless/*
+   ```
 
-  <Step title="Create Kubernetes Secrets">
-    Create a secret containing your database credentials and other sensitive configuration:
+   **Option B: Private Registry**
+   ```bash
+   # Import images to your private ECR and configure values.yaml:
+   image:
+     registry: <account-id>.dkr.ecr.<region>.amazonaws.com
+   ```
 
-    ```bash
-    kubectl create secret generic promptless-secrets \
-      --from-literal=POSTGRES_URL="postgresql://user:password@host:5432/promptless" \
-      --from-literal=JWT_SECRET="your-jwt-secret-key" \
-      --from-literal=OIDC_CLIENT_SECRET="your-oidc-client-secret"
-    ```
+3. **Create Kubernetes Secrets.** Create a secret containing your database credentials and other sensitive configuration:
 
-  </Step>
+   ```bash
+   kubectl create secret generic promptless-secrets \
+     --from-literal=POSTGRES_URL="postgresql://user:password@host:5432/promptless" \
+     --from-literal=JWT_SECRET="your-jwt-secret-key" \
+     --from-literal=OIDC_CLIENT_SECRET="your-oidc-client-secret"
+   ```
 
-  <Step title="Configure values.yaml">
-    Create a `values.yaml` file with your deployment configuration:
+4. **Configure values.yaml.** Create a `values.yaml` file with your deployment configuration:
 
-    ```yaml title="values.yaml"
-    global:
-      domain: promptless.corp.acme.com
+   ```yaml title="values.yaml"
+   global:
+     domain: promptless.corp.acme.com
 
-    auth:
-      provider: oidc
-      oidcIssuerURL: https://sso.acme.com
+   auth:
+     provider: oidc
+     oidcIssuerURL: https://sso.acme.com
 
-    llm:
-      provider: bedrock
-      model: anthropic.claude-3-sonnet-20240229-v1:0
+   llm:
+     provider: bedrock
+     model: anthropic.claude-3-sonnet-20240229-v1:0
 
-    observability:
-      mode: cloudwatch
+   observability:
+     mode: cloudwatch
 
-    integrations:
-      github:
-        enabled: true
-        apiBaseURL: https://github.acme.com/api/v3
+   integrations:
+     github:
+       enabled: true
+       apiBaseURL: https://github.acme.com/api/v3
 
-    # Resource configuration
-    api:
-      replicas: 2
-      resources:
-        requests:
-          memory: "512Mi"
-          cpu: "250m"
-        limits:
-          memory: "1Gi"
-          cpu: "500m"
+   # Resource configuration
+   api:
+     replicas: 2
+     resources:
+       requests:
+         memory: "512Mi"
+         cpu: "250m"
+       limits:
+         memory: "1Gi"
+         cpu: "500m"
 
-    ```
+   ```
 
-    <Accordion title="Configuration Options">
-      **Authentication Providers:**
-      - `oidc`: OpenID Connect (recommended for enterprise)
-      - `saml`: SAML 2.0
-      - `oauth`: OAuth 2.0 with various providers
+   <Accordion title="Configuration Options">
+     **Authentication Providers:**
+     - `oidc`: OpenID Connect (recommended for enterprise)
+     - `saml`: SAML 2.0
+     - `oauth`: OAuth 2.0 with various providers
 
-      **LLM Providers:**
-      - `bedrock`: AWS Bedrock (recommended)
-      - `openai`: OpenAI API
-      - `anthropic`: Anthropic Claude API
-      - `local`: Self-hosted models
+     **LLM Providers:**
+     - `bedrock`: AWS Bedrock (recommended)
+     - `openai`: OpenAI API
+     - `anthropic`: Anthropic Claude API
+     - `local`: Self-hosted models
 
-      **Observability:**
-      - `cloudwatch`: AWS CloudWatch
-      - `datadog`: DataDog
-      - `prometheus`: Prometheus + Grafana
-    </Accordion>
-  </Step>
+     **Observability:**
+     - `cloudwatch`: AWS CloudWatch
+     - `datadog`: DataDog
+     - `prometheus`: Prometheus + Grafana
+   </Accordion>
 
-  <Step title="Install cert-manager">
-    If you don't already have cert-manager installed:
+5. **Install cert-manager.** If you don't already have cert-manager installed:
 
-    ```bash
-    helm repo add jetstack https://charts.jetstack.io
-    helm install cert-manager jetstack/cert-manager \
-      --namespace cert-manager \
-      --create-namespace \
-      --set installCRDs=true
-    ```
-  </Step>
+   ```bash
+   helm repo add jetstack https://charts.jetstack.io
+   helm install cert-manager jetstack/cert-manager \
+     --namespace cert-manager \
+     --create-namespace \
+     --set installCRDs=true
+   ```
 
-  <Step title="Install Promptless">
-    Add the Promptless Helm repository and install:
+6. **Install Promptless.** Add the Promptless Helm repository and install:
 
-    ```bash
-    # Add Helm repository
-    helm repo add promptless https://charts.promptless.com
-    helm repo update
+   ```bash
+   # Add Helm repository
+   helm repo add promptless https://charts.promptless.com
+   helm repo update
 
-    # Install Promptless
-    helm upgrade --install promptless promptless/server \
-      --namespace promptless \
-      --create-namespace \
-      -f values.yaml
-    ```
+   # Install Promptless
+   helm upgrade --install promptless promptless/server \
+     --namespace promptless \
+     --create-namespace \
+     -f values.yaml
+   ```
 
-    <Info>
-    The installation typically takes 3-5 minutes. Monitor the deployment with:
-    ```bash
-    kubectl get pods -n promptless -w
-    ```
-    </Info>
-  </Step>
+   <Info>
+   The installation typically takes 3-5 minutes. Monitor the deployment with:
+   ```bash
+   kubectl get pods -n promptless -w
+   ```
+   </Info>
 
-  <Step title="Post-Installation Verification">
-    After installation, verify your deployment:
+7. **Post-Installation Verification.** After installation, verify your deployment:
 
-    ```bash
-    # Check pod status
-    kubectl get pods -n promptless
+   ```bash
+   # Check pod status
+   kubectl get pods -n promptless
 
-    # Verify database migrations succeeded
-    kubectl logs -l app=promptless-api -n promptless
+   # Verify database migrations succeeded
+   kubectl logs -l app=promptless-api -n promptless
 
-    # Check service endpoints
-    kubectl get services -n promptless
-    ```
+   # Check service endpoints
+   kubectl get services -n promptless
+   ```
 
-    **Verification Checklist:**
-    - [ ] All pods are running and ready
-    - [ ] Database migrations completed successfully
-    - [ ] Services are accessible
-    - [ ] SSL certificates are issued
-  </Step>
+   **Verification Checklist:**
+   - [ ] All pods are running and ready
+   - [ ] Database migrations completed successfully
+   - [ ] Services are accessible
+   - [ ] SSL certificates are issued
 
-  <Step title="Configure User Access">
-    Set up user access through your identity provider:
+8. **Configure User Access.** Set up user access through your identity provider:
 
-    1. **Invite Users**: Use your IdP group mapping to grant access
-    2. **Verify Authentication**: Test that users can log in successfully
+   1. **Invite Users**: Use your IdP group mapping to grant access
+   2. **Verify Authentication**: Test that users can log in successfully
 
-    ```yaml title="Example IdP Configuration"
-    auth:
-      provider: oidc
-      oidcIssuerURL: https://sso.acme.com
-      groupMappings:
-        - idpGroup: "promptless-admins"
-          role: "admin"
-        - idpGroup: "promptless-users"
-          role: "user"
-    ```
-  </Step>
+   ```yaml title="Example IdP Configuration"
+   auth:
+     provider: oidc
+     oidcIssuerURL: https://sso.acme.com
+     groupMappings:
+       - idpGroup: "promptless-admins"
+         role: "admin"
+       - idpGroup: "promptless-users"
+         role: "user"
+   ```
 
-  <Step title="Test Documentation Generation">
-    Verify the system is working by:
+9. **Test Documentation Generation.** Verify the system is working by:
 
-    1. **Access Dashboard**: Navigate to your Promptless domain
-    2. **Create Project**: Set up a test project with integrations
-    3. **Trigger Test Ingestion**: Test documentation generation via UI
-    4. **Validate S3 Objects**: Check S3 bucket for generated assets
-    5. **Validate Bedrock Calls**: Ensure LLM integration is working
-    6. **Monitor Logs**: Check CloudWatch logs for any errors
+   1. **Access Dashboard**: Navigate to your Promptless domain
+   2. **Create Project**: Set up a test project with integrations
+   3. **Trigger Test Ingestion**: Test documentation generation via UI
+   4. **Validate S3 Objects**: Check S3 bucket for generated assets
+   5. **Validate Bedrock Calls**: Ensure LLM integration is working
+   6. **Monitor Logs**: Check CloudWatch logs for any errors
 
-    <Success>
-    If documentation generation completes successfully, your installation is ready for production use!
-    </Success>
-  </Step>
+   <Success>
+   If documentation generation completes successfully, your installation is ready for production use!
+   </Success>
+
 </Steps>
 
 ## Configuration reference
@@ -458,7 +428,7 @@ Always review the changelog before upgrading and test in a staging environment f
   </Accordion>
 </AccordionGroup>
 
-### Getting help
+### Get help
 
 If you encounter issues not covered in this guide:
 
