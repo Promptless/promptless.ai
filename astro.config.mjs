@@ -80,9 +80,13 @@ export default defineConfig({
         // e.g. "context-sources"). Section index pages that sit beside a
         // like-named directory (Triggers, Context sources, Integrations) are
         // listed explicitly so they stay the first item in their group, matching
-        // the previous output. No visible topic switcher renders today — the
-        // repo's Sidebar override supersedes the plugin's; introducing a topic
-        // bar is deferred to Phase 5.
+        // the previous output. Phase 5 (ADR 0004 §2) settled the topic model on
+        // this single "Documentation" topic: no visible topic-switcher bar and no
+        // separate "API Reference" topic, because the site surfaces one docs tree
+        // today (the OpenAPI /api/* pages live inside this topic, not a separate
+        // one). The repo's Sidebar override renders the sublist directly and never
+        // mounts the plugin's <Topics/> switcher, so no topic bar renders — the
+        // rendered nav is byte-for-byte identical to the pre-topics site.
         starlightSidebarTopics(
           [
             {
