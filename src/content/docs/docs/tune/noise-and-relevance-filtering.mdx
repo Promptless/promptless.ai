@@ -1,0 +1,121 @@
+---
+title: Filter noise and tune relevance
+description: >-
+  Reduce low-value documentation suggestions by scoping what triggers Promptless
+  and teaching it which changes to skip
+slug: docs/tune/noise-and-relevance-filtering
+sidebar:
+  hidden: false
+  order: 22
+  label: Noise & relevance
+---
+import Note from '@components/fern/Note.astro';
+import Tip from '@components/fern/Tip.astro';
+import Info from '@components/fern/Info.astro';
+
+The first few days decide whether you keep trusting Promptless. If it suggests documentation for every internal refactor and config bump, you tune it out; if it stays quiet on the changes that matter, you stop relying on it. Tuning for relevance means narrowing what reaches Promptless in the first place and teaching it, over time, which changes are worth documenting.
+
+Promptless filters at three points, from earliest to latest:
+
+1. **What triggers analysis** — scope your triggers so only documentation-worthy events reach Promptless.
+2. **What Promptless skips automatically** — built-in filters drop changes that are never documentation-worthy.
+3. **What you teach it to skip** — feedback on suggestions durably shifts what Promptless proposes next time.
+
+Start with trigger scope; it removes the most noise for the least effort.
+
+## Scope what triggers analysis
+
+Every trigger has a `match` list that controls when it fires. Narrowing these fields is the most direct way to cut noise: a change that never matches a trigger never becomes a suggestion. The [Configuration reference](/docs/reference/configuration-reference#triggers) documents every field; the ones that matter most for relevance are below. If an engineer on your team owns `promptless.yaml`, these are the settings to ask them for — most also have a dashboard equivalent on the [Configuration page](https://app.gopromptless.ai/configuration).
+
+### Watch only the directories that change docs
+
+Point a trigger at the parts of a repository that actually affect documentation. When you set `trigger_directories`, Promptless considers only pull requests that touch those paths and ignores changes elsewhere.
+
+```yaml
+triggers:
+  product-code:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+        trigger_on:
+          - opened
+        trigger_directories:
+          - src/api/
+          - src/features/
+```
+
+A pull request that only touches `tests/` or `infra/` no longer triggers a suggestion. See [GitHub PRs](/docs/connect/triggers/github-prs#directory-specific-triggers) for the dashboard equivalent of this setting.
+
+### Watch only the repositories that matter
+
+If your organization has dozens or hundreds of repositories, most of them never need documentation. Two fields keep Promptless focused:
+
+- **`repo_topics`** — trigger only on repositories tagged with a GitHub topic such as `docs-watch`. A repository matches when it carries at least one of the topics you list. Add or remove a repository by changing its topics in GitHub, without editing your configuration.
+- **`excluded_repos`** — trigger on a broad set (including `repos: all`) while carving out repositories that generate noise.
+
+```yaml
+triggers:
+  tagged-repos:
+    trigger_type: github_pr
+    match:
+      - repos: all
+        excluded_repos:
+          - acme/infra-scripts
+        repo_topics:
+          - docs-watch
+        trigger_on:
+          - opened
+```
+
+### Trigger later in the release cycle
+
+The event you trigger on decides how often Promptless runs and how finished a change is when it does. `opened` fires on every new pull request; `first_approval` waits until a reviewer has vetted the change; `merge` waits until it ships. Triggering later means fewer, higher-signal runs. [Tune what Promptless suggests → Release timing](/docs/tune/release-timing) covers how to match the trigger event to your release stage.
+
+<Info>
+The `if` clause in [publishing policies](/docs/reference/configuration-reference#policies) can change how a suggestion is published — where it notifies, whether it opens a PR — but it cannot stop a suggestion from being created. To keep a change from becoming a suggestion at all, scope the trigger that would fire on it.
+</Info>
+
+## What Promptless skips automatically
+
+Some changes are never documentation-worthy, so Promptless drops them before it creates a suggestion. You don't configure these filters; they always apply.
+
+- **Draft pull requests.** Promptless waits until a pull request is marked ready for review, so work in progress doesn't generate premature suggestions.
+- **Tooling-only changes.** When a pull request touches only dot-directories (like `.github/` or `.circleci/`) or root-level dot-files (like `.gitignore`), Promptless skips it — these are CI and tooling changes, not product changes. If the same pull request also touches regular source files, Promptless processes it normally and ignores only the tooling files.
+- **Changes with no documentation impact.** For every triggered event, Promptless assesses whether the change actually needs documentation before it creates a suggestion. A change that touches no documented behavior produces no suggestion.
+
+<Note>
+When Promptless evaluates a change and decides no documentation is needed, that decision appears on the Triggers page in your dashboard, so a missing suggestion reads as a considered "no" rather than a silent miss. See [The web interface](/docs/work-the-queue/web-interface) for where to find it.
+</Note>
+
+## Teach Promptless what to skip
+
+Trigger scope handles the coarse cuts. For the judgment calls — a class of change that technically touches docs but that your team never documents — teach Promptless through feedback. When you save feedback on a suggestion, it resolves the suggestion in front of you and becomes a durable convention Promptless applies to future ones.
+
+### Close a suggestion with a reason
+
+When a suggestion isn't worth keeping, close it and pick the reason that fits. The options include several that map directly to noise:
+
+- This change is too insignificant
+- This change is self-explanatory and doesn't need docs
+- This change was covered in another Promptless suggestion
+- This is already in my docs
+
+Check **Remember this feedback for future suggestions** so the reason shapes what Promptless proposes next time, not just this once.
+
+### Remember a durable preference
+
+Any feedback you give — closing a suggestion, requesting changes, or leaving a comment — can be saved for the future. Phrase it as a standing rule so Promptless generalizes it:
+
+- "Don't create suggestions for dependency bumps."
+- "Internal-only tooling changes don't need docs."
+
+Promptless records what it learns in your [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base), so the preference persists across every future suggestion. The full set of feedback channels is documented in [Teach conventions with feedback](/docs/tune/teaching-conventions).
+
+<Tip>
+Filtering compounds. Trigger scope removes whole categories of change up front; feedback refines the judgment calls that slip through. Revisit both after your first week — the suggestions you keep closing point to the next trigger or convention to add.
+</Tip>
+
+## Quiet the notifications, not the suggestions
+
+Sometimes the suggestions are right but the alerts are too loud. That's a notification concern, not a relevance one, and you tune it separately. You can suppress source-PR comments with `suppress_source_pr_comments`, and shape when and where Promptless notifies your team in [Customize notifications](/docs/tune/notifications). Those levers change who hears about a suggestion; they don't change which suggestions Promptless creates.
