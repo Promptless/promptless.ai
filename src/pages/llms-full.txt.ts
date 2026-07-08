@@ -76,7 +76,7 @@ async function getWebsiteEntries(): Promise<WebsiteEntryBlock[]> {
       description: entry.data.description,
       routePath: entry.data.routePath,
       order: entry.data.order,
-      body: stripMdxImports(entry.body).trim(),
+      body: stripMdxImports(entry.body ?? '').trim(),
     }))
     .sort((a, b) => {
       if (a.order !== b.order) return a.order - b.order;
