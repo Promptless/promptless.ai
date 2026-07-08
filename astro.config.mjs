@@ -24,7 +24,7 @@ const hiddenSitemapPaths = new Set([
 
 const redirects = {
   '/home': '/',
-  '/docs': '/docs/getting-started/welcome',
+  '/docs': '/docs/start-here/welcome',
   '/page': '/',
   '/wtd': '/',
   '/hn': '/',
@@ -32,7 +32,7 @@ const redirects = {
   '/use-cases': '/',
   '/faq': '/',
   '/api-reference': '/api/',
-  '/oss': '/docs/getting-started/promptless-oss',
+  '/oss': '/docs/start-here/open-source-quickstart',
   '/media-kit': '/docs/media-kit',
   '/brand': '/docs/media-kit',
   '/blog/all': '/blog',
