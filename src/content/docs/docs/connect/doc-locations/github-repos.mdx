@@ -1,0 +1,159 @@
+---
+title: GitHub repos (docs as code)
+slug: docs/connect/doc-locations/github-repos
+sidebar:
+  hidden: false
+  order: 23
+---
+import Frame from '@components/fern/Frame.astro';
+import Accordion from '@components/fern/Accordion.astro';
+import AccordionGroup from '@components/fern/AccordionGroup.astro';
+import Info from '@components/fern/Info.astro';
+import Tip from '@components/fern/Tip.astro';
+
+The most common documentation setup uses GitHub repositories to store documentation content that syncs to hosting providers. This "docs as code" approach allows you to version control your documentation alongside your code.
+
+<Info>
+**Prerequisite**: Before creating a GitHub-based doc collection, you must first [connect GitHub](/docs/reference/integrations/github) on the integrations page. Without an active GitHub connection, you won't see any repositories in the dropdown when setting up your doc collection.
+</Info>
+
+## Supported platforms
+
+When your documentation lives in GitHub, Promptless can publish to any of these platforms:
+
+- **Fern**
+- **Mintlify**
+- **ReadMe** (Refactored)
+- **GitBook**
+- **Docusaurus**
+- **MkDocs**
+- **Hugo**
+- **Ghost**
+- **Nextra**
+- **Starlight** (Astro)
+- **Vocs**
+- **Custom platforms** (as long as the content is in a repo)
+
+## How it works
+
+1. **Repository Setup**: Your documentation files live in a GitHub repository
+2. **Promptless Integration**: The Promptless GitHub App has write access to your docs repository
+3. **Automatic PRs**: When documentation updates are needed, Promptless creates pull requests in your docs repo
+4. **Platform Sync**: Your documentation platform automatically syncs changes from GitHub
+
+## Configuration
+
+After setting up the GitHub integration, you can configure your doc collections in the [Configuration page](https://app.gopromptless.ai/configuration). Doc collections are defined in the `doc_collections` section of your `promptless.yaml` file, keyed by repository name:
+
+```yaml
+doc_collections:
+  acme/documentation:
+    docs_framework: docusaurus
+    docs_root_url: https://docs.acme.com
+    filter:
+      - docs/
+```
+
+Triggers that initiate documentation updates are configured separately in the `triggers` section. See the [Configuration Reference](/docs/reference/configuration-reference) for the complete schema.
+
+## Automatic PR creation
+
+When automatic PR creation (`auto_create_pr`) is enabled in your [publishing policies](/docs/reference/configuration-reference#policies):
+
+- Promptless automatically creates a new PR in your documentation repository with suggested changes
+- For GitHub PR triggers, the documentation PR is linked in a comment on the original code PR (you can disable these comments with `suppress_source_pr_comments: true` in your policy)
+- For [commit triggers](/docs/connect/triggers/github-commits), you can enable auto-merge to automatically merge documentation PRs as soon as they're created (`auto_merge: true`)
+
+## Automated CI check and build issue resolution
+
+When Promptless opens a documentation PR, it automatically monitors the pull request for quality issues. If CI checks fail, linting tools report errors, Vale rules trigger warnings, or your documentation hosting provider detects broken links or build problems, Promptless automatically analyzes the issues and pushes fixes directly to the PR branch.
+
+This automated issue resolution works seamlessly with your existing GitHub workflow - there's no additional configuration needed. Quality problems get resolved in the background while you focus on content rather than troubleshooting technical issues.
+
+## Trigger events in pull request descriptions
+
+When Promptless creates a pull request for documentation updates, it automatically includes a list of the trigger events that led to those changes in the PR description. This provides valuable context for reviewers and creates clear traceability between documentation updates and their originating events.
+
+The trigger events section in the PR description includes:
+- Links back to the original source (e.g., Slack threads, GitHub PRs, support tickets)
+- Brief descriptions of what triggered the documentation update
+- Easy navigation to review the context that prompted the changes
+
+### Slack trigger link labels
+
+For Slack triggers, the link label shows where the message came from along with a content snippet:
+
+- **Public channels:** "Message in Slack channel #docs: please update the API guide"
+- **Direct messages:** "Private Slack DM with Jane Doe: can we add an example here"
+- **Group messages:** "Private Slack group message: the onboarding flow needs updating"
+
+### Private messages and access limitations
+
+Reviewers without access to a private Slack conversation see Slack's "There's been a glitch" error when clicking the trigger link. To prevent confusion, private message links are clearly labeled as such ("Private Slack DM" or "Private Slack group message"), and Promptless adds a second link to the suggestion's Triggers & Analysis tab in the dashboard. Anyone with dashboard access can read the full message there, regardless of their Slack permissions.
+
+## Path scope (documentation directories)
+
+Path scope controls which files Promptless can modify in your documentation repository. When you specify directories during doc collection setup, Promptless enforces these boundaries:
+
+- **All files allowed (default):** If no directories are specified, Promptless can create and modify files anywhere in the repository.
+- **Scoped to specific paths:** When directories are specified, Promptless can only modify files that match one of those paths exactly or are nested inside one of those directories.
+
+For example, if your path scope is set to `docs/guides`, Promptless can modify `docs/guides/getting-started.md` and `docs/guides/advanced/configuration.md`, but cannot modify `README.md` or `src/components/Button.tsx`.
+
+Path scopes support both directories and individual files. A scope entry like `CHANGELOG.md` allows only that specific file, while `docs/` allows any file under that directory.
+
+When Promptless creates a suggestion with changes outside the configured scope, the suggestion is rejected with an error listing which files are out of scope. This prevents accidental modifications to files outside your documentation area—useful for monorepos where docs live alongside source code.
+
+## Display name
+
+Display names give your doc collections friendly, descriptive labels instead of raw repository identifiers. This helps in several scenarios:
+
+- **Multiple collections from the same org**: When you have `acme/docs`, `acme/api-docs`, and `acme/internal-docs`, display names like "Product Docs", "API Reference", and "Internal Wiki" make it clear what each collection is for.
+- **Onboarding team members**: New team members can understand what each collection contains at a glance.
+- **Distinguishing environments**: If you have separate collections for staging and production docs from similar repos, display names make the difference obvious.
+- **Monorepo setups**: When multiple doc collections point to different paths in the same repository, display names prevent confusion about which collection covers which content area.
+
+Set the display name when creating a doc collection, or edit it later in the settings modal. Without a display name, the collection shows the repository identifier (e.g., `acme/docs (github)`) as the default label.
+
+## Edit doc collection settings
+
+You can edit certain doc collection settings directly in the dashboard. Click the edit button on any doc collection card to open the settings modal.
+
+**Editable settings:**
+
+- **Display name** — A custom label for identifying your doc collection
+- **Docs framework** — The documentation framework your site uses (Docusaurus, MkDocs, etc.)
+- **Config path** — Path to your documentation configuration file
+- **Published URL** — Your public documentation site URL
+- **Vale config** — Enable or disable Vale linting and set the config path
+- **[Doc Detective](/docs/audit/doc-detective)** — Enable or disable Doc Detective testing and set the config path
+
+**Settings that require support:**
+
+Platform, repository, and branch are scope-defining fields that cannot be edited in the dashboard. To change these settings, contact [help@gopromptless.ai](mailto:help@gopromptless.ai).
+
+## Multi-platform publishing
+
+Promptless can publish to multiple documentation repositories simultaneously, allowing you to use the same trigger events and context sources across different doc sites.
+
+<Tip>
+For teams using multiple doc sites, create separate projects for each documentation location to maintain clear separation of content and workflows.
+</Tip>
+
+## Request additional platforms
+
+Need integration with a Git-hosted platform not currently supported? We're continuously expanding platform support based on user feedback. Contact [help@gopromptless.ai](mailto:help@gopromptless.ai). Also contact us if you're hoping to migrate to a new docs platform and we'll be happy to help you choose and set up.
+
+## Setup instructions
+
+To connect GitHub to Promptless, see the [GitHub Integration](/docs/reference/integrations/github) setup guide.
+
+## Frequently asked questions
+
+<AccordionGroup>
+  <Accordion title="I don't see any repositories in the dropdown when creating a doc collection">
+    If the repository dropdown shows "No options" when creating a doc collection, you need to connect GitHub first. Go to the [integrations page](https://app.gopromptless.ai/integrations) and click "Connect GitHub" to install the Promptless GitHub App. Once GitHub is connected, return to creating your doc collection and your repositories appear in the dropdown.
+    
+    If you've already connected GitHub but still don't see your repositories, you may need to grant Promptless access to those specific repositories. Visit your GitHub organization settings, find the Promptless GitHub App under "Third-party Access" → "GitHub Apps", and add the repositories you need.
+  </Accordion>
+</AccordionGroup>
