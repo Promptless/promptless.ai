@@ -116,6 +116,7 @@ export default defineConfig({
                 { label: 'Get the Most Out', items: [{ autogenerate: { directory: 'docs/get-the-most-out' } }] },
                 { label: 'Scale', items: [{ autogenerate: { directory: 'docs/scale' } }] },
                 { label: 'Audit', items: [{ autogenerate: { directory: 'docs/audit' } }] },
+                { label: 'Migrate', items: [{ autogenerate: { directory: 'docs/migrate' } }] },
                 { label: 'Security', items: [{ autogenerate: { directory: 'docs/security' } }] },
                 {
                   label: 'Reference',
