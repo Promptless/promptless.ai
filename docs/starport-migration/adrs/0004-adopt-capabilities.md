@@ -1,43 +1,56 @@
-# ADR 0004 — Adopt MCP server, sidebar-topics, and OpenAPI
+# ADR 0004 — Adopt every optional template capability except i18n
 
 - Status: accepted
 - Date: 2026-07-08
 - Deciders: Manny
-- Context source: #docs Slack thread, 2026-07-08
+- Context source: #docs Slack thread, 2026-07-08 (initial ask + "Yes" capability confirmation)
 
 ## Context
 
-The template ships several optional capabilities (i18n, `/mcp` SSR server,
-`starlight-sidebar-topics`, `starlight-openapi`, `starlight-llms-txt`,
-link validation). Manny chose to adopt **the MCP server, sidebar-topics, and
-OpenAPI support**, and not the others.
+The template ships several optional capabilities: an OpenAPI API reference
+(`starlight-openapi`), multi-section nav (`starlight-sidebar-topics`), a read-only
+`/mcp` SSR server (`@starport/starlight-mcp`), an agent-friendly `llms.txt`
+generator (`starlight-llms-txt`), build-time link validation
+(`starlight-links-validator`), and i18n / localization.
+
+The first cut of this ADR recorded adopting only three of them (OpenAPI,
+sidebar-topics, MCP). Manny then confirmed the full optional-capability set with
+an explicit "Yes": **enable every optional capability the template offers except
+i18n.** This ADR is updated to that decision.
 
 ## Decision
 
-Adopt exactly three template capabilities: the `/mcp` SSR server,
-`starlight-sidebar-topics`, and `starlight-openapi`. Do not adopt i18n in this
-migration.
+**Adopt all of the template's optional capabilities except i18n:**
 
-## The three capabilities
+1. OpenAPI API reference (`starlight-openapi`) — enabled.
+2. Multi-section nav / sidebar-topics (`starlight-sidebar-topics`) — enabled.
+3. Docs MCP server (`@starport/starlight-mcp`, read-only `/mcp` route with
+   `search` + `get_page`) — enabled, served via the **Vercel** SSR adapter
+   (`@astrojs/vercel`), the template's default and verified MCP target.
+4. Agent-friendly `llms.txt` (`starlight-llms-txt`) — enabled (the template
+   treats it as core).
+5. Build-time link validation (`starlight-links-validator`) — enabled.
 
-### 1. MCP server (`/mcp` SSR)
+**Do not adopt i18n.** Remove the `defaultLocale` / `locales` config and the
+sample `es/` locale content tree the template ships. Manny does not need
+localization now.
 
-The template vendors `@starport/starlight-mcp`, a Starlight plugin that serves
-the docs as a read-only MCP server over Streamable HTTP at `/mcp`. It exposes
-`search` and `get_page` tools plus an `llms.txt`-style index, builds its content
-index at build time into a Vite virtual module, and injects the `/mcp` route
-with `prerender: false`.
+## The capabilities
 
-- **Requires an SSR adapter.** `/mcp` is on-demand, so the site needs
-  `@astrojs/vercel` (the template's default `MCP_RUNTIME`). Today promptless.ai
-  is fully static with **no adapter** — adding one is a deploy-shape change to
-  validate on Vercel (plan §Phase 6).
-- **Reconcile with what we already have.** We already serve `llms.txt`,
-  `llms-full.txt`, and per-page `.md` via route endpoints (`src/pages/*.ts`).
-  Phase 6 decides whether `/mcp` supersedes or complements those; do not remove
-  the existing endpoints without confirming nothing depends on them.
-- v1 of the MCP server is authless (all pages public). That matches our fully
-  public docs, so no gating work is needed now.
+### 1. OpenAPI support
+
+We already render an OpenAPI reference via `starlight-openapi@0.22` (the API
+trigger reference at `/api/*`, `schema: ./public/openapi/api-triggers.yaml`).
+Adopting the template means moving to `starlight-openapi@0.26` and wiring the
+generated `openAPISidebarGroups` through `starlight-sidebar-topics` instead of
+spreading them into a flat `sidebar` array.
+
+- **URL guardrail:** `/api/*` routes must stay identical. The `base: 'api'`
+  config is preserved; only the plugin version and the sidebar-wiring change.
+- Note: `Promptless/PROMPTLESS.md` records a deliberate decision **not** to
+  document the `doc_collection_id` field in the public API reference. This
+  migration is a rendering/engine change and must not alter the API spec's
+  documented surface.
 
 ### 2. sidebar-topics
 
@@ -53,31 +66,83 @@ sidebar groups.
   "Documentation" topic that reproduces today's nav exactly; add an "API
   Reference" topic only if it matches how `/api/*` is surfaced today.
 
-### 3. OpenAPI support
+### 3. MCP server (`/mcp` SSR, Vercel adapter)
 
-We already render an OpenAPI reference via `starlight-openapi@0.22` (the API
-trigger reference at `/api/*`, `schema: ./public/openapi/api-triggers.yaml`).
-Adopting the template means moving to `starlight-openapi@0.26` and wiring the
-generated `openAPISidebarGroups` through `starlight-sidebar-topics` instead of
-spreading them into a flat `sidebar` array.
+The template vendors `@starport/starlight-mcp`, a Starlight plugin that serves
+the docs as a read-only MCP server over Streamable HTTP at `/mcp`. It exposes
+`search` and `get_page` tools plus an `llms.txt`-style index, builds its content
+index at build time into a Vite virtual module, and injects the `/mcp` route
+with `prerender: false`.
 
-- **URL guardrail:** `/api/*` routes must stay identical. The `base: 'api'`
-  config is preserved; only the plugin version and the sidebar-wiring change.
-- Note: `Promptless/PROMPTLESS.md` records a deliberate decision **not** to
-  document the `doc_collection_id` field in the public API reference. This
-  migration is a rendering/engine change and must not alter the API spec's
-  documented surface.
+- **Vercel adapter, not Cloudflare.** `/mcp` is on-demand, so the site needs an
+  SSR adapter. We use `@astrojs/vercel` — the template's default `MCP_RUNTIME`
+  and its verified target. The template also documents a Cloudflare option, but
+  it is experimental/unverified there, so we do not use it. promptless.ai already
+  deploys on Vercel (and is fully static today with no adapter), so `@astrojs/vercel`
+  is both the low-risk and the verified choice; adding the adapter is a
+  deploy-shape change to validate on Vercel (plan §Phase 6).
+- **Reconcile with what we already have, now including `starlight-llms-txt`.** We
+  already serve `llms.txt`, `llms-full.txt`, and per-page `.md` via route
+  endpoints (`src/pages/*.ts`), and we are now also adopting the
+  `starlight-llms-txt` plugin (below). Phase 6 decides whether `/mcp` and the
+  plugin supersede or complement the hand-rolled endpoints; do not remove the
+  existing endpoints without confirming nothing depends on them and the emitted
+  URLs/content stay identical.
+- v1 of the MCP server is authless (all pages public). That matches our fully
+  public docs, so no gating work is needed now.
+
+### 4. Agent-friendly `llms.txt` (`starlight-llms-txt`)
+
+The template treats `starlight-llms-txt` as core: it generates `/llms.txt` and
+`/llms-full.txt` from the docs content at build time.
+
+- **Direct route overlap with our hand-rolled endpoints.** We already serve
+  `/llms.txt` and `/llms-full.txt` (plus per-page `.md`) from
+  `src/pages/llms.txt.ts`, `llms-full.txt.ts`, and `[...slug].md.ts`. Enabling
+  the plugin puts two producers on the same routes. This is a keep-or-supersede
+  reconciliation, resolved in Phase 6 alongside the MCP endpoints: pick one
+  producer per route and confirm the emitted content is byte-equivalent (or an
+  accepted improvement) — the URL set must not change, and nothing that consumes
+  the current output may break.
+- The plugin's coverage is docs-scoped; our hand-rolled endpoints also cover the
+  marketing/pricing surface (`index.md.ts`, `pricing.md.ts`, `free-tools.md.ts`).
+  Any superseding must not drop those non-docs Markdown variants.
+
+### 5. Build-time link validation (`starlight-links-validator`)
+
+`starlight-links-validator` runs at build time and **fails the build** on broken
+internal links and, optionally, invalid anchor fragments.
+
+- **New failing gate on top of `check-broken-links`.** The repo already has the
+  `check-broken-links` skill (a `linkchecker` crawl of a local dev build). The
+  plugin is a stricter, build-blocking check. It may flag links that pass today —
+  e.g. links into `sidebar.hidden` pages, or links that only resolve through the
+  hand-maintained `redirects.json` / static redirect map rather than a live
+  route. Enable it **after** the engine upgrade stabilizes (not during Phase 1),
+  and budget for remediating or configuring around any pre-existing links it
+  rejects. Reconcile its scope with `check-broken-links` so we are not
+  maintaining two overlapping link checks with different verdicts.
 
 ## Not adopted
 
-- **i18n.** No current localization need; the template's `es` locale is sample
-  content. Revisit only if the localization CUJ is scheduled.
-- **`starlight-llms-txt` / link validation** were not requested. We already have
-  our own `llms.txt` endpoints and the `check-broken-links` skill; leave them.
+- **i18n / localization.** No current localization need. Remove the template's
+  `defaultLocale` / `locales` config and its sample `es/` locale content tree
+  during the port. (promptless.ai has no i18n config or locale tree today, so
+  this is a "do not bring the template's scaffolding in" step, not a removal from
+  our own site.) Revisit only if the localization CUJ is scheduled.
 
 ## Consequences
 
 - New runtime dependency surface: SSR adapter (`@astrojs/vercel@^11`),
-  `starlight-sidebar-topics`, upgraded `starlight-openapi`.
-- Deploy shape changes from fully static to static + one on-demand `/mcp` route.
-- Phases 4–6 each carry a URL/nav-preservation acceptance test.
+  `starlight-sidebar-topics`, upgraded `starlight-openapi`, `starlight-llms-txt`,
+  and `starlight-links-validator`.
+- Deploy shape changes from fully static to static + one on-demand `/mcp` route,
+  served on Vercel.
+- Two capabilities create reconciliation work against existing surface:
+  `starlight-llms-txt` overlaps our hand-rolled `llms.txt` / `.md` endpoints
+  (route collision — Phase 6), and `starlight-links-validator` adds a
+  build-failing link gate on top of `check-broken-links` (sequence after the
+  engine upgrade). Both are watch items, not silent changes.
+- Phases 4–6 each carry a URL/nav-preservation acceptance test; the `llms.txt`
+  and link-validation reconciliations are folded into those phases rather than
+  landing blind.
