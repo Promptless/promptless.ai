@@ -1,14 +1,17 @@
 /**
- * Generate route-manifest.json and sidebar.json from content files.
+ * Generate route-manifest.json from content files.
  *
  * This script scans src/content/{docs,blog,changelog} directories,
  * reads frontmatter from each .mdx file, and generates:
  *   - route-manifest.json, used by the [...slug].md.ts endpoint to serve
  *     markdown versions.
- *   - sidebar.json, the Starlight docs navigation imported by astro.config.mjs.
- *     The sidebar is derived entirely from the docs frontmatter (slug structure,
- *     `sidebar.order`, `sidebar.hidden`, and `sidebar.label`) so the nav can no
- *     longer silently drift from the content files.
+ *
+ * The docs navigation is no longer generated here. As of the Starport
+ * migration (Phase 3, ADR 0003) the Starlight sidebar is built by
+ * `starlight-sidebar-topics` + Starlight's native folder `autogenerate` in
+ * astro.config.mjs, reading the same `sidebar.{order,hidden,label}` frontmatter
+ * directly. The old `sidebar.json` output and its `buildSidebar()` helper were
+ * retired; only route-manifest generation remains.
  *
  * Run with: npm run generate:manifest
  */
@@ -20,7 +23,6 @@ import type { ContentType, RouteManifestEntry } from '../src/lib/route-manifest'
 
 const CONTENT_ROOT = path.join(process.cwd(), 'src', 'content');
 const OUTPUT_PATH = path.join(process.cwd(), 'src', 'lib', 'generated', 'route-manifest.json');
-const SIDEBAR_OUTPUT_PATH = path.join(process.cwd(), 'src', 'lib', 'generated', 'sidebar.json');
 
 interface DocsFrontmatter {
   title: string;
@@ -30,9 +32,10 @@ interface DocsFrontmatter {
     hidden?: boolean;
     order?: number;
     /**
-     * Overrides the nav label for this page. Falls back to `title`.
-     * When this page is the index of a group (its slug is the group's
-     * directory path), this also overrides the group's label.
+     * Overrides the nav label for this page. Falls back to `title`. Read by
+     * Starlight's native autogeneration (see astro.config.mjs). Group labels
+     * are set explicitly in the `starlight-sidebar-topics` config, not derived
+     * from index-page frontmatter.
      */
     label?: string;
   };
@@ -70,178 +73,6 @@ function getSectionFromSlug(slug: string): string {
   return 'Docs';
 }
 
-// Small words that stay lowercase in a title unless they lead the title.
-// Used to derive group/section labels from slug segments (e.g.
-// "security-and-privacy" → "Security and Privacy") when no index page
-// supplies an explicit label.
-const TITLE_SMALL_WORDS = new Set([
-  'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on',
-  'or', 'the', 'to', 'vs', 'with',
-]);
-
-function smartTitleCase(segment: string): string {
-  return segment
-    .split('-')
-    .map((word, index) => {
-      if (index !== 0 && TITLE_SMALL_WORDS.has(word)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(' ');
-}
-
-// ---------------------------------------------------------------------------
-// Sidebar generation
-//
-// The Starlight docs nav (src/lib/generated/sidebar.json) is derived entirely
-// from the docs frontmatter so it can never silently drift from the content
-// files again. The shape of the tree comes from each page's `slug`, and each
-// page's `sidebar.order` / `sidebar.hidden` / `sidebar.label` controls
-// placement, visibility, and display text.
-//
-// Slug → tree:
-//   docs/<section>                       → section index page
-//   docs/<section>/<page>                → leaf, or a group index when other
-//                                          pages live under docs/<section>/<page>/
-//   docs/<section>/<group>/<page>        → leaf inside that group
-//
-// A container's label comes from its index page's `sidebar.label ?? title`
-// when one exists, otherwise from smart-title-casing its slug segment. A
-// container's sort position uses the smallest order anywhere beneath it
-// (including its index page). Hidden pages are dropped before the tree is
-// built, so empty sections/groups disappear automatically.
-// ---------------------------------------------------------------------------
-
-interface DocsNavEntry {
-  slug: string;
-  label: string;
-  order: number;
-  hidden: boolean;
-}
-
-interface SidebarLeaf {
-  label: string;
-  slug: string;
-}
-
-interface SidebarGroup {
-  label: string;
-  items: SidebarItem[];
-}
-
-type SidebarItem = SidebarLeaf | SidebarGroup;
-
-interface TreeNode {
-  segment: string;
-  page?: DocsNavEntry;
-  children: Map<string, TreeNode>;
-}
-
-async function collectDocsNavEntries(): Promise<DocsNavEntry[]> {
-  const entries: DocsNavEntry[] = [];
-  const docsDir = path.join(CONTENT_ROOT, 'docs', 'docs');
-  const files = await getAllFiles(docsDir, '.mdx');
-
-  for (const filePath of files) {
-    try {
-      const content = await readFile(filePath, 'utf8');
-      const { data } = matter(content);
-      const fm = data as DocsFrontmatter;
-
-      if (!fm.slug || !fm.title) {
-        console.warn(`Skipping ${filePath}: missing slug or title`);
-        continue;
-      }
-
-      entries.push({
-        slug: fm.slug,
-        label: fm.sidebar?.label ?? fm.title,
-        order: fm.sidebar?.order ?? 999,
-        hidden: fm.sidebar?.hidden ?? false,
-      });
-    } catch (err) {
-      console.error(`Error processing ${filePath}:`, err);
-    }
-  }
-
-  return entries;
-}
-
-function buildTree(entries: DocsNavEntry[]): Map<string, TreeNode> {
-  const root = new Map<string, TreeNode>();
-
-  for (const entry of entries) {
-    // Slugs are rooted at "docs/"; the remaining segments define the tree.
-    const segments = entry.slug.split('/').slice(1);
-    if (segments.length === 0) continue;
-
-    let level = root;
-    let node: TreeNode | undefined;
-    for (const segment of segments) {
-      if (!level.has(segment)) {
-        level.set(segment, { segment, children: new Map() });
-      }
-      node = level.get(segment)!;
-      level = node.children;
-    }
-    if (node) node.page = entry;
-  }
-
-  return root;
-}
-
-function nodeOrder(node: TreeNode): number {
-  // A container sorts by the smallest order anywhere beneath it, including its
-  // own index page. Index pages normally carry the smallest order in a group,
-  // so they lead the group and the group lands in the right spot.
-  let min = node.page ? node.page.order : Number.POSITIVE_INFINITY;
-  for (const child of node.children.values()) {
-    min = Math.min(min, nodeOrder(child));
-  }
-  return min;
-}
-
-function containerLabel(node: TreeNode): string {
-  if (node.page) return node.page.label;
-  return smartTitleCase(node.segment);
-}
-
-function itemLabel(item: SidebarItem): string {
-  return item.label;
-}
-
-function renderNode(node: TreeNode): SidebarItem {
-  // A node with no children is a plain page link.
-  if (node.children.size === 0) {
-    return { label: node.page!.label, slug: node.page!.slug };
-  }
-
-  // Otherwise it's a group. Its own index page (if any) becomes the first
-  // item by virtue of having the smallest order in the group.
-  const ordered: Array<{ item: SidebarItem; order: number }> = [];
-  if (node.page) {
-    ordered.push({
-      item: { label: node.page.label, slug: node.page.slug },
-      order: node.page.order,
-    });
-  }
-  for (const child of node.children.values()) {
-    ordered.push({ item: renderNode(child), order: nodeOrder(child) });
-  }
-
-  ordered.sort((a, b) => a.order - b.order || itemLabel(a.item).localeCompare(itemLabel(b.item)));
-
-  return { label: containerLabel(node), items: ordered.map((entry) => entry.item) };
-}
-
-function buildSidebar(entries: DocsNavEntry[]): SidebarItem[] {
-  const visible = entries.filter((entry) => !entry.hidden);
-  const root = buildTree(visible);
-
-  return [...root.values()]
-    .map((node) => ({ node, order: nodeOrder(node) }))
-    .sort((a, b) => a.order - b.order || containerLabel(a.node).localeCompare(containerLabel(b.node)))
-    .map(({ node }) => renderNode(node));
-}
 
 async function getAllFiles(dir: string, extension: string): Promise<string[]> {
   const files: string[] = [];
@@ -431,15 +262,6 @@ async function main() {
   console.log(`  - Blog: ${blogEntries.length}`);
   console.log(`  - Changelog: ${changelogEntries.length}`);
   console.log(`Output: ${OUTPUT_PATH}`);
-
-  // Generate the docs sidebar nav from the same frontmatter.
-  const navEntries = await collectDocsNavEntries();
-  const sidebar = buildSidebar(navEntries);
-  await writeFile(SIDEBAR_OUTPUT_PATH, JSON.stringify(sidebar, null, 2) + '\n');
-
-  const visibleCount = navEntries.filter((entry) => !entry.hidden).length;
-  console.log(`Generated sidebar with ${sidebar.length} top-level sections (${visibleCount} visible pages)`);
-  console.log(`Output: ${SIDEBAR_OUTPUT_PATH}`);
 }
 
 main().catch((err) => {
