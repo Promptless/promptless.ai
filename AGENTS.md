@@ -1,6 +1,11 @@
 # Promptless Website (promptless.ai)
 
-Astro + Starlight site. Deployed to Vercel.
+Astro + Starlight site. Deployed to Vercel. Migrated onto the Promptless
+[Starport template](https://github.com/Promptless/starport-template); the
+`.starport-template.json` marker at the repo root records which template version
+this site is on. Never delete it — Promptless reads it to run managed migrations.
+See [`CUSTOMIZE.md`](CUSTOMIZE.md) for where to change what, and [`adrs/`](adrs/)
+for architecture decisions (MADR format).
 
 ## Documentation Map
 
@@ -11,6 +16,8 @@ a file in `docs/`, update this map.
 docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
++-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
++-- starport-migration/ # Plan + ADRs for migrating the site onto the Starport Starlight template
 ```
 
 ## Project Structure
@@ -33,8 +40,11 @@ src/
 +-- styles/             # Global CSS (custom.css, site.css)
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
+adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
+CUSTOMIZE.md            # Starport "where to change what" map (branding, content, capabilities)
+.starport-template.json # Starport template version marker (managed migrations) — do not delete
 ```
 
 ## Key Conventions
@@ -44,9 +54,25 @@ vercel.json             # Vercel deploy config, generated redirects
   for the event catalog and naming conventions.
 - **Content**: Marketing pages use content collections in `src/content/website/`.
   Docs live in `src/content/docs/`. Blog in `src/content/blog/`.
-- **Redirects**: Defined in `astro.config.mjs` (static) and generated from
-  `src/lib/generated/redirects.json` (migration script output).
-- **Sidebar**: Generated from `src/lib/generated/sidebar.json`.
+- **Redirects**: Defined in `astro.config.mjs` (static) merged with
+  `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
+  manifest script never writes it), so add redirect entries for moved or renamed
+  pages by hand.
+- **Sidebar**: The docs nav is **directory-driven** (Starport Phase 3, ADR
+  0003). `starlight-sidebar-topics` wraps Starlight's native folder
+  `autogenerate` in `astro.config.mjs`, walking the `src/content/docs/docs/`
+  tree. Placement and visibility still come from each page's `sidebar.order` and
+  `sidebar.hidden` frontmatter, and per-page nav text from `sidebar.label`
+  (falling back to `title`) — Starlight reads those natively. What changed: the
+  section/group labels (`Start Here`, `Connect`, `Get the Most Out`, …) are now
+  set **explicitly in the `starlight-sidebar-topics` config**, not derived from
+  an index page's frontmatter. There is no generated `sidebar.json` anymore, and
+  no `buildSidebar()` step — the old frontmatter→`sidebar.json` pipeline was
+  retired. To change nav placement or a page label, edit that page's frontmatter;
+  to rename a section/group or reorder groups, edit the topic config in
+  `astro.config.mjs`. `scripts/generate-manifest.ts` still runs via
+  `generate:manifest` / `prebuild`, but now only produces `route-manifest.json`
+  (used by the `.md` endpoints).
 
 ## Commands
 
@@ -74,14 +100,17 @@ Each `.mmd` file supports optional rendering directives in comments at the top:
 %% mmdc-height: 600
 ```
 
-## Good Docs Project Templates
+## Docs & Audience Strategy
 
-The Good Docs Project template bundle is stored at:
+Audience, persona, journey (CUJ), and proposed Docs-tab IA definitions live in
+`docs/content_strategy/` (internal; not built into the site). Read the relevant file on demand —
+do not inline. Derived from customer/prospect call evidence.
 
-`meta/reference/good-docs-project-template-1.5.0/`
+- `docs/content_strategy/README.md` — index + how the IDs link (start here)
+- `docs/content_strategy/audiences/` — 6 target segments (`aud-*`), incl. a cross-cutting brownfield segment
+- `docs/content_strategy/personas/` — 1 minimal persona per audience (`persona-*`)
+- `docs/content_strategy/journeys/` — 16 critical user journeys (`cuj-*`), steps → `/docs/...`
+- `docs/content_strategy/information_architecture/` — CUJ-driven Docs-tab IA + gap analysis
 
-Use these files as read-only reference material when planning documentation information architecture, page types, explanation flow, templates, and writing patterns.
-
-Do not edit, rewrite, reformat, rename, delete, or regenerate files under `meta/reference/good-docs-project-template-1.5.0/` unless the user explicitly asks to update the vendored template bundle itself.
-
-When applying recommendations from the templates, make changes in the Promptless documentation source files instead, such as files under `src/content/docs/`.
+When planning docs IA, page types, or content priorities, consult `proposed-ia.md` and
+`ia-gap-analysis.md`, and make actual content changes under `src/content/docs/`.

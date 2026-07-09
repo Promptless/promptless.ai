@@ -2,8 +2,16 @@
  * Generate route-manifest.json from content files.
  *
  * This script scans src/content/{docs,blog,changelog} directories,
- * reads frontmatter from each .mdx file, and generates a manifest
- * used by the [...slug].md.ts endpoint to serve markdown versions.
+ * reads frontmatter from each .mdx file, and generates:
+ *   - route-manifest.json, used by the [...slug].md.ts endpoint to serve
+ *     markdown versions.
+ *
+ * The docs navigation is no longer generated here. As of the Starport
+ * migration (Phase 3, ADR 0003) the Starlight sidebar is built by
+ * `starlight-sidebar-topics` + Starlight's native folder `autogenerate` in
+ * astro.config.mjs, reading the same `sidebar.{order,hidden,label}` frontmatter
+ * directly. The old `sidebar.json` output and its `buildSidebar()` helper were
+ * retired; only route-manifest generation remains.
  *
  * Run with: npm run generate:manifest
  */
@@ -23,6 +31,13 @@ interface DocsFrontmatter {
   sidebar?: {
     hidden?: boolean;
     order?: number;
+    /**
+     * Overrides the nav label for this page. Falls back to `title`. Read by
+     * Starlight's native autogeneration (see astro.config.mjs). Group labels
+     * are set explicitly in the `starlight-sidebar-topics` config, not derived
+     * from index-page frontmatter.
+     */
+    label?: string;
   };
 }
 
@@ -57,6 +72,7 @@ function getSectionFromSlug(slug: string): string {
   }
   return 'Docs';
 }
+
 
 async function getAllFiles(dir: string, extension: string): Promise<string[]> {
   const files: string[] = [];
