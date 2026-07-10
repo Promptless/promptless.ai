@@ -163,6 +163,7 @@ export default defineConfig({
                 { label: 'Audit', collapsed: true, items: [{ autogenerate: { directory: 'docs/audit', collapsed: true } }] },
                 { label: 'Migrate', collapsed: true, items: [{ autogenerate: { directory: 'docs/migrate', collapsed: true } }] },
                 { label: 'Security', collapsed: true, items: [{ autogenerate: { directory: 'docs/security', collapsed: true } }] },
+                { label: 'Measure impact', collapsed: true, items: [{ autogenerate: { directory: 'docs/measure', collapsed: true } }] },
                 {
                   label: 'Reference',
                   collapsed: true,
