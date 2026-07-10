@@ -1,0 +1,47 @@
+---
+title: Route changes across multiple repos
+description: Structure doc collections and triggers so changes across many code repositories and organizations reach the right documentation, without cross-wiring your teams.
+slug: docs/scale/multi-repo-routing
+sidebar:
+  hidden: false
+  order: 32
+  label: Multi-repo routing
+---
+import { Aside } from '@astrojs/starlight/components';
+
+As Promptless scales across a larger org, a few questions come up again and again: which code repositories feed which doc sites, how to keep one team's changes out of another team's docs, and how to work across several GitHub organizations at once. You answer them by structuring your doc collections and triggers and by scoping each trigger to fire only on the changes that matter. This page shows how those pieces fit together across many repositories.
+
+## Doc collections are keyed by repository
+
+Each doc collection is keyed by its documentation repository in `owner/repo` format, and a repository can have at most one doc collection per organization. A collection carries its own settings — `platform`, `default_branch`, `docs_framework`, `docs_root_url`, and the `filter` path scope that bounds which files Promptless can modify. Because a collection is tied to a specific docs repo, "where a change publishes" comes down to which collection you point the work at.
+
+Promptless publishes to multiple documentation repositories at once, reusing the same trigger events and context sources across different doc sites. A single change updates more than one doc collection when it's relevant to each, so related docs stay in sync.
+
+<Aside type="tip">
+For teams running several doc sites, create a separate project for each documentation location to keep content and workflows cleanly separated.
+</Aside>
+
+## Scope which triggers fire
+
+Routing across many repos comes down to firing the right triggers on the right changes. Each trigger's `match` clause scopes what it watches, so a change in one repo only starts documentation work where you've told it to:
+
+- **`repos`** — the literal `all`, or a list of repositories in `owner/repo` format. This is the primary control over which repositories a trigger watches.
+- **`excluded_repos`** — repositories to leave out, useful when you match broadly with `all` but want to skip a few.
+- **`repo_owners`** — restrict a trigger to repositories owned by specific owners (the `owner` segment of `owner/repo`).
+- **`repo_topics`** — restrict a trigger to repositories carrying specific GitHub topics, so you can opt repos in by topic rather than listing each one.
+- **`trigger_directories`** — fire only when a change touches specific directories, so unrelated changes in the same repo don't start documentation work.
+- **`branches`** — fire only for changes targeting specific branches.
+
+Scoping a trigger bounds which *code changes* start documentation work; Promptless then updates whichever doc collection a change is relevant to. No field binds a trigger to a specific collection — collection targeting is relevance-based, not a configured route. Isolation between teams comes from the levers above: scope each team's triggers to the repositories it owns, and use each collection's `filter` path scope to bound which files Promptless can modify. See the [Configuration Reference](/docs/reference/configuration-reference) for the full trigger and doc-collection schema.
+
+## Work across multiple GitHub organizations
+
+Connect multiple GitHub organizations to one Promptless account when your repositories span more than one org. After connecting the first organization, click **Connect another GitHub Org** on the integrations page. Each organization appears as its own card with its own repository list and refresh and disconnect controls. When you create or edit projects, repositories from every connected organization appear in the dropdowns, shown as `organization/repository`. See the [GitHub integration](/docs/reference/integrations/github) guide for details.
+
+## See which collection a suggestion targeted
+
+When suggestions span several collections, the suggestions list makes the target explicit. Each suggestion shows a **Docs target** chip with a document icon marking which doc collection it targets. Hover over the chip to see the full repository path, or click it to filter the list to suggestions targeting that collection — especially useful when your organization has multiple doc collections. See [Use the web interface](/docs/work-the-queue/web-interface) for the rest of the suggestions list.
+
+## Apply rules per collection
+
+Publishing and notification behavior can differ by collection. In your policies, a rule keyed by `doc_collection` applies its settings only to that collection — for example, routing one collection's notifications to a different Slack channel, or changing whether its pull requests are created automatically. See the [Configuration Reference](/docs/reference/configuration-reference#policies) for the policy schema.
