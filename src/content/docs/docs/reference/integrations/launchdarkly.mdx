@@ -1,0 +1,53 @@
+---
+title: LaunchDarkly integration (beta)
+slug: docs/reference/integrations/launchdarkly
+sidebar:
+  hidden: false
+  order: 58
+---
+
+**Used for: Triggers**
+
+Promptless integrates with LaunchDarkly to enable automated documentation updates when feature flags change. When you connect, Promptless creates a webhook that monitors flag changes across your projects.
+
+## Installation
+
+1. In your LaunchDarkly account, [create an Access Token](https://app.launchdarkly.com/settings/authorization). Mark it as a **service token** and select **Inline policy** for its role. Use this policy:
+
+   ```json
+   [
+     {
+       "effect": "allow",
+       "actions": ["createWebhook", "deleteWebhook"],
+       "resources": ["webhook/*"]
+     },
+     {
+       "effect": "allow",
+       "actions": ["viewProject"],
+       "resources": ["proj/*"]
+     }
+   ]
+   ```
+
+   This grants Promptless the minimum permissions needed:
+   - **createWebhook** and **deleteWebhook** on `webhook/*` let Promptless manage its subscription to flag-change events
+   - **viewProject** on `proj/*` lets Promptless view projects and flag state
+
+   We recommend service tokens over personal access tokens because they are not tied to individual users. The integration keeps working when team members leave. See the [LaunchDarkly docs](https://launchdarkly.com/docs/home/account/api-create) for more on API access tokens.
+
+2. Click "Connect LaunchDarkly" from the [integrations page](https://app.gopromptless.ai/integrations).
+
+3. Paste your service token in the modal and click Connect.
+
+4. Verify that LaunchDarkly shows as connected in the integrations page.
+
+## Authentication model
+
+Promptless uses API token authentication for LaunchDarkly integrations. When you connect, Promptless validates your service token and automatically creates a webhook in your LaunchDarkly account. This ensures:
+
+- Secure webhook delivery with HMAC-SHA256 signature verification
+- A unique signing secret for each integration
+- Ability to revoke access at any time
+
+To disconnect, click the LaunchDarkly card on the integrations page and select Disconnect. This removes the webhook from your LaunchDarkly account.
+
