@@ -1,0 +1,55 @@
+---
+title: Access and permissions
+description: How Promptless keeps access least-privilege — what it reads versus writes, how to scope each connection, the read-only options available, and how to revoke access.
+slug: docs/security/access-and-permissions
+sidebar:
+  hidden: false
+  order: 38
+  label: Access & permissions
+---
+import { Aside } from '@astrojs/starlight/components';
+
+Promptless connects to the tools your team already uses, so a security review asks what it can reach and how far that access goes. Promptless follows the principle of least privilege: every connection grants only the access the job needs, most of it is read-only, and you can scope or revoke it at any time. This page summarizes that posture and links to the detailed security and integration pages.
+
+## What Promptless reads versus writes
+
+Promptless reads almost everything it touches. The one place it writes is your documentation repository, and even there its reach is bounded.
+
+- **Context sources are read-only.** Integrations like Jira, Linear, Confluence, Notion, Google Drive, and Slite give Promptless read-only access to inform suggestions. The connection is one-way: Promptless reads to gather context but never writes back, so your tickets, issues, and pages stay unchanged.
+- **Source code is read-only.** Where Promptless reads source for context — for example, GitLab merge requests — it performs only read operations. It never pushes code or modifies your projects.
+- **Documentation repositories need write access.** To publish, Promptless opens pull requests against your docs repository, which requires write access there. Path scope bounds that write access (see below), and you review every pull request before it merges.
+
+Promptless also stores very little. It keeps copies of your (typically public) documentation for automation and change tracking, the feedback you give it, and integration auth tokens — not the content behind those tokens. It processes source code, support conversations, and context-source data in real time without retaining a copy, and it does not use customer data to train or fine-tune models. See [Data handling and classification](/docs/security/data-handling-and-classification) for the full breakdown.
+
+## Scope each connection
+
+Every connection is bounded to what you authorize, and each integration gives you a way to keep that scope tight.
+
+- **Repositories:** During GitHub installation, grant only the repositories Promptless needs by choosing **Only select repositories** rather than **All repositories**. For per-provider access detail, see the [GitHub](/docs/reference/integrations/github), [GitHub Enterprise](/docs/reference/integrations/github-enterprise), [Bitbucket](/docs/reference/integrations/bitbucket), and [GitLab](/docs/reference/integrations/gitlab) integration pages.
+- **Context sources:** Because these connect through OAuth, Promptless inherits the permissions of the account that authorized the connection and searches only the projects, spaces, or drives you configure. For Google Drive, the most prescriptive approach is a dedicated service account that you share only the specific drives and folders with. Connecting through that account rather than a broadly privileged individual bounds Promptless to exactly what you share.
+
+## Read-only options
+
+Where you don't need Promptless to publish, you can keep the connection read-only:
+
+- **Read-only GitHub app.** For public repositories, the read-only GitHub app opens documentation pull requests from a fork instead of taking write access to your repo. See the [open-source quickstart](/docs/start-here/open-source-quickstart).
+- **Read-only GitLab token.** Provision the group access token with the `read_api` scope instead of `api` to limit it to read-only operations at the GitLab API level — a layer of security beyond Promptless's own behavioral restrictions.
+- **Read-only vs. write choice.** When setting up a Bitbucket or GitLab project, you choose whether Promptless has read-only or write access to your documentation repositories.
+
+## Bound where Promptless can write
+
+Even with write access to a docs repository, path scope limits which files Promptless can change. When you specify directories during doc collection setup, Promptless modifies only files that match one of those paths or are nested inside them, and it rejects any suggestion that reaches outside that scope with an error listing the out-of-scope files. This confines writes to your documentation area — useful for monorepos where docs live beside source code. See [GitHub repos (docs as code)](/docs/connect/doc-locations/github-repos) for details.
+
+## Revoke or rotate access
+
+Access is never permanent. You can revoke the GitHub App connection at any time — either you or Promptless can revoke it — and you can rotate or remove provider tokens, such as a Bitbucket app password or a GitLab group access token, on the provider side.
+
+## Roles inside Promptless
+
+Role-based access control governs access to Promptless itself. Promptless supports three roles with different levels of access:
+
+- **Admin** — full access to organization settings, team management, integrations, projects, and all suggestions, including the Agent Knowledge Base.
+- **Editor** — can edit suggestions and create tasks, but cannot manage organization settings, integrations, or team members.
+- **Collaborator** — can view suggestions and leave feedback comments, but cannot edit or modify them.
+
+For sign-in and identity controls — SSO with Google or GitHub, two-factor authentication, and enterprise SAML 2.0 and OIDC — see [Single sign-on (SSO) setup](/docs/security/single-sign-on) and [Data handling and classification](/docs/security/data-handling-and-classification). Multi-tenant isolation, encryption, and the broader security model are covered in [Network architecture](/docs/security/network-architecture) and [Compliance and certifications](/docs/security/compliance-and-certifications).
