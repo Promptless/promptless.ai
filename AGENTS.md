@@ -72,7 +72,12 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
   to rename a section/group or reorder groups, edit the topic config in
   `astro.config.mjs`. `scripts/generate-manifest.ts` still runs via
   `generate:manifest` / `prebuild`, but now only produces `route-manifest.json`
-  (used by the `.md` endpoints).
+  (used by the `.md` endpoints). Phase 5 (ADR 0004 §2) settled the topic model on
+  a **single "Documentation" topic** — the OpenAPI `/api/*` pages live inside it,
+  and the repo's `Sidebar` override renders the sublist directly, so no
+  topic-switcher bar shows. Keep it that way: add new sections to the docs topic's
+  `items` rather than creating a second topic, which would surface the switcher
+  bar as a user-visible IA change (write an ADR first if that ever becomes intended).
 
 ## Commands
 
