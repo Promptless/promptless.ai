@@ -1,6 +1,11 @@
 # Promptless Website (promptless.ai)
 
-Astro + Starlight site. Deployed to Vercel.
+Astro + Starlight site. Deployed to Vercel. Migrated onto the Promptless
+[Starport template](https://github.com/Promptless/starport-template); the
+`.starport-template.json` marker at the repo root records which template version
+this site is on. Never delete it — Promptless reads it to run managed migrations.
+See [`CUSTOMIZE.md`](CUSTOMIZE.md) for where to change what, and [`adrs/`](adrs/)
+for architecture decisions (MADR format).
 
 ## Documentation Map
 
@@ -12,6 +17,7 @@ docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
 +-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
++-- starport-migration/ # Plan + ADRs for migrating the site onto the Starport Starlight template
 ```
 
 ## Project Structure
@@ -34,8 +40,11 @@ src/
 +-- styles/             # Global CSS (custom.css, site.css)
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
+adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
+CUSTOMIZE.md            # Starport "where to change what" map (branding, content, capabilities)
+.starport-template.json # Starport template version marker (managed migrations) — do not delete
 ```
 
 ## Key Conventions
@@ -45,15 +54,25 @@ vercel.json             # Vercel deploy config, generated redirects
   for the event catalog and naming conventions.
 - **Content**: Marketing pages use content collections in `src/content/website/`.
   Docs live in `src/content/docs/`. Blog in `src/content/blog/`.
-- **Redirects**: Defined in `astro.config.mjs` (static) and generated from
-  `src/lib/generated/redirects.json` (migration script output).
-- **Sidebar**: `src/lib/generated/sidebar.json` is generated from docs
-  frontmatter by `scripts/generate-manifest.ts` (run via `generate:manifest` /
-  `prebuild`) — do not hand-edit it. Nav structure comes from each page's
-  `slug`; placement, visibility, and labels come from `sidebar.order`,
-  `sidebar.hidden`, and `sidebar.label`. Group labels come from the group's
-  index page (`sidebar.label ?? title`) or a title-cased slug segment. Adjust a
-  page's frontmatter and regenerate rather than editing `sidebar.json`.
+- **Redirects**: Defined in `astro.config.mjs` (static) merged with
+  `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
+  manifest script never writes it), so add redirect entries for moved or renamed
+  pages by hand.
+- **Sidebar**: The docs nav is **directory-driven** (Starport Phase 3, ADR
+  0003). `starlight-sidebar-topics` wraps Starlight's native folder
+  `autogenerate` in `astro.config.mjs`, walking the `src/content/docs/docs/`
+  tree. Placement and visibility still come from each page's `sidebar.order` and
+  `sidebar.hidden` frontmatter, and per-page nav text from `sidebar.label`
+  (falling back to `title`) — Starlight reads those natively. What changed: the
+  section/group labels (`Start Here`, `Connect`, `Get the Most Out`, …) are now
+  set **explicitly in the `starlight-sidebar-topics` config**, not derived from
+  an index page's frontmatter. There is no generated `sidebar.json` anymore, and
+  no `buildSidebar()` step — the old frontmatter→`sidebar.json` pipeline was
+  retired. To change nav placement or a page label, edit that page's frontmatter;
+  to rename a section/group or reorder groups, edit the topic config in
+  `astro.config.mjs`. `scripts/generate-manifest.ts` still runs via
+  `generate:manifest` / `prebuild`, but now only produces `route-manifest.json`
+  (used by the `.md` endpoints).
 
 ## Commands
 
