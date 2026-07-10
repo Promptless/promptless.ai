@@ -113,6 +113,7 @@ export default defineConfig({
                       ],
                     },
                     { label: 'Doc locations', items: [{ autogenerate: { directory: 'docs/connect/doc-locations' } }] },
+                    { label: 'Connection health', slug: 'docs/connect/connection-health' },
                   ],
                 },
                 { label: 'Tune', items: [{ autogenerate: { directory: 'docs/tune' } }] },
