@@ -17,45 +17,23 @@ There's no separate "timing" setting to configure. You control timing by choosin
 
 ## Match the trigger event to your release stage
 
-On the [Configuration page](https://app.gopromptless.ai/configuration), each GitHub PR trigger has a trigger event — set with the `trigger_on` field — that decides how finished a change is when Promptless analyzes it. Each event maps to a stage in the change's life:
+On the [Configuration page](https://app.gopromptless.ai/configuration), open the **Triggers** tab and expand your GitHub pull request trigger. Under **When should Promptless run?**, pick at least one moment in a pull request's life. That choice decides how finished a change is when Promptless analyzes it, since each option maps to a stage in the change's life:
 
-| Trigger event | Fires when | Choose it when |
+| Option | Fires when | Choose it when |
 |---|---|---|
-| `opened` (default) | A pull request opens | You want documentation drafted alongside the code, so reviewers evaluate both together. |
-| `first_approval` | A pull request gets its first approval | You want to wait until a reviewer has vetted the change, so Promptless analyzes reviewed work rather than a work in progress. |
-| `merge` | A pull request merges | You only want documentation for changes that have actually made it into the code base. |
+| **When it's opened** (default) | A pull request opens | You want documentation drafted alongside the code, so reviewers evaluate both together. |
+| **When it's first approved** | A pull request gets its first approval | You want to wait until a reviewer has vetted the change, so Promptless analyzes reviewed work rather than a work in progress. |
+| **When it's merged** | A pull request merges | You only want documentation for changes that have actually made it into the code base. |
 
-```yaml
-triggers:
-  reviewed-changes:
-    trigger_type: github_pr
-    match:
-      - repos:
-          - acme/backend
-        trigger_on:
-          - first_approval
-```
-
-If suggestions keep arriving before a change has settled, move the trigger from `opened` to `first_approval`, or from `first_approval` to `merge`. List more than one event when you want both early feedback and a post-merge refresh. See [GitHub PRs → Trigger modes](/docs/connect/triggers/github-prs#trigger-modes) for the full behavior of each mode.
+If suggestions keep arriving before a change has settled, switch from **When it's opened** to **When it's first approved**, or from **When it's first approved** to **When it's merged**. Turn on more than one when you want both early feedback and a post-merge refresh. See [GitHub PRs → Trigger modes](/docs/connect/triggers/github-prs#trigger-modes) for the full behavior of each mode, and the [Configuration Reference](/docs/reference/configuration-reference#triggers) for the underlying `trigger_on` field.
 
 <Aside type="note">
-`first_approval` fires once per pull request, on the first approval only. Later approvals or re-approvals after requested changes don't trigger another run. If you merge your own pull requests without a separate reviewer, `first_approval` never fires — use `merge` or a commit trigger instead.
+**When it's first approved** fires once per pull request, on the first approval only. Later approvals or re-approvals after requested changes don't trigger another run. If you merge your own pull requests without a separate reviewer, it never fires — use **When it's merged** or a commit trigger instead.
 </Aside>
 
 ## Document only what has shipped
 
-To track shipped changes rather than proposed ones, add a [commit trigger](/docs/connect/triggers/github-commits), which fires when commits land on a monitored branch. Pair it with your PR trigger to get both timings: Promptless comments on pull requests while they're open, then refreshes the suggestion with the final content after the change merges to your default branch.
-
-```yaml
-triggers:
-  main-commits:
-    trigger_type: github_commit
-    match:
-      - repos:
-          - acme/backend
-        branches:
-          - main
-```
+To track shipped changes rather than proposed ones, add a [commit trigger](/docs/connect/triggers/github-commits), which fires when commits land on a monitored branch. On the **Triggers** tab, add a rule for a GitHub commit trigger and point it at the branch you want to watch. Pair it with your PR trigger to get both timings: Promptless comments on pull requests while they're open, then refreshes the suggestion with the final content once the change merges to your default branch.
 
 Using commits on their own — without a PR trigger — is the quietest option. Promptless runs only after changes reach your default branch, so it fires less often.
 
