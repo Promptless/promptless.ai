@@ -1,0 +1,79 @@
+---
+title: GitLab merge requests
+slug: docs/connect/triggers/gitlab-merge-requests
+type: reference
+tags:
+  - connect
+  - triggers
+  - reference
+timestamp: "2026-07-10T17:59:48Z"
+sidebar:
+  hidden: false
+  order: 10
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Promptless monitors your GitLab projects for merge requests. When a merge request is opened or updated, Promptless analyzes the changes and creates documentation suggestions if needed.
+
+## How it works
+
+When a merge request event occurs in your monitored GitLab projects:
+
+1. **Automatic Detection**: Promptless receives notification of the new or updated merge request.
+2. **Analysis**: The system processes the code diff, MR title, and MR description to understand the context.
+3. **Relevance Assessment**: Promptless determines if the changes require documentation updates.
+4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions.
+
+<Aside type="note">
+  Information from merge requests is processed in real-time and not stored by Promptless. The analysis happens only when the configured trigger event occurs.
+</Aside>
+
+## Configuration
+
+Configure GitLab merge request triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section:
+
+```yaml
+triggers:
+  gitlab-mrs:
+    trigger_type: gitlab_mr
+    match:
+      - repos:
+          - acme/backend
+          - acme/api
+        trigger_on:
+          - opened
+          - merge
+        trigger_directories:
+          - src/
+```
+
+See the [Configuration Reference](/docs/reference/configuration-reference#triggers) for all available options.
+
+## Directory-specific triggers
+
+Use the `trigger_directories` field to only trigger when changes are made to specific directories. When specified, Promptless considers only merge requests that contain changes to those directories.
+
+## Automatic PR creation
+
+When automatic PR creation is enabled in your [publishing policies](/docs/reference/configuration-reference#policies), Promptless automatically creates a new PR in your documentation repository with suggested changes.
+
+## Source MR comments
+
+Promptless posts a summary comment on source merge requests linking to any documentation changes. This keeps documentation updates visible alongside the code changes that triggered them.
+
+The comment links directly to the documentation suggestions, so reviewers can see proposed updates while reviewing the code.
+
+<Aside type="tip">
+  Slack notifications are separate from source MR comments and are always sent according to your project's notification settings.
+</Aside>
+
+## Configuration files and dot-directories
+
+Promptless automatically skips merge requests that only contain changes to dot-directories (like `.gitlab/`, `.gitlab-ci/`) or root-level dot-files (like `.gitignore`, `.gitlab-ci.yml`). These are typically CI and tooling configuration rather than product changes that need documentation updates.
+
+If an MR contains both dot-files and regular source files, Promptless processes it normally—it only skips when the entire MR is dot-file changes.
+
+## Setup instructions
+
+To connect GitLab to Promptless, see the [GitLab Integration](/docs/reference/integrations/gitlab) setup guide.
