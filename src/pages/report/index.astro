@@ -1,0 +1,101 @@
+---
+// Public share page for agent-gpa report cards. Static + client-fetch: the slug
+// comes from the /report/<slug> path (a vercel.json rewrite serves this page for
+// those URLs), and the card is fetched from the runtime free-tools endpoint.
+// Per-card OG images need SSR/prerender — v1 ships a generic unfurl.
+const API_BASE = 'https://api.gopromptless.ai/public/free-tools/report-cards';
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent GPA — Report Card</title>
+    <meta name="description" content="A report card for an AI agent setup. Grade yours with npx agent-gpa." />
+    <meta property="og:title" content="Agent GPA — Report Card" />
+    <meta property="og:description" content="Grade your AI agent setup — npx agent-gpa. Nothing leaves your machine." />
+    <meta name="twitter:card" content="summary" />
+    <style>
+      :root {
+        --primary: #506aea; --tint: #e7efff; --card-from: #0a0a14; --card-to: #1a2350;
+        --bg: #0d0f16; --fg: #e8eaf1; --muted: #969cab; --line: #23283a; --panel: #141826;
+        --good: #35c489; --warn: #d8a13a; --bad: #e2554f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh;
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+        font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      }
+      main { width: 100%; max-width: 640px; }
+      .card {
+        aspect-ratio: 1.91 / 1; border-radius: 18px; padding: 6.5%; color: #fff;
+        display: flex; flex-direction: column; justify-content: space-between;
+        background: radial-gradient(120% 160% at 85% -20%, var(--card-to) 0%, var(--card-from) 62%);
+        border: 1px solid #2a3354;
+      }
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+      .letter { font-size: clamp(64px, 16vw, 132px); font-weight: 800; letter-spacing: -0.02em; line-height: 0.95;
+        color: var(--primary); text-shadow: 0 0 46px rgba(80, 106, 234, 0.45); }
+      .gpa { font-size: clamp(14px, 3vw, 20px); color: #aeb9e8; margin-top: 6px; }
+      .stats { text-align: right; font-size: clamp(12px, 2.4vw, 16px); color: #dee4fa; }
+      .stats b { color: #fff; } .stats div { margin: 5px 0; }
+      .foot { display: flex; justify-content: space-between; align-items: baseline; font-size: clamp(11px, 2vw, 14px); color: #8e97c0; }
+      .foot code { color: var(--tint); background: rgba(80, 106, 234, 0.18); padding: 3px 9px; border-radius: 6px; }
+      .dims { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 16px; }
+      .dcard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); }
+      .dcard .cat { font-size: 13px; font-weight: 600; }
+      .dcard .sc { font-size: 18px; font-weight: 800; } .dcard .sc small { font-size: 11px; color: var(--muted); font-weight: 600; }
+      .sc.good { color: var(--good); } .sc.warn { color: var(--warn); } .sc.bad { color: var(--bad); }
+      .cta { margin-top: 20px; text-align: center; color: var(--muted); font-size: 14px; }
+      .cta a { color: var(--primary); font-weight: 600; text-decoration: none; }
+      .cta code { color: var(--tint); background: var(--panel); border: 1px solid var(--line); padding: 3px 9px; border-radius: 6px; }
+      .msg { text-align: center; color: var(--muted); padding: 60px 0; }
+    </style>
+  </head>
+  <body>
+    <main id="app"><div class="msg">Loading report card…</div></main>
+    <script is:inline define:vars={{ API_BASE }}>
+      const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const tone = (n) => (n >= 75 ? 'good' : n >= 50 ? 'warn' : 'bad');
+      const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+      const app = document.getElementById('app');
+      const msg = (t) => { app.innerHTML = '<div class="msg">' + esc(t) + '</div>'; };
+
+      const slug = location.pathname.replace(/^\/report\/?/, '').replace(/\/.*$/, '').trim();
+      if (!slug) {
+        msg('No report card here. Grade yours: npx agent-gpa');
+      } else {
+        fetch(API_BASE + '/' + encodeURIComponent(slug))
+          .then((r) => (r.ok ? r.json() : Promise.reject(r.status === 404 ? 'This report card doesn’t exist.' : 'Could not load this report card.')))
+          .then(render)
+          .catch((e) => msg(typeof e === 'string' ? e : 'Could not load this report card.'));
+      }
+
+      function render(data) {
+        const p = data.payload || {};
+        const c = p.counts || {};
+        const dims = Array.isArray(p.dimensions) ? p.dimensions : [];
+        const grade = esc(data.grade || p.grade || '?');
+        const score = data.score != null ? data.score : p.gpa;
+        const neverInvoked = (c.skills || 0) - (c.skillsUsed || 0);
+        const stats = [];
+        if (c.sessions != null) stats.push('<div><b>' + c.sessions.toLocaleString() + '</b> sessions analyzed</div>');
+        if (c.skills) stats.push('<div><b>' + neverInvoked + ' of ' + c.skills + '</b> skills never invoked</div>');
+        if (c.findings != null) stats.push('<div><b>' + c.findings + '</b> findings</div>');
+        const dimCards = dims
+          .filter((d) => d && typeof d.score === 'number')
+          .map((d) => '<div class="dcard"><div class="cat">' + esc(cap(d.id)) + '</div><div class="sc ' + tone(d.score) + '">' + d.score + '<small>/100</small></div></div>')
+          .join('');
+        app.innerHTML =
+          '<div class="card"><div class="row"><div><div class="letter">' + grade + '</div>' +
+          (score != null ? '<div class="gpa">Score ' + score + ' / 100</div>' : '') +
+          '</div><div class="stats">' + stats.join('') + '</div></div>' +
+          '<div class="foot"><span>Agent GPA · by <a style="color:inherit" href="https://promptless.ai">Promptless</a></span><code>npx agent-gpa</code></div></div>' +
+          (dimCards ? '<div class="dims">' + dimCards + '</div>' : '') +
+          '<div class="cta">Grade your own agent setup: <code>npx agent-gpa</code> · <a href="https://promptless.ai">Promptless</a></div>';
+      }
+    </script>
+  </body>
+</html>
