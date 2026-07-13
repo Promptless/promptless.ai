@@ -204,7 +204,7 @@ export const GET: APIRoute = async ({ props }) => {
       '',
       'You may be looking for:',
       '',
-      '- [Documentation](/docs/getting-started/welcome)',
+      '- [Documentation](/docs/start-here/welcome)',
       '- [Blog](/blog)',
       '- [Changelog](/changelog)',
       '- [Full content index](/llms.txt)',

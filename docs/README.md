@@ -18,6 +18,9 @@ Documentation for agents (and humans) working on the promptless.ai website.
 docs/
 +-- README.md                  # This file
 +-- analytics.md               # PostHog setup, event catalog, tracking gaps
++-- events.md                  # Marketing event glossary (canonical PostHog event reference)
++-- content_strategy/          # Audience/persona/CUJ/IA strategy
++-- starport-migration/        # Plan + ADRs for the Starport template migration
 ```
 
 ## Maintenance Checklist
