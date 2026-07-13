@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "starport:starlight-frontmatter:0.41",
+  "title": "Starlight frontmatter",
+  "$comment": "Hand-authored mirror of @astrojs/starlight@0.41's docs frontmatter schema (node_modules/@astrojs/starlight/schema.ts and schemas/*). Astro's zod schema is still the runtime authority; this copy exists so violations fail fast in CI with per-field annotations instead of at build time. Keep in sync when upgrading Starlight. Root `additionalProperties` MUST stay true: OKF fields (type/tags/timestamp) and future keys are policed by the other schemas in docmeta.config.yaml, not this one. Consequence: a misspelled OPTIONAL top-level key (e.g. `templat` for `template`) is NOT caught here — no schema in the stack can reject an unknown top-level key when another schema might own it. Nested objects use `additionalProperties: false`, so typos inside `sidebar`/`hero`/etc. ARE caught. The template's `access`/`groups` MCP auth-seam fields are omitted: this site deferred the MCP package (starport-migration ADR 0004). See starport-migration ADR 0006.",
+  "type": "object",
+  "required": ["title"],
+  "additionalProperties": true,
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The title of the current page. Required."
+    },
+    "description": {
+      "type": "string",
+      "description": "Short summary used in <meta> tags and search. 150-160 characters recommended."
+    },
+    "slug": {
+      "type": "string",
+      "description": "Astro content-collection slug override for this page's URL."
+    },
+    "editUrl": {
+      "description": "A URL string overrides the edit link target. A boolean toggles whether the edit link shows at all: true (the Starlight default) shows it, false hides it — both are valid, not just false.",
+      "anyOf": [{ "type": "string", "format": "uri" }, { "type": "boolean" }]
+    },
+    "head": {
+      "type": "array",
+      "description": "Custom <head> tags for this page.",
+      "items": {
+        "type": "object",
+        "required": ["tag"],
+        "properties": {
+          "tag": {
+            "enum": ["title", "base", "link", "style", "meta", "script", "noscript", "template"]
+          },
+          "attrs": { "type": "object" },
+          "content": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tableOfContents": {
+      "description": "Override the global table-of-contents config, or false to disable.",
+      "anyOf": [
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "properties": {
+            "minHeadingLevel": { "type": "integer", "minimum": 1, "maximum": 6 },
+            "maxHeadingLevel": { "type": "integer", "minimum": 1, "maximum": 6 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "template": {
+      "enum": ["doc", "splash"],
+      "description": "Layout style: 'doc' (default) or 'splash' (no sidebars)."
+    },
+    "hero": {
+      "type": "object",
+      "description": "Hero section for landing pages (used with template: splash).",
+      "properties": {
+        "title": { "type": "string" },
+        "tagline": { "type": "string" },
+        "image": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": ["file"],
+              "properties": { "alt": { "type": "string" }, "file": { "type": "string" } },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["dark", "light"],
+              "properties": {
+                "alt": { "type": "string" },
+                "dark": { "type": "string" },
+                "light": { "type": "string" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["html"],
+              "properties": { "html": { "type": "string" } },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text", "link"],
+            "properties": {
+              "text": { "type": "string" },
+              "link": { "type": "string" },
+              "variant": { "enum": ["primary", "secondary", "minimal"] },
+              "icon": { "type": "string" },
+              "attrs": {
+                "type": "object",
+                "additionalProperties": { "type": ["string", "number", "boolean"] }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "lastUpdated": {
+      "description": "Override the git-derived last-update date, or a boolean to toggle display. Starlight parses this with z.date(), which YAML feeds from either a date (2024-01-05) or a full datetime (2024-01-05T10:30:00Z), so both formats are accepted here.",
+      "anyOf": [
+        { "type": "boolean" },
+        { "type": "string", "format": "date" },
+        { "type": "string", "format": "date-time" }
+      ]
+    },
+    "prev": { "$ref": "#/$defs/prevNextLink" },
+    "next": { "$ref": "#/$defs/prevNextLink" },
+    "sidebar": {
+      "type": "object",
+      "description": "Controls how this page appears in the autogenerated sidebar.",
+      "properties": {
+        "order": { "type": "number" },
+        "label": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "badge": {
+          "anyOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "required": ["text"],
+              "properties": {
+                "text": { "type": "string" },
+                "variant": { "enum": ["note", "danger", "success", "caution", "tip", "default"] },
+                "class": { "type": "string" }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "attrs": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "banner": {
+      "type": "object",
+      "required": ["content"],
+      "properties": { "content": { "type": "string" } },
+      "additionalProperties": false,
+      "description": "Announcement banner shown at the top of this page."
+    },
+    "pagefind": {
+      "type": "boolean",
+      "description": "Set to false to exclude this page from the Pagefind search index."
+    },
+    "draft": {
+      "type": "boolean",
+      "description": "Drafts are excluded from production builds."
+    }
+  },
+  "$defs": {
+    "prevNextLink": {
+      "description": "Override pagination link: boolean toggles it, string sets the label, object sets link and/or label.",
+      "anyOf": [
+        { "type": "boolean" },
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": { "link": { "type": "string" }, "label": { "type": "string" } },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

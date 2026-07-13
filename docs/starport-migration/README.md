@@ -159,6 +159,16 @@ A phase is mergeable only when, for the pages it touches:
   **byte-for-byte identical** to `main` for docs pages — the migration changes
   the mechanic, not the output.
 
+## Template version upgrades (post-migration)
+
+The initial migration (Phases 1–7) landed the site on template `1.0.0`. Later
+template releases are adopted as their own increments and recorded here, with
+`.starport-template.json`'s `templateVersion` bumped to match.
+
+| Version | What it adds | ADRs | Notes |
+|---|---|---|---|
+| **1.1.0** | **remark-lint** (Markdown/MDX structure linting) + **docmeta** (frontmatter validation) | [0005](adrs/0005-adopt-remark-lint.md), [0006](adrs/0006-adopt-docmeta.md) | Feature adoption, not a zero-diff cut-over — both legitimately add config/CI and content changes. remark-lint reflowed 65 docs pages once (`--output`), verified render-safe (build + smoke pass). docmeta required adding `type`/`tags`/`timestamp` to all 66 docs pages (`type` is OKF-required). Both scoped to `src/content/docs` to match Vale. The template's `access`/`groups` MCP schema fields are omitted (MCP deferred, ADR 0004). Bumped `templateVersion` → `1.1.0`. |
+
 ## What this run delivered vs. what needs engineering execution
 
 This is a **planning increment (Phase 0)**. It ships the decision records and
