@@ -16,8 +16,9 @@ a file in `docs/`, update this map.
 docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
++-- events.md           # Marketing event glossary: canonical reference for every PostHog event
 +-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
-+-- starport-migration/ # Plan + ADRs for migrating the site onto the Starport Starlight template
++-- starport-migration/ # Plan + ADRs for the completed migration onto the Starport Starlight template
 ```
 
 ## Project Structure
