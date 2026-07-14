@@ -277,6 +277,9 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Write the docs/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
+  assert.match(homeHtml, /Ask your favorite AI about Promptless/);
+  assert.match(homeHtml, /data-track-action="ask_ai"/);
+  assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
