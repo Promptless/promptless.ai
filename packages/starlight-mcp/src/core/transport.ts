@@ -125,6 +125,10 @@ export async function handleMcpRequest(request: Request, opts: McpHandlerOptions
 
   if (opts.enabled === false) {
     finish(503);
+    // HEAD responses must not carry a body.
+    if (request.method === 'HEAD') {
+      return new Response(null, { status: 503, headers: { 'content-type': 'application/json', ...cors } });
+    }
     return jsonResponse({ error: 'MCP server is disabled.' }, 503, cors);
   }
 
