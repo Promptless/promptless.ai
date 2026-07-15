@@ -39,6 +39,8 @@ src/
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 +-- styles/             # Global CSS (custom.css, site.css)
+packages/
++-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
@@ -85,9 +87,10 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build
-npm run check            # typecheck + build
-npm run test:smoke       # smoke tests
+npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run check            # typecheck + MCP contract tests + build
+npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
+npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)

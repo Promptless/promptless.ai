@@ -6,6 +6,8 @@ import starlightLlmsTxt from 'starlight-llms-txt';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
+import vercel from '@astrojs/vercel';
+import starlightMcp from './packages/starlight-mcp/src/index.ts';
 
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
 import routeManifest from './src/lib/generated/route-manifest.json' with { type: 'json' };
@@ -22,6 +24,15 @@ const hiddenSitemapPaths = new Set([
   ...getHiddenDocsPaths(new URL('./src/content/docs/', import.meta.url)),
   ...getHiddenWebsitePaths(new URL('./src/content/website/', import.meta.url)),
 ]);
+
+// ---------------------------------------------------------------------------
+// MCP server (packages/starlight-mcp, ported from the Starport template). The
+// /mcp route is rendered on demand, so enabling it requires the @astrojs/vercel
+// SSR adapter — the rest of the site stays static (output: 'static' +
+// prerender: false on the MCP route only). Set MCP_ENABLED=false for a fully
+// static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
+// ---------------------------------------------------------------------------
+const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 
 const redirects = {
   '/home': '/',
@@ -43,6 +54,7 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
+  adapter: MCP_ENABLED ? vercel() : undefined,
   redirects,
   integrations: [
     react(),
@@ -213,6 +225,10 @@ export default defineConfig({
             ],
           },
         ),
+        // Read-only MCP server at /mcp (see packages/starlight-mcp): `search` +
+        // `get_page` tools and an llms.txt resource over Streamable HTTP. Omitted
+        // when MCP_ENABLED=false so the build needs no SSR adapter.
+        ...(MCP_ENABLED ? [starlightMcp({ serverName: 'Promptless Docs' })] : []),
       ],
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',

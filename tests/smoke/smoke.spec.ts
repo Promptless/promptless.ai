@@ -256,16 +256,18 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
   assert.equal(pricing.status, 200);
   assert.match(await pricing.text(), /Pricing/);
 
-  const aliases = ['/use-cases', '/faq', '/api-reference'];
-  for (const alias of aliases) {
+  // Alias → canonical destination (see the `redirects` map in astro.config.mjs;
+  // /api-reference points at the API reference, not the homepage).
+  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/', '/api-reference': '/api/' };
+  for (const [alias, destination] of Object.entries(aliases)) {
     const aliasResponse = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (aliasResponse.status >= 300 && aliasResponse.status < 400) {
-      assert.equal(aliasResponse.headers.get('location'), '/');
+      assert.equal(aliasResponse.headers.get('location'), destination, `Alias ${alias}`);
       continue;
     }
     assert.equal(aliasResponse.status, 200);
     const body = await aliasResponse.text();
-    assert.match(body, /Redirecting to: \//);
+    assert.match(body, new RegExp(`Redirecting to: ${escapeRegExp(destination)}`), `Alias ${alias}`);
   }
 });
 
@@ -390,15 +392,24 @@ test('website markdown endpoints are available for agent-friendly content', asyn
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
-  const rootAliases = ['/home', '/use-cases', '/faq', '/api-reference', '/page', '/wtd', '/hn'];
-  for (const alias of rootAliases) {
+  // Alias → canonical destination (see the `redirects` map in astro.config.mjs).
+  const rootAliases: Record<string, string> = {
+    '/home': '/',
+    '/use-cases': '/',
+    '/faq': '/',
+    '/api-reference': '/api/',
+    '/page': '/',
+    '/wtd': '/',
+    '/hn': '/',
+  };
+  for (const [alias, destination] of Object.entries(rootAliases)) {
     const response = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (response.status >= 300 && response.status < 400) {
-      assert.equal(response.headers.get('location'), '/');
+      assert.equal(response.headers.get('location'), destination, `Alias ${alias}`);
       continue;
     }
     assert.equal(response.status, 200);
     const body = await response.text();
-    assert.match(body, /Redirecting to: \//);
+    assert.match(body, new RegExp(`Redirecting to: ${escapeRegExp(destination)}`), `Alias ${alias}`);
   }
 });
