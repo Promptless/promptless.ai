@@ -71,9 +71,12 @@ fully static, adapter-less build as an escape hatch).
   without it the Astro framework preset already defaults to `dist`.
 - `vercel.json` routing (redirects/headers/rewrites) and the root Routing Middleware are
   platform-level features that apply regardless of the adapter ([Vercel: Routing Middleware works
-  with any framework](https://vercel.com/docs/routing-middleware)). **Verify both on the first
-  preview deploy** (docs.promptless.ai host redirect, `Accept: text/markdown` negotiation) —
-  that's the one thing not provable locally.
+  with any framework](https://vercel.com/docs/routing-middleware)). **Verified on the first
+  preview deploy (2026-07-15):** `/mcp` tools work, `Accept: text/markdown` negotiation still
+  returns Markdown, and `/api-reference` 301s to `/api/`. Preview URLs sit behind Vercel
+  Deployment Protection (SSO), so verification needs a browser session or a protection-bypass
+  header — repeatable steps in `packages/starlight-mcp/README.md` § "Verifying against a Vercel
+  preview deployment". Host-conditioned redirects (docs.promptless.ai) only apply in production.
 - Astro-config redirects change from prerendered "Redirecting to: …" stub pages to real platform
   301s — a behavior improvement, matched by the smoke tests, which now accept either form.
 - `astro preview` is not supported by `@astrojs/vercel`, so the smoke-test harness

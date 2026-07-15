@@ -122,6 +122,66 @@ prints — it bumps to 4322+ if 4321 is taken).
 Note: `astro preview` with the Vercel adapter does not execute the `/mcp`
 function, so it will 404 there. Use `npm run dev` locally, or a real deploy.
 
+## Verifying against a Vercel preview deployment
+
+Preview URLs sit behind Vercel Deployment Protection, so a plain `curl` or MCP
+client gets `401 {"error":{"message":"Protected deployment"}}` before the
+request ever reaches the server. Two ways through:
+
+### Option A — browser console (no settings changes)
+
+Open the preview URL in a browser that's logged into Vercel (SSO completes
+automatically), then run this in the DevTools console:
+
+```js
+(async () => {
+  const out = {};
+  out.mcp = await fetch('/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+  }).then(r => r.json());
+  out.search = await fetch('/mcp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/call',
+      params: { name: 'search', arguments: { query: 'slack trigger', limit: 2 } } }),
+  }).then(r => r.json());
+  // Root routing-middleware check (Accept-based .md negotiation):
+  const md = await fetch('/docs/start-here/welcome', { headers: { accept: 'text/markdown' } });
+  out.middleware = { contentType: md.headers.get('content-type'), startsWithMd: (await md.text()).trimStart().startsWith('#') };
+  console.log(JSON.stringify(out, null, 2));
+})();
+```
+
+### Option B — protection bypass (for curl / real MCP clients)
+
+Generate a secret under **Vercel project → Settings → Deployment Protection →
+Protection Bypass for Automation**, then send it as a header:
+
+```bash
+curl -X POST "https://<preview>.vercel.app/mcp" \
+  -H "x-vercel-protection-bypass: $BYPASS_SECRET" \
+  -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+claude mcp add --transport http docs-preview "https://<preview>.vercel.app/mcp" \
+  --header "x-vercel-protection-bypass: $BYPASS_SECRET"
+```
+
+### What to expect
+
+- `tools/list` → `search` and `get_page`, each with `readOnlyHint: true`.
+- `search` → ranked results whose URLs point at the **canonical `SITE_URL`**
+  (e.g. `https://promptless.ai/...`), not the preview host — the index bakes
+  absolute URLs at build time. That is correct for production.
+- The middleware check → `content-type: text/markdown` and a Markdown body
+  (proves the root Routing Middleware survived the Build Output API deploy).
+- Host-conditioned `vercel.json` redirects (e.g. a `docs.` subdomain rule)
+  cannot be exercised on a preview URL — the host never matches. Production
+  only.
+
 ## Architecture
 
 ```
