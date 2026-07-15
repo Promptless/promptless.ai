@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { after, before, test } from 'node:test';
 import { startPreviewServer, type PreviewServer } from './preview-server';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 let preview: PreviewServer;
 
@@ -412,4 +417,25 @@ test('website compatibility routes redirect to canonical destinations', async ()
     const body = await response.text();
     assert.match(body, new RegExp(`Redirecting to: ${escapeRegExp(destination)}`), `Alias ${alias}`);
   }
+});
+
+test('adapter build wires the /mcp route to the render function (ADR 0007)', (t) => {
+  // Only meaningful for adapter builds; MCP_ENABLED=false static builds have no
+  // serverless function by design.
+  const configPath = path.join(REPO_ROOT, '.vercel', 'output', 'config.json');
+  if (!existsSync(configPath)) {
+    t.skip('No .vercel/output/config.json — static (MCP_ENABLED=false) build.');
+    return;
+  }
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+    routes?: Array<{ src?: string; dest?: string }>;
+  };
+  const mcpRoute = (config.routes ?? []).find(
+    (route) => route.src && route.dest && new RegExp(route.src).test('/mcp')
+  );
+  assert.ok(mcpRoute, 'Expected a config.json route mapping /mcp to a function.');
+  assert.ok(
+    existsSync(path.join(REPO_ROOT, '.vercel', 'output', 'functions', `${mcpRoute.dest}.func`)),
+    `Expected the ${mcpRoute.dest} serverless function to exist in the build output.`
+  );
 });

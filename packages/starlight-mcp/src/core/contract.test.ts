@@ -186,6 +186,11 @@ test('get_page matches case-insensitively (#6)', async () => {
   assert.match(json.result.content[0].text, /# Welcome/);
 });
 
+test('get_page tolerates duplicate leading slashes (protocol-relative parse)', async () => {
+  const { json } = await rpcJson(call(42, 'get_page', { path: '//welcome/' }));
+  assert.match(json.result.content[0].text, /# Welcome/);
+});
+
 test('a specific CORS origin sets Allow-Credentials (#4)', async () => {
   const res = await handleMcpRequest(new Request('http://x/mcp', { method: 'OPTIONS' }), {
     ...opts(anon),

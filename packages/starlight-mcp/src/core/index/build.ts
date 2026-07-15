@@ -110,13 +110,15 @@ export function buildDocsIndex(opts: BuildIndexOptions): DocEntry[] {
     const segments = rel.split('/');
     if (segments[segments.length - 1]?.toLowerCase() === 'index') segments.pop();
 
-    let raw: string;
+    // Skip unreadable files and files with malformed frontmatter individually —
+    // one bad page must not abort the walk and empty the whole index.
+    let data: Record<string, unknown>;
+    let content: string;
     try {
-      raw = readFileSync(file, 'utf8');
+      ({ data, content } = matter(readFileSync(file, 'utf8')));
     } catch {
       continue;
     }
-    const { data, content } = matter(raw);
     if (data.draft === true) continue;
 
     // A frontmatter `slug` replaces the file-derived route entirely (Starlight

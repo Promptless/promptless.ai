@@ -12,7 +12,7 @@
  */
 import { createServer, type Server } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,16 +57,29 @@ function loadRedirectRoutes(configPath: string): RedirectRoute[] {
   return redirects;
 }
 
+function mtimeOf(filePath: string): number {
+  try {
+    return statSync(filePath).mtimeMs;
+  } catch {
+    return -1;
+  }
+}
+
 function resolveBuildOutput(): BuildOutput {
   const vercelStatic = path.join(ROOT, '.vercel', 'output', 'static');
-  if (existsSync(path.join(vercelStatic, 'index.html'))) {
+  const dist = path.join(ROOT, 'dist');
+  // Both roots can exist (an adapter build followed by an MCP_ENABLED=false
+  // build, or vice versa) — serve whichever was built most recently so the
+  // smoke run always tests the current build, not a stale artifact.
+  const vercelMtime = mtimeOf(path.join(vercelStatic, 'index.html'));
+  const distMtime = mtimeOf(path.join(dist, 'index.html'));
+  if (vercelMtime >= 0 && vercelMtime >= distMtime) {
     return {
       staticRoot: vercelStatic,
       redirects: loadRedirectRoutes(path.join(ROOT, '.vercel', 'output', 'config.json')),
     };
   }
-  const dist = path.join(ROOT, 'dist');
-  if (existsSync(path.join(dist, 'index.html'))) {
+  if (distMtime >= 0) {
     return { staticRoot: dist, redirects: [] };
   }
   throw new Error(
@@ -101,11 +114,18 @@ function contentTypeFor(filePath: string): string {
 
 /** Map a request pathname to candidate files inside the static root. */
 function candidateFiles(staticRoot: string, pathname: string): string[] {
-  const decoded = decodeURIComponent(pathname);
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return []; // malformed percent-encoding → 404, not an unhandled rejection
+  }
   const safe = path.normalize(decoded).replace(/^(\.\.[/\\])+/, '');
   const base = path.join(staticRoot, safe);
   if (!base.startsWith(staticRoot)) return [];
-  if (path.extname(safe) !== '') return [base];
+  // Try both interpretations regardless of a dot in the last segment: a route
+  // like /reference/v1.2 is a directory with an index.html, not a file.
+  if (path.extname(safe) !== '') return [base, path.join(base, 'index.html')];
   return [path.join(base, 'index.html'), base];
 }
 
@@ -128,9 +148,9 @@ function getFreePort(): Promise<number> {
   });
 }
 
-export async function startPreviewServer(): Promise<PreviewServer> {
+export async function startPreviewServer(options: { port?: number } = {}): Promise<PreviewServer> {
   const { staticRoot, redirects } = resolveBuildOutput();
-  const port = await getFreePort();
+  const port = options.port ?? (await getFreePort());
   const baseUrl = `http://${PREVIEW_HOST}:${port}`;
 
   const server: Server = createServer(async (req, res) => {

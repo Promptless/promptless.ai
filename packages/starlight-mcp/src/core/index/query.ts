@@ -107,6 +107,9 @@ export function searchDocs(
 /** Normalize a user-supplied path or full URL to a comparable route path. */
 export function normalizePath(input: string): string {
   let p = input.trim();
+  // Collapse duplicate leading slashes: `//guides/x/` would otherwise parse as a
+  // protocol-relative URL below, discarding `guides` as a hostname.
+  if (p.startsWith('//')) p = '/' + p.replace(/^\/+/, '');
   try {
     // Resolve against a dummy base so both bare paths and absolute URLs work; this
     // strips any query string and fragment and yields just the pathname.

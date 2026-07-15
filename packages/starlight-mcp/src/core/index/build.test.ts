@@ -127,6 +127,21 @@ test('get_page markdown drops leading MDX imports and avoids a duplicate H1', ()
   );
 });
 
+test('a file with malformed frontmatter is skipped, not fatal to the index', () => {
+  withDocs(
+    {
+      'bad.md': `---\ntitle: "unclosed\n\tbad: [\n---\n\nx\n`,
+      'good.md': page('Good'),
+    },
+    (dir) => {
+      const paths = buildDocsIndex({ docsDir: dir, site: 'https://x/', base: '/', locales: ROOT_ONLY }).map(
+        (e) => e.path,
+      );
+      assert.deepEqual(paths, ['/good/']);
+    },
+  );
+});
+
 test('draft pages are excluded', () => {
   withDocs(
     { 'guides/draft.md': `---\ntitle: Draft\ndraft: true\n---\n\nx\n`, 'guides/live.md': page('Live') },
