@@ -340,6 +340,11 @@ policies:
     notification:
       slack_channel: docs-notifications
       msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
+      email:
+        - docs-team@example.com
     publishing:
       auto_create_pr: true
       auto_merge: false
@@ -389,6 +394,20 @@ policies:
         notification:
           slack_channel: null   # silence Slack for this collection
 ```
+
+**escalation**
+
+Where Promptless raises serious configuration problems on your side that block it from doing its best work—for example, a test account that lacks the feature flags to reach a screen it needs to screenshot, or a Jira integration that isn't connected (or is connected, but that project isn't accessible) so it can't read a linked issue. These are blockers only your team can clear, not clarifying questions or status updates. See [Escalation channel](/docs/tune/notifications#escalation-channel) for the full behavior.
+
+| Field             | Description                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `slack_channel`   | Slack channel name for escalations (no `#` prefix)                                               |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for escalations               |
+| `email`           | List of email addresses for escalations (escalation only; not used for suggestion notifications) |
+
+Escalations reach the escalation channel(s) even when normal notifications are off or no notification channel is set, so a blocker always gets to someone. When a platform's escalation channel is unset, Promptless raises these through your normal notification routing on that platform.
+
+`escalation.email` routes escalations to a list of email addresses—useful for teams without a Slack or Teams channel. It's escalation-only: suggestion notifications never go out by email, and Promptless only emails addresses you've listed. Presence works like the channel fields: absent inherits, an empty list disables, a list routes there. Email escalation requires email delivery to be configured for your deployment. It's enabled by default on Promptless-hosted deployments; self-hosted deployments need to configure it.
 
 **publishing**
 
@@ -524,7 +543,7 @@ Common validation errors:
 Promptless automatically updates your configuration when repositories or Slack channels are renamed:
 
 - **GitHub repository renames**: The `doc_collections` key and any references in trigger `repos`/`excluded_repos` are updated.
-- **Slack channel renames**: Channel names in `slack_listen` triggers and `notification.slack_channel` policies are updated.
+- **Slack channel renames**: Channel names in `slack_listen` triggers and the `slack_channel` of `notification` and `escalation` policies are updated. Teams conversation IDs are not Slack channel names and are left unchanged.
 
 These updates are committed directly to your Agent Knowledge Base.
 
