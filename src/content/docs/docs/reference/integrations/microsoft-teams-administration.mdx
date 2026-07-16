@@ -39,55 +39,53 @@ Once the app is connected, Promptless reads files shared in Teams channels only 
 Each team's channel files live in a SharePoint site behind that team. To keep Promptless reading only what you intend, access is scoped per site: you choose the sites Promptless may read, and it can read no others. The grant has three parts — pick the sites in the dashboard, run the generated commands as an administrator, and let Promptless verify the result.
 
 <Steps>
+  1. **Install the Microsoft Graph PowerShell module (once per machine).**
 
-1. **Install the Microsoft Graph PowerShell module (once per machine).**
+     ```powershell
+     Install-Module Microsoft.Graph -Scope CurrentUser
+     ```
 
-   ```powershell
-   Install-Module Microsoft.Graph -Scope CurrentUser
-   ```
+     On Windows PowerShell 5.1, if the install fails on an untrusted repository, trust the PowerShell Gallery first:
 
-   On Windows PowerShell 5.1, if the install fails on an untrusted repository, trust the PowerShell Gallery first:
+     ```powershell
+     Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+     ```
 
-   ```powershell
-   Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-   ```
+     On macOS or Linux, install PowerShell 7 and launch it with `pwsh`:
 
-   On macOS or Linux, install PowerShell 7 and launch it with `pwsh`:
+     ```bash
+     brew install --cask powershell
+     ```
 
-   ```bash
-   brew install --cask powershell
-   ```
+  2. **Open the SharePoint site picker and select your sites.** On the [Integrations page](https://app.gopromptless.ai/integrations), open the Microsoft Teams integration and launch the SharePoint site picker. Select each site whose channel files Promptless should read. Promptless generates a PowerShell command block for the sites you select, with your tenant ID, the Promptless application ID, and the site IDs already filled in. Sites Promptless can already read appear locked, and the picker generates commands only for newly selected sites.
 
-2. **Open the SharePoint site picker and select your sites.** On the [Integrations page](https://app.gopromptless.ai/integrations), open the Microsoft Teams integration and launch the SharePoint site picker. Select each site whose channel files Promptless should read. Promptless generates a PowerShell command block for the sites you select, with your tenant ID, the Promptless application ID, and the site IDs already filled in. Sites Promptless can already read appear locked, and the picker generates commands only for newly selected sites.
+  3. **Run the generated command block as an administrator.** Copy the block from the picker and run it in PowerShell. It looks like this, with the placeholder values already substituted for you:
 
-3. **Run the generated command block as an administrator.** Copy the block from the picker and run it in PowerShell. It looks like this, with the placeholder values already substituted for you:
+     ```powershell
+     Connect-MgGraph -TenantId '<tenant-id>' -Scopes 'Sites.FullControl.All'
+     $promptlessAppId = '<promptless-app-id>'
+     $grant = @{ roles = @('read'); grantedToIdentities = @(@{ application = @{ id = $promptlessAppId; displayName = 'Promptless' } }) }
+     $existing = Get-MgSitePermission -SiteId '<site-id>' | Where-Object { ($_.GrantedToIdentities | Where-Object { $_.Application.Id -eq $promptlessAppId }) -or ($_.GrantedToIdentitiesV2 | Where-Object { $_.Application.Id -eq $promptlessAppId }) }
+     if ($null -eq $existing) { New-MgSitePermission -SiteId '<site-id>' -BodyParameter $grant }
+     ```
 
-   ```powershell
-   Connect-MgGraph -TenantId '<tenant-id>' -Scopes 'Sites.FullControl.All'
-   $promptlessAppId = '<promptless-app-id>'
-   $grant = @{ roles = @('read'); grantedToIdentities = @(@{ application = @{ id = $promptlessAppId; displayName = 'Promptless' } }) }
-   $existing = Get-MgSitePermission -SiteId '<site-id>' | Where-Object { ($_.GrantedToIdentities | Where-Object { $_.Application.Id -eq $promptlessAppId }) -or ($_.GrantedToIdentitiesV2 | Where-Object { $_.Application.Id -eq $promptlessAppId }) }
-   if ($null -eq $existing) { New-MgSitePermission -SiteId '<site-id>' -BodyParameter $grant }
-   ```
+     The first line signs you into your tenant. `Connect-MgGraph` opens a browser for interactive sign-in and consent — sign in as the SharePoint Administrator or Global Administrator. `-TenantId` pins the session to that tenant instead of your home tenant, which matters when your admin account is a guest in more than one tenant, and `-Scopes 'Sites.FullControl.All'` is the delegated permission you consent to for this session so the grant can be created.
 
-   The first line signs you into your tenant. `Connect-MgGraph` opens a browser for interactive sign-in and consent — sign in as the SharePoint Administrator or Global Administrator. `-TenantId` pins the session to that tenant instead of your home tenant, which matters when your admin account is a guest in more than one tenant, and `-Scopes 'Sites.FullControl.All'` is the delegated permission you consent to for this session so the grant can be created.
+     The remaining lines run in that authenticated session. For each selected site, they grant the `read` role to the Promptless application, and the `Get-MgSitePermission` check keeps the grant idempotent, so rerunning the block does not create duplicate permissions.
 
-   The remaining lines run in that authenticated session. For each selected site, they grant the `read` role to the Promptless application, and the `Get-MgSitePermission` check keeps the grant idempotent, so rerunning the block does not create duplicate permissions.
+     Before running the grant, you can confirm you are in the right tenant:
 
-   Before running the grant, you can confirm you are in the right tenant:
+     ```powershell
+     Get-MgContext
+     ```
 
-   ```powershell
-   Get-MgContext
-   ```
+     Check that the `TenantId` and `Account` fields match the intended tenant and your admin identity. When you finish, disconnect the session:
 
-   Check that the `TenantId` and `Account` fields match the intended tenant and your admin identity. When you finish, disconnect the session:
+     ```powershell
+     Disconnect-MgGraph
+     ```
 
-   ```powershell
-   Disconnect-MgGraph
-   ```
-
-4. **Verify access in Promptless.** Back in the site picker, select the option to verify access. Promptless checks each selected site with its own app-only token and records the sites it can now read; any site it still cannot reach is reported as inaccessible. Promptless never writes to SharePoint during this check — it only confirms read access.
-
+  4. **Verify access in Promptless.** Back in the site picker, select the option to verify access. Promptless checks each selected site with its own app-only token and records the sites it can now read; any site it still cannot reach is reported as inaccessible. Promptless never writes to SharePoint during this check — it only confirms read access.
 </Steps>
 
 <Aside type="tip">
