@@ -152,6 +152,7 @@ export default defineConfig({
                       ],
                     },
                     { label: 'Doc locations', collapsed: true, items: [{ autogenerate: { directory: 'docs/connect/doc-locations', collapsed: true } }] },
+                    { label: 'Source control', slug: 'docs/connect/source-control' },
                     { label: 'Connection health', slug: 'docs/connect/connection-health' },
                   ],
                 },
