@@ -1,0 +1,26 @@
+# Triggers "activate" — they do not "fire".
+#
+# Product terminology: a Promptless trigger *activates* on an event. "Fire",
+# "fired", "fires", and "firing" are off-terminology when describing what a
+# trigger does, so this rule flags them and points writers at the correct verb.
+#
+# Scope matters: the plain word "fire" has legitimate, unrelated uses in the
+# docs (for example, "firewall" in the GitHub Enterprise networking guide).
+# This rule therefore only matches a "fire" form when it sits in the same
+# sentence as the word "trigger"/"triggers" — either just before or just after
+# it — rather than swapping the bare word everywhere. That keeps tree-wide Vale
+# CI (`filter_mode: nofilter`, `fail_on_error: true`) green on unrelated uses of
+# "fire" while still catching trigger-context phrasings like "the trigger
+# fires", "a trigger that fired", "commit trigger fires", or "fires the
+# trigger". The `\b...\b` word boundaries also mean "firewall" never matches,
+# since there is no boundary between "fire" and "wall".
+extends: existence
+message: "Triggers 'activate' — rewrite '%s' so the trigger 'activates' (or 'activated'/'activates'/'activating') rather than 'fires'."
+level: error
+ignorecase: true
+# Stay within one sentence: the gap between "trigger" and the "fire" form is
+# bounded and stops at a sentence break so the two words must be genuinely
+# related, not coincidentally co-occurring across sentences.
+tokens:
+  - 'triggers?[^.\n]{0,40}?\bfir(?:e|es|ed|ing)\b'
+  - '\bfir(?:e|es|ed|ing)\b[^.\n]{0,20}?\btriggers?\b'
