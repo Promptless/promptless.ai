@@ -8,6 +8,7 @@ import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import vercel from '@astrojs/vercel';
 import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
 import routeManifest from './src/lib/generated/route-manifest.json' with { type: 'json' };
@@ -56,6 +57,11 @@ export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
   adapter: MCP_ENABLED ? vercel() : undefined,
   redirects,
+  // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
+  // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
+  markdown: {
+    rehypePlugins: [rehypeAppLinksNewTab],
+  },
   integrations: [
     react(),
     partytown({
