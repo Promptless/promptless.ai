@@ -398,6 +398,35 @@ policies:
 | `auto_merge`                  | Automatically merge documentation PRs    |
 | `suppress_source_pr_comments` | Skip posting comments on source PRs      |
 
+**archiving**
+
+Promptless automatically archives suggestions that have gone stale, so your dashboard stays focused on active work. The `archiving` block controls this behavior.
+
+| Field              | Description                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `enabled`          | Whether automatic archiving runs for this scope. Defaults to `true`.                              |
+| `stale_after_days` | Days of inactivity before a suggestion is archived. Defaults to `30`; must be a positive integer. |
+
+Unlike `publishing`, archiving is **opt-out**: it runs with a 30-day window unless you disable or adjust it. Set `enabled: false` to keep a scope's suggestions open indefinitely—useful when a team leaves a suggestion open until a linked ticket closes—or lower `stale_after_days` to archive sooner. Staleness is measured from a suggestion's last activity rather than its creation date, taking the most recent of when it was created, updated, had its diff refreshed, or was reopened. A suggestion viewed within the window is always spared.
+
+```yaml
+policies:
+  default:
+    archiving:
+      stale_after_days: 45
+
+  rules:
+    - if:
+        doc_collection: acme/docs
+      then:
+        archiving:
+          enabled: false   # keep this collection's suggestions indefinitely
+```
+
+<Aside type="note">
+  Archiving resolves per doc collection, so a rule can disable it or change the window for one collection while the default covers the rest. Because archiving runs on a schedule rather than in response to a trigger, only `policies.default` and rules scoped by `doc_collection` apply to it—a rule scoped by `trigger` never affects archiving.
+</Aside>
+
 ### Rule matching
 
 Rules are evaluated in order. When multiple rules match, fields from later rules override earlier ones. The `if` clause supports:
@@ -485,6 +514,7 @@ Common validation errors:
 - Invalid enum values (e.g., wrong trigger type)
 - Missing required fields (e.g., `host` for `github_enterprise` platform)
 - Duplicate repository keys in `doc_collections`
+- Malformed `doc_collections` keys (each must be exactly `owner/repo`, with no extra path segments or surrounding whitespace)
 
 <Aside type="tip">
   If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
