@@ -1,14 +1,23 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { access } from 'node:fs/promises';
+/**
+ * In-process preview server for the smoke tests.
+ *
+ * `astro preview` is not supported by @astrojs/vercel (the SSR adapter required
+ * by the MCP route), so this serves the built static output directly:
+ *   - Adapter builds: `.vercel/output/static`, plus the redirect routes the
+ *     adapter emits into `.vercel/output/config.json` (applied as real 3xx
+ *     responses, matching what Vercel does in production).
+ *   - Static builds (MCP_ENABLED=false): `dist`, where Astro emits
+ *     "Redirecting to: …" stub pages instead of platform redirects.
+ * The smoke tests accept both behaviors.
+ */
+import { createServer, type Server } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 const PREVIEW_HOST = '127.0.0.1';
-const STARTUP_TIMEOUT_MS = 25_000;
-const REQUEST_TIMEOUT_MS = 3_000;
-const SHUTDOWN_TIMEOUT_MS = 5_000;
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(dirname, '..', '..');
 
@@ -17,15 +26,107 @@ export interface PreviewServer {
   close: () => Promise<void>;
 }
 
-async function ensureBuildOutput() {
-  const distPath = path.join(ROOT, 'dist', 'index.html');
-  try {
-    await access(distPath);
-  } catch {
-    throw new Error(
-      `Missing build output at ${distPath}. Run \"npm run build\" (or \"npm run check\") before smoke tests.`
-    );
+interface RedirectRoute {
+  pattern: RegExp;
+  location: string;
+  status: number;
+}
+
+interface BuildOutput {
+  staticRoot: string;
+  redirects: RedirectRoute[];
+}
+
+function loadRedirectRoutes(configPath: string): RedirectRoute[] {
+  if (!existsSync(configPath)) return [];
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+    routes?: Array<{ src?: string; status?: number; headers?: Record<string, string> }>;
+  };
+  const redirects: RedirectRoute[] = [];
+  for (const route of config.routes ?? []) {
+    const location = route.headers?.Location;
+    if (!route.src || !location || !route.status || route.status < 300 || route.status >= 400) {
+      continue;
+    }
+    try {
+      redirects.push({ pattern: new RegExp(route.src), location, status: route.status });
+    } catch {
+      // Skip patterns Node's RegExp cannot parse; smoke coverage degrades gracefully.
+    }
   }
+  return redirects;
+}
+
+function mtimeOf(filePath: string): number {
+  try {
+    return statSync(filePath).mtimeMs;
+  } catch {
+    return -1;
+  }
+}
+
+function resolveBuildOutput(): BuildOutput {
+  const vercelStatic = path.join(ROOT, '.vercel', 'output', 'static');
+  const dist = path.join(ROOT, 'dist');
+  // Both roots can exist (an adapter build followed by an MCP_ENABLED=false
+  // build, or vice versa) — serve whichever was built most recently so the
+  // smoke run always tests the current build, not a stale artifact.
+  const vercelMtime = mtimeOf(path.join(vercelStatic, 'index.html'));
+  const distMtime = mtimeOf(path.join(dist, 'index.html'));
+  if (vercelMtime >= 0 && vercelMtime >= distMtime) {
+    return {
+      staticRoot: vercelStatic,
+      redirects: loadRedirectRoutes(path.join(ROOT, '.vercel', 'output', 'config.json')),
+    };
+  }
+  if (distMtime >= 0) {
+    return { staticRoot: dist, redirects: [] };
+  }
+  throw new Error(
+    `Missing build output (looked for ${vercelStatic}/index.html and ${dist}/index.html). ` +
+      'Run "npm run build" (or "npm run check") before smoke tests.'
+  );
+}
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+};
+
+function contentTypeFor(filePath: string): string {
+  return CONTENT_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+}
+
+/** Map a request pathname to candidate files inside the static root. */
+function candidateFiles(staticRoot: string, pathname: string): string[] {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return []; // malformed percent-encoding → 404, not an unhandled rejection
+  }
+  const safe = path.normalize(decoded).replace(/^(\.\.[/\\])+/, '');
+  const base = path.join(staticRoot, safe);
+  if (!base.startsWith(staticRoot)) return [];
+  // Try both interpretations regardless of a dot in the last segment: a route
+  // like /reference/v1.2 is a directory with an index.html, not a file.
+  if (path.extname(safe) !== '') return [base, path.join(base, 'index.html')];
+  return [path.join(base, 'index.html'), base];
 }
 
 function getFreePort(): Promise<number> {
@@ -47,108 +148,56 @@ function getFreePort(): Promise<number> {
   });
 }
 
-async function waitForServerReady(baseUrl: string, child: ChildProcessWithoutNullStreams) {
-  const start = Date.now();
-  let lastError = '';
-
-  while (Date.now() - start < STARTUP_TIMEOUT_MS) {
-    if (child.exitCode !== null) {
-      throw new Error(
-        `Preview server exited early with code ${child.exitCode}. ${lastError}`.trim()
-      );
-    }
-
-    try {
-      const response = await fetch(`${baseUrl}/docs/getting-started/welcome`, {
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      if (response.ok) return;
-    } catch (error) {
-      lastError = String(error);
-    }
-
-    await sleep(250);
-  }
-
-  throw new Error(`Timed out waiting for preview server at ${baseUrl}. ${lastError}`.trim());
-}
-
-async function waitForExit(
-  child: ChildProcessWithoutNullStreams,
-  timeoutMs: number
-): Promise<boolean> {
-  if (child.exitCode !== null) return true;
-
-  let onExit: (() => void) | undefined;
-  const exited = await Promise.race([
-    new Promise<boolean>((resolve) => {
-      onExit = () => resolve(true);
-      child.once('exit', onExit);
-    }),
-    sleep(timeoutMs).then(() => false),
-  ]);
-
-  if (onExit) {
-    child.off('exit', onExit);
-  }
-
-  return exited;
-}
-
-async function stopServer(child: ChildProcessWithoutNullStreams) {
-  const killProcessTree = (signal: NodeJS.Signals) => {
-    const pid = child.pid;
-    if (!pid) return;
-
-    try {
-      // Detached mode creates a new process group so we can terminate npm + astro children.
-      process.kill(-pid, signal);
-    } catch {
-      child.kill(signal);
-    }
-  };
-
-  killProcessTree('SIGTERM');
-  if (!(await waitForExit(child, SHUTDOWN_TIMEOUT_MS))) {
-    killProcessTree('SIGKILL');
-    await waitForExit(child, SHUTDOWN_TIMEOUT_MS);
-  }
-
-  child.stdout.destroy();
-  child.stderr.destroy();
-}
-
-export async function startPreviewServer(): Promise<PreviewServer> {
-  await ensureBuildOutput();
-
-  const port = await getFreePort();
+export async function startPreviewServer(options: { port?: number } = {}): Promise<PreviewServer> {
+  const { staticRoot, redirects } = resolveBuildOutput();
+  const port = options.port ?? (await getFreePort());
   const baseUrl = `http://${PREVIEW_HOST}:${port}`;
-  const child = spawn('npm', ['run', 'preview', '--', '--host', PREVIEW_HOST, '--port', String(port)], {
-    cwd: ROOT,
-    detached: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, FORCE_COLOR: '0' },
+
+  const server: Server = createServer(async (req, res) => {
+    const method = req.method ?? 'GET';
+    if (method !== 'GET' && method !== 'HEAD') {
+      res.writeHead(405, { Allow: 'GET, HEAD' }).end();
+      return;
+    }
+    const pathname = new URL(req.url ?? '/', baseUrl).pathname;
+
+    for (const redirect of redirects) {
+      if (redirect.pattern.test(pathname)) {
+        res.writeHead(redirect.status, { Location: redirect.location }).end();
+        return;
+      }
+    }
+
+    for (const candidate of candidateFiles(staticRoot, pathname)) {
+      try {
+        const body = await readFile(candidate);
+        res.writeHead(200, { 'content-type': contentTypeFor(candidate) });
+        res.end(method === 'HEAD' ? undefined : body);
+        return;
+      } catch {
+        continue;
+      }
+    }
+
+    try {
+      const notFound = await readFile(path.join(staticRoot, '404.html'));
+      res.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(method === 'HEAD' ? undefined : notFound);
+    } catch {
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('Not found');
+    }
   });
 
-  let logs = '';
-  child.stdout.on('data', (chunk) => {
-    logs += String(chunk);
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, PREVIEW_HOST, resolve);
   });
-  child.stderr.on('data', (chunk) => {
-    logs += String(chunk);
-  });
-
-  try {
-    await waitForServerReady(baseUrl, child);
-  } catch (error) {
-    await stopServer(child);
-    throw new Error(`${String(error)}\n${logs}`.trim());
-  }
 
   return {
     baseUrl,
-    close: async () => {
-      await stopServer(child);
-    },
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      }),
   };
 }
