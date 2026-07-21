@@ -81,11 +81,12 @@ In a typical pull request workflow, this overlaps with your PR triggers: merging
 
 ## File structure
 
-The configuration file has four top-level sections:
+The configuration file has five top-level sections:
 
 ```yaml
 doc_collections:   # Where documentation lives (keyed by repo)
 context_sources:   # Integrations for additional context
+browser:           # Authenticate browser requests (Promptless Capture only)
 triggers:          # Events that initiate documentation work
 policies:          # Publishing and notification rules
 ```
@@ -181,6 +182,68 @@ context_sources:
 | `linear`     | `team_keys`                | Restrict to specific Linear team identifiers                          |
 | `notion`     | `database_ids`, `page_ids` | Restrict to specific Notion databases or pages                        |
 | `slite`      | —                          | No scope fields—the whole Slite workspace is available when connected |
+
+## Browser authentication
+
+The `browser` section gives the screenshot agent a provider-independent way to authenticate the browser requests it makes—attaching authentication headers and query parameters to requests for specific origins, and seeding cookies before navigation. It has two optional blocks, `request_rules` and `cookies`, each keyed by a short kebab-case slug (matching `^[a-z0-9][a-z0-9-]{0,63}$`). The Form editor has no Browser tab, so edit this section in YAML mode.
+
+<Aside type="note">
+  This section takes effect only for organizations with [Promptless Capture](/docs/get-the-most-out/screenshots) (the screenshot agent) enabled. If your organization doesn't have Promptless Capture, a `browser` section is still accepted—it simply has no effect, since browser authentication applies only to screenshot-enabled sessions.
+</Aside>
+
+```yaml
+browser:
+  request_rules:
+    example-app:
+      origin: https://app.example.com
+      headers:
+        Authorization: "Bearer ${SESSION_TOKEN}"
+      query_params:
+        tenant: acme
+  cookies:
+    example-session:
+      domain: .example.com
+      name: session
+      value: ${SESSION_COOKIE}
+      path: /
+      secure: true
+      http_only: true
+      same_site: Lax
+```
+
+### Value templates
+
+Header values, query-parameter values, and cookie values are templates. Use a literal value, or reference a stored secret with `${NAME}`, which resolves at runtime from the environment variable `PROMPTLESS_<NAME>`, where `<NAME>` is uppercase—for example, `${SESSION_TOKEN}` reads the `PROMPTLESS_SESSION_TOKEN` variable. This keeps secrets out of the configuration file: store the secret as an [environment variable](/docs/scale/environment-variables) marked **Secret**, then reference it by name without the `PROMPTLESS_` prefix. For example, to use `${SESSION_TOKEN}`, add an environment variable named `PROMPTLESS_SESSION_TOKEN` in **Settings → Environment Variables**. If the variable is missing, the browser request fails at runtime.
+
+### Request rules
+
+Each `request_rules` entry attaches headers and/or query parameters to requests whose origin matches exactly.
+
+| Field          | Description                                                                                                                                                                                                                        |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `origin`       | Required. The absolute origin to match: scheme, host, and optional non-default port only—no path, query string, fragment, or credentials (for example, `https://app.example.com`). Each rule's origin must be unique, and requests match by exact origin (no subdomain or wildcard matching). |
+| `headers`      | A map of header name to value template added to matching requests. Header names must be valid HTTP header tokens.                                                                                                                 |
+| `query_params` | A map of query-parameter name to value template added to matching requests.                                                                                                                                                      |
+
+Each rule must set at least one of `headers` or `query_params`.
+
+<Aside type="caution">
+  Query-parameter values appear in request URLs and in the destination application's own request logs, even when the value comes from a `${NAME}` secret—the secret is resolved before the request is sent. Use headers or cookies for long-lived credentials.
+</Aside>
+
+### Cookies
+
+Each `cookies` entry seeds one cookie into the browser before navigation.
+
+| Field       | Description                                                                                         |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `domain`    | Required. The cookie's domain as a bare hostname, optionally with a leading dot (for example, `.example.com`). |
+| `name`      | Required. The cookie name; must be a valid HTTP token.                                              |
+| `value`     | Required. The cookie value, as a template.                                                          |
+| `path`      | The cookie path. Defaults to `/`.                                                                   |
+| `secure`    | Whether the browser sends the cookie only over HTTPS. Defaults to `true`.                           |
+| `http_only` | Whether client-side JavaScript is blocked from reading the cookie. Defaults to `true`.              |
+| `same_site` | The cookie's SameSite policy: `Strict`, `Lax`, or `None`. Defaults to `Lax`. `None` requires `secure: true`. |
 
 ## Triggers
 
