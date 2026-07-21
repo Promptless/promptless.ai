@@ -93,14 +93,12 @@ tag: Product Updates
 section: Featured
 hidden: false
 ---
-import Frame from '@components/fern/Frame.astro';
 import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
 import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
 ```
 
 - `tag` must be `Product Updates`.
 - `section` is typically `Featured`.
-- Import `Frame` only if you have a screenshot to embed.
 - Always import `BlogNewsletterCTA` and `BlogRequestDemo`.
 - Always set `hidden: false`.
 
@@ -120,12 +118,10 @@ Place `<BlogNewsletterCTA />` once, after "What it does now" or "Who benefits mo
 
 ## Images
 
-If a screenshot exists, embed it near the "What it does now" section:
+If a screenshot exists, embed it near the "What it does now" section with a plain Markdown image:
 
 ```mdx
-<Frame>
-  <img src="{s3-url}" alt="{descriptive alt text}" />
-</Frame>
+![{descriptive alt text}]({s3-url})
 ```
 
 Screenshot URLs follow the pattern:
