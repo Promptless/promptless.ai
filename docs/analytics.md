@@ -64,6 +64,7 @@ sends a parallel `gtag` event for Google Analytics.
 - `watch_demo` -- jobs_page
 - `use_free_tool` -- free_tools
 - `view_commits` -- demo_social_proof
+- `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
 
 ## Design Decisions
 
