@@ -1,0 +1,92 @@
+---
+title: GitHub (read-only) integration
+slug: docs/reference/integrations/github-read-only
+type: reference
+tags:
+  - reference
+  - integrations
+timestamp: "2026-07-21T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 52.5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+**Used for: Triggers, Context, and Publishing (public repositories)**
+
+Promptless offers two ways to install its GitHub App: the standard [GitHub App](/docs/reference/integrations/github), which has read and write access, and the read-only app. The read-only app exists for teams that cannot grant a third-party or AI app write access to their repositories.
+
+## When to use the read-only app
+
+Many teams — especially open-source maintainer groups — do not approve any third-party or AI application that has write access to their repositories; for them, granting write access is a non-starter. The read-only app lets those teams use Promptless without granting write access: Promptless receives webhooks and read access, and publishes documentation through a fork instead of writing to the repository directly. This fork-based publishing works only for public repositories — see the [caution below](#public-repositories-only).
+
+## How it differs from the standard GitHub app
+
+For most teams, the [standard GitHub App](/docs/reference/integrations/github) is the right choice. The read-only app changes how Promptless is granted access and how it publishes documentation.
+
+| Dimension | Standard GitHub App | GitHub (read-only) app |
+| --- | --- | --- |
+| Repository access | Read and write | Read-only, plus webhooks |
+| How documentation PRs are published | Promptless creates a branch and opens a pull request directly on your repository | Promptless opens a pull request from its own fork into your repository's upstream base branch |
+| Repository support for publishing | Public and private repositories | Public repositories only |
+
+## How publishing works
+
+Because the read-only app has no write permission, Promptless cannot push branches or open pull requests directly on your repository. Instead, Promptless creates its own fork of the repository, makes its documentation branches on that fork, and opens a pull request from the fork into your repository's upstream base branch. A service account posts comments and performs the other actions that the write-enabled app would otherwise handle.
+
+The fork is set up when you configure a doc collection on a read-only integration.
+
+## Public repositories only
+
+<Aside type="caution">
+  The fork-to-upstream publishing flow works only for public repositories, because Promptless cannot fork a private repository. If you install only the read-only app on a private docs repository, Promptless has no way to publish updates — it has neither write access nor a fork. Private repositories must use the [standard GitHub App](/docs/reference/integrations/github). Triggers and context can still work against a private repo with read access, but publishing cannot.
+</Aside>
+
+## Installation
+
+Install the read-only app from the [integrations page](https://app.gopromptless.ai/integrations), then grant it access to the repositories you want Promptless to work with. For open-source publishing, this includes the public repository whose docs you want to keep current.
+
+Once connected, the read-only integration appears on the integrations page as its own **GitHub (read-only)** card. The **Configure in GitHub** button on that card opens the app's installation page, where you can adjust which repositories Promptless can access. Repository access is always governed in GitHub's own App settings.
+
+Promptless determines the platform from the integration that reaches the repository, so a doc collection on a repo reached by the read-only app uses the read-only (`github_oss`) publishing flow automatically — you do not set this by hand.
+
+## What you can do with the read-only app
+
+Once connected, you can use the read-only app for:
+
+- **[Triggers](/docs/connect/triggers)**: Monitor pull requests and commits for documentation updates
+- **[Context Sources](/docs/connect/context-sources)**: Search code repositories and issues for technical context
+- **[Doc Collections](/docs/connect/doc-locations/github-repos)**: Publish documentation updates to public repositories through a pull request from a fork
+
+[Updating Contributor PRs](/docs/start-here/open-source-quickstart) (adding a docs commit to a contributor's existing PR) is not compatible with the read-only app.
+
+## Example
+
+A public open-source project whose maintainers will not grant write access to any external app — a project like Helm, for instance — installs the read-only app, connects its source and docs repositories, and configures a doc collection for its docs. When a contributor's pull request merges, Promptless drafts the doc update, pushes the branch to its fork of the repository, and opens a pull request from that fork into the project's upstream base branch; the service account posts the linking comment. Maintainers review and merge the documentation PR like any other community contribution — without Promptless ever holding write access to the repository.
+
+## Frequently asked questions
+
+<details>
+  <summary>Can I use the read-only app with a private repository?</summary>
+
+  No. Publishing requires a fork, and Promptless cannot fork a private repository. Private docs repositories must use the [standard GitHub App](/docs/reference/integrations/github), which has write access. Triggers and context can still read a private repo, but Promptless cannot publish documentation to one through the read-only app.
+</details>
+
+<details>
+  <summary>When is the fork created?</summary>
+
+  When you configure a doc collection on a read-only integration.
+</details>
+
+<details>
+  <summary>Why not just use the standard GitHub App?</summary>
+
+  Some teams — especially open-source maintainer groups — cannot approve any application with write access to their repositories. The read-only app is the path for them: Promptless never takes write access and instead publishes from a fork.
+</details>
+
+<details>
+  <summary>Can I use the standard app and the read-only app in the same organization?</summary>
+
+  Yes. Promptless determines the platform for each doc collection from the integration that reaches that repository, so you can install the standard GitHub App on some repositories and the read-only app on others in the same organization. Each doc collection uses whichever integration reaches its repository.
+</details>
