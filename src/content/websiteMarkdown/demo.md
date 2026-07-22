@@ -5,9 +5,9 @@ routePath: /demo
 ---
 Watch the Promptless demo video and book time with the team.
 
-## See why Vitess and Helm chose Promptless
+## See Promptless-drafted docs shipping in Vitess and Helm
 
-Promptless drafts PRs and suggests changes. The docs maintainers at these CNCF projects review, revise, and ship them.
+Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and suggests changes; their docs maintainers review, revise, and ship them — and every commit is public, so you can check the history yourself.
 
 - [vitessio/website](https://github.com/vitessio/website/commits/): View commits on GitHub
 - [helm/helm-www](https://github.com/helm/helm-www/commits/main/): View commits on GitHub
