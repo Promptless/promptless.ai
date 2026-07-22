@@ -281,15 +281,33 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Promptless keeps it correct/);
-  assert.match(homeHtml, /Promptless for Docs/);
-  assert.match(homeHtml, /Promptless Instruction Governance/);
+  // Product switcher (ProductSwitcher.astro): an accessible tablist of two pills
+  // rendered above the hero. Both pills and both hero panels are server-rendered,
+  // so we assert the full structure and copy of both.
+  assert.match(homeHtml, /role="tablist"/);
+  assert.match(homeHtml, /for customer-facing docs/);
+  assert.match(homeHtml, /for agent instructions/);
+  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, default-visible).
+  assert.match(homeHtml, /id="pl-hero-panel-docs"/);
+  assert.match(homeHtml, /Write the docs\./);
+  assert.match(homeHtml, /Skip the busywork\./);
+  assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
+  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, hidden by default but in the DOM).
+  assert.match(homeHtml, /id="pl-hero-panel-agents"/);
+  assert.match(homeHtml, /Govern your agent instructions\./);
+  assert.match(homeHtml, /AGENTS\.md, CLAUDE\.md, and Skills/);
+  assert.match(homeHtml, /governed documentation/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
   assert.match(homeHtml, /data-track-action="ask_ai"/);
   assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
+  // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
+  assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
+  assert.doesNotMatch(homeHtml, /Promptless for Docs/);
+  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
+  assert.doesNotMatch(homeHtml, /Coming soon/i);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);

@@ -1,0 +1,384 @@
+---
+// Full-content-width product switcher rendered at the top of the homepage,
+// above the hero layout. Two pills form an accessible, auto-advancing tablist
+// that drives HeroV2's two left-column tabpanels (pl-hero-panel-docs /
+// pl-hero-panel-agents). The docs pill is the default active tab.
+//
+// The pills live in a separate component from HeroV2 but share the same page,
+// so the script resolves the panels from `document` by id at runtime.
+---
+
+<div class="pl-product-switcher not-content">
+  <div class="pl-product-switcher-tablist" role="tablist" aria-label="Choose your Promptless experience">
+    <button
+      id="pl-product-switcher-tab-docs"
+      class="pl-product-switcher-pill is-active"
+      role="tab"
+      type="button"
+      aria-selected="true"
+      aria-controls="pl-hero-panel-docs"
+      tabindex="0"
+    >
+      <svg
+        class="pl-product-switcher-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      </svg>
+      <span class="pl-product-switcher-label">for customer-facing docs</span>
+      <span class="pl-product-switcher-underline" aria-hidden="true"></span>
+    </button>
+    <button
+      id="pl-product-switcher-tab-agents"
+      class="pl-product-switcher-pill"
+      role="tab"
+      type="button"
+      aria-selected="false"
+      aria-controls="pl-hero-panel-agents"
+      tabindex="-1"
+    >
+      <svg
+        class="pl-product-switcher-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 8V4H8" />
+        <rect width="16" height="12" x="4" y="8" rx="2" />
+        <path d="M2 14h2" />
+        <path d="M20 14h2" />
+        <path d="M15 13v2" />
+        <path d="M9 13v2" />
+      </svg>
+      <span class="pl-product-switcher-label">for agent instructions</span>
+      <span class="pl-product-switcher-underline" aria-hidden="true"></span>
+    </button>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const root = document.querySelector('.pl-product-switcher');
+    if (!(root instanceof HTMLElement)) return;
+
+    const tablist = root.querySelector<HTMLElement>('.pl-product-switcher-tablist');
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('.pl-product-switcher-pill'));
+    if (!tablist || pills.length === 0) return;
+
+    const ROTATE_MS = 10000;
+    // Single source of truth for the rotate window: drive the CSS underline-fill
+    // animation duration from the JS constant so the two can't desync.
+    root.style.setProperty('--pl-switcher-rotate', ROTATE_MS + 'ms');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let activeIndex = pills.findIndex((pill) => pill.getAttribute('aria-selected') === 'true');
+    if (activeIndex < 0) activeIndex = 0;
+    let locked = false;
+    let intervalId: number | undefined;
+
+    const panelFor = (pill: HTMLButtonElement) => {
+      const id = pill.getAttribute('aria-controls');
+      return id ? document.getElementById(id) : null;
+    };
+
+    const stopRotation = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+
+    // Start (or restart) the auto-rotate timer. No-op under reduced motion,
+    // once locked, or if a timer is already running — so hover/focus resume
+    // can't accidentally spin up rotation in those modes.
+    const startRotation = () => {
+      if (reduceMotion || locked || intervalId !== undefined) return;
+      intervalId = window.setInterval(() => {
+        if (locked) {
+          stopRotation();
+          return;
+        }
+        activate((activeIndex + 1) % pills.length);
+      }, ROTATE_MS);
+    };
+
+    // Freeze the active pill's underline in place so it stops counting down to
+    // a flip that won't fire while paused.
+    const pauseUnderline = () => {
+      const underline = pills[activeIndex]?.querySelector<HTMLElement>('.pl-product-switcher-underline');
+      if (underline) underline.style.animationPlayState = 'paused';
+    };
+
+    const restartUnderline = (pill: HTMLButtonElement) => {
+      const underline = pill.querySelector<HTMLElement>('.pl-product-switcher-underline');
+      if (!underline) return;
+      // Freeze all underlines when reduced motion is requested or once locked.
+      if (reduceMotion || locked) {
+        underline.style.animation = 'none';
+        return;
+      }
+      // Restart the fill animation from 0 by forcing a reflow. Also clear any
+      // paused play-state left behind by a hover/focus pause.
+      underline.style.animationPlayState = '';
+      underline.style.animation = 'none';
+      void underline.offsetWidth;
+      underline.style.animation = '';
+    };
+
+    const activate = (index: number, { focus = false } = {}) => {
+      pills.forEach((pill, i) => {
+        const isActive = i === index;
+        pill.classList.toggle('is-active', isActive);
+        pill.setAttribute('aria-selected', String(isActive));
+        pill.tabIndex = isActive ? 0 : -1;
+        const panel = panelFor(pill);
+        if (panel) {
+          if (isActive) {
+            panel.removeAttribute('hidden');
+          } else {
+            panel.setAttribute('hidden', '');
+          }
+        }
+      });
+      activeIndex = index;
+      if (focus) pills[index].focus();
+      restartUnderline(pills[index]);
+    };
+
+    const lockSelection = (index: number) => {
+      locked = true;
+      stopRotation();
+      activate(index, { focus: true });
+    };
+
+    // Move focus for the roving-tabindex tab pattern: exactly one pill is ever
+    // tabbable (tabIndex 0), the rest are -1. Focus moves without activating
+    // (manual activation) — only Enter/Space/click activate + lock a tab.
+    const moveFocus = (toIndex: number) => {
+      pills.forEach((pill, i) => {
+        pill.tabIndex = i === toIndex ? 0 : -1;
+      });
+      pills[toIndex].focus();
+    };
+
+    // Auto-rotate: flip to the other pill every ROTATE_MS. Never starts under
+    // reduced-motion, and stops permanently once the user locks a selection.
+    startRotation();
+
+    // Pause on hover / keyboard focus and resume on leave — the common,
+    // unintrusive carousel behavior. Pausing suspends both the flip timer and
+    // the underline countdown; resuming restarts from a fresh 10s window.
+    // Guarded so it stays a no-op under reduced motion or once locked (a lock
+    // is permanent and takes precedence).
+    const pause = () => {
+      if (reduceMotion || locked) return;
+      stopRotation();
+      pauseUnderline();
+    };
+    const resume = () => {
+      if (reduceMotion || locked || intervalId !== undefined) return;
+      restartUnderline(pills[activeIndex]);
+      startRotation();
+    };
+
+    // At minimum cover the tablist container; also cover the hero panels region
+    // if it's reachable via the shared document so hovering the panels pauses too.
+    const pauseTargets: HTMLElement[] = [tablist];
+    const panelsRegion =
+      document.querySelector<HTMLElement>('.pl-hero-v2-panels') ??
+      document.getElementById('overview');
+    if (panelsRegion) pauseTargets.push(panelsRegion);
+
+    pauseTargets.forEach((target) => {
+      target.addEventListener('mouseenter', pause);
+      target.addEventListener('mouseleave', resume);
+      target.addEventListener('focusin', pause);
+      target.addEventListener('focusout', (event) => {
+        // Only resume when focus actually leaves the region, not when moving
+        // between children (e.g. arrow-key focus between pills).
+        const next = event.relatedTarget;
+        if (next instanceof Node && target.contains(next)) return;
+        resume();
+      });
+    });
+
+    pills.forEach((pill, index) => {
+      pill.addEventListener('click', () => lockSelection(index));
+
+      pill.addEventListener('keydown', (event) => {
+        switch (event.key) {
+          case 'ArrowRight':
+          case 'ArrowDown': {
+            event.preventDefault();
+            moveFocus((index + 1) % pills.length);
+            break;
+          }
+          case 'ArrowLeft':
+          case 'ArrowUp': {
+            event.preventDefault();
+            moveFocus((index - 1 + pills.length) % pills.length);
+            break;
+          }
+          case 'Home': {
+            event.preventDefault();
+            moveFocus(0);
+            break;
+          }
+          case 'End': {
+            event.preventDefault();
+            moveFocus(pills.length - 1);
+            break;
+          }
+          case 'Enter':
+          case ' ':
+          case 'Spacebar': {
+            event.preventDefault();
+            lockSelection(index);
+            break;
+          }
+          default:
+            break;
+        }
+      });
+    });
+
+    // Kick off the initial underline fill for the default active pill.
+    restartUnderline(pills[activeIndex]);
+  })();
+</script>
+
+<style>
+  .pl-product-switcher {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin: 0 0 1.5rem;
+  }
+
+  .pl-product-switcher-tablist {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0.5rem;
+    background: #f3f4f6;
+    border-radius: 999px;
+    padding: 0.35rem;
+  }
+
+  .pl-product-switcher-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.55rem 1.15rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .pl-product-switcher-pill:hover {
+    color: #111827;
+  }
+
+  .pl-product-switcher-pill.is-active {
+    background: #fff;
+    color: #111827;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  .pl-product-switcher-pill:focus-visible {
+    outline: 2px solid #506aea;
+    outline-offset: 2px;
+  }
+
+  .pl-product-switcher-icon {
+    flex-shrink: 0;
+  }
+
+  .pl-product-switcher-label {
+    display: inline-block;
+  }
+
+  /* Progress underline: fills left-to-right over the 10s auto-rotate window on
+     the active pill only, signalling the imminent switch. It restarts whenever
+     the active pill changes (see script). */
+  .pl-product-switcher-underline {
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.28rem;
+    height: 2px;
+    border-radius: 2px;
+    background: #506aea;
+    transform: scaleX(0);
+    transform-origin: left center;
+    opacity: 0;
+  }
+
+  .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+    opacity: 1;
+    animation: pl-product-switcher-fill var(--pl-switcher-rotate, 10s) linear forwards;
+  }
+
+  @keyframes pl-product-switcher-fill {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .pl-product-switcher-tablist {
+      width: 100%;
+      flex-direction: column;
+      border-radius: 1rem;
+      gap: 0.35rem;
+    }
+
+    .pl-product-switcher-pill {
+      justify-content: center;
+      border-radius: 0.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pl-product-switcher-pill,
+    .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+      transition: none;
+      animation: none;
+    }
+
+    /* No motion under reduced-motion: the underline stays static (filled) on the
+       active pill rather than progressing. */
+    .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+      transform: scaleX(1);
+    }
+  }
+</style>
