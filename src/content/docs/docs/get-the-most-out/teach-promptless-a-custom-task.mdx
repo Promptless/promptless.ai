@@ -1,0 +1,115 @@
+---
+title: Teach Promptless a custom task
+description: Give Promptless a new or customized workflow by pairing a trigger with written instructions, using inbound documentation PR review as a worked example
+slug: docs/get-the-most-out/teach-promptless-a-custom-task
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-07-22T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 34
+  label: Teach a custom task
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Promptless ships with default behaviors, like reviewing code PRs for documentation impact, and you can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page shows how the two fit together, using inbound documentation PR review as a worked example.
+
+## The two ingredients of a custom task
+
+Every custom task combines two pieces:
+
+- **A trigger** determines when Promptless runs — you configure it in the `triggers` section of the [Configuration page](https://app.gopromptless.ai/configuration).
+- **A written workflow** is the set of instructions the agent follows when that trigger fires — it lives in `PROMPTLESS.md` in your Knowledge Base and/or as a custom Agent Skill in your docs repo.
+
+The agent follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
+
+This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The rest of this page walks through one worked example.
+
+<Aside type="note">
+  This page builds on [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs), which covers where Promptless reads custom guidance — `AGENTS.md`/`CLAUDE.md` in your docs repo, Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`, and `PROMPTLESS.md`.
+</Aside>
+
+## Write the workflow
+
+The workflow is the *what*: the concrete instructions the agent follows once a trigger fires. Instructions live in `PROMPTLESS.md`, and/or as a custom Agent Skill in your docs repo. To learn what `PROMPTLESS.md` is and where skills live, see [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs); to view and edit Knowledge Base files, open the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base).
+
+There are two ways to update these instructions:
+
+1. An organization admin edits `PROMPTLESS.md` in the Agent Knowledge Base (in the left sidebar, open **Configure** and select **Agent Knowledge Base**).
+2. You can ask Promptless to help make these changes — for example, by requesting the update in your normal Promptless workflow — and an admin reviews and approves the result like any other suggestion.
+
+Good workflow instructions are concrete. Spell out what to check, what to prioritize, and what output to produce, so the agent knows exactly what a successful run looks like.
+
+## Configure the trigger
+
+The trigger is the *when*. You manage triggers on the [Configuration page](https://app.gopromptless.ai/configuration) in the `triggers` section, which is backed by a single `promptless.yaml` file in your Agent Knowledge Base, and saving commits the change there. Like `PROMPTLESS.md`, only organization admins can edit and save `promptless.yaml` — every member can view it read-only.
+
+As an illustration, here is the shape of a `github_pr` trigger:
+
+```yaml
+triggers:
+  my-pr-trigger:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/docs
+        trigger_on:
+          - opened           # When PR opens (default)
+          - first_approval   # After first approval
+          - merge            # When PR merges
+        trigger_directories:
+          - docs/
+```
+
+The `github_pr` trigger supports exactly three events: `opened`, `first_approval`, and `merge`. For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers).
+
+<Aside type="note">
+  Custom tasks built this way are event-driven: a trigger fires on new events (like a PR opening) and does not retroactively scan or audit your existing pages. For one-time, corpus-wide work such as audits, retrofits, or writing from scratch, use [Pay down docs debt with Deep Analysis](/docs/get-the-most-out/pay-down-docs-debt).
+</Aside>
+
+## Worked example: review inbound documentation PRs
+
+As designed, this workflow reviews a documentation PR authored by someone other than Promptless on two dimensions: (a) documentation quality and style, and (b) correctness against the source code. The trigger fires when such a PR opens against your docs repo, and the written workflow tells the agent how to review it. This example describes the intended end-to-end design; see the note under [What Promptless does on each qualifying PR](#what-promptless-does-on-each-qualifying-pr) for what is available today.
+
+### Define the workflow
+
+Paste an instruction block like this into `PROMPTLESS.md` (or a custom skill):
+
+```markdown
+# Inbound documentation PR review
+
+When a pull request is opened against the docs repo by someone other than
+Promptless:
+
+- Review the changes for documentation quality and style, checking that they
+  match our voice, structure, and formatting conventions.
+- Verify the PR's claims against the source code, and flag anything that does
+  not match how the product behaves today.
+- Prefer making direct edits on the PR branch to fix issues you find.
+  (intended design; not yet live — see note below)
+- Always leave a top-level summary comment describing what you reviewed and
+  what you changed.
+- Set a GitHub review state that reflects your assessment.
+  (intended design; not yet live — see note below)
+```
+
+### Scope the trigger to your docs repo
+
+Scope a `github_pr` trigger to your documentation repo (or repos) and listen on the `opened` event, optionally adding `first_approval`. Reuse the YAML shape shown earlier, pointing `repos` at your docs repo. Use the **Choose specific directories to trigger this project** option (the `trigger_directories` key in the illustration above) to narrow the scope to your docs content, for example `docs/`.
+
+<Aside type="caution">
+  The `github_pr` events are `opened`, `first_approval`, and `merge` only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when a contributor pushes new commits. To re-review after new commits, request it manually — an `@promptless` mention in a PR comment re-triggers a review (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+</Aside>
+
+### What Promptless does on each qualifying PR
+
+When a qualifying PR opens, Promptless detects it, reads the full PR context (title and description, diff, review comments, and commits), reviews it against your instructions on both dimensions, and posts its findings as a top-level summary comment on the PR.
+
+<Aside type="caution">
+  Today the review agent posts a **top-level summary PR comment**, which is available now. It cannot yet push edits directly to a contributor's PR branch, submit a formal GitHub review state (approve or request changes), or leave inline review comments — the team is actively working on the permissions for this. So the "direct edits" and "review state" parts of the example describe the intended design; today's guaranteed deliverable is the top-level summary comment. In practice, today this delivers an automatic first-pass review comment on every qualifying PR, but it does not yet act as an enforceable branch-protection or required-status-check gate.
+</Aside>
+
+Need help? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).
