@@ -281,7 +281,9 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Write the docs/);
+  assert.match(homeHtml, /Promptless keeps it correct/);
+  assert.match(homeHtml, /Promptless for Docs/);
+  assert.match(homeHtml, /Promptless Instruction Governance/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
