@@ -296,7 +296,9 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
   assert.match(homeHtml, /Govern your agent instructions\./);
   assert.match(homeHtml, /AGENTS\.md, CLAUDE\.md, and Skills/);
-  assert.match(homeHtml, /governed documentation/);
+  assert.match(homeHtml, /Promptless suggests fixes when your agent instructions go stale or conflict\./);
+  assert.match(homeHtml, /Finds stale or conflicting instructions/);
+  assert.match(homeHtml, /Flags every change for review/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
@@ -308,6 +310,10 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.doesNotMatch(homeHtml, /Promptless for Docs/);
   assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
   assert.doesNotMatch(homeHtml, /Coming soon/i);
+  // Guard against the pre-reword agents-panel copy silently returning.
+  assert.doesNotMatch(homeHtml, /governed documentation/);
+  assert.doesNotMatch(homeHtml, /control plane/);
+  assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);
