@@ -1,6 +1,6 @@
 ---
 title: Teach Promptless a custom task
-description: Give Promptless a new or customized workflow by pairing a trigger with written instructions — the general process, plus a complete worked example
+description: Give Promptless a new or customized workflow by pairing a trigger with written instructions — the general process, plus a complete example
 slug: docs/get-the-most-out/teach-promptless-a-custom-task
 type: guide
 tags:
@@ -22,11 +22,11 @@ Promptless ships with default behaviors, like reviewing code PRs for documentati
 Every custom task combines two pieces:
 
 - **A trigger** determines when Promptless runs — you configure it in the `triggers` section of the [Configuration page](https://app.gopromptless.ai/configuration).
-- **A written workflow** is the set of instructions the agent follows when that trigger fires — it lives in `PROMPTLESS.md` in your Knowledge Base and/or as a custom Agent Skill in your docs repo.
+- **A written workflow** is the set of instructions the agent follows when that trigger fires. It lives as a file under `doc_workflows/` in your Knowledge Base or as an Agent Skill in a doc collection, with a hook in `PROMPTLESS.md` that points to it (see [Write the workflow](#write-the-workflow)).
 
-The agent follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
+Promptless follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
 
-This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The worked example at the end of this page shows one end-to-end illustration.
+This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The example at the end of this page shows an end-to-end illustration.
 
 <Aside type="note">
   This page builds on [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs), which covers where Promptless reads custom guidance — `AGENTS.md`/`CLAUDE.md` in your docs repo, Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`, and `PROMPTLESS.md`.
@@ -36,34 +36,34 @@ This trigger-plus-instructions pattern is general: you pair written instructions
 
 Before you build a custom task, make sure you have:
 
-- **The relevant integration or trigger source connected** — for example, the GitHub integration for a `github_pr` task.
-- **A Knowledge Base** where your `PROMPTLESS.md` and/or a custom Agent Skill live.
-- **Org-admin access** to edit `PROMPTLESS.md` and `promptless.yaml` — or the ability to ask Promptless to make those edits for you.
-
-Concrete, per-task prerequisites live on each worked example's page.
+- **The relevant integration or trigger source connected.** For example, the GitHub integration for a `github_pr` task.
+- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
 
 ## Write the workflow
 
-The workflow is the *what*: the concrete instructions the agent follows once a trigger fires. Instructions live in `PROMPTLESS.md`, and/or as a custom Agent Skill in your docs repo. To learn what `PROMPTLESS.md` is and where skills live, see [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs); to view and edit Knowledge Base files, open the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base).
+The workflow is the *what*: the concrete instructions the agent follows once a trigger fires. Give the workflow a home and pair it with a hook. The workflow *body* lives in one of two places, and `PROMPTLESS.md` holds only an "If, then" *hook* that points to it:
+
+- **As a markdown file under `doc_workflows/` in your Knowledge Base.** Write the instructions as their own file (for example, `doc_workflows/review-inbound-doc-prs.md`) and add a hook in `PROMPTLESS.md` that points to it.
+- **As an Agent Skill in a doc collection** (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`). Add a hook in `PROMPTLESS.md`, and because the skill lives in a doc collection, the hook must name *which* doc collection — for example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
+
+Keep the workflow body out of `PROMPTLESS.md` itself; reserve `PROMPTLESS.md` for the hook. Hooks in `PROMPTLESS.md` apply to workflows defined anywhere in your Knowledge Base — a `doc_workflows/` file as well as a Skill in a doc collection. To view and edit Knowledge Base files, open the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base).
 
 There are two ways to update these instructions:
 
-1. An organization admin edits `PROMPTLESS.md` in the Agent Knowledge Base (in the left sidebar, open **Configure** and select **Agent Knowledge Base**).
-2. You can ask Promptless to make these changes for you — for example, by requesting the update the next time you're working with Promptless — and it edits `PROMPTLESS.md` (or the custom skill) and commits the change.
+- An organization admin edits `PROMPTLESS.md` in the Agent Knowledge Base (in the left sidebar, select **Agent Knowledge Base**).
+- You can ask Promptless to make these changes for you — for example, by requesting the update the next time you're working with Promptless — and it edits `PROMPTLESS.md` (or the custom skill) and commits the change.
 
 Good workflow instructions are concrete. Spell out what to check, what to prioritize, and what output to produce, so the agent knows exactly what a successful run looks like.
 
-These custom workflows are effectively Agent Skills, and you can format them that way. Keep the workflow either in `PROMPTLESS.md` in your Knowledge Base, or as an Agent Skill in a doc collection (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`). One rule matters here: if the workflow is defined as an Agent Skill that lives in a doc collection, the `PROMPTLESS.md` hook (see the requirement below) must name *which* doc collection the skill lives in — for example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
-
 <Aside type="caution">
-  For a custom workflow to activate reliably, you *must* have an explicit "If, then" hook in `PROMPTLESS.md` — of the form "If \[condition], then \[do this]." This is a requirement, not a suggestion. If the workflow is written inline in `PROMPTLESS.md`, the condition line together with the instructions beneath it is that hook — the instructions are the "then," so there is nothing separate to name. If the workflow instead lives in an Agent Skill that loads on demand, the `PROMPTLESS.md` hook must name the specific skill/workflow so it points to it. `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always in front of the agent, whereas Agent Skills are only loaded on demand — when a task matches a skill's description. A workflow that lives only in a Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
+  For a custom workflow to activate reliably, have an explicit "If, then" hook in `PROMPTLESS.md` — of the form "If \[condition], then \[do this]." `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always in front of the agent, whereas workflows and Agent Skills are only loaded on demand — when a task matches a skill's description. A workflow that lives only in a separate workflow or Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
 </Aside>
 
 ## Configure the trigger
 
-The trigger is the *when*. You manage triggers on the [Configuration page](https://app.gopromptless.ai/configuration) in the `triggers` section, which is backed by a single `promptless.yaml` file in your Agent Knowledge Base, and saving commits the change there. You can also ask Promptless to make these trigger changes for you — Promptless edits `promptless.yaml` and commits the change. When editing manually, only organization admins can edit and save `promptless.yaml` — every member can view it read-only.
+The trigger is the *when*. You manage triggers in the dashboard: in the left sidebar, select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. The Configuration page has a **Form / YAML** view toggle — the **Form** view is the default UI path for building a trigger, and the **YAML** view shows the underlying `promptless.yaml`. Saving on the Configuration page commits the change to `promptless.yaml` in your Agent Knowledge Base. You can also ask Promptless to make these trigger changes for you.
 
-As an illustration, here is the shape of a `github_pr` trigger:
+The trigger you create looks like this in YAML:
 
 ```yaml
 triggers:
@@ -99,16 +99,16 @@ Once the workflow and trigger are in place, a custom task runs the same way ever
 3. It follows your written workflow step by step.
 4. It produces the output your instructions define.
 
-The specifics — what context is read and what output lands — depend on the task; see a worked example for the concrete details.
+The specifics — what context is read and what output lands — depend on the task; see the example for the concrete details.
 
 <Aside type="note">
-  Your instructions can describe steps that go beyond what Promptless can currently execute for a given trigger. Promptless does the parts it supports today and treats the rest as intended design. Each worked example's "What's available today" section spells out the current limits for that task, so check it for specifics.
+  Your instructions can describe steps that go beyond what Promptless can currently execute for a given trigger. Promptless does the parts it supports today and treats the rest as intended design. The example's "What's available today" section spells out the current limits for that task, so check it for specifics.
 </Aside>
 
-## A complete worked example
+## A complete example
 
 The **review inbound documentation PRs** example demonstrates the full process end to end: a written review workflow paired with a `github_pr` trigger. It shows the concrete prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` updates for one real task, and it spells out exactly what Promptless delivers today.
 
-<LinkCard title="Example: review inbound documentation PRs" href="/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="A worked github_pr task: the prerequisites, workflow instructions, trigger YAML, and PROMPTLESS.md updates end to end." />
+<LinkCard title="Example: review inbound documentation PRs" href="/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="An end-to-end `github_pr` task: the prerequisites, workflow instructions, trigger YAML, and PROMPTLESS.md updates end to end." />
 
 Need help? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).
