@@ -313,7 +313,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
   // in "team's"; assert fragments that straddle those so we don't depend on either.
   assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
-  assert.match(homeHtml, /<code>AGENTS\.md<\/code>/);
+  assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
   assert.match(homeHtml, /with every session trace across your fleet/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
   assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
