@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-Promptless ships with default behaviors, like reviewing code PRs for documentation impact, and you can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page covers the general process — prerequisites, the workflow, the trigger, and how a run unfolds. A complete worked example lives on its own page: [Example: review inbound documentation PRs](/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs).
+Promptless ships with default behaviors, like reviewing code PRs for documentation impact, but you can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page covers the general process, including prerequisites, the workflow, the trigger, and how a run unfolds. A complete example lives on its own page: [Example: review inbound documentation PRs](/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs).
 
 ## The two ingredients of a custom task
 
@@ -52,6 +52,12 @@ There are two ways to update these instructions:
 2. You can ask Promptless to make these changes for you — for example, by requesting the update the next time you're working with Promptless — and it edits `PROMPTLESS.md` (or the custom skill) and commits the change.
 
 Good workflow instructions are concrete. Spell out what to check, what to prioritize, and what output to produce, so the agent knows exactly what a successful run looks like.
+
+These custom workflows are effectively Agent Skills, and you can format them that way. Keep the workflow either in `PROMPTLESS.md` in your Knowledge Base, or as an Agent Skill in a doc collection (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`). One rule matters here: if the workflow is defined as an Agent Skill that lives in a doc collection, the `PROMPTLESS.md` hook (see the requirement below) must name *which* doc collection the skill lives in — for example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
+
+<Aside type="caution">
+  For a custom workflow to activate reliably, you *must* have an explicit "If, then" hook in `PROMPTLESS.md` — of the form "If [condition], then [do this]." This is a requirement, not a suggestion. If the workflow is written inline in `PROMPTLESS.md`, the condition line together with the instructions beneath it is that hook — the instructions are the "then," so there is nothing separate to name. If the workflow instead lives in an Agent Skill that loads on demand, the `PROMPTLESS.md` hook must name the specific skill/workflow so it points to it. `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always in front of the agent, whereas Agent Skills are only loaded on demand — when a task matches a skill's description. A workflow that lives only in a Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
+</Aside>
 
 ## Configure the trigger
 
