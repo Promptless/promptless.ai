@@ -150,6 +150,59 @@ export const COMPARE_ROWS: CompareRow[] = [
   },
 ];
 
+// --- Agent-instructions ("Instruction Governance") pricing view ---
+// Appended for the two-product launch positioning. Reuses the existing plan
+// `id` values so PricingCard.astro's PLAN_ICONS map keeps resolving icons.
+
+export const AGENT_STARTUP_PLAN: PricingPlanConfig = {
+  id: 'startup',
+  title: 'Startup',
+  summary: 'For teams with a small set of agent instructions to govern.',
+  ctaLabel: 'Book demo',
+  ctaHref: 'https://cal.com/team/promptless/15m-discovery-call',
+  ctaAction: 'book_demo',
+};
+
+export const AGENT_GROWTH_PLAN: PricingPlanConfig = {
+  id: 'growth',
+  title: 'Growth',
+  summary: 'For teams with a growing set of agent instructions to govern.',
+  ctaLabel: 'Book demo',
+  ctaHref: 'https://cal.com/team/promptless/15m-discovery-call',
+  ctaAction: 'book_demo',
+};
+
+export const AGENT_ENTERPRISE_PLAN: PricingPlanConfig = {
+  id: 'enterprise',
+  title: 'Enterprise',
+  summary: 'For teams governing a large set of agent instructions at scale.',
+  ctaLabel: 'Book demo',
+  ctaHref: 'https://cal.com/team/promptless/15m-discovery-call',
+  ctaAction: 'book_demo',
+};
+
+export const AGENT_STARTUP_USAGE = 'Fewer than 50 agent instructions*';
+export const AGENT_GROWTH_USAGE = '50-200 agent instructions*';
+export const AGENT_ENTERPRISE_USAGE = 'More than 200 agent instructions*';
+
+export const AGENT_STARTUP_FEATURES = [
+  'Centralized Instruction Hub for skills, subagents, hooks, and MCP configs',
+  'Native plugins for Claude Code and Codex, plus a Gemini CLI extension',
+  'Trace analysis for stale or conflicting instructions',
+  'Remediations you review and merge',
+];
+
+export const AGENT_GROWTH_FEATURES = [
+  'Priority trace analysis across more agent sessions',
+];
+
+export const AGENT_ENTERPRISE_FEATURES = [
+  'Optional eval-gating on remediations',
+];
+
+export const AGENT_INSTRUCTIONS_FOOTNOTE =
+  '* Agent instructions are skills, subagent (agent) definitions, hooks, and shared MCP server configurations.';
+
 export function formatMonthlyUsd(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

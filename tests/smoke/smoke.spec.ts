@@ -287,12 +287,27 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /role="tablist"/);
   assert.match(homeHtml, /for customer-facing docs/);
   assert.match(homeHtml, /for agent instructions/);
-  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, default-visible).
+  // Default tab (ProductSwitcher.astro): the "for agent instructions" pill is now
+  // the default-selected tab, and "for customer-facing docs" is not. Use lookahead
+  // regexes so raw HTML attribute order can vary — we only require the pill's id and
+  // aria-selected to co-occur in the same opening tag.
+  assert.match(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
   assert.match(homeHtml, /id="pl-hero-panel-docs"/);
+  // The docs panel carries the `hidden` attribute; the agents panel does not.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
   assert.match(homeHtml, /Write the docs\./);
   assert.match(homeHtml, /Skip the busywork\./);
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
-  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, hidden by default but in the DOM).
+  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
   assert.match(homeHtml, /Govern your agent instructions\./);
   assert.match(homeHtml, /AGENTS\.md, CLAUDE\.md, and Skills/);
@@ -328,6 +343,22 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /Startup/);
   assert.match(pricingHtml, /Growth/);
   assert.match(pricingHtml, /Enterprise/);
+  // New two-tab pricing switcher (PricingCards.astro) mirroring the homepage. Both
+  // pricing panels are server-rendered, so the switcher and the agent-instructions
+  // content are present in the fetched HTML regardless of the default tab.
+  assert.match(pricingHtml, /role="tablist"/);
+  assert.match(pricingHtml, /for agent instructions/);
+  assert.match(pricingHtml, /for customer-facing docs/);
+  // Agent-instructions pricing view: "Contact us" price, usage boundaries, footnote,
+  // and distinctive feature bullets — all strings that do not collide with docs-side copy.
+  assert.match(pricingHtml, /Contact us/);
+  assert.match(pricingHtml, /Fewer than 50 agent instructions/);
+  assert.match(pricingHtml, /50-200 agent instructions/);
+  assert.match(pricingHtml, /More than 200 agent instructions/);
+  assert.match(pricingHtml, /Agent instructions are skills, subagent/);
+  assert.match(pricingHtml, /Centralized Instruction Hub/);
+  assert.match(pricingHtml, /Native plugins for Claude Code and Codex/);
+  // Docs-side pricing (server-rendered on the hidden docs panel) still holds in full.
   assert.match(pricingHtml, /\$500\s*\/\s*mo/);
   assert.match(pricingHtml, /All plans include a 14-day free trial\./);
   assert.match(pricingHtml, /Up to 200 Pages\*/);
@@ -420,6 +451,12 @@ test('website markdown endpoints are available for agent-friendly content', asyn
     assert.match(body, route.heading, `Expected ${route.path} to include its markdown title.`);
     assert.match(body, route.detail, `Expected ${route.path} to include key agent-facing content.`);
   }
+
+  // The pricing markdown mirror now also carries the agent-instructions section
+  // (websiteMarkdown/pricing.md) alongside the unchanged docs-side plans.
+  const pricingMd = await (await fetch(`${preview.baseUrl}/pricing.md`)).text();
+  assert.match(pricingMd, /## For agent instructions/);
+  assert.match(pricingMd, /Agent instructions are skills, subagent/);
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
