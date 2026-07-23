@@ -1,6 +1,6 @@
 ---
 title: Teach Promptless a custom task
-description: Give Promptless a new or customized workflow by pairing a trigger with written instructions, using inbound documentation PR review as a worked example
+description: Give Promptless a new or customized workflow by pairing a trigger with written instructions — the general process, plus a complete worked example
 slug: docs/get-the-most-out/teach-promptless-a-custom-task
 type: guide
 tags:
@@ -13,9 +13,9 @@ sidebar:
   label: Teach a custom task
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, LinkCard } from '@astrojs/starlight/components';
 
-Promptless ships with default behaviors, like reviewing code PRs for documentation impact, and you can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page shows how the two fit together, using inbound documentation PR review as a worked example.
+Promptless ships with default behaviors, like reviewing code PRs for documentation impact, and you can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page covers the general process — prerequisites, the workflow, the trigger, and how a run unfolds. A complete worked example lives on its own page: [Example: review inbound documentation PRs](/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs).
 
 ## The two ingredients of a custom task
 
@@ -26,11 +26,21 @@ Every custom task combines two pieces:
 
 The agent follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
 
-This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The rest of this page walks through one worked example.
+This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The worked example at the end of this page shows one end-to-end illustration.
 
 <Aside type="note">
   This page builds on [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs), which covers where Promptless reads custom guidance — `AGENTS.md`/`CLAUDE.md` in your docs repo, Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`, and `PROMPTLESS.md`.
 </Aside>
+
+## Prerequisites
+
+Before you build a custom task, make sure you have:
+
+- **The relevant integration or trigger source connected** — for example, the GitHub integration for a `github_pr` task.
+- **A Knowledge Base** where your `PROMPTLESS.md` and/or a custom Agent Skill live.
+- **Org-admin access** to edit `PROMPTLESS.md` and `promptless.yaml` — or the ability to ask Promptless to make those edits for you.
+
+Concrete, per-task prerequisites live on each worked example's page.
 
 ## Write the workflow
 
@@ -64,52 +74,35 @@ triggers:
           - docs/
 ```
 
-The `github_pr` trigger supports exactly three events: `opened`, `first_approval`, and `merge`. For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers).
+For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers).
+
+<Aside type="caution">
+  The `github_pr` trigger supports exactly three events — `opened`, `first_approval`, and `merge` — only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when new commits are pushed. To re-review after new commits, request it manually via an `@promptless` mention in a PR comment (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+</Aside>
 
 <Aside type="note">
   Custom tasks built this way are event-driven: a trigger fires on new events (like a PR opening) and does not retroactively scan or audit your existing pages. For one-time, corpus-wide work such as audits, retrofits, or writing from scratch, use [Pay down docs debt with Deep Analysis](/docs/get-the-most-out/pay-down-docs-debt).
 </Aside>
 
-## Worked example: review inbound documentation PRs
+## How a run unfolds
 
-As designed, this workflow reviews a documentation PR authored by someone other than Promptless on two dimensions: (a) documentation quality and style, and (b) correctness against the source code. The trigger fires when such a PR opens against your docs repo, and the written workflow tells the agent how to review it. This example describes the intended end-to-end design; see the note under [What Promptless does on each qualifying PR](#what-promptless-does-on-each-qualifying-pr) for what is available today.
+Once the workflow and trigger are in place, a custom task runs the same way every time:
 
-### Define the workflow
+1. The trigger fires on a qualifying event (for a `github_pr` task, a matching pull request).
+2. Promptless reads the relevant context for that event.
+3. It follows your written workflow step by step.
+4. It produces the output your instructions define.
 
-Paste an instruction block like this into `PROMPTLESS.md` (or a custom skill):
+The specifics — what context is read and what output lands — depend on the task; see a worked example for the concrete details.
 
-```markdown
-# Inbound documentation PR review
-
-When a pull request is opened against the docs repo by someone other than
-Promptless:
-
-- Review the changes for documentation quality and style, checking that they
-  match our voice, structure, and formatting conventions.
-- Verify the PR's claims against the source code, and flag anything that does
-  not match how the product behaves today.
-- Prefer making direct edits on the PR branch to fix issues you find.
-  (intended design; not yet live — see note below)
-- Always leave a top-level summary comment describing what you reviewed and
-  what you changed.
-- Set a GitHub review state that reflects your assessment.
-  (intended design; not yet live — see note below)
-```
-
-### Scope the trigger to your docs repo
-
-Scope a `github_pr` trigger to your documentation repo (or repos) and listen on the `opened` event, optionally adding `first_approval`. Reuse the YAML shape shown earlier, pointing `repos` at your docs repo. Use the **Choose specific directories to trigger this project** option (the `trigger_directories` key in the illustration above) to narrow the scope to your docs content, for example `docs/`.
-
-<Aside type="caution">
-  The `github_pr` events are `opened`, `first_approval`, and `merge` only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when a contributor pushes new commits. To re-review after new commits, request it manually — an `@promptless` mention in a PR comment re-triggers a review (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+<Aside type="note">
+  Your instructions can describe steps that go beyond what Promptless can currently execute for a given trigger. Promptless does the parts it supports today and treats the rest as intended design. Each worked example's "What's available today" section spells out the current limits for that task, so check it for specifics.
 </Aside>
 
-### What Promptless does on each qualifying PR
+## A complete worked example
 
-When a qualifying PR opens, Promptless detects it, reads the full PR context (title and description, diff, review comments, and commits), reviews it against your instructions on both dimensions, and posts its findings as a top-level summary comment on the PR.
+The **review inbound documentation PRs** example demonstrates the full process end to end: a written review workflow paired with a `github_pr` trigger. It shows the concrete prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` updates for one real task, and it spells out exactly what Promptless delivers today.
 
-<Aside type="caution">
-  Today the review agent posts a **top-level summary PR comment**, which is available now. It cannot yet push edits directly to a contributor's PR branch, submit a formal GitHub review state (approve or request changes), or leave inline review comments — the team is actively working on the permissions for this. So the "direct edits" and "review state" parts of the example describe the intended design; today's guaranteed deliverable is the top-level summary comment. In practice, today this delivers an automatic first-pass review comment on every qualifying PR, but it does not yet act as an enforceable branch-protection or required-status-check gate.
-</Aside>
+<LinkCard title="Example: review inbound documentation PRs" href="/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="A worked github_pr task: the prerequisites, workflow instructions, trigger YAML, and PROMPTLESS.md updates end to end." />
 
 Need help? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).
