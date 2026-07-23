@@ -94,6 +94,41 @@
     let locked = false;
     let intervalId: number | undefined;
 
+    // The docs-track below-the-fold slot (the 1.0 demo video) is revealed only
+    // once the user *locks* the docs tab — never during the auto-rotate preview.
+    // Keeping it out of the rotate cycle avoids the tall video popping in/out
+    // every ROTATE_MS and shifting the page below it, and keeps the default
+    // (agents) view lean.
+    const belowFoldDocs = document.getElementById('pl-below-fold-docs');
+    const DOCS_TAB_ID = 'pl-product-switcher-tab-docs';
+
+    const syncBelowFold = () => {
+      if (!belowFoldDocs) return;
+      const show = locked && pills[activeIndex]?.id === DOCS_TAB_ID;
+      if (show) {
+        belowFoldDocs.removeAttribute('hidden');
+      } else {
+        if (!belowFoldDocs.hasAttribute('hidden')) {
+          // Tear any activated LiteYouTube embed back down to its facade before
+          // hiding so a playing video's audio doesn't keep running in a hidden
+          // container. LiteYouTube activates by injecting an <iframe> via
+          // replaceChildren() and marking the container [data-activated]; there
+          // is no separate teardown API. So we remove the injected <iframe> and
+          // clear data-activated, which stops playback (the player element is
+          // destroyed) and lets a later click re-inject a fresh iframe. We do
+          // NOT touch the iframe src (reloading it would re-autoplay while
+          // hidden).
+          belowFoldDocs
+            .querySelectorAll<HTMLElement>('.lite-youtube[data-activated]')
+            .forEach((embed) => {
+              embed.querySelector('iframe')?.remove();
+              delete embed.dataset.activated;
+            });
+        }
+        belowFoldDocs.setAttribute('hidden', '');
+      }
+    };
+
     const panelFor = (pill: HTMLButtonElement) => {
       const id = pill.getAttribute('aria-controls');
       return id ? document.getElementById(id) : null;
@@ -161,6 +196,7 @@
       activeIndex = index;
       if (focus) pills[index].focus();
       restartUnderline(pills[index]);
+      syncBelowFold();
     };
 
     const lockSelection = (index: number) => {
@@ -267,10 +303,15 @@
 
 <style>
   .pl-product-switcher {
+    position: sticky;
+    top: var(--sl-nav-height);
+    z-index: 5;
     display: flex;
     justify-content: center;
     width: 100%;
-    margin: 0 0 1.5rem;
+    padding: 0.75rem 0;
+    margin: 0 0 0.75rem;
+    background: var(--sl-color-bg);
   }
 
   .pl-product-switcher-tablist {
@@ -356,6 +397,10 @@
   }
 
   @media (max-width: 768px) {
+    .pl-product-switcher {
+      position: static;
+    }
+
     .pl-product-switcher-tablist {
       width: 100%;
       flex-direction: column;

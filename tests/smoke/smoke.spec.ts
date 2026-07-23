@@ -304,6 +304,18 @@ test('homepage, meet, and pricing render website content', async () => {
   // The docs panel carries the `hidden` attribute; the agents panel does not.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*\shidden)[^>]*>/);
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
+  // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
+  // the default-active tab; it is revealed client-side only when the user locks the
+  // docs pill (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never
+  // run that JS, so we can only assert the DEFAULT (hidden) server state. Lookahead
+  // regex keeps us agnostic to raw HTML attribute ordering.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
+  // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
+  // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
+  // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
+  // the demo video id so a regression that drops the video is caught.
+  assert.match(homeHtml, /data-video-id="AONpRsZJkTY"/);
   assert.match(homeHtml, /Write the docs\./);
   assert.match(homeHtml, /Skip the busywork\./);
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
