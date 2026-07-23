@@ -309,11 +309,18 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Govern your agent instructions\./);
-  assert.match(homeHtml, /AGENTS\.md, CLAUDE\.md, and Skills/);
-  assert.match(homeHtml, /Promptless suggests fixes when your agent instructions go stale or conflict\./);
-  assert.match(homeHtml, /Finds stale or conflicting instructions/);
-  assert.match(homeHtml, /Flags every change for review/);
+  assert.match(homeHtml, /Give your AI workforce superpowers/);
+  // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
+  // in "team's"; assert fragments that straddle those so we don't depend on either.
+  assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
+  assert.match(homeHtml, /<code>AGENTS\.md<\/code>/);
+  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
+  assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
+  assert.match(homeHtml, /Works with all your agents/);
+  // Lock the new agents-panel logo strip that follows the third bullet.
+  assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
+  assert.match(homeHtml, /alt="Gemini CLI"/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
@@ -349,6 +356,20 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /role="tablist"/);
   assert.match(pricingHtml, /for agent instructions/);
   assert.match(pricingHtml, /for customer-facing docs/);
+  // Default tab (PricingCards.astro): the docs pill is now the default-selected tab
+  // and the agents pill is not; correspondingly the agents panel carries `hidden`
+  // and the docs panel does not. DOM order of pills/panels is unchanged. Lookahead
+  // regexes keep us agnostic to raw HTML attribute ordering.
+  assert.match(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.match(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*\shidden)[^>]*>/);
   // Agent-instructions pricing view: "Contact us" price, usage boundaries, footnote,
   // and distinctive feature bullets — all strings that do not collide with docs-side copy.
   assert.match(pricingHtml, /Contact us/);
