@@ -15,18 +15,16 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-This example teaches Promptless to automatically review a documentation PR opened by someone *other than* Promptless, on two dimensions: (a) documentation quality and style, and (b) correctness against the source code. It is an example of the general process described in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task) — a written review workflow paired with a `github_pr` trigger. The steps below first write the workflow, then configure the trigger, then save the workflow, hook, and trigger. They describe the intended end-to-end design; see [What's available today](#what-promptless-does-on-each-qualifying-pr) for what Promptless actually delivers right now.
+This example teaches Promptless to automatically review a documentation PR opened by someone *other than* Promptless, on two dimensions: documentation quality and style, and correctness against the source code. It is an example of the general process described in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task) — a written review workflow paired with a GitHub PR trigger. The steps below first write the workflow, configure the trigger, then save the workflow, hook, and trigger. They describe the intended end-to-end design.
 
 ## Prerequisites
 
 Before you set up this task, make sure you have:
 
 - **The GitHub integration connected** to your documentation repository — for example, `acme/docs`.
-- **A Knowledge Base** that holds the "If, then" hook in `PROMPTLESS.md`. The review workflow *body* lives as a file under `doc_workflows/` in the Knowledge Base (for example, `doc_workflows/review-inbound-doc-prs.md`) or as an Agent Skill in the doc collection.
 - **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
-- **Open-source or public-repo setups** can follow the [Open Source Quickstart](/docs/start-here/open-source-quickstart) to connect the repo, since this task reviews outside-contributor PRs.
 
-Set up the task in three steps: write the workflow, configure the trigger, then save the workflow, hook, and trigger. The caution notes below flag which parts describe the intended design versus what runs today.
+Set up the task in three steps: write the workflow, configure the trigger, then save the workflow, hook, and trigger.
 
 <Steps>
   1. **Write the workflow.** The workflow captures *how* to review a contributor documentation PR: when it applies, what to check, and how to act. Write the workflow *body* as a markdown file under `doc_workflows/` in your Knowledge Base — for example, `doc_workflows/review-inbound-doc-prs.md` — with contents like this:
@@ -58,9 +56,9 @@ Set up the task in three steps: write the workflow, configure the trigger, then 
 
      Alternatively, define the review workflow as an Agent Skill living in the doc collection — for example, under `.claude/skills/` in `acme/docs`. In that case the `PROMPTLESS.md` hook must name that doc collection and skill, for example: "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection." See the hook requirement in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task).
 
-     The "direct edits" and "review state" instructions describe the intended design; see [What's available today](#what-promptless-does-on-each-qualifying-pr) for what runs right now. Write the workflow as shown — Promptless acts on the review and summary-comment instructions today, and it will pick up the direct-edit and review-state instructions automatically once that capability ships.
+     The "direct edits" and "review state" instructions describe the intended design. Write the workflow as shown — Promptless acts on the review and summary-comment instructions today, and it will pick up the direct-edit and review-state instructions automatically once that capability ships.
 
-  2. **Configure the trigger.** Scope a `github_pr` trigger to your documentation repository so the workflow fires when a contributor opens a PR there. Create it in the dashboard: in the left sidebar, select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. Build the trigger in the **Form** view (the default); the **YAML** view shows the underlying `promptless.yaml`. The trigger you create listens on the docs repo and narrows to your documentation content, and looks like this in YAML:
+  2. **Configure the trigger.** Scope a GitHub PR trigger to your documentation repository so the workflow fires when a contributor opens a PR there. Create it in the dashboard: in the left sidebar, select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. Build the trigger in the **Form** view (the default); the **YAML** view shows the underlying `promptless.yaml`. The trigger you create listens on the docs repo and narrows to your documentation content, and looks like this in YAML:
 
      ```yaml
      triggers:
@@ -82,10 +80,10 @@ Set up the task in three steps: write the workflow, configure the trigger, then 
      - **`merge`** covers the point where the PR lands.
      - **`trigger_directories: docs/`** narrows the trigger to your documentation content, so PRs that touch only unrelated files do not fire it.
 
-     The `github_pr` trigger supports exactly these three events. For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers). Saving on the Configuration page commits the trigger to `promptless.yaml` in your Agent Knowledge Base, or you can ask Promptless to make the change for you.
+     The GitHub PR trigger supports exactly these three events. For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers). Saving on the Configuration page commits the trigger to `promptless.yaml` in your Agent Knowledge Base, or you can ask Promptless to make the change for you.
 
      <Aside type="caution">
-       The `github_pr` events are `opened`, `first_approval`, and `merge` only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when a contributor pushes new commits. To re-review after new commits, request it manually — an `@promptless` mention in a PR comment re-triggers a review (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+       The GitHub PR trigger supports `opened`, `first_approval`, and `merge` only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when a contributor pushes new commits. To re-review after new commits, request it manually — an `@promptless` mention in a PR comment re-triggers a review (see [GitHub PRs](/docs/connect/triggers/github-prs)).
      </Aside>
 
   3. **Save the workflow, hook, and trigger.** The trigger is saved from the Configuration page in Step 2. Save the workflow file (`doc_workflows/review-inbound-doc-prs.md` or the Agent Skill) and the "If, then" hook in `PROMPTLESS.md` from the Agent Knowledge Base. There are two ways to do this:
@@ -106,5 +104,3 @@ When a contributor opens a qualifying PR, Promptless:
 <Aside type="caution">
   Today the review agent posts a **top-level summary PR comment**, which is available now. It cannot yet push edits directly to a contributor's PR branch, submit a formal GitHub review state (approve or request changes), or leave inline review comments — the team is actively working on the permissions for this. So the "direct edits" and "review state" parts of this example describe the intended design; today's guaranteed deliverable is the top-level summary comment. In practice, today this delivers an automatic first-pass review comment on every qualifying PR, but it does not yet act as an enforceable branch-protection or required-status-check gate.
 </Aside>
-
-Need help? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).

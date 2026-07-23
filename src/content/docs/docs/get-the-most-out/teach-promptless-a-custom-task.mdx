@@ -26,7 +26,7 @@ Every custom task combines two pieces:
 
 Promptless follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
 
-This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types), not just `github_pr`, so the same mechanism drives many different custom tasks. The example at the end of this page shows an end-to-end illustration.
+This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/reference/configuration-reference#trigger-types) so the same mechanism drives many different custom tasks. There is an example at the end of this page to illustrate.
 
 <Aside type="note">
   This page builds on [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs), which covers where Promptless reads custom guidance — `AGENTS.md`/`CLAUDE.md` in your docs repo, Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`, and `PROMPTLESS.md`.
@@ -36,28 +36,28 @@ This trigger-plus-instructions pattern is general: you pair written instructions
 
 Before you build a custom task, make sure you have:
 
-- **The relevant integration or trigger source connected.** For example, the GitHub integration for a `github_pr` task.
+- **The relevant integration or trigger source connected.** For example, the GitHub integration for a GitHub PR task.
 - **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
 
 ## Write the workflow
 
-The workflow is the *what*: the concrete instructions the agent follows once a trigger fires. Give the workflow a home and pair it with a hook. The workflow *body* lives in one of two places, and `PROMPTLESS.md` holds only an "If, then" *hook* that points to it:
+The workflow is the *what*: the concrete instructions the agent follows once a trigger fires. Give the workflow a home and pair it with an "If, then" hook in `PROMPTLESS.md`. The workflow can live in one of two places:
 
-- **As a markdown file under `doc_workflows/` in your Knowledge Base.** Write the instructions as their own file (for example, `doc_workflows/review-inbound-doc-prs.md`) and add a hook in `PROMPTLESS.md` that points to it.
-- **As an Agent Skill in a doc collection** (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`). Add a hook in `PROMPTLESS.md`, and because the skill lives in a doc collection, the hook must name *which* doc collection — for example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
+- **As a markdown file under `doc_workflows/` in your Knowledge Base.** Write the instructions as their own file (for example, `doc_workflows/review-inbound-doc-prs.md`).
+- **As an Agent Skill in a doc collection** (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`).
 
-Keep the workflow body out of `PROMPTLESS.md` itself; reserve `PROMPTLESS.md` for the hook. Hooks in `PROMPTLESS.md` apply to workflows defined anywhere in your Knowledge Base — a `doc_workflows/` file as well as a Skill in a doc collection. To view and edit Knowledge Base files, open the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base).
+Add the hook in `PROMPTLESS.md`, and if the skill lives in a doc collection, the hook should name *which* doc collection. For example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
 
-There are two ways to update these instructions:
+<Aside type="caution">
+  For a custom workflow to activate reliably, have an explicit "If, then" hook in `PROMPTLESS.md` — of the form "If \[condition], then \[do this]." `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always visible to the agent, whereas workflows and Agent Skills are only loaded on demand. A workflow that lives only in a separate workflow or Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
+</Aside>
+
+There are two ways to add or update these instructions:
 
 - An organization admin edits `PROMPTLESS.md` in the Agent Knowledge Base (in the left sidebar, select **Agent Knowledge Base**).
 - You can ask Promptless to make these changes for you — for example, by requesting the update the next time you're working with Promptless — and it edits `PROMPTLESS.md` (or the custom skill) and commits the change.
 
 Good workflow instructions are concrete. Spell out what to check, what to prioritize, and what output to produce, so the agent knows exactly what a successful run looks like.
-
-<Aside type="caution">
-  For a custom workflow to activate reliably, have an explicit "If, then" hook in `PROMPTLESS.md` — of the form "If \[condition], then \[do this]." `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always in front of the agent, whereas workflows and Agent Skills are only loaded on demand — when a task matches a skill's description. A workflow that lives only in a separate workflow or Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
-</Aside>
 
 ## Configure the trigger
 
@@ -83,32 +83,22 @@ triggers:
 For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers).
 
 <Aside type="caution">
-  The `github_pr` trigger supports exactly three events — `opened`, `first_approval`, and `merge` — only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when new commits are pushed. To re-review after new commits, request it manually via an `@promptless` mention in a PR comment (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+  The GitHub triggers support `opened`, `first_approval`, and `merge` events. If you want additional reviews at other times in the PR lifecycle, such as when new commits are pushed, request it manually via an `@promptless` mention in a PR comment (see [GitHub PRs](/docs/connect/triggers/github-prs)).
 </Aside>
 
-<Aside type="note">
-  Custom tasks built this way are event-driven: a trigger fires on new events (like a PR opening) and does not retroactively scan or audit your existing pages. For one-time, corpus-wide work such as audits, retrofits, or writing from scratch, use [Pay down docs debt with Deep Analysis](/docs/get-the-most-out/pay-down-docs-debt).
-</Aside>
+Custom tasks built this way are event-driven: a trigger fires on new events (like a PR opening) and does not retroactively scan or audit your existing pages. For one-time, corpus-wide work such as audits, retrofits, or writing from scratch, use [Pay down docs debt with Deep Analysis](/docs/get-the-most-out/pay-down-docs-debt).
 
 ## How a run unfolds
 
 Once the workflow and trigger are in place, a custom task runs the same way every time:
 
-1. The trigger fires on a qualifying event (for a `github_pr` task, a matching pull request).
+1. The trigger fires on a qualifying event (like a pull request being opened).
 2. Promptless reads the relevant context for that event.
 3. It follows your written workflow step by step.
 4. It produces the output your instructions define.
 
-The specifics — what context is read and what output lands — depend on the task; see the example for the concrete details.
+The specifics — what context is read and what output lands — depend entirely on the workflow you define.
 
-<Aside type="note">
-  Your instructions can describe steps that go beyond what Promptless can currently execute for a given trigger. Promptless does the parts it supports today and treats the rest as intended design. The example's "What's available today" section spells out the current limits for that task, so check it for specifics.
-</Aside>
+The **review inbound documentation PRs** example demonstrates the full process end to end: a written review workflow paired with a GitHub PR trigger. It shows the concrete prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` updates for one real task, and it spells out exactly what Promptless can deliver today.
 
-## A complete example
-
-The **review inbound documentation PRs** example demonstrates the full process end to end: a written review workflow paired with a `github_pr` trigger. It shows the concrete prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` updates for one real task, and it spells out exactly what Promptless delivers today.
-
-<LinkCard title="Example: review inbound documentation PRs" href="/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="An end-to-end `github_pr` task: the prerequisites, workflow instructions, trigger YAML, and PROMPTLESS.md updates end to end." />
-
-Need help? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).
+<LinkCard title="Example: review inbound documentation PRs" href="/docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="An end-to-end GitHub PR custom workflow." />
