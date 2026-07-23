@@ -1,0 +1,106 @@
+---
+title: "Example: review inbound documentation PRs"
+description: Teach Promptless to review contributor documentation PRs — prerequisites, trigger, workflow instructions, and PROMPTLESS.md updates
+slug: docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-07-23T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 35
+  label: "Example: review inbound doc PRs"
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+This example teaches Promptless to automatically review a documentation PR opened by someone *other than* Promptless, on two dimensions: documentation quality and style, and correctness against the source code. It is an example of the general process described in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task) — a written review workflow paired with a GitHub PR trigger. The steps below first write the workflow, configure the trigger, then save the workflow, hook, and trigger. They describe the intended end-to-end design.
+
+## Prerequisites
+
+Before you set up this task, make sure you have:
+
+- **The GitHub integration connected** to your documentation repository — for example, `acme/docs`.
+- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
+
+Set up the task in three steps: write the workflow, configure the trigger, then save the workflow, hook, and trigger.
+
+<Steps>
+  1. **Write the workflow.** The workflow captures *how* to review a contributor documentation PR: when it applies, what to check, and how to act. Write the workflow *body* as a markdown file under `doc_workflows/` in your Knowledge Base — for example, `doc_workflows/review-inbound-doc-prs.md` — with contents like this:
+
+     ```markdown
+     # Inbound documentation PR review
+
+     When a pull request is opened in the docs repo (acme/docs) by an author who is
+     not Promptless, and the PR touches documentation content:
+
+     - No-op on Promptless-authored PRs. There is no per-author config filter, so
+       check the PR author and stop if it is the Promptless bot.
+     - Review the changes on two dimensions:
+       1. Quality and style — check that the edits match your voice, structure, and
+          formatting conventions, plus any Vale rules the repo enforces.
+       2. Correctness against the source code — verify the PR's claims against the
+          actual product source, and flag or fix anything stale or unsupported.
+     - Lean toward direct edits on the PR branch for clear fixes; comment only for
+       ambiguity or judgment calls that need the author to resolve them.
+     - Always post a top-level summary comment describing what you reviewed, what you
+       changed, and any open questions. This is required even when nothing changed.
+     - Set a GitHub review state (approve or request changes) by default; this
+       behavior is configurable.
+     ```
+
+     Then add an explicit "If, then" hook in `PROMPTLESS.md` that points to this workflow, so it fires reliably (`PROMPTLESS.md` is always loaded into the agent's instructions, whereas the workflow file is loaded on demand):
+
+     > If a pull request is opened in `acme/docs` by an author who is not Promptless and it touches documentation content, then follow the inbound documentation PR review workflow in `doc_workflows/review-inbound-doc-prs.md`.
+
+     Alternatively, define the review workflow as an Agent Skill living in the doc collection — for example, under `.claude/skills/` in `acme/docs`. In that case the `PROMPTLESS.md` hook must name that doc collection and skill, for example: "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection." See the hook requirement in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task).
+
+     The "direct edits" and "review state" instructions describe the intended design. Write the workflow as shown — Promptless acts on the review and summary-comment instructions today, and it will pick up the direct-edit and review-state instructions automatically once that capability ships.
+
+  2. **Configure the trigger.** Scope a GitHub PR trigger to your documentation repository so the workflow fires when a contributor opens a PR there. Create it in the dashboard: in the left sidebar, select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. Build the trigger in the **Form** view (the default); the **YAML** view shows the underlying `promptless.yaml`. The trigger you create listens on the docs repo and narrows to your documentation content, and looks like this in YAML:
+
+     ```yaml
+     triggers:
+       review-inbound-doc-prs:
+         trigger_type: github_pr
+         match:
+           - repos:
+               - acme/docs
+             trigger_on:
+               - opened
+               - first_approval
+               - merge
+             trigger_directories:
+               - docs/
+     ```
+
+     - **`opened`** starts the review as soon as a contributor opens the PR — the primary moment for this task.
+     - **`first_approval`** lets Promptless weigh in around the first human approval.
+     - **`merge`** covers the point where the PR lands.
+     - **`trigger_directories: docs/`** narrows the trigger to your documentation content, so PRs that touch only unrelated files do not fire it.
+
+     The GitHub PR trigger supports exactly these three events. For the full set of options, see [GitHub PRs](/docs/connect/triggers/github-prs) and the [Configuration Reference](/docs/reference/configuration-reference#triggers). Saving on the Configuration page commits the trigger to `promptless.yaml` in your Agent Knowledge Base, or you can ask Promptless to make the change for you.
+
+     <Aside type="caution">
+       The GitHub PR trigger supports `opened`, `first_approval`, and `merge` only. There is no "updated"/synchronize/re-review-on-push event today, so you can't configure automatic re-review when a contributor pushes new commits. To re-review after new commits, request it manually — an `@promptless` mention in a PR comment re-triggers a review (see [GitHub PRs](/docs/connect/triggers/github-prs)).
+     </Aside>
+
+  3. **Save the workflow, hook, and trigger.** The trigger is saved from the Configuration page in Step 2. Save the workflow file (`doc_workflows/review-inbound-doc-prs.md` or the Agent Skill) and the "If, then" hook in `PROMPTLESS.md` from the Agent Knowledge Base. There are two ways to do this:
+
+     - An organization admin edits the files directly in the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base) (in the left sidebar, select **Agent Knowledge Base**).
+     - You can ask Promptless to make these changes for you — it edits `PROMPTLESS.md`, the workflow file, and `promptless.yaml` and commits the change.
+</Steps>
+
+## What Promptless does on each qualifying PR
+
+When a contributor opens a qualifying PR, Promptless:
+
+1. Detects the qualifying PR.
+2. Reads the full PR context — title and description, the diff, review comments, and commits.
+3. Reviews the changes on both dimensions: quality and style, and correctness against the source code.
+4. Posts a top-level summary comment describing what it reviewed and what it found.
+
+<Aside type="caution">
+  Today the review agent posts a **top-level summary PR comment**, which is available now. It cannot yet push edits directly to a contributor's PR branch, submit a formal GitHub review state (approve or request changes), or leave inline review comments — the team is actively working on the permissions for this. So the "direct edits" and "review state" parts of this example describe the intended design; today's guaranteed deliverable is the top-level summary comment. In practice, today this delivers an automatic first-pass review comment on every qualifying PR, but it does not yet act as an enforceable branch-protection or required-status-check gate.
+</Aside>
