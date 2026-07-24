@@ -322,6 +322,15 @@ test('homepage, meet, and pricing render website content', async () => {
   // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
   // the demo-video id lock below).
   assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
+  // "Typical improvements after 30 days" stat block (home.mdx, last child of
+  // #pl-below-fold-agents). The agents below-fold ships server-rendered visible, so the
+  // heading, the four stat figures, and the caveat are all present in the fetched HTML.
+  assert.match(homeHtml, /Typical improvements after 30 days/);
+  assert.match(homeHtml, /42%/);
+  assert.match(homeHtml, /15%/);
+  assert.match(homeHtml, /32%/);
+  assert.match(homeHtml, /18%/);
+  assert.match(homeHtml, /Compared against our pre-governed instructions/);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
