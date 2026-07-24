@@ -1,0 +1,97 @@
+---
+title: "Example: review inbound documentation PRs"
+description: Teach Promptless to review contributor documentation PRs — prerequisites, trigger, workflow instructions, and PROMPTLESS.md updates
+slug: docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-07-23T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 35
+  label: "Example: review inbound doc PRs"
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+This example teaches Promptless to automatically review a documentation PR opened by someone *other than* Promptless, focusing on documentation quality and style adherence as well as correctness against the source code. It is an example of the general process described in [Teach Promptless a custom task](/docs/get-the-most-out/teach-promptless-a-custom-task), a written review workflow paired with a GitHub PR trigger. The steps below write the workflow, configure the trigger, then save the workflow, hook, and trigger.
+
+## Prerequisites
+
+Before you set up this task, make sure you have:
+
+- **The GitHub integration connected** to your documentation repository — for example, `acme/docs`.
+- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
+
+Set up the task in three steps: write the workflow, configure the trigger, then save the workflow, hook, and trigger.
+
+<Steps>
+  1. **Write the workflow.** The workflow captures *how* to review a contributor documentation PR: when it applies, what to check, and how to act. Write the workflow *body* as a markdown file under `doc_workflows/` in your Knowledge Base — for example, `doc_workflows/review-inbound-doc-prs.md` — with contents like this:
+
+     ```markdown
+     # Inbound documentation PR review
+
+     When a pull request is opened in the docs repo (acme/docs) or you are requested to perform a PR review, and the PR touches documentation content the governed agent instructions (`SKILL.md`, `AGENTS.md`, agent definitions, prompts, etc ):
+
+     1. Acknowledge the review before starting it. Before doing any review work (reading/verifying the content or making edits), acknowledge that the review is underway so the author and team can see Promptless has picked it up:
+
+       - **Set Promptless as an in-progress reviewer** on the PR (request/assign Promptless as a reviewer so the PR shows a review is pending), and
+       - **Leave a comment on the PR that a review is in progress.**
+
+     Don't comment on or review out-of-scope PRs.
+
+     2. Review every in-scope PR on the following dimensions:
+
+       - **Quality and style.** Check that the edits match your voice, structure, and formatting conventions, plus any Vale rules the repo enforces.
+       - **Correctness against the source code.** Verify the PR's claims against the actual product source, and flag or fix anything stale or unsupported.
+
+     3. Act on your findings.
+
+         - **Make direct edits** on the PR branch for clear fixes, like typos, broken links, wrong flag names, outdated values, awkward sentences with obvious better phrasing, or factual corrections you verified against source. Do not leave a comment asking them to make a change you could make yourself.
+
+         - **Leave comments** when there is ambiguity that needs the contributor to resolve it, like two valid interpretations, a design/intent question, a claim you can't verify from source, or a change that would alter meaning in a way the author should confirm. Comments are for judgment calls, not for changes you're confident about.
+
+     4. Leave a top-level summary comment that states what you reviewed, what you changed directly (with a short list), what you left as open questions/comments and why, and the overall assessment. The summary comment must be present even when you made only direct edits and left no inline comments, and even when you found nothing to change (in which case say so).
+
+     5. Set a GitHub review state. Unless told otherwise, conclude the review by setting a GitHub review state (approve when the docs are correct and ready; request changes when unresolved comments block it).
+     ```
+
+     Then add an explicit "If, then" hook in `PROMPTLESS.md` that points to this workflow, so it fires reliably (`PROMPTLESS.md` is always loaded into the agent's instructions, whereas the workflow file is loaded on demand):
+
+     > If a pull request that touches documentation content is opened in `acme/docs`, then follow the inbound documentation PR review workflow in `doc_workflows/review-inbound-doc-prs.md`.
+
+     Alternatively, define the review workflow as an Agent Skill living in the doc collection, like under `.claude/skills/review-inbound-doc-prs/SKILL.md` in `acme/docs`. In that case the `PROMPTLESS.md` hook must name that doc collection and skill:
+
+     > If a pull request that touches documentation content is opened in `acme/docs`, then use the `review-inbound-doc-prs` skill from `acme/docs`.
+
+  2. **Configure the trigger.** Scope a GitHub PR trigger to your documentation repository so the workflow fires when a contributor opens a PR there. Create it in the dashboard: in the left sidebar, select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. Build the trigger in the **Form** view (the default); the **YAML** view shows the underlying `promptless.yaml`. The trigger you create listens for PRs opened in the docs repo, and looks like this in YAML:
+
+     ```yaml
+     triggers:
+       review-inbound-doc-prs:
+         trigger_type: github_pr
+         match:
+           - repos:
+               - acme/docs
+             trigger_on:
+               - opened
+     ```
+
+     **`opened`** starts the review as soon as a contributor opens the PR — the primary moment for this task.
+
+  3. **Save the workflow, hook, and trigger.** The trigger is saved from the Configuration page in Step 2. Save the workflow file (`doc_workflows/review-inbound-doc-prs.md` or the Agent Skill) and the "If, then" hook in `PROMPTLESS.md` from the Agent Knowledge Base. There are two ways to do this:
+
+     - An organization admin edits the files directly in the [Agent Knowledge Base](/docs/get-the-most-out/agent-knowledge-base) (in the left sidebar, select **Agent Knowledge Base**).
+     - You can ask Promptless to make these changes for you — it edits `PROMPTLESS.md`, the workflow file, and `promptless.yaml` and commits the change.
+</Steps>
+
+## What Promptless does on each qualifying PR
+
+When a contributor opens a qualifying PR, Promptless:
+
+1. Detects and acknowledges the qualifying PR.
+2. Reads the full PR context — title and description, the diff, review comments, and commits.
+3. Reviews the changes.
+4. Updates the review state and posts a summary comment describing what it reviewed and what it found.
+
