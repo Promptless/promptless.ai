@@ -281,13 +281,93 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Write the docs/);
+  // Product switcher (ProductSwitcher.astro): an accessible tablist of two pills
+  // rendered above the hero. Both pills and both hero panels are server-rendered,
+  // so we assert the full structure and copy of both.
+  assert.match(homeHtml, /role="tablist"/);
+  assert.match(homeHtml, /for customer-facing docs/);
+  assert.match(homeHtml, /for agent instructions/);
+  // Default tab (ProductSwitcher.astro): the "for agent instructions" pill is now
+  // the default-selected tab, and "for customer-facing docs" is not. Use lookahead
+  // regexes so raw HTML attribute order can vary — we only require the pill's id and
+  // aria-selected to co-occur in the same opening tag.
+  assert.match(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
+  assert.match(homeHtml, /id="pl-hero-panel-docs"/);
+  // The docs panel carries the `hidden` attribute; the agents panel does not.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
+  // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
+  // the default-active tab; it is revealed client-side only when the user locks the
+  // docs pill (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never
+  // run that JS, so we can only assert the DEFAULT (hidden) server state. Lookahead
+  // regex keeps us agnostic to raw HTML attribute ordering.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
+  // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
+  // agents pill is the default-active tab, this slot ships server-rendered VISIBLE (no
+  // `hidden` attribute) and is hidden client-side only when the user locks the docs pill
+  // (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never run that JS, so
+  // we assert the DEFAULT (visible) server state. Lookahead regex keeps us agnostic to raw
+  // HTML attribute ordering.
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
+  // the demo-video id lock below).
+  assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
+  // "Typical improvements after 30 days" stat block (home.mdx, last child of
+  // #pl-below-fold-agents). The agents below-fold ships server-rendered visible, so the
+  // heading, the four stat figures, and the caveat are all present in the fetched HTML.
+  assert.match(homeHtml, /Typical improvements after 30 days/);
+  assert.match(homeHtml, /42%/);
+  assert.match(homeHtml, /15%/);
+  assert.match(homeHtml, /32%/);
+  assert.match(homeHtml, /18%/);
+  assert.match(homeHtml, /Compared against our pre-governed instructions/);
+  // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
+  // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
+  // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
+  // the demo video id so a regression that drops the video is caught.
+  assert.match(homeHtml, /data-video-id="AONpRsZJkTY"/);
+  assert.match(homeHtml, /Write the docs\./);
+  assert.match(homeHtml, /Skip the busywork\./);
+  assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
+  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
+  assert.match(homeHtml, /id="pl-hero-panel-agents"/);
+  assert.match(homeHtml, /Give your AI workforce superpowers/);
+  // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
+  // in "team's"; assert fragments that straddle those so we don't depend on either.
+  assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
+  assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
+  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
+  assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
+  assert.match(homeHtml, /Works with all your agents/);
+  // Lock the new agents-panel logo strip that follows the third bullet.
+  assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
+  assert.match(homeHtml, /alt="Gemini CLI"/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
   assert.match(homeHtml, /data-track-action="ask_ai"/);
   assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
+  // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
+  assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
+  assert.doesNotMatch(homeHtml, /Promptless for Docs/);
+  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
+  assert.doesNotMatch(homeHtml, /Coming soon/i);
+  // Guard against the pre-reword agents-panel copy silently returning.
+  assert.doesNotMatch(homeHtml, /governed documentation/);
+  assert.doesNotMatch(homeHtml, /control plane/);
+  assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);
@@ -302,6 +382,36 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /Startup/);
   assert.match(pricingHtml, /Growth/);
   assert.match(pricingHtml, /Enterprise/);
+  // New two-tab pricing switcher (PricingCards.astro) mirroring the homepage. Both
+  // pricing panels are server-rendered, so the switcher and the agent-instructions
+  // content are present in the fetched HTML regardless of the default tab.
+  assert.match(pricingHtml, /role="tablist"/);
+  assert.match(pricingHtml, /for agent instructions/);
+  assert.match(pricingHtml, /for customer-facing docs/);
+  // Default tab (PricingCards.astro): the docs pill is now the default-selected tab
+  // and the agents pill is not; correspondingly the agents panel carries `hidden`
+  // and the docs panel does not. DOM order of pills/panels is unchanged. Lookahead
+  // regexes keep us agnostic to raw HTML attribute ordering.
+  assert.match(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.match(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*\shidden)[^>]*>/);
+  // Agent-instructions pricing view: "Contact us" price, usage boundaries, footnote,
+  // and distinctive feature bullets — all strings that do not collide with docs-side copy.
+  assert.match(pricingHtml, /Contact us/);
+  assert.match(pricingHtml, /Fewer than 50 agent instructions/);
+  assert.match(pricingHtml, /50-200 agent instructions/);
+  assert.match(pricingHtml, /More than 200 agent instructions/);
+  assert.match(pricingHtml, /Agent instructions are skills, subagent/);
+  assert.match(pricingHtml, /Centralized Instruction Hub/);
+  assert.match(pricingHtml, /Native plugins for Claude Code and Codex/);
+  // Docs-side pricing (server-rendered on the hidden docs panel) still holds in full.
   assert.match(pricingHtml, /\$500\s*\/\s*mo/);
   assert.match(pricingHtml, /All plans include a 14-day free trial\./);
   assert.match(pricingHtml, /Up to 200 Pages\*/);
@@ -394,6 +504,12 @@ test('website markdown endpoints are available for agent-friendly content', asyn
     assert.match(body, route.heading, `Expected ${route.path} to include its markdown title.`);
     assert.match(body, route.detail, `Expected ${route.path} to include key agent-facing content.`);
   }
+
+  // The pricing markdown mirror now also carries the agent-instructions section
+  // (websiteMarkdown/pricing.md) alongside the unchanged docs-side plans.
+  const pricingMd = await (await fetch(`${preview.baseUrl}/pricing.md`)).text();
+  assert.match(pricingMd, /## For agent instructions/);
+  assert.match(pricingMd, /Agent instructions are skills, subagent/);
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
