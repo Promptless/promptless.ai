@@ -56,6 +56,7 @@ Current `action` values:
 | `watch_demo` | `jobs_page` |
 | `use_free_tool` | `free_tools` |
 | `view_commits` | `demo_social_proof` |
+| `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
 
@@ -74,7 +75,7 @@ section per page load.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities` |
+| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai` |
 | `page` | string | Pathname (always `/` for homepage) |
 
 **Component**: Inline IntersectionObserver in `posthog.astro`. Elements opt in

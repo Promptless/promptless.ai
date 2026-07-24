@@ -1,0 +1,83 @@
+name: remark-lint
+
+on:
+  pull_request:
+    paths:
+      - "src/content/docs/**/*.md"
+      - "src/content/docs/**/*.mdx"
+      - ".remarkrc.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/remark-lint.yml"
+
+# Needed so the auto-repair step can push the reflow back to the PR branch.
+# Effective only for same-repo PRs; fork PRs receive a read-only token (see the
+# "Commit repairs" / "Ensure repairs are committed" steps below).
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      # Check out the PR's head branch from wherever it lives (same repo or a
+      # fork) so a committed fix lands on the contributor's branch. Actions are
+      # pinned to commit SHAs because this job holds `contents: write`.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Guard: MDX-only syntax (import/export/JSX components) must live in `.mdx`
+      # files, not `.md`. remark parses `.md` with the MDX parser here, but Astro
+      # renders `.md` through the plain-Markdown pipeline — so autofixing MDX in a
+      # `.md` file reindents lists and BREAKS rendering (see adrs/0005). This
+      # blocks that class of mistake before the reformat can act on it.
+      - name: Guard against MDX syntax in .md files
+        run: |
+          if grep -rlE '^import |^export |<[A-Z][A-Za-z]+' src/content/docs --include='*.md'; then
+            echo "::error::.md files must not use MDX syntax (import/export/JSX components). Rename the file to .mdx."
+            exit 1
+          fi
+
+      # "Attempt to repair": remark's fix is a full reformat (remark-stringify),
+      # so this normalizes structure and fixes auto-fixable rule violations.
+      - name: Auto-repair
+        run: npm run lint:md:fix
+
+      # Commit repairs back to the PR branch — same-repo PRs only. Fork PRs get a
+      # read-only token, so pushing would fail; they are handled by the guard
+      # below instead. `file_pattern` is a directory path (not a glob) so every
+      # nested repair is staged; a glob like `**/*.mdx` can under-match and let a
+      # nested fix go uncommitted.
+      - name: Commit repairs
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
+        with:
+          commit_message: "style: remark-lint auto-fix"
+          file_pattern: src/content/docs
+
+      # Fail if any repair is still uncommitted. This closes two gaps: (a) a fork
+      # PR, where the commit step was skipped, and (b) any file the commit step
+      # did not stage. Without this, the block step below would lint the locally
+      # repaired working tree and pass green while the fixes never reached the PR.
+      - name: Ensure repairs are committed
+        run: |
+          if ! git diff --quiet -- src/content/docs; then
+            echo "::error::remark-lint produced fixes that were not committed (fork PR?). Run 'npm run lint:md:fix' locally and commit the result."
+            git --no-pager diff --stat -- src/content/docs
+            exit 1
+          fi
+
+      # "Block otherwise": --frail exits non-zero on any remaining lint message
+      # that the reformat could not fix.
+      - name: Block on remaining violations
+        run: npm run lint:md
