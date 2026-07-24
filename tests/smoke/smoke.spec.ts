@@ -311,6 +311,17 @@ test('homepage, meet, and pricing render website content', async () => {
   // run that JS, so we can only assert the DEFAULT (hidden) server state. Lookahead
   // regex keeps us agnostic to raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
+  // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
+  // agents pill is the default-active tab, this slot ships server-rendered VISIBLE (no
+  // `hidden` attribute) and is hidden client-side only when the user locks the docs pill
+  // (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never run that JS, so
+  // we assert the DEFAULT (visible) server state. Lookahead regex keeps us agnostic to raw
+  // HTML attribute ordering.
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
+  // the demo-video id lock below).
+  assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
