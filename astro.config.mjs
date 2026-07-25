@@ -164,7 +164,31 @@ export default defineConfig({
                 },
                 { label: 'Tune', collapsed: true, items: [{ autogenerate: { directory: 'docs/tune', collapsed: true } }] },
                 { label: 'Work the queue', collapsed: true, items: [{ autogenerate: { directory: 'docs/work-the-queue', collapsed: true } }] },
-                { label: 'Get the most out of it', collapsed: true, items: [{ autogenerate: { directory: 'docs/get-the-most-out', collapsed: true } }] },
+                {
+                  label: 'Get the most out of it',
+                  collapsed: true,
+                  // Enumerated (not a blanket autogenerate) because this group
+                  // contains a subdirectory — teach-promptless-a-custom-task/.
+                  // Starlight's autogenerate labels a nested directory with its
+                  // raw folder segment (no index-page frontmatter override
+                  // exists for subgroup labels), so a blanket autogenerate here
+                  // rendered the group label as "teach-promptless-a-custom-task".
+                  // Same explicit-subgroup pattern as Connect and Reference above.
+                  items: [
+                    { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
+                    { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
+                    {
+                      label: 'Teach a custom task',
+                      collapsed: true,
+                      items: [
+                        { label: 'Teach a custom task', slug: 'docs/get-the-most-out/teach-promptless-a-custom-task' },
+                        { autogenerate: { directory: 'docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
+                      ],
+                    },
+                    { label: 'Ask to update config', slug: 'docs/get-the-most-out/ask-promptless-to-update-config' },
+                  ],
+                },
                 { label: 'Scale', collapsed: true, items: [{ autogenerate: { directory: 'docs/scale', collapsed: true } }] },
                 { label: 'Audit', collapsed: true, items: [{ autogenerate: { directory: 'docs/audit', collapsed: true } }] },
                 { label: 'Migrate', collapsed: true, items: [{ autogenerate: { directory: 'docs/migrate', collapsed: true } }] },
