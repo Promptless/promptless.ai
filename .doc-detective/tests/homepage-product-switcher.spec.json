@@ -1,0 +1,213 @@
+{
+  "specId": "homepage-product-switcher",
+  "description": "Homepage product switcher (src/components/site/ProductSwitcher.astro driving regions in src/content/website/home.mdx and src/components/site/HeroV2.astro): a two-pill tablist that auto-rotates every 10s, locks on click, pauses on hover/focus, and keeps three per-track region pairs in visibility lockstep with the active pill. tests/smoke/smoke.spec.ts is fetch-only and can only assert the server-rendered default state, so the client-side contract is covered here. All URLs are origin-relative and resolve against `origin` in the Doc Detective config. No authentication, credentials, or test data are required.\n\nWhy the region checks read computed visibility and not just the `hidden` attribute: an inactive hero panel or hero aside keeps `hidden` but is styled `display: block; visibility: hidden` (HeroV2.astro `.pl-hero-v2-panel[hidden]`, site.css `.pl-hero-v2-aside[hidden]`) so switching tabs causes no layout shift. A text `find` inside such a region therefore still matches while the region is invisible to users, which would make prose assertions vacuous. The `runBrowserScript` probes below report attribute state and computed visibility together, so they fail if either drifts.\n\nAuto-rotation is skipped entirely under `prefers-reduced-motion: reduce`. The rotate-dependent tests assume the default no-preference setting, which is what headless Chrome reports.\n\nTiming note: rotation pauses while the pointer rests on the tablist or the hero panels and resumes with a fresh full 10s window on mouseleave, so the tests that must act on the docs track while it is still unlocked deliberately hover the tablist first and then move away. That buys a whole rotate window for the steps that follow instead of racing whatever remained of the current one.\n\nOrigin note: the config sets `origin` to https://promptless.ai, so this spec verifies the deployed site, not a branch preview. Run it after the change is deployed, or point `origin` at a preview URL for pre-merge verification.",
+  "tests": [
+    {
+      "testId": "product-switcher-default-agents-track",
+      "description": "On load, the agent-instructions pill is the selected tab and all three agent-track regions are the visible ones. Also pins the documented 10s rotate window, which the script publishes as the --pl-switcher-rotate custom property so the CSS underline countdown cannot desync from the JS timer.",
+      "steps": [
+        {
+          "description": "Open the homepage",
+          "goTo": "/"
+        },
+        {
+          "description": "Wait for the product switcher pills to render",
+          "find": {
+            "elementAria": "for agent instructions",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "The switcher script ran and published the documented 10s auto-rotate window",
+          "runBrowserScript": {
+            "script": "const root = document.querySelector('.pl-product-switcher'); return 'rotate=' + (root ? (root.style.getPropertyValue('--pl-switcher-rotate').trim() || 'unset') : 'missing');",
+            "output": "rotate=10000ms",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Agent-instructions track is active: its hero panel, hero aside, and below-fold slot are shown and visible; all three customer-facing-docs regions are hidden and invisible",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-hero-panel-agents'), state('pl-hero-panel-docs'), state('pl-hero-aside-agents'), state('pl-hero-aside-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=true pl-product-switcher-tab-docs=false pl-hero-panel-agents=shown/visible pl-hero-panel-docs=hidden/invisible pl-hero-aside-agents=shown/visible pl-hero-aside-docs=hidden/invisible pl-below-fold-agents=shown/visible pl-below-fold-docs=hidden/invisible",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "The visible agent-track hero aside is the one carrying the 30-day improvement stats, and the invisible docs aside is the one carrying the testimonials ticker. Guards the #776 regression that put the agent stats on both tabs.",
+          "runBrowserScript": {
+            "script": "const owns = (asideId, childSelector) => { const aside = document.getElementById(asideId); return asideId + '>' + childSelector + '=' + (aside && aside.querySelector(childSelector) ? 'yes' : 'no'); }; return [owns('pl-hero-aside-agents', '.pl-stat-cards'), owns('pl-hero-aside-agents', '.pl-testimonials-vertical'), owns('pl-hero-aside-docs', '.pl-testimonials-vertical'), owns('pl-hero-aside-docs', '.pl-stat-cards')].join(' ');",
+            "output": "pl-hero-aside-agents>.pl-stat-cards=yes pl-hero-aside-agents>.pl-testimonials-vertical=no pl-hero-aside-docs>.pl-testimonials-vertical=yes pl-hero-aside-docs>.pl-stat-cards=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "product-switcher-auto-rotate-reveals-full-docs-track",
+      "description": "Regression guard for the reported bug. Auto-rotation alone -- no click, no lock -- must reveal every customer-facing-docs region, including #pl-below-fold-docs (the demo video and the social-proof, how-it-works, why-Promptless and Ask-AI sections) and #pl-hero-aside-docs (the testimonials). Before the fix, the docs below-fold slot additionally required an explicit click, so rotating onto the docs pill produced a docs preview with no below-fold docs content at all.",
+      "steps": [
+        {
+          "description": "Open the homepage",
+          "goTo": "/"
+        },
+        {
+          "description": "Wait for auto-rotation to select the customer-facing-docs pill on its own. Nothing is clicked, and the pointer stays off the tablist and the hero panels, which would pause rotation. Waiting on the selected state instead of sleeping a fixed 10s keeps the step from racing the rotate window.",
+          "find": {
+            "selector": "#pl-product-switcher-tab-docs[aria-selected='true']",
+            "timeout": 25000
+          }
+        },
+        {
+          "description": "Hover the now-active docs pill to pause rotation for the duration of the assertions below. Hovering pauses without locking, so the docs track stays active by rotation alone -- which is exactly the state under test.",
+          "find": {
+            "selector": "#pl-product-switcher-tab-docs",
+            "moveTo": true,
+            "timeout": 8000
+          }
+        },
+        {
+          "description": "All three customer-facing-docs regions followed the rotation and are visible; all three agent-track regions are hidden and invisible. This is the assertion that failed before the fix -- #pl-below-fold-docs stayed hidden while #pl-below-fold-agents was already hidden too.",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-hero-panel-agents'), state('pl-hero-panel-docs'), state('pl-hero-aside-agents'), state('pl-hero-aside-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=false pl-product-switcher-tab-docs=true pl-hero-panel-agents=hidden/invisible pl-hero-panel-docs=shown/visible pl-hero-aside-agents=hidden/invisible pl-hero-aside-docs=shown/visible pl-below-fold-agents=hidden/invisible pl-below-fold-docs=shown/visible",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "The rotate preview reaches real docs content, not an empty shell: the demo video facade and the social-proof heading inside #pl-below-fold-docs are both on screen",
+          "runBrowserScript": {
+            "script": "const slot = document.getElementById('pl-below-fold-docs'); if (!slot) return 'slot=missing'; const onScreen = (el) => { if (!el) return 'absent'; const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden') return 'invisible'; return el.getClientRects().length > 0 ? 'onscreen' : 'norects'; }; const heading = Array.from(slot.querySelectorAll('h2')).find((h) => /See why Vitess and Helm chose Promptless/.test(h.textContent || '')); return ['video=' + onScreen(slot.querySelector('.lite-youtube[data-video-id=\"AONpRsZJkTY\"]')), 'socialProofHeading=' + onScreen(heading)].join(' ');",
+            "output": "video=onscreen socialProofHeading=onscreen",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "product-switcher-click-locks-docs-track",
+      "description": "Clicking the customer-facing-docs pill selects that track and locks the selection permanently: auto-rotation stops, so the docs track is still active after more than one rotate window has elapsed. Clicking also moves focus to the clicked pill and makes it the only tabbable one (roving tabindex).",
+      "steps": [
+        {
+          "description": "Open the homepage",
+          "goTo": "/"
+        },
+        {
+          "description": "Click the customer-facing-docs pill",
+          "click": {
+            "elementAria": "for customer-facing docs"
+          }
+        },
+        {
+          "description": "The click selected and focused the docs pill, made it the only tabbable pill, and brought all three customer-facing-docs regions on screen",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const pill = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; return id + '=' + el.getAttribute('aria-selected') + '/tabindex' + el.tabIndex; }; return [pill('pl-product-switcher-tab-agents'), pill('pl-product-switcher-tab-docs'), 'focused=' + (document.activeElement ? document.activeElement.id || 'unnamed' : 'none'), state('pl-hero-panel-agents'), state('pl-hero-panel-docs'), state('pl-hero-aside-agents'), state('pl-hero-aside-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=false/tabindex-1 pl-product-switcher-tab-docs=true/tabindex0 focused=pl-product-switcher-tab-docs pl-hero-panel-agents=hidden/invisible pl-hero-panel-docs=shown/visible pl-hero-aside-agents=hidden/invisible pl-hero-aside-docs=shown/visible pl-below-fold-agents=hidden/invisible pl-below-fold-docs=shown/visible",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Wait longer than one 10s rotate window to prove the click stopped auto-rotation",
+          "wait": 13000
+        },
+        {
+          "description": "The locked docs selection survived the rotate window: nothing flipped back to the agent-instructions track",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-hero-aside-agents'), state('pl-hero-aside-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=false pl-product-switcher-tab-docs=true pl-hero-aside-agents=hidden/invisible pl-hero-aside-docs=shown/visible pl-below-fold-agents=hidden/invisible pl-below-fold-docs=shown/visible",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "product-switcher-demo-video-play-stops-rotation",
+      "description": "Guard added alongside the fix. Because the docs below-fold slot is now revealed during a rotate preview, starting the demo video counts as committing to the docs track: it stops auto-rotation so the next rotate cannot tear the embed down mid-playback. Clicking the LiteYouTube facade injects an iframe from youtube-nocookie.com, so this test needs outbound network access to that host; the assertion is about rotation stopping and the embed surviving, not about playback itself.",
+      "steps": [
+        {
+          "description": "Open the homepage",
+          "goTo": "/"
+        },
+        {
+          "description": "Wait for auto-rotation to select the customer-facing-docs pill on its own, which reveals the below-fold demo video",
+          "find": {
+            "selector": "#pl-product-switcher-tab-docs[aria-selected='true']",
+            "timeout": 25000
+          }
+        },
+        {
+          "description": "Hover the active docs pill to pause auto-rotation, so the steps that follow are not racing whatever is left of the current rotate window. Moving off the tablist to the video restarts a fresh full window.",
+          "find": {
+            "selector": "#pl-product-switcher-tab-docs",
+            "moveTo": true,
+            "timeout": 8000
+          }
+        },
+        {
+          "description": "Scroll the demo video facade into view",
+          "find": {
+            "elementAria": "Play: Promptless demo",
+            "moveTo": true,
+            "timeout": 8000
+          }
+        },
+        {
+          "description": "Play the demo video, which activates the LiteYouTube embed and pins the docs track",
+          "click": {
+            "elementAria": "Play: Promptless demo"
+          }
+        },
+        {
+          "description": "The click activated the embed rather than being swallowed by the facade",
+          "runBrowserScript": {
+            "script": "const embed = document.querySelector('#pl-below-fold-docs .lite-youtube[data-video-id=\"AONpRsZJkTY\"]'); if (!embed) return 'embed=missing'; return ['activated=' + (embed.dataset.activated === 'true' ? 'yes' : 'no'), 'iframe=' + (embed.querySelector('iframe') ? 'present' : 'absent')].join(' ');",
+            "output": "activated=yes iframe=present",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Wait longer than one 10s rotate window to prove playing the video stopped auto-rotation",
+          "wait": 13000
+        },
+        {
+          "description": "The docs track is still active, the below-fold slot holding the video is still on screen, and the injected iframe was never torn back down to the facade",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; const embed = document.querySelector('#pl-below-fold-docs .lite-youtube[data-video-id=\"AONpRsZJkTY\"]'); return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs'), 'iframe=' + (embed && embed.querySelector('iframe') ? 'present' : 'absent')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=false pl-product-switcher-tab-docs=true pl-below-fold-agents=hidden/invisible pl-below-fold-docs=shown/visible iframe=present",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "product-switcher-hover-pauses-rotation",
+      "description": "Hovering the tablist pauses auto-rotation without locking it, so the active track does not change while the pointer rests there. Covered because the demo-video test above relies on this pause to stay deterministic, and because a broken pause would make the rotate-preview fix jump under the user's cursor.",
+      "steps": [
+        {
+          "description": "Open the homepage",
+          "goTo": "/"
+        },
+        {
+          "description": "Hover the agent-instructions pill, which is the default active tab",
+          "find": {
+            "selector": "#pl-product-switcher-tab-agents",
+            "moveTo": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Wait longer than one 10s rotate window while the pointer stays on the tablist",
+          "wait": 13000
+        },
+        {
+          "description": "Rotation was paused, so the agent-instructions track is still the active one",
+          "runBrowserScript": {
+            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-hero-aside-agents'), state('pl-hero-aside-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs')].join(' ');",
+            "output": "pl-product-switcher-tab-agents=true pl-product-switcher-tab-docs=false pl-hero-aside-agents=shown/visible pl-hero-aside-docs=hidden/invisible pl-below-fold-agents=shown/visible pl-below-fold-docs=hidden/invisible",
+            "timeout": 10000
+          }
+        }
+      ]
+    }
+  ]
+}

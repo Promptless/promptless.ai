@@ -306,19 +306,62 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
   // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
   // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
-  // the default-active tab; it is revealed client-side only when the user locks the
-  // docs pill (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never
-  // run that JS, so we can only assert the DEFAULT (hidden) server state. Lookahead
-  // regex keeps us agnostic to raw HTML attribute ordering.
+  // the default-active tab; it is revealed client-side whenever the docs pill becomes
+  // active, whether by auto-rotate or an explicit click (ProductSwitcher.astro
+  // syncTabSlots()). Fetch-only smoke tests never run that JS, so we can only assert
+  // the default server state, which is `hidden`. Lookahead regex keeps us agnostic to
+  // raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
   // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
-  // agents pill is the default-active tab, this slot ships server-rendered VISIBLE (no
-  // `hidden` attribute) and is hidden client-side only when the user locks the docs pill
-  // (ProductSwitcher.astro syncBelowFold()). Fetch-only smoke tests never run that JS, so
-  // we assert the DEFAULT (visible) server state. Lookahead regex keeps us agnostic to raw
-  // HTML attribute ordering.
+  // agents pill is the default-active tab, this slot ships server-rendered with no
+  // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
+  // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
+  // smoke tests never run that JS, so we assert the default server state, which has no
+  // `hidden` attribute. Lookahead regex keeps us agnostic to raw HTML attribute ordering.
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Per-tab hero asides (home.mdx: .pl-hero-v2-asides in the hero right column). They
+  // follow the active pill exactly like the below-fold slots, so with agents as the
+  // default tab the agents aside ships visible and the docs aside ships `hidden`.
+  assert.match(homeHtml, /id="pl-hero-aside-agents"/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /id="pl-hero-aside-docs"/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*\shidden)[^>]*>/);
+  // The docs aside ships `hidden`, but its contents are still server-rendered (the
+  // switcher only toggles the attribute, it never injects markup): the hero vertical
+  // ticker, the mobile-only full carousel, and that carousel's heading. Assert the
+  // `class="…` attribute rather than the bare class name so a stylesheet mentioning
+  // the same selector can't satisfy these on its own. TestimonialsVertical.astro uses
+  // scoped styles, so Astro appends a scope class — match the prefix, not a closed quote.
+  assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
+  assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
+  assert.match(homeHtml, /Writers, developers, and founders all love Promptless/);
+  // Two testimonial identities, asserted independently of each other. Order-independent
+  // on purpose: the testimonials array is fixed today, but an open PR (#674) adds a
+  // build-time Fisher-Yates shuffle to TestimonialsVertical.astro, so nothing here may
+  // depend on order, adjacency, or a full quote string.
+  assert.match(homeHtml, /Mo King/);
+  assert.match(homeHtml, /Nicholas DeWald/);
+  // Nesting lock: the stat cards must stay inside #pl-hero-aside-agents and the vertical
+  // ticker inside #pl-hero-aside-docs, so a refactor cannot re-orphan either from the tab
+  // machinery (the #776 regression that put the agent stats on both tabs). Index
+  // comparison against the aside wrappers rather than exact markup, so intervening
+  // attributes or wrappers stay allowed.
+  // Match on the `class="…` prefix, not the bare class name, so a bundled or inlined
+  // stylesheet mentioning the same selector can't satisfy the index comparison. The
+  // prefix (rather than a closed quote) tolerates Astro's appended scope class.
+  const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
+  const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
+  const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
+  const verticalTestimonialsIndex = homeHtml.indexOf('class="pl-testimonials-vertical');
+  assert.ok(
+    agentsAsideIndex !== -1 && statCardsIndex > agentsAsideIndex && statCardsIndex < docsAsideIndex,
+    'Expected .pl-stat-cards to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
+  );
+  assert.ok(
+    docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
+    'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
+  );
   // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
   // the demo-video id lock below).
   assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
@@ -327,8 +370,9 @@ test('homepage, meet, and pricing render website content', async () => {
   // in the fetched HTML. Distinct from /How Promptless works/ below (the HowItWorks component
   // copy), so this locks the new flywheel section header specifically.
   assert.match(homeHtml, /How it works/);
-  // "Typical improvements after 30 days" stat block (home.mdx, last child of
-  // #pl-below-fold-agents). The agents below-fold ships server-rendered visible, so the
+  // "Typical improvements after 30 days" stat block (home.mdx, inside
+  // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
+  // aside ships server-rendered visible because agents is the default tab, so the
   // heading and the four stat figures are present in the fetched HTML. The
   // "Compared against our pre-governed instructions" caveat was removed from home.mdx, so
   // we assert it is absent.
