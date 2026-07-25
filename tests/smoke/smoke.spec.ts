@@ -318,6 +318,132 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.doesNotMatch(pricingHtml, /<h3>Compare plans<\/h3>/);
 });
 
+test('every same-origin docs link on the homepage resolves to a real page', async (t) => {
+  // The smoke harness is the right layer for this. preview-server.ts replays the
+  // Vercel redirect routes from .vercel/output/config.json as real 3xx responses
+  // (loadRedirectRoutes), so an adapter build reproduces production's exact-match,
+  // trailing-slash-sensitive redirect behavior. That is what the authored hero
+  // hrefs tripped over: a redirect source without a trailing slash never matches
+  // an href that has one. A static build carries no redirect routes at all
+  // (resolveBuildOutput returns `redirects: []`), so the exact-match guarantee
+  // holds only under the adapter build — see the stub note in resolveHref below.
+  const homepage = await fetch(`${preview.baseUrl}/`);
+  assert.equal(homepage.status, 200);
+  const html = await homepage.text();
+
+  const previewOrigin = new URL(preview.baseUrl).origin;
+  const MAX_HOPS = 5;
+
+  // Collect same-site docs hrefs in both authored forms: root-relative (/docs…)
+  // and origin-prefixed (https://promptless.ai/docs…). Absolute hrefs are
+  // normalized to their pathname so every request below goes to the preview
+  // server — this test must never reach promptless.ai, or a link broken on this
+  // branch would pass against production.
+  const hrefs = new Set<string>();
+  for (const [, value] of html.matchAll(/href="([^"]*)"/g)) {
+    const isAbsolute = /^https:\/\/promptless\.ai\/docs(?:[/?#]|$)/.test(value);
+    if (!isAbsolute && !/^\/docs(?:[/?#]|$)/.test(value)) continue;
+    const pathname = isAbsolute ? new URL(value).pathname : value;
+    hrefs.add(pathname.replace(/#.*$/, ''));
+  }
+
+  // Vacuity guard: a refactor that drops the hero must fail here instead of
+  // passing an empty loop.
+  assert.ok(
+    hrefs.size >= 10,
+    `Homepage rendered fewer docs links than expected (found ${hrefs.size}, expected at least 10).`
+  );
+
+  type Resolution =
+    | { kind: 'final'; status: number; chain: string[] }
+    | { kind: 'off-origin'; location: string; chain: string[] };
+
+  async function resolveHref(href: string): Promise<Resolution> {
+    const chain: string[] = [href];
+    const visited = new Set<string>();
+    let current = new URL(href, preview.baseUrl);
+    let hops = 0;
+
+    for (;;) {
+      assert.ok(
+        !visited.has(current.href),
+        `Redirect loop for ${href} (chain: ${chain.join(' -> ')}).`
+      );
+      visited.add(current.href);
+      assert.ok(
+        hops <= MAX_HOPS,
+        `${href} exceeded ${MAX_HOPS} redirect hops (chain: ${chain.join(' -> ')}).`
+      );
+      hops += 1;
+
+      const response = await fetch(current, { redirect: 'manual' });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        assert.ok(
+          location,
+          `${href} returned ${response.status} with no Location header (chain: ${chain.join(' -> ')}).`
+        );
+        const next = new URL(location, current);
+        // loadRedirectRoutes replays each Vercel route without its `has`
+        // conditions, so a host-conditional rule could in principle surface an
+        // absolute production Location. Never fetch off-origin from a smoke test:
+        // report it as unverifiable rather than asserting on production.
+        if (next.origin !== previewOrigin) return { kind: 'off-origin', location: next.href, chain };
+        chain.push(next.pathname);
+        current = next;
+        continue;
+      }
+
+      if (response.status === 200) {
+        // Static builds (MCP_ENABLED=false → dist) have no platform redirects:
+        // Astro emits a "Redirecting to: …" stub page with a 200 instead, as the
+        // /blog/all and website-alias tests above allow for. Follow the stub so
+        // the dist path keeps real coverage instead of accepting the stub itself.
+        // The trade-off: on a trailing-slash mismatch the directory-level stub
+        // answers 200 on its own, so following it cannot tell a correctly slashed
+        // href from one that only resolves because the stub bridges the mismatch.
+        // The exact-match assertion is therefore only real under the adapter
+        // build, which is what CI's check.yml runs.
+        const stubTarget = (await response.text()).match(/Redirecting to:\s*([^\s<"']+)/)?.[1];
+        if (stubTarget) {
+          const next = new URL(stubTarget, current);
+          if (next.origin !== previewOrigin) return { kind: 'off-origin', location: next.href, chain };
+          chain.push(next.pathname);
+          current = next;
+          continue;
+        }
+      }
+
+      return { kind: 'final', status: response.status, chain };
+    }
+  }
+
+  let verified = 0;
+  for (const href of [...hrefs].sort()) {
+    const resolution = await resolveHref(href);
+    if (resolution.kind === 'off-origin') {
+      t.diagnostic(
+        `${href} redirects off-origin to ${resolution.location}; not locally verifiable (chain: ${resolution.chain.join(' -> ')}).`
+      );
+      continue;
+    }
+    assert.equal(
+      resolution.status,
+      200,
+      `Homepage docs link ${href} resolved to ${resolution.status}, expected 200 (chain: ${resolution.chain.join(' -> ')}).`
+    );
+    verified += 1;
+  }
+
+  // Off-origin hops above are reported, not asserted on. This keeps that escape
+  // hatch from turning the whole test into diagnostics-only coverage.
+  assert.ok(
+    verified >= 10,
+    `Only ${verified} of ${hrefs.size} homepage docs links were verified against the preview server; expected at least 10.`
+  );
+});
+
 test('website header renders expected CTAs and search control', async () => {
   const response = await fetch(`${preview.baseUrl}/`);
   assert.equal(response.status, 200);
