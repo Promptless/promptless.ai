@@ -169,10 +169,63 @@
   align-items: center;
 }
 
+/* The full testimonials carousel is a mobile-only stand-in for the hero's
+   vertical testimonials ticker, which is suppressed at narrow widths (see the
+   768px block below). These base rules must stay ABOVE that media block: they
+   share its specificity, so a later `display: none` here would win the cascade
+   and cancel the mobile `display: block`. */
+.pl-mobile-testimonials {
+  display: none;
+}
+
+.pl-mobile-testimonials h2 {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .pl-hero-v2-layout {
     grid-template-columns: 1fr;
   }
+
+  .pl-hero-v2-layout .pl-testimonials-vertical {
+    display: none;
+  }
+
+  .pl-mobile-testimonials {
+    display: block;
+  }
+}
+
+/* Per-tab hero asides (home.mdx: #pl-hero-aside-agents holds the 30-day
+   improvement stats, #pl-hero-aside-docs the testimonials). Same reasoning as
+   HeroV2's left-column panel stack: both asides occupy the same grid cell so the
+   wrapper reserves the height of the taller one and switching tabs causes no
+   layout shift. The inactive aside keeps the `hidden` attribute (removing it from
+   the a11y tree and tab order) but stays in layout via visibility:hidden. That
+   matters concretely here — `.pl-stat-cards` and `.pl-testimonials-vertical`
+   (fixed height: 24rem) have different intrinsic heights, so a display:none swap
+   would visibly jump the hero on every auto-rotate.
+
+   The `min-width: 0` on both boxes is load-bearing and must not be removed. Grid
+   and flex items default to `min-width: auto`, which sizes them to their content's
+   intrinsic width. A nested `overflow-x: auto` carousel then never scrolls: it
+   stretches its ancestors and pushes the whole page wide instead. The mobile
+   testimonials carousel (`.pl-site-testimonials-grid`, inside #pl-hero-aside-docs)
+   is exactly that case — without these two declarations the mobile document scroll
+   width more than doubles at a 390px viewport. */
+.pl-hero-v2-asides {
+  display: grid;
+  min-width: 0;
+}
+
+.pl-hero-v2-aside {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.pl-hero-v2-aside[hidden] {
+  display: block;
+  visibility: hidden;
 }
 
 .pl-stat-cards {

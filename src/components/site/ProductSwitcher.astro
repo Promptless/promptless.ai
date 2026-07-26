@@ -1,12 +1,28 @@
 ---
 // Full-content-width product switcher rendered at the top of the homepage,
 // above the hero layout. Two pills form an accessible, auto-advancing tablist
-// that drives HeroV2's two left-column tabpanels (pl-hero-panel-docs /
-// pl-hero-panel-agents). The agents pill is now the default active tab
-// (temporary for the launch positioning).
+// that drives three pairs of per-track regions:
+//   - HeroV2's two left-column tabpanels (pl-hero-panel-docs /
+//     pl-hero-panel-agents) — the actual tabpanels;
+//   - the hero right-column asides (pl-hero-aside-docs, the testimonials /
+//     pl-hero-aside-agents, the 30-day improvement stats);
+//   - the two below-the-fold slots (pl-below-fold-docs, the demo video plus the
+//     social proof, how-it-works, why-Promptless and Ask-AI sections /
+//     pl-below-fold-agents, the flywheel).
+// The agents pill is now the default active tab (temporary for the launch
+// positioning).
 //
-// The pills live in a separate component from HeroV2 but share the same page,
-// so the script resolves the panels from `document` by id at runtime.
+// Only the hero left-column panels are tabpanels, deliberately: each pill's
+// `aria-controls` names exactly one element and the WAI tabs pattern expects one
+// tabpanel per tab. The asides and below-fold slots are supporting regions that
+// follow the active tab. The asides carry `role="group"` + `aria-labelledby`
+// pointing at their pill — the minimal role that takes an accessible name
+// without adding a landmark. Don't promote them to `role="tabpanel"` or repoint
+// a pill's `aria-controls` at them.
+//
+// The pills live in a separate component from HeroV2 and from home.mdx but
+// share the same page, so the script resolves every panel, aside, and slot from
+// `document` by id at runtime.
 ---
 
 <div class="pl-product-switcher not-content">
@@ -94,36 +110,48 @@
     let locked = false;
     let intervalId: number | undefined;
 
-    // The docs-track below-the-fold slot (the 1.0 demo video) is revealed only
-    // once the user *locks* the docs tab — never during the auto-rotate preview.
-    // Keeping it out of the rotate cycle avoids the tall video popping in/out
-    // every ROTATE_MS and shifting the page below it, and keeps the default
-    // (agents) view lean.
-    const belowFoldDocs = document.getElementById('pl-below-fold-docs');
-    const belowFoldAgents = document.getElementById('pl-below-fold-agents');
     const DOCS_TAB_ID = 'pl-product-switcher-tab-docs';
     const AGENTS_TAB_ID = 'pl-product-switcher-tab-agents';
 
-    const syncBelowFold = () => {
-      // Agents flywheel: a plain static <img>, so it's a simple show/hide gated
-      // purely on the agents pill being active — INDEPENDENT of `locked`. It's
-      // visible in the default view and during a lock, and intentionally hides
-      // during any auto-rotate preview of the docs panel, reappearing on return
-      // to agents. No LiteYouTube/iframe teardown here (nothing to tear down).
-      if (belowFoldAgents) {
-        if (pills[activeIndex]?.id === AGENTS_TAB_ID) {
-          belowFoldAgents.removeAttribute('hidden');
-        } else {
-          belowFoldAgents.setAttribute('hidden', '');
-        }
-      }
+    // Satellite regions that live outside HeroV2's tabpanel pair: the two
+    // below-the-fold slots and the two hero right-column asides. All four follow
+    // the active pill and nothing else — that symmetry is the rule, not a
+    // per-slot special case. A rotate preview of either track therefore always
+    // shows that track's full content.
+    //
+    // The docs below-fold slot used to additionally require `locked`, to keep
+    // the tall demo video from popping in and out every ROTATE_MS. That was the
+    // reported bug: rotating onto the docs pill showed a docs preview with no
+    // docs content at all (both below-fold slots hidden). Showing the docs slot
+    // during the rotate preview is now deliberate. The pop-in is acceptable
+    // because starting the demo video stops rotation outright (see the
+    // video-activation guard below), so nobody gets torn down mid-playback.
+    const belowFoldDocs = document.getElementById('pl-below-fold-docs');
+    const belowFoldAgents = document.getElementById('pl-below-fold-agents');
+    const heroAsideDocs = document.getElementById('pl-hero-aside-docs');
+    const heroAsideAgents = document.getElementById('pl-hero-aside-agents');
 
-      if (!belowFoldDocs) return;
-      const show = locked && pills[activeIndex]?.id === DOCS_TAB_ID;
-      if (show) {
-        belowFoldDocs.removeAttribute('hidden');
-      } else {
-        if (!belowFoldDocs.hasAttribute('hidden')) {
+    // One table drives all four, so the gate expression can't drift between
+    // them. Each entry is null-guarded at sync time because the switcher renders
+    // on pages that may not carry every slot. The docs below-fold slot is the
+    // only one that needs extra work on hide (a LiteYouTube teardown); the other
+    // three are static markup with nothing to tear down.
+    const tabSlots: Array<{ el: HTMLElement | null; tabId: string }> = [
+      { el: belowFoldAgents, tabId: AGENTS_TAB_ID },
+      { el: belowFoldDocs, tabId: DOCS_TAB_ID },
+      { el: heroAsideAgents, tabId: AGENTS_TAB_ID },
+      { el: heroAsideDocs, tabId: DOCS_TAB_ID },
+    ];
+
+    const syncTabSlots = () => {
+      tabSlots.forEach(({ el, tabId }) => {
+        if (!el) return;
+        const show = pills[activeIndex]?.id === tabId;
+        if (show) {
+          el.removeAttribute('hidden');
+          return;
+        }
+        if (el === belowFoldDocs && !el.hasAttribute('hidden')) {
           // Tear any activated LiteYouTube embed back down to its facade before
           // hiding so a playing video's audio doesn't keep running in a hidden
           // container. LiteYouTube activates by injecting an <iframe> via
@@ -133,15 +161,13 @@
           // destroyed) and lets a later click re-inject a fresh iframe. We do
           // NOT touch the iframe src (reloading it would re-autoplay while
           // hidden).
-          belowFoldDocs
-            .querySelectorAll<HTMLElement>('.lite-youtube[data-activated]')
-            .forEach((embed) => {
-              embed.querySelector('iframe')?.remove();
-              delete embed.dataset.activated;
-            });
+          el.querySelectorAll<HTMLElement>('.lite-youtube[data-activated]').forEach((embed) => {
+            embed.querySelector('iframe')?.remove();
+            delete embed.dataset.activated;
+          });
         }
-        belowFoldDocs.setAttribute('hidden', '');
-      }
+        el.setAttribute('hidden', '');
+      });
     };
 
     const panelFor = (pill: HTMLButtonElement) => {
@@ -211,7 +237,7 @@
       activeIndex = index;
       if (focus) pills[index].focus();
       restartUnderline(pills[index]);
-      syncBelowFold();
+      syncTabSlots();
     };
 
     const lockSelection = (index: number) => {
@@ -233,6 +259,20 @@
     // Auto-rotate: flip to the other pill every ROTATE_MS. Never starts under
     // reduced-motion, and stops permanently once the user locks a selection.
     startRotation();
+
+    // Guard introduced alongside the fix that lets the docs below-fold slot show
+    // during a rotate preview: starting the demo video now counts as committing
+    // to the docs track. Without this, the next rotate would tear the video embed
+    // down mid-playback for a visitor who hit play during a preview. We don't
+    // reimplement LiteYouTube's activation — we just listen for the click that
+    // activates its facade and pin the docs tab (rotation off, `locked`) until
+    // the user clicks a pill.
+    belowFoldDocs?.querySelectorAll<HTMLElement>('.lite-youtube').forEach((embed) => {
+      embed.addEventListener('click', () => {
+        locked = true;
+        stopRotation();
+      });
+    });
 
     // Pause on hover / keyboard focus and resume on leave — the common,
     // unintrusive carousel behavior. Pausing suspends both the flip timer and
