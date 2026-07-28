@@ -1,10 +1,10 @@
 {
   "specId": "environment-variables-settings",
-  "description": "Environment Variables settings page in the Promptless dashboard (https://app.gopromptless.ai/settings), covering the control names that src/content/docs/docs/scale/environment-variables.mdx documents in its `## Add environment variables` steps and its `## Update and delete variables` section. This page's screenshots and control names silently drifted out of date once already, so this spec pins the exact names the prose tells readers to look for -- Key Name, Value, Secret, Add Variable, Update, Delete -- and fails when one is renamed instead of letting the docs quietly go stale.\n\nNON-DESTRUCTIVE BY CONSTRUCTION. Nothing here creates, changes, or deletes a real environment variable in the test account. The Add Variable form is filled but never submitted: no step clicks Add Variable, no step clicks a row's Update, Save, or Delete, and no step types $ENTER$ or $RETURN$ into a form field. The only writes are keystrokes into two unsaved inputs, using the inert sentinel DOC_DETECTIVE_ENV_VARS_SPEC_NOT_SAVED as the key so that an unexpected save would be obvious in the dashboard. The last step asserts that sentinel never reached the variables table. Every runBrowserScript below only reads the DOM -- none clicks, submits, assigns to a value, dispatches an event, or issues a request.\n\nAuthentication reuses the existing Clerk sign-in flow rather than a new one: each test sets `before` to login.spec.json, whose steps are prepended into this test's own browser context. That spec reads $PROMPTLESS_TEST_EMAIL and $PROMPTLESS_TEST_PASSWORD from .doc-detective/.env via the config's `loadVariables`, so no credential and no resolved internal host appears here. `before` resolves relative to this spec file because `relativePathBase` defaults to `file`; under `relativePathBase: cwd` Doc Detective skips this spec rather than failing it. login.spec.json opens with a `record` step that is unsupported headless and that skips when its fixed output path already exists, so that step often reports SKIPPED here -- a skipped step does not fail its context, since only an all-skipped context is itself skipped.\n\nDATA PREREQUISITE for env-vars-settings-page-and-variables-table: the test account must already hold at least one saved environment variable, which is the state the page's own figure shows. With an empty table the Update/Delete assertion has nothing to check, so the probe reports rowActions=none and the step fails rather than passing vacuously. Fix that by adding a variable to the test account, not by loosening the assertion.\n\nRunning it: neither config lists .doc-detective/tests/ in `input` (.doc-detective.json scans src/content/docs for inline tests), so pass this file explicitly -- `npx doc-detective -c .doc-detective.json -i .doc-detective/tests/environment-variables-settings.spec.json`. This spec is deliberately NOT added to .doc-detective.ci.json: Clerk-dependent flows were dropped from CI in fb89a47 and intentionally left out again in 0e72027 for being unstable, and reversing that is a maintainer call rather than this spec's to make.\n\nURLs are absolute because the config's `origin` points at the docs site (https://promptless.ai), not the dashboard.\n\nAssertion style follows homepage-product-switcher.spec.json: `runBrowserScript` probes report several related facts in one string, so a renamed control shows up as a readable diff instead of an opaque element-not-found. The division of labour between step types is deliberate. `find` steps are waits and interactions, and they match text by regex so that incidental whitespace or a nested wrapper does not fail a step whose job is only to reach the control. The exact documented names are asserted inside the probes instead, compared against each element's own direct text with whitespace collapsed, so a container's aggregated text cannot satisfy an assertion by accident. `output` is a substring match on the serialized return value, which is why the probes also report unasserted context such as row counts. Comparisons upper-case before matching wherever the UI applies a CSS text-transform: the submit control's DOM text is `Add Variable`, rendered uppercase.",
+  "description": "Journey: cuj-screenshots, \"Set up automated screenshot capture and updates\" (docs/content_strategy/journeys/cuj-screenshots.md), step \"Authenticate to the app being captured\": this page stores the test-account credentials Promptless Capture logs in with. Page: src/content/docs/docs/scale/environment-variables.mdx (/docs/scale/environment-variables). Scenario: a reader stores a credential and marks it Secret. Success: they reach the view, recognize every documented control name (Key Name, Value, Secret, Add Variable, Update, Delete), and see Value masked once Secret is on.\n\nA renamed or moved control stalls them mid-`## Add environment variables`, blocking credential setup for Promptless Capture, the CUJ's most-requested capability. These names and screenshots went stale once before.\n\nCovered: reaching the view; the four columns; per-row Update and Delete; no Save or Cancel on load; the Add Variable form's two labeled inputs; the Secret label; Value going masked. Not covered: the submit and delete paths -- Add Variable, Update, and Delete are checked for presence and labeling, never effects. Nothing is submitted: no Add Variable, Update, Save, or Delete click, no $ENTER$, only keystrokes into two unsaved inputs bearing inert sentinel DOC_DETECTIVE_ENV_VARS_SPEC_NOT_SAVED, whose absence from the table the last step asserts.\n\n- Auth: each `before` is login.spec.json, reading credentials from .doc-detective/.env via `loadVariables`; none appear here.\n- Data prerequisite: the account needs one saved variable, else the row-actions assertion has nothing to check -- add one; do not loosen the assertion.\n- Running it: no config lists .doc-detective/tests/ in `input`, so pass it explicitly: `npx doc-detective -c .doc-detective.json -i .doc-detective/tests/environment-variables-settings.spec.json`\n- CI: not in .doc-detective.ci.json (homepage spec only); adding it is a maintainer call.\n- URLs: absolute, because `origin` is the docs site, not the dashboard.",
   "tests": [
     {
       "testId": "env-vars-settings-page-and-variables-table",
-      "description": "Documented step 1 (\"Open Settings\"): the /settings link the page hands readers lands on the Environment Variables view, that view's tab row carries the documented Environment Variables name, and the page shows the variables table described by the figure and by `## Update and delete variables` -- Key, Value, Created, and Actions columns, with an Update and a Delete control in every row. Also pins that Save and Cancel are absent until a row's Update is clicked, which is what makes the documented Update-then-Save order correct.",
+      "description": "A bare /settings link lands on the Environment Variables view, which shows the variables table with Key, Value, Created, and Actions columns and both an Update and a Delete control on every row. Save and Cancel stay hidden on load (`## Update and delete variables`).",
       "before": "login.spec.json",
       "steps": [
         {
@@ -19,7 +19,7 @@
           }
         },
         {
-          "description": "Settings opened on the Environment Variables view rather than another tab, which is what the docs promise for a bare /settings link, and the documented Environment Variables name is present as some element's own text",
+          "description": "Settings opens on the Environment Variables view and the documented name is present",
           "runBrowserScript": {
             "script": "const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); const named = Array.from(document.querySelectorAll('body *')).some((el) => own(el) === 'Environment Variables'); return ['path=' + window.location.pathname, 'envVarsTabName=' + (named ? 'present' : 'missing')].join(' ');",
             "output": "path=/settings/env-vars envVarsTabName=present",
@@ -27,7 +27,7 @@
           }
         },
         {
-          "description": "The variables table has exactly the four columns the figure's alt text documents, in the documented order. Falls back to ARIA column headers so a non-<table> rewrite is still checked instead of being reported as a missing table.",
+          "description": "The variables table has the four documented columns in the documented order",
           "runBrowserScript": {
             "script": "const cells = document.querySelectorAll('thead th').length ? document.querySelectorAll('thead th') : document.querySelectorAll('[role=columnheader]'); if (!cells.length) return 'headers=none-found'; const headers = Array.from(cells).map((c) => (c.textContent || '').replace(/\\s+/g, ' ').trim()).filter(Boolean); return 'headers=' + headers.join('|');",
             "output": "headers=Key|Value|Created|Actions",
@@ -35,7 +35,7 @@
           }
         },
         {
-          "description": "Every row of the variables table carries both an Update and a Delete control, and neither Save nor Cancel is on the page before any Update is clicked. The row count is reported for debugging but is not part of the asserted substring; rowActions reads none on an empty table, which fails the assertion on purpose -- see the DATA PREREQUISITE note in the spec description.",
+          "description": "Every row carries an Update and a Delete control, and neither Save nor Cancel is present before an Update is clicked",
           "runBrowserScript": {
             "script": "const table = document.querySelector('table'); if (!table) return 'table=missing'; const label = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase(); const controls = (root) => Array.from(root.querySelectorAll('button, a, [role=button]')); const rows = Array.from(table.querySelectorAll('tbody tr')); const has = (row, name) => controls(row).some((el) => label(el) === name); const complete = rows.length > 0 && rows.every((row) => has(row, 'update') && has(row, 'delete')); const anyIn = (name) => controls(table).some((el) => label(el) === name); return ['rows=' + rows.length, 'rowActions=' + (rows.length === 0 ? 'none' : complete ? 'complete' : 'incomplete'), 'saveOnLoad=' + (anyIn('save') ? 'present' : 'absent'), 'cancelOnLoad=' + (anyIn('cancel') ? 'present' : 'absent')].join(' ');",
             "output": "rowActions=complete saveOnLoad=absent cancelOnLoad=absent",
@@ -46,7 +46,7 @@
     },
     {
       "testId": "env-vars-add-variable-form-secret-toggle",
-      "description": "Documented steps 2 and 3 (\"Enter a key and value\", \"Mark sensitive values as secret\"): the Add Variable form sits inline below the variables table with no disclosure to open, labels its two inputs Key Name and Value as the docs call them, and turning on Secret masks the Value field as you type. The step-4 submit control is asserted to exist by its Add Variable label but is never clicked, so the run creates no variable.",
+      "description": "The Add Variable form sits inline below the variables table with nothing to expand, labels its two inputs Key Name and Value as the docs call them, and masks the Value field as you type once the Secret toggle is on. The submit control is checked for existence by its Add Variable label and never clicked, so the run creates no variable.",
       "before": "login.spec.json",
       "steps": [
         {
@@ -54,22 +54,22 @@
           "goTo": "https://app.gopromptless.ai/settings"
         },
         {
-          "description": "Wait for the Add Variable form's Key Name field to render. Waiting on the placeholder rather than the label keeps this step off the name the next probe asserts, so a rename fails with a readable diff there instead of timing out here.",
+          "description": "Wait for the Add Variable form's Key Name input to render",
           "find": {
             "selector": "input[placeholder='e.g. TEST_ACCOUNT_USERNAME']",
             "timeout": 20000
           }
         },
         {
-          "description": "The Add Variable form is already present with nothing to expand: both documented inputs exist under their user-visible placeholders, the Value field starts unmasked, the Secret control is a checkbox inside the label the UI shows, and the submit control reads Add Variable once its CSS uppercasing is normalized away. The Key Name and Value label names are looked for only inside the form -- the smallest subtree containing both inputs -- so the table's own Key and Value column headers cannot satisfy them.",
+          "description": "The Add Variable form is already present with nothing to expand: both documented inputs exist, the Value field starts unmasked, the Secret label matches its documented wording, and the submit control reads Add Variable",
           "runBrowserScript": {
-            "script": "const key = document.querySelector('input[placeholder=\"e.g. TEST_ACCOUNT_USERNAME\"]'); const value = document.querySelector('input[placeholder=\"Variable value\"]'); const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); let form = null; if (key && value) { const ancestors = new Set(); for (let el = key; el; el = el.parentElement) ancestors.add(el); for (let el = value; el; el = el.parentElement) { if (ancestors.has(el)) { form = el; break; } } } const labelled = (name) => form ? (Array.from(form.querySelectorAll('*')).some((el) => own(el) === name) ? 'present' : 'missing') : 'no-form'; const secret = Array.from(document.querySelectorAll('label')).find((l) => (l.textContent || '').replace(/\\s+/g, ' ').trim() === 'Secret (value will be hidden after saving)'); const submit = Array.from(document.querySelectorAll('button, input[type=submit]')).find((el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase() === 'ADD VARIABLE'); return ['keyInput=' + (key ? 'present' : 'missing'), 'valueInput=' + (value ? 'present' : 'missing'), 'keyLabel=' + labelled('Key Name'), 'valueLabel=' + labelled('Value'), 'valueType=' + (value ? value.type : 'n-a'), 'secretLabel=' + (secret ? 'present' : 'missing'), 'secretToggle=' + (secret && secret.querySelector('input[type=checkbox], [role=switch], [role=checkbox]') ? 'present' : 'missing'), 'submit=' + (submit ? 'present' : 'missing')].join(' ');",
-            "output": "keyInput=present valueInput=present keyLabel=present valueLabel=present valueType=text secretLabel=present secretToggle=present submit=present",
+            "script": "const key = document.querySelector('input[placeholder=\"e.g. TEST_ACCOUNT_USERNAME\"]'); const value = document.querySelector('input[placeholder=\"Variable value\"]'); const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); let form = null; if (key && value) { const ancestors = new Set(); for (let el = key; el; el = el.parentElement) ancestors.add(el); for (let el = value; el; el = el.parentElement) { if (ancestors.has(el)) { form = el; break; } } } const labelled = (name) => form ? (Array.from(form.querySelectorAll('*')).some((el) => own(el) === name) ? 'present' : 'missing') : 'no-form'; const secret = Array.from(document.querySelectorAll('label')).find((l) => (l.textContent || '').replace(/\\s+/g, ' ').trim() === 'Secret (value will be hidden after saving)'); const submit = Array.from(document.querySelectorAll('button, input[type=submit]')).find((el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase() === 'ADD VARIABLE'); return ['keyInput=' + (key ? 'present' : 'missing'), 'valueInput=' + (value ? 'present' : 'missing'), 'keyLabel=' + labelled('Key Name'), 'valueLabel=' + labelled('Value'), 'valueType=' + (value ? value.type : 'n-a'), 'secretLabel=' + (secret ? 'present' : 'missing'), 'submit=' + (submit ? 'present' : 'missing')].join(' ');",
+            "output": "keyInput=present valueInput=present keyLabel=present valueLabel=present valueType=text secretLabel=present submit=present",
             "timeout": 15000
           }
         },
         {
-          "description": "Focus the Key Name input. Clicking scrolls it into view, so no separate scroll step is needed.",
+          "description": "Focus the Key Name input",
           "find": {
             "selector": "input[placeholder='e.g. TEST_ACCOUNT_USERNAME']",
             "click": true,
@@ -77,11 +77,11 @@
           }
         },
         {
-          "description": "Type an inert sentinel key into the focused input. It is never submitted; it exists so that an unexpected save would be unmistakable in the dashboard.",
+          "description": "Type an inert sentinel key that is never submitted",
           "type": "DOC_DETECTIVE_ENV_VARS_SPEC_NOT_SAVED"
         },
         {
-          "description": "Turn on the Secret toggle by clicking its label, which is how the switch is reachable in the UI",
+          "description": "Turn on the Secret toggle by clicking its label",
           "find": {
             "elementText": "/^Secret \\(value will be hidden after saving\\)$/",
             "click": true,
@@ -89,10 +89,10 @@
           }
         },
         {
-          "description": "Secret is on and the Value field became a masked input, which is the masking the docs promise. The toggle's on-state is read from a checkbox's `checked` or from aria-checked, whichever the control uses, because the docs promise the masking rather than a particular markup for the switch.",
+          "description": "The Value field became a masked input, which matches what the docs promise",
           "runBrowserScript": {
-            "script": "const value = document.querySelector('input[placeholder=\"Variable value\"]'); const secret = Array.from(document.querySelectorAll('label')).find((l) => (l.textContent || '').replace(/\\s+/g, ' ').trim() === 'Secret (value will be hidden after saving)'); const box = secret ? secret.querySelector('input[type=checkbox]') : null; const aria = secret ? secret.querySelector('[role=switch], [role=checkbox]') : null; const on = box ? String(box.checked) : aria ? String(aria.getAttribute('aria-checked') === 'true') : 'missing'; return ['secretChecked=' + on, 'valueType=' + (value ? value.type : 'missing')].join(' ');",
-            "output": "secretChecked=true valueType=password",
+            "script": "const value = document.querySelector('input[placeholder=\"Variable value\"]'); return 'valueType=' + (value ? value.type : 'missing');",
+            "output": "valueType=password",
             "timeout": 15000
           }
         },
@@ -105,7 +105,7 @@
           }
         },
         {
-          "description": "Type an inert value into the focused field. Nothing here submits the form: no click on Add Variable and no $ENTER$.",
+          "description": "Type an inert value; nothing here submits the form",
           "type": "doc-detective-not-saved"
         },
         {
