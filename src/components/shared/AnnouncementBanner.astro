@@ -39,24 +39,39 @@ const storageKey = `pl_banner_dismissed_${campaign}`;
   function setup() {
     var banner = document.getElementById('pl-announcement-banner');
     if (!banner) return;
+    if (banner.getAttribute('data-initialized') === 'true') return;
 
     var storageKey = banner.getAttribute('data-storage-key');
     if (!storageKey) return;
 
-    if (localStorage.getItem(storageKey)) return;
+    try {
+      if (localStorage.getItem(storageKey)) return;
+    } catch {}
 
     banner.removeAttribute('hidden');
+    banner.setAttribute('data-initialized', 'true');
 
     var root = document.documentElement;
-    var currentNavHeight = getComputedStyle(root).getPropertyValue('--sl-nav-height').trim();
-    var bannerHeight = banner.offsetHeight;
-    root.style.setProperty('--sl-nav-height', 'calc(' + currentNavHeight + ' + ' + bannerHeight + 'px)');
+    function updateNavHeight() {
+      var bannerHeight = banner.offsetHeight;
+      root.style.setProperty('--sl-nav-height', 'calc(var(--pl-docs-nav-height) + ' + bannerHeight + 'px)');
+    }
+
+    updateNavHeight();
+
+    var resizeObserver = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(updateNavHeight)
+      : null;
+    if (resizeObserver) resizeObserver.observe(banner);
 
     var dismissButton = banner.querySelector('.pl-announcement-banner-dismiss');
     if (dismissButton) {
       dismissButton.addEventListener('click', function () {
         banner.setAttribute('hidden', '');
-        localStorage.setItem(storageKey, '1');
+        try {
+          localStorage.setItem(storageKey, '1');
+        } catch {}
+        if (resizeObserver) resizeObserver.disconnect();
         root.style.removeProperty('--sl-nav-height');
 
         // Track banner dismissal with the campaign name extracted from the storage key.
@@ -89,7 +104,9 @@ const storageKey = `pl_banner_dismissed_${campaign}`;
       font-size: var(--sl-text-sm);
       gap: 0.5rem;
       justify-content: center;
+      min-height: 2.5rem;
       padding: 0.5rem 1rem;
+      position: relative;
       text-align: center;
       width: 100%;
     }
@@ -100,6 +117,7 @@ const storageKey = `pl_banner_dismissed_${campaign}`;
 
     .pl-announcement-banner-content {
       margin: 0;
+      padding-inline: 1.75rem;
     }
 
     .pl-announcement-banner-content a {
@@ -123,6 +141,10 @@ const storageKey = `pl_banner_dismissed_${campaign}`;
       line-height: 1;
       opacity: 0.8;
       padding: 0.25rem;
+      position: absolute;
+      right: 0.65rem;
+      top: 50%;
+      transform: translateY(-50%);
     }
 
     .pl-announcement-banner-dismiss:hover {
