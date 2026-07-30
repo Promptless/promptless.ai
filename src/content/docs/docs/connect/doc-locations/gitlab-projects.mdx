@@ -17,45 +17,52 @@ import { Aside } from '@astrojs/starlight/components';
 You can store your documentation in a GitLab project and have Promptless publish updates there. This "docs as code" approach keeps your documentation under version control alongside the rest of your work, and it supports both gitlab.com and self-hosted GitLab.
 
 <Aside type="note">
-  **Prerequisite**: Before creating a GitLab-based doc collection, you must first [connect GitLab](/docs/reference/integrations/gitlab) on the integrations page. The connected group access token must have the write-capable `api` scope so Promptless can push a branch and open a merge request.
+  **Prerequisite**: Before creating a GitLab-based doc collection, you must first [connect GitLab](/docs/reference/integrations/gitlab) on the integrations page. The connected group access token must have the write-capable `api` scope so Promptless can push a branch and open a merge request. If the repository picker is missing or lists no GitLab projects, either GitLab isn't connected yet or the group token's project inventory doesn't include the project you want; the [GitLab integration](/docs/reference/integrations/gitlab) page covers connecting GitLab and scoping the token to the right group.
 </Aside>
 
 ## How it works
 
 1. **Project setup**: Your documentation files live in a GitLab project.
 2. **Promptless access**: Promptless reaches the project using your connected GitLab group access token, which needs the `api` scope.
-3. **Automatic merge requests**: When documentation updates are needed, Promptless pushes a branch and opens a merge request in your docs project.
+3. **Automatic merge requests**: When documentation updates are needed, Promptless pushes a branch directly to your docs project—there's no fork step, unlike the GitHub open-source flow—and opens a merge request.
 4. **Platform sync**: Your documentation platform automatically syncs changes from GitLab.
 
 ## Configuration
 
-You can configure your doc collections on the [Configuration page](https://app.gopromptless.ai/configuration). Doc collections are defined in the `doc_collections` section of your `promptless.yaml` file, keyed by the GitLab project path (`group/project`, including subgroups):
+Add a GitLab doc collection on the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration).
+
+Under **Which repository should Promptless document?**, the picker lists your connected GitHub and GitLab repositories, or you can type a repository path. Type the project's full path including every namespace segment, such as `acme/platform/developer-docs` for a project in a nested subgroup. Every connected GitLab project appears here—gitlab.com and self-hosted alike—so a self-hosted project needs no special path through the configuration editor.
+
+You don't pick a platform. Promptless derives it from the connection that reaches the repository and shows the result as read-only text under **Where this repo lives**: "GitLab — Promptless opens merge requests on this project directly."
+
+The **GitLab host** field tells Promptless which instance to reach. Leave it blank for gitlab.com. For self-hosted GitLab, enter just the hostname—no `https://` and no path—such as `gitlab.acme.com`.
+
+The rest of the form matches a GitHub doc collection: your docs framework, published URL, and the directories Promptless can modify.
+
+In YAML, a GitLab collection sets `platform: gitlab` and is keyed by the project's full path, including every namespace segment:
 
 ```yaml
 doc_collections:
-  acme/docs:                 # gitlab.com project
+  acme/docs:                              # gitlab.com project
     platform: gitlab
     docs_framework: docusaurus
-    docs_root_url: https://docs.acme.com
-    filter:
-      - docs/
-  acme/handbook:             # self-hosted GitLab project
+  acme/platform/developer-docs:           # self-hosted, nested namespace
     platform: gitlab
     host: gitlab.acme.com
     docs_framework: mkdocs
 ```
 
-Set `platform: gitlab` on each GitLab-backed collection. Leave `host` off for gitlab.com; for self-hosted GitLab, set it to your instance hostname (just the hostname—no `https://` and no path). See the [Configuration Reference](/docs/reference/configuration-reference#doc-collections) for the complete schema.
-
-<Aside type="note">
-  During onboarding, the project picker discovers gitlab.com projects automatically. To add a self-hosted GitLab project, create the collection in the configuration editor and enter your instance hostname.
-</Aside>
+See the [configuration reference](/docs/reference/configuration-reference#doc-collections) for every field a doc collection accepts.
 
 ## Automatic merge request creation
 
 When automatic PR creation (`auto_create_pr`) is enabled in your [publishing policies](/docs/reference/configuration-reference#policies), Promptless opens a merge request in your documentation project with the suggested changes. Merge request status is tracked the same way GitHub pull request status is. Because GitLab has no draft flag at creation time, Promptless marks a draft merge request with a `Draft:` title prefix.
 
-You can also set `auto_merge: true` in your publishing policies to have Promptless merge documentation merge requests automatically. See [Policies](/docs/reference/configuration-reference#policies) for how publishing rules resolve.
+You can also enable automatic merging (`auto_merge`) in your publishing policies to have Promptless merge its documentation changes automatically. On GitLab, Promptless attempts an immediate squash merge as soon as it opens the merge request. See [Policies](/docs/reference/configuration-reference#policies) for how publishing rules resolve.
+
+<Aside type="caution" title="GitLab auto-merge does not wait for pipelines">
+  GitLab auto-merge behaves differently from the GitHub auto-merge path. Promptless deliberately does not use GitLab's "merge when pipeline succeeds"—it attempts the merge right away, does not wait for a pipeline, and does not retry later. The merge request might not be able to merge at that moment—for example, a required pipeline hasn't passed, approvals are pending, or there are conflicts. When that happens, GitLab reports a failure and Promptless leaves the merge request open for you to merge manually.
+</Aside>
 
 ## Path scope (documentation directories)
 

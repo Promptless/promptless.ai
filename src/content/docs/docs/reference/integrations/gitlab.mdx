@@ -55,8 +55,7 @@ After connecting your GitLab account, you can configure how Promptless interacts
 When setting up a project with GitLab as a trigger source:
 
 1. Select the GitLab projects you want Promptless to monitor for changes.
-2. Choose whether Promptless should have read-only access or write access to your documentation repositories.
-3. Optionally, configure directory-specific triggers to focus on particular parts of your codebase.
+2. Optionally, configure directory-specific triggers to focus on particular parts of your codebase.
 
 ### Directory-specific triggers
 
@@ -92,9 +91,11 @@ Beyond triggers and context, a GitLab project can also be a doc collection—a p
 
 To publish to GitLab, your connected group access token needs the write-capable `api` scope—the same scope the integration already uses for triggers. Promptless writes only to the projects you set up as doc collections.
 
-GitLab doc collections work on both gitlab.com and self-hosted GitLab. During onboarding, the project picker discovers gitlab.com projects automatically. To add a self-hosted GitLab project, create the collection in the configuration editor and enter your instance hostname. See [GitLab projects](/docs/connect/doc-locations/gitlab-projects) for setup details and [the configuration reference](/docs/reference/configuration-reference#doc-collections) for the `platform: gitlab` and `host` fields.
+GitLab doc collections work on both gitlab.com and self-hosted GitLab, and both are set up the same way. The project picker lists your connected GitLab projects across every connected instance, and a **GitLab host** field on the same form takes your self-hosted hostname — leave it blank for gitlab.com. See [GitLab projects](/docs/connect/doc-locations/gitlab-projects) for setup details and [the configuration reference](/docs/reference/configuration-reference#doc-collections) for the `platform: gitlab` and `host` fields.
 
 Promptless tracks merge request status the same way it tracks GitHub pull request status. Because GitLab has no draft flag at creation time, Promptless marks a draft merge request with a `Draft:` title prefix.
+
+Auto-merge differs from the GitHub path—on GitLab, Promptless attempts the merge immediately instead of waiting for a pipeline—so see [Automatic merge request creation](/docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation) before you enable it.
 
 ## Authentication model
 
@@ -109,11 +110,11 @@ This authentication model ensures that Promptless only has access to the project
 
 ### Token scope considerations
 
-GitLab group access tokens carry the read-write `api` scope, which grants access across the whole group. When GitLab is a trigger or context source, Promptless uses the token only for read operations: viewing merge requests, reading repository files, and fetching project metadata. When you set up a GitLab project as a doc collection, Promptless also writes with the token—pushing a documentation branch and opening a merge request. Promptless restricts those writes to the projects you configure as doc collections, but this is an application-level restriction Promptless enforces, not a limit imposed by the token itself. For a hard technical boundary, scope the group access token to a group or subgroup that contains only your documentation projects.
+GitLab group access tokens carry the read-write `api` scope, which grants access across the whole group. Even a triggers-and-context-only setup needs write capability: creating the webhooks that detect merge request events and posting the merge request comment that links back to a suggestion both require the write-capable `api` scope.
 
-<Aside type="tip" title="Using read-only tokens">
-  If your organization uses GitLab only for triggers and context—not for publishing documentation—and requires stricter access controls, you can provision a group access token with the `read_api` scope instead of `api`. This limits the token to read-only operations at the GitLab API level. Publishing documentation to a GitLab project requires the write-capable `api` scope.
-</Aside>
+Beyond that, when GitLab is a trigger or context source, Promptless uses the token for read operations: viewing merge requests, reading repository files, and fetching project metadata. When you set up a GitLab project as a doc collection, Promptless also writes with the token—pushing a documentation branch and opening a merge request. Promptless restricts those writes to the projects you configure as doc collections, but this is an application-level restriction Promptless enforces, not a limit imposed by the token itself.
+
+For a hard technical limit, scope the group access token to a group or subgroup that contains only your documentation projects.
 
 ## Webhook management
 
