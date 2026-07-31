@@ -177,6 +177,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Keep translations current', slug: 'docs/get-the-most-out/localization' },
                     { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
                     {
                       label: 'Teach a custom task',
