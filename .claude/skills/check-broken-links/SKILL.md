@@ -143,7 +143,7 @@ When crawling localhost, broken external links also surface (e.g. a dead `https:
 2. For each `parent`, find the source under `src/content/`:
    - URL like `http://localhost:4321/docs/foo/bar` → look under `src/content/docs/` for `foo/bar.mdx` (or `foo/bar/index.mdx`).
    - URL like `http://localhost:4321/blog/foo` → `src/content/blog/foo.mdx`.
-   - When in doubt, `grep -r` for a distinctive slug from the URL.
+   - When in doubt, run `rg` for a distinctive slug from the URL.
 3. Decide per link:
    - **Internal link to a moved page** → check `astro.config.mjs` redirects and `src/lib/generated/redirects.json`. If a redirect should exist, add it; otherwise update the link.
    - **External link that 404s** → update or remove. Don't add an unverified replacement.
