@@ -27,17 +27,35 @@ In Form mode, Promptless fills in fields from your connected integrations. The d
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save, and warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so you never end up with a rule pointing at something that no longer exists.
 
-### Set notification channels in Form mode
+### Set notifications, escalations, and publishing in Form mode
 
-On the **Policies** tab, both the default policy and each rule expose a dropdown per notification channel—Slack and Microsoft Teams—rather than a free-text field. On a rule, the option you pick maps directly to the tri-state resolution described under [Policy fields](#policy-fields):
+On the **Policies** tab, the default policy and each rule—see [Policies](#policies) for how a default overlay and its ordered rules combine—present three labeled groups, in UI order:
 
-- **Inherit from default** keeps whatever channel the rule would otherwise inherit from `policies.default` or an earlier rule (the field is omitted).
-- **Disabled — no Slack notifications** (or **no Teams notifications**) turns the inherited channel off for that scope, so Promptless sends nothing. This is the Form-mode equivalent of setting the field to `null` in YAML (`slack_channel: null` or `msteams_channel: null`).
-- A **channel name** routes announcements to that channel.
+- **Notifications** announces a new doc suggestion.
+- **Escalations** routes anything needing a person—a question about a change, or an integration Promptless can no longer reach.
+- **Publishing** governs a doc update once it's ready.
 
-The default policy has nothing to inherit, so its channel dropdowns offer **No Slack notifications** / **No Teams notifications** instead of Inherit and Disabled. Leaving one unset simply means Promptless doesn't announce on that platform.
+**Notifications** and **Escalations** each contain a select labeled **Slack channel** and a select labeled **Microsoft Teams channel**—only the group heading above distinguishes them. The pair under **Notifications** routes suggestion announcements; the pair under **Escalations** routes items needing a person. Despite the plural group label, the **Notifications** selects write the singular `notification` key: **Slack channel** writes `notification.slack_channel`, and **Microsoft Teams channel** writes `notification.msteams_channel`.
 
-The Slack dropdown lists the channels the Slack integration can see. The Teams dropdown lists the channels Promptless has seen activity in; when none are available, it falls back to a field where you paste a channel's conversation ID. That paste fallback can inherit or route to a channel, but it can't disable an inherited Teams channel—switch to YAML mode and set `msteams_channel: null` for that.
+On a rule, each of the four channel selects maps to the tri-state resolution described under [Policy fields](#policy-fields):
+
+- **Inherit from default** omits the field.
+- **Disabled — no Slack notifications**, **Disabled — no Teams notifications**, **Disabled — no Slack escalations**, and **Disabled — no Teams escalations** are the Form-mode equivalent of `null`.
+- Picking a **channel name** routes to that channel.
+
+The default policy has nothing to inherit, so its four selects offer **No Slack notifications**, **No Teams notifications**, **No Slack escalations**, and **No Teams escalations** instead. Selecting one of those four options is what stops announcements or escalations on that platform.
+
+On a rule that routes nothing for a group, that group's two selects are hidden and an **Add notifications** or **Add escalations** button appears instead; clicking it reveals the two selects, both defaulting to **Inherit from default**. Clearing both channels stops routing for that group.
+
+Under **Publishing**, the default policy shows a switch for each flag. On a rule, each flag is a three-way segmented control instead—**Inherit**, **On**, **Off**—so a rule can force a flag on or off against an inherited value. The switch and the segmented control write the same YAML keys:
+
+| Control                                  | YAML field (under `publishing:`) |
+| ---------------------------------------- | -------------------------------- |
+| **Open a pull request automatically**    | `auto_create_pr`                 |
+| **Merge the pull request automatically** | `auto_merge`                     |
+| **Skip the comment on the source PR**    | `suppress_source_pr_comments`    |
+
+You pick from a list rather than typing a channel name: the Slack selects list the channels the Slack integration can see; the Teams selects list the channels Promptless has seen activity in. When none are available, the **Microsoft Teams channel** select under **Notifications** falls back to pasting a channel's conversation ID. That paste fallback can inherit or route to a channel, but it can't disable an inherited Teams channel—switch to YAML mode and set `msteams_channel: null` for that.
 
 ### Permissions and conflict detection
 
