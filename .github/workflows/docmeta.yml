@@ -1,0 +1,46 @@
+# Frontmatter validation — blocks merge when a docs page's metadata violates
+# any of the three schemas in docmeta.config.yaml (Starlight contract, Google's
+# OKF google:okf:0.1, extension seam). See docs/starport-migration/adrs/0006.
+#
+# Lives in its own workflow (not check.yml) because docmeta requires Node >= 24
+# while the rest of the toolchain runs Node 22.
+name: docmeta
+
+on:
+  pull_request:
+    paths:
+      - "src/content/docs/**/*.md"
+      - "src/content/docs/**/*.mdx"
+      - "docmeta.config.yaml"
+      - "schemas/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docmeta.yml"
+  push:
+    branches:
+      - main
+
+# Read-only validation; no autofix or push. Actions are pinned to commit SHAs
+# to match the repo's workflow hardening convention (see remark-lint.yml).
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Paths and schemas come from docmeta.config.yaml. `--format github`
+      # emits workflow commands that GitHub renders as inline PR annotations
+      # on the offending frontmatter lines; exit code 1 fails the job.
+      - name: Validate frontmatter
+        run: npx docmeta validate --format github

@@ -16,8 +16,9 @@ a file in `docs/`, update this map.
 docs/
 +-- README.md           # Meta-docs: how to maintain the docs/ folder
 +-- analytics.md        # PostHog setup, event catalog, tracking gaps and recommendations
++-- events.md           # Marketing event glossary: canonical reference for every PostHog event
 +-- content_strategy/   # Audience/persona/CUJ/IA strategy (see "Docs & Audience Strategy" below)
-+-- starport-migration/ # Plan + ADRs for migrating the site onto the Starport Starlight template
++-- starport-migration/ # Plan + ADRs for the completed migration onto the Starport Starlight template
 ```
 
 ## Project Structure
@@ -38,6 +39,8 @@ src/
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 +-- styles/             # Global CSS (custom.css, site.css)
+packages/
++-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
@@ -84,11 +87,35 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build
-npm run check            # typecheck + build
-npm run test:smoke       # smoke tests
+npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run check            # typecheck + MCP contract tests + build
+npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
+npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
+npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
+npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
+npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
 ```
+
+## Docs linting gates (Starport v1.1.0)
+
+Three linters gate `src/content/docs` prose/structure/metadata, each in its own
+CI workflow; keep their scopes aligned (all target `src/content/docs`):
+
+- **Vale** (`.vale.ini`, `vale.yml`) — prose style.
+- **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
+  *structure* (heading increments, list/blank-line consistency, undefined
+  references, trailing whitespace). CI auto-repairs (`--output` full reflow),
+  commits the fix on same-repo PRs, and blocks on anything left. Run
+  `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
+  Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
+  a CI guard enforces this. See ADR 0005.
+- **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
+  *content* against three schemas (Starlight mirror, Google OKF, extension
+  seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
+  and should carry `tags` and a quoted ISO 8601 `timestamp`. Add repo-specific
+  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
+  Runs on Node 24. See ADR 0006.
 
 ## Diagrams
 

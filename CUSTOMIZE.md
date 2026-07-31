@@ -34,7 +34,8 @@ those are noted inline.
 
 Mandatory infrastructure — keep it wired:
 
-- **Agent-friendly `llms.txt` / `llms-full.txt` and per-page `.md`** — served today from `src/pages/llms.txt.ts`, `llms-full.txt.ts`, `[...slug].md.ts`, `index.md.ts`, `pricing.md.ts`, `free-tools.md.ts`. Phase 6 reconciles these with the template's `starlight-llms-txt` plugin (pick one producer per route; keep the emitted URLs and content identical, and keep the non-docs Markdown variants).
+- **Agent-friendly `llms.txt` / `llms-full.txt`** — generated at build time by the `starlight-llms-txt` plugin (`astro.config.mjs`), which also emits `/llms-small.txt`. The hand-rolled `src/pages/llms.txt.ts` / `llms-full.txt.ts` route endpoints were retired in Phase 6 (ADR 0004 §4); the plugin owns those routes now, with the non-docs surface (blog, changelog, marketing `.md` variants) carried via its `optionalLinks`.
+- **Per-page `.md` endpoints** — `[...slug].md.ts`, `index.md.ts`, `pricing.md.ts`, `free-tools.md.ts`. A separate surface the `starlight-llms-txt` plugin does not cover, so they are kept as-is.
 - **`.starport-template.json`** — the managed-migration version marker at the repo root. Never delete it; Promptless reads it to know which template version this site is on. Bump `templateVersion` only when re-syncing to a newer template release.
 - **Diagrams** — Mermaid sources in `src/diagrams/*.mmd` compile to committed SVGs in `public/mermaid/` via `npm run build:diagrams`. Rebuild and commit the SVG when a diagram changes.
 
@@ -42,7 +43,7 @@ Mandatory infrastructure — keep it wired:
 
 - **API reference (`starlight-openapi`)** — `schema: ./public/openapi/api-triggers.yaml`, rendered under `/api/*` via the `starlightOpenAPI([...])` plugin, with `openAPISidebarGroups` wired into the `starlight-sidebar-topics` docs topic in `astro.config.mjs`. On `starlight-openapi@0.26` since Phase 4 (ADR 0004): the `/api/*` URL set is unchanged, but the plugin's newer renderer adds auto-generated request/response code samples and an operations list to the reference pages.
 - **Navigation** — directory-driven since Phase 3 (ADR 0003): `starlight-sidebar-topics` wraps Starlight's native folder `autogenerate` in `astro.config.mjs`, walking `src/content/docs/docs/`. Placement/visibility come from each page's `sidebar.order`/`sidebar.hidden`; section/group labels are set explicitly in the topic config. The old `buildSidebar()` → `src/lib/generated/sidebar.json` pipeline was retired (no more generated `sidebar.json`). `scripts/generate-manifest.ts` still produces `route-manifest.json` (the `.md` endpoints need it). Phase 5 (ADR 0004 §2) settled the topic model on a **single "Documentation" topic** — there is no top-level topic-switcher bar and no separate "API Reference" topic; the OpenAPI `/api/*` pages live inside the one docs topic (`openAPISidebarGroups` are appended to its `items`). The repo's `Sidebar` override renders the sublist directly, so the plugin's switcher never mounts. To add a section, extend the docs topic's `items`; do not introduce a second topic without an ADR, since that would surface the switcher bar as a user-visible IA change.
-- **Docs MCP server (`/mcp`)** — not wired yet. Phase 6 adds the vendored `@starport/starlight-mcp` SSR plugin plus the `@astrojs/vercel` adapter to serve `/mcp` (read-only `search` + `get_page`). Vercel is the verified target; the Cloudflare option is experimental and not used.
+- **Docs MCP server (`/mcp`)** — not wired, **deferred** (Manny, 2026-07-10; ADR 0004 §3). It was dropped from Phase 6 to be attempted later: adding the vendored `@starport/starlight-mcp` SSR plugin plus the `@astrojs/vercel` adapter to serve `/mcp` (read-only `search` + `get_page`), with Vercel as the verified target (the Cloudflare option is experimental and not used). Until then the site stays fully static with no SSR adapter.
 - **Build-time link validation (`starlight-links-validator`)** — not enabled yet. Phase 6b turns on the build-failing gate after the engine upgrade stabilizes and reconciles it with the non-blocking `check-broken-links` skill.
 - **i18n** — not used. This site ships no `defaultLocale`/`locales` config and no locale content tree, and the template's sample i18n scaffolding is intentionally **not** adopted ([ADR 0004](docs/starport-migration/adrs/0004-adopt-capabilities.md)).
 
@@ -52,4 +53,4 @@ Mandatory infrastructure — keep it wired:
 
 ## Deployment
 
-- Deployed to **Vercel**. The site is fully static today; Phase 6 adds one on-demand `/mcp` route via `@astrojs/vercel`, keeping every other route static.
+- Deployed to **Vercel**. The site is fully static — every route is prerendered and no SSR adapter is wired. The one on-demand route the template offers (`/mcp` via `@astrojs/vercel`) is deferred with the MCP server (ADR 0004 §3); it would add SSR only when that capability is attempted.

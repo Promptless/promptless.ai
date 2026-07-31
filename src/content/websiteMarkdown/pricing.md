@@ -9,6 +9,44 @@ Pricing scales with the size and complexity of your docs site.
 
 Open-source, non-commercial project? [Learn about our OSS program](https://promptless.ai/docs/getting-started/promptless-oss).
 
+## For agent instructions
+
+Pricing scales with the number of agent instructions you govern.
+
+### Startup (agent instructions)
+
+For teams with a small set of agent instructions to govern.
+
+- Price: Contact us
+- Usage: Fewer than 50 agent instructions*
+- Centralized Instruction Hub for skills, subagents, hooks, and MCP configs
+- Native plugins for Claude Code and Codex, plus a Gemini CLI extension
+- Trace analysis for stale or conflicting instructions
+- Remediations you review and merge
+- CTA: Book demo
+
+### Growth (agent instructions)
+
+For teams with a growing set of agent instructions to govern.
+
+- Price: Contact us
+- Usage: 50-200 agent instructions*
+- Everything in Startup, plus
+- Priority trace analysis across more agent sessions
+- CTA: Book demo
+
+### Enterprise (agent instructions)
+
+For teams governing a large set of agent instructions at scale.
+
+- Price: Contact us
+- Usage: More than 200 agent instructions*
+- Everything in Growth, plus
+- Optional eval-gating on remediations
+- CTA: Book demo
+
+\* Agent instructions are skills, subagent (agent) definitions, hooks, and shared MCP server configurations.
+
 ## Startup
 
 For teams with small docs sites and standard integration needs.
