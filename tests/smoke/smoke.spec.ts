@@ -605,14 +605,22 @@ test('every same-origin docs link on the homepage resolves to a real page', asyn
   );
 });
 
-test('website header renders expected CTAs and search control', async () => {
-  const response = await fetch(`${preview.baseUrl}/`);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
-  assert.match(html, /href="\/meet"[^>]*>\s*Get a demo/i);
-  assert.match(html, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
-  assert.match(html, /aria-label="Search"/i);
+test('website header replaces home search with the launch announcement', async () => {
+  const homeResponse = await fetch(`${preview.baseUrl}/`);
+  assert.equal(homeResponse.status, 200);
+  const homeHtml = await homeResponse.text();
+  assert.match(homeHtml, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
+  assert.match(homeHtml, /href="\/meet"[^>]*>\s*Get a demo/i);
+  assert.match(homeHtml, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
+  assert.match(
+    homeHtml,
+    /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
+  );
+  assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
+
+  const docsResponse = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
+  assert.equal(docsResponse.status, 200);
+  assert.match(await docsResponse.text(), /aria-label="Search"/i);
 });
 
 test('legal pages render', async () => {
