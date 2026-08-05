@@ -162,8 +162,8 @@ export default defineConfig({
                     { label: 'Connection health', slug: 'docs/connect/connection-health' },
                   ],
                 },
-                { label: 'Tune', collapsed: true, items: [{ autogenerate: { directory: 'docs/tune', collapsed: true } }] },
                 { label: 'Work the queue', collapsed: true, items: [{ autogenerate: { directory: 'docs/work-the-queue', collapsed: true } }] },
+                { label: 'Tune', collapsed: true, items: [{ autogenerate: { directory: 'docs/tune', collapsed: true } }] },
                 {
                   label: 'Get the most out of it',
                   collapsed: true,
