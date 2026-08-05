@@ -1,0 +1,30 @@
+# docmeta configuration — frontmatter (metadata) validation for docs content.
+#
+# Complements remark-lint (Markdown structure, .remarkrc.mjs) and Vale (prose
+# style, .vale.ini) by validating frontmatter *content* against JSON Schema.
+# Astro's zod schema only fails at build time and silently strips unknown keys;
+# docmeta fails fast in CI with per-field, per-line PR annotations.
+# See docs/starport-migration/adrs/0006-adopt-docmeta.md.
+#
+# Every file gets all three schemas, in order:
+#   1. Starlight's frontmatter contract (hand-authored mirror of
+#      @astrojs/starlight's zod schema — keep in sync on Starlight upgrades).
+#   2. google:okf:0.1 — docmeta's built-in Open Knowledge Format schema.
+#      Requires `type`; format-checks `tags`, `timestamp`, `resource` when
+#      present. Makes pages self-describing for agents consuming llms.txt.
+#   3. The customer extension seam — empty by default. Add repo-specific
+#      required fields in schemas/custom-frontmatter.schema.json, not here.
+#
+# Scope is src/content/docs — matching this repo's Vale and remark-lint scope,
+# so blog, changelog, and marketing content are not held to the docs schema.
+#
+# Run locally with `npm run lint:frontmatter` (requires Node >= 24).
+# CI: .github/workflows/docmeta.yml.
+
+paths:
+  - src/content/docs
+
+schemas:
+  - ./schemas/starlight-frontmatter.schema.json
+  - google:okf:0.1
+  - ./schemas/custom-frontmatter.schema.json
