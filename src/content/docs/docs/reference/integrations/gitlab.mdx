@@ -23,7 +23,7 @@ Setup has two parts: create a group access token in GitLab, then connect it in P
 
 <Steps>
 
-1. **Create a GitLab group access token.** In GitLab, go to your group's **Settings > Access Tokens** and click **Add new token**, then:
+1. **Create a GitLab group access token.** You need the **Owner** role for the group, since GitLab restricts group access token creation to group Owners — if you don't have it, ask a group Owner to create the token. In GitLab, go to your group's **Settings > Access Tokens** and click **Add new token**, then:
    - Name it (for example, "Promptless").
    - Set an expiration date (maximum one year).
    - Select the **`api`** scope.
@@ -40,7 +40,7 @@ Setup has two parts: create a group access token in GitLab, then connect it in P
 </Steps>
 
 <Aside type="caution" title="Required Scope">
-  The token must be a **group** access token with the **`api`** scope and the **Maintainer** role. Tokens without the `api` scope don't work with Promptless, and Maintainer is required because webhook creation is Maintainer-gated.
+  The token must be a **group** access token with the **`api`** scope and the **Maintainer** role. Tokens without the `api` scope don't work with Promptless, and Maintainer is required because webhook creation is Maintainer-gated. GitLab has no read-only token option — see [Token scope considerations](#token-scope-considerations) for why.
 </Aside>
 
 ## Project setup
@@ -67,6 +67,20 @@ To set up directory-specific triggers:
 1. In your project configuration, select the GitLab project.
 2. Under **Advanced Options**, enable **Directory-Specific Triggers**.
 3. Enter the directories you want to monitor, separated by commas (for example, `src/api, docs/reference`).
+
+## Merge request link resolution
+
+When you share a GitLab.com merge request link in a Slack message or other trigger, Promptless automatically fetches the MR content. This includes:
+
+- MR metadata (title, state, source/target branches, author)
+- Discussion comments with file positions and resolved state
+- The full diff for analysis
+
+This allows Promptless to gather context from linked merge requests.
+
+<Aside type="note">
+  Merge request link resolution currently works only for gitlab.com. Self-hosted GitLab instances are supported for webhook-based triggers but not for link resolution.
+</Aside>
 
 ## Source code reading
 
@@ -101,24 +115,20 @@ The GitLab integration authenticates with a group access token:
 - **Group Access Token**: A token with the `api` scope for full API access.
 - **Webhook Triggers**: Work with both gitlab.com and self-hosted GitLab instances.
 - **Publishing (doc collections)**: Works with both gitlab.com and self-hosted GitLab instances.
+- **Link Resolution**: Works with gitlab.com only.
 - **Source Code Reading**: Works with gitlab.com only.
 
 The token's scope and role limit what Promptless can do; see [Token scope considerations](#token-scope-considerations) for which projects it can reach and why Promptless enforces the per-project boundary rather than the token.
 
 ### Token scope considerations
 
-**GitLab has no read-only option.** Connecting a GitLab group always performs writes with the group access token — it creates the merge-request webhooks and sets the Promptless bot avatar. A read-only (`read_api`) token cannot create those webhooks, so the integration delivers no merge-request triggers — it's connected but inert. Even a triggers-and-context-only setup needs a write-capable token.
+**GitLab has no read-only option.** Connecting a GitLab group always performs writes with the group access token: it creates the merge-request webhooks across the group's projects, and it also sets the Promptless bot avatar as an incidental additional write. Webhook creation is the hard blocker — a read-only (`read_api`) token cannot create those webhooks, so the integration delivers no merge-request triggers and is connected but inert. Unlike the [GitHub (read-only) app](/docs/reference/integrations/github-read-only), GitLab has no read-only equivalent, so even a triggers-and-context-only setup needs a write-capable token.
 
-The role you need depends on the job:
-
-- **GitLab as a trigger or context source**: `api` scope with the **Maintainer** role, because webhook management is the Maintainer-gated operation.
-- **GitLab as a docs destination (publishing)**: `api` scope with at least the **Developer** role, so Promptless can push a branch and open a merge request.
-
-The single token the connect flow recommends — `api` scope with the Maintainer role — covers every job.
+**The group access token needs the `api` scope and the Maintainer role.** This is what the connect flow recommends and what a working connection requires. Maintainer is required because connecting a group always sets up the merge-request webhooks across the group's projects, and creating those webhooks requires the Maintainer role. Publishing on its own — pushing a branch and opening a merge request — needs only lower privilege (at least the Developer role for those write operations), but because every connection sets up webhooks, Maintainer is the effective requirement for any GitLab connection, whether you use it as a trigger and context source, a docs destination, or both. A Developer-role token completes the initial connect but receives no webhooks (the failure is swallowed silently) and then hard-fails on the next refresh, so it is not a viable option. The clean, safe recommendation is `api` scope with the Maintainer role.
 
 Promptless writes only to the projects you configure as doc collections. That's an application-level restriction Promptless enforces — the token itself doesn't impose it.
 
-Two layers limit what Promptless can reach. The first is a hard, token-level limit: if you scope the group access token to a group or subgroup that contains only your documentation projects, the token can't reach anything outside it. The second is an application-level path scope on the doc collection, which limits which files Promptless can change.
+Two layers limit what Promptless can reach. The first is a hard, token-level limit: if you scope the group access token to a group or subgroup that contains only your documentation projects, the token can't reach anything outside it. Scoping the token to a documentation-only subgroup is safe only when your trigger and context source projects and your docs-destination projects all live within that same group or subgroup — otherwise the token can't reach source projects outside it. The second is an application-level path scope on the doc collection, which limits which files Promptless can change.
 
 ## Webhook management
 
