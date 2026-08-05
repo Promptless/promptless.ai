@@ -6,6 +6,9 @@ import starlightLlmsTxt from 'starlight-llms-txt';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
+import vercel from '@astrojs/vercel';
+import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
 import routeManifest from './src/lib/generated/route-manifest.json' with { type: 'json' };
@@ -22,6 +25,15 @@ const hiddenSitemapPaths = new Set([
   ...getHiddenDocsPaths(new URL('./src/content/docs/', import.meta.url)),
   ...getHiddenWebsitePaths(new URL('./src/content/website/', import.meta.url)),
 ]);
+
+// ---------------------------------------------------------------------------
+// MCP server (packages/starlight-mcp, ported from the Starport template). The
+// /mcp route is rendered on demand, so enabling it requires the @astrojs/vercel
+// SSR adapter — the rest of the site stays static (output: 'static' +
+// prerender: false on the MCP route only). Set MCP_ENABLED=false for a fully
+// static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
+// ---------------------------------------------------------------------------
+const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 
 const redirects = {
   '/home': '/',
@@ -43,7 +55,13 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
+  adapter: MCP_ENABLED ? vercel() : undefined,
   redirects,
+  // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
+  // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
+  markdown: {
+    rehypePlugins: [rehypeAppLinksNewTab],
+  },
   integrations: [
     react(),
     partytown({
@@ -140,15 +158,43 @@ export default defineConfig({
                       ],
                     },
                     { label: 'Doc locations', collapsed: true, items: [{ autogenerate: { directory: 'docs/connect/doc-locations', collapsed: true } }] },
+                    { label: 'Source control', slug: 'docs/connect/source-control' },
+                    { label: 'Connection health', slug: 'docs/connect/connection-health' },
                   ],
                 },
                 { label: 'Tune', collapsed: true, items: [{ autogenerate: { directory: 'docs/tune', collapsed: true } }] },
                 { label: 'Work the queue', collapsed: true, items: [{ autogenerate: { directory: 'docs/work-the-queue', collapsed: true } }] },
-                { label: 'Get the most out of it', collapsed: true, items: [{ autogenerate: { directory: 'docs/get-the-most-out', collapsed: true } }] },
+                {
+                  label: 'Get the most out of it',
+                  collapsed: true,
+                  // Enumerated (not a blanket autogenerate) because this group
+                  // contains a subdirectory — teach-promptless-a-custom-task/.
+                  // Starlight's autogenerate labels a nested directory with its
+                  // raw folder segment (no index-page frontmatter override
+                  // exists for subgroup labels), so a blanket autogenerate here
+                  // rendered the group label as "teach-promptless-a-custom-task".
+                  // Same explicit-subgroup pattern as Connect and Reference above.
+                  items: [
+                    { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
+                    { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Passive channel listening', slug: 'docs/get-the-most-out/passive-channel-listening' },
+                    { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
+                    {
+                      label: 'Teach a custom task',
+                      collapsed: true,
+                      items: [
+                        { label: 'Teach a custom task', slug: 'docs/get-the-most-out/teach-promptless-a-custom-task' },
+                        { autogenerate: { directory: 'docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
+                      ],
+                    },
+                    { label: 'Ask to update config', slug: 'docs/get-the-most-out/ask-promptless-to-update-config' },
+                  ],
+                },
                 { label: 'Scale', collapsed: true, items: [{ autogenerate: { directory: 'docs/scale', collapsed: true } }] },
                 { label: 'Audit', collapsed: true, items: [{ autogenerate: { directory: 'docs/audit', collapsed: true } }] },
                 { label: 'Migrate', collapsed: true, items: [{ autogenerate: { directory: 'docs/migrate', collapsed: true } }] },
                 { label: 'Security', collapsed: true, items: [{ autogenerate: { directory: 'docs/security', collapsed: true } }] },
+                { label: 'Measure impact', collapsed: true, items: [{ autogenerate: { directory: 'docs/measure', collapsed: true } }] },
                 {
                   label: 'Reference',
                   collapsed: true,
@@ -213,6 +259,10 @@ export default defineConfig({
             ],
           },
         ),
+        // Read-only MCP server at /mcp (see packages/starlight-mcp): `search` +
+        // `get_page` tools and an llms.txt resource over Streamable HTTP. Omitted
+        // when MCP_ENABLED=false so the build needs no SSR adapter.
+        ...(MCP_ENABLED ? [starlightMcp({ serverName: 'Promptless Docs' })] : []),
       ],
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
