@@ -14,11 +14,11 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-Promptless monitors your GitHub repositories for pull requests. You can choose when documentation updates trigger: when a PR is opened or when it receives its first approval.
+Promptless monitors your GitHub repositories for pull requests. You can choose when documentation updates trigger: when a PR is opened, when it receives its first approval, when it merges, or on each new push while it's open.
 
 ## Trigger modes
 
-GitHub PR triggers support two modes:
+GitHub PR triggers support these modes:
 
 ### Opened (default)
 
@@ -32,11 +32,29 @@ Triggers when a pull request receives its first approval from a reviewer. Use th
   The first-approval mode only triggers once per PR—on the first approval. Subsequent approvals or re-approvals after requested changes do not trigger additional documentation updates.
 </Aside>
 
+### Merge
+
+Triggers when a pull request merges. Use this mode when you want documentation only for changes that have actually landed, rather than for work still under review.
+
+### Updated
+
+Re-reviews an open PR each time new commits are pushed to it (available for GitHub PR triggers only). This turns Promptless into a review bot for documentation PRs, keeping its suggestions current as the PR evolves. Use it when you want an open documentation PR re-reviewed as it changes rather than analyzed once—the single-shot cadence of Opened, First approval, and Merge.
+
+This mode is opt-in and inert by default: nothing fires on pushes unless a `github_pr` clause explicitly lists `trigger_on: [updated]`.
+
+Because it re-reviews on *every* push, a PR that lands many incremental commits produces a matching number of re-review passes—more activity than the single-shot modes above. That volume is why the mode is gated behind explicit configuration. Scope it tightly to keep the noise manageable: name an explicit `repos` list and narrow it further with `trigger_directories`.
+
+<Aside type="caution">
+  A match clause that lists `updated` in `trigger_on` must name an explicit `repos` list; it cannot use `repos: all`. Other clauses in the same trigger are unaffected.
+</Aside>
+
+On a push, Promptless applies the same guardrails as its other triggers: it skips draft PRs (see [Draft pull requests](#draft-pull-requests)) and skips Promptless-authored PRs. Pushes from any other contributor re-trigger the review—including external and first-time contributors—so the review keeps pace with the PR no matter who pushes to it. An `@promptless` mention does not bypass these filters or re-fire on a push.
+
 ## How it works
 
-When a pull request event occurs in your monitored repositories (either opened or first approval, depending on your configuration):
+When a pull request event occurs in your monitored repositories (opened, first approval, merge, or a new push if `updated` is enabled):
 
-1. **Automatic Detection**: Promptless receives notification of the new PR
+1. **Automatic Detection**: Promptless receives notification of the PR event
 2. **Analysis**: The system processes the full PR context to understand the changes
 3. **Relevance Assessment**: Promptless determines if the changes require documentation updates
 4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions
@@ -74,6 +92,42 @@ triggers:
           - merge            # When PR merges
         trigger_directories:
           - src/
+```
+
+### Review-bot setup with `updated`
+
+To run the review-bot cadence on its own, give the `updated` clause an explicit `repos` list and scope it with `trigger_directories`:
+
+```yaml
+triggers:
+  docs-review-bot:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/docs
+        trigger_on:
+          - updated          # Re-review on each new push
+        trigger_directories:
+          - docs/
+```
+
+The explicit-`repos` requirement is enforced per match clause, not per trigger, so one trigger can pair a broad clause for other events with a scoped `updated` clause. The `repos: all` restriction applies only to the clause that lists `updated`; other clauses in the same trigger can still use `repos: all`:
+
+```yaml
+triggers:
+  my-pr-trigger:
+    trigger_type: github_pr
+    match:
+      - repos: all           # broad clause for one-shot events
+        trigger_on:
+          - opened
+          - merge
+      - repos:               # scoped clause required for updated
+          - acme/docs
+        trigger_on:
+          - updated
+        trigger_directories:
+          - docs/
 ```
 
 See the [Configuration Reference](/docs/reference/configuration-reference#triggers) for all available options.
