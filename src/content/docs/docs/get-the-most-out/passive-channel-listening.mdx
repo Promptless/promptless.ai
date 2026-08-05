@@ -1,0 +1,85 @@
+---
+title: Get the most out of passive channel listening
+description: Point Promptless at your highest-signal Slack and Teams channels so it drafts documentation updates from real conversations, no @mention required.
+slug: docs/get-the-most-out/passive-channel-listening
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-07-22T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 31
+  label: Passive channel listening
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Passive listening lets Promptless read the Slack and Microsoft Teams channels you choose and draft documentation updates from real conversations without anyone tagging it. Promptless evaluates messages as they're posted and only drafts a suggestion when the conversation warrants one.
+
+## How passive listening decides what to document
+
+Promptless reads matching-channel conversations as they happen and drafts a suggestion only when the conversation reveals a real gap or error in your docs, surfaces new information worth documenting, or would clearly improve the docs. That outcome can be a correction or update to an existing page, not only a brand-new one. Much of the time it makes no change at all—that's expected and by design. The value is that Promptless stays quiet on ordinary chatter and speaks up only when there's something to document. Promptless processes the messages it reads to draft suggestions and doesn't retain them; see [Data handling](/docs/security/data-handling-and-classification).
+
+Passive listening needs at least one active doc collection. Without one, listening has nowhere to send suggestions and does nothing.
+
+Suggestions from passive listening are quiet at the source: Promptless does not post an "I'm on it" acknowledgment back in the channel. They show up in your [review queue](/docs/work-the-queue/web-interface) and route to your configured notification channel, which you set through your [policies configuration](/docs/reference/configuration-reference#policies).
+
+When a monitored thread keeps evolving, Promptless can update the suggestion it already opened for that thread instead of creating a duplicate, so you see updates to a single suggestion rather than a flood of separate ones.
+
+<Aside type="note">
+  Passive listening uses Promptless's judgment about what's worth documenting, so it stays quiet on ordinary chatter. When you want to guarantee Promptless acts on a specific message, @mention it directly—see [Steer it in the moment](#steer-it-in-the-moment).
+</Aside>
+
+## Pick the right channels
+
+Point passive listening at low-volume, high-signal channels, and keep it off busy general chat. Good candidates include a Slack Connect channel shared with a customer, a dedicated `#docs-feedback` channel, or an internal channel where product decisions get made. Avoid a busy `#general`—high message volume means Promptless evaluates far more messages, most of which aren't documentation-worthy.
+
+For example, a team points passive listening at the Slack Connect channel they share with a customer. Over a week, three separate people ask some variant of "how do I rotate our API key?" Promptless notices the recurring question has no answer in the docs and drafts a new FAQ entry answering it. The team reviews and publishes it, turning a support-channel pattern into a doc that deflects the next ask. The same pattern applies to internal or community channels—a contributor or team channel where the same question keeps coming up is just as good a candidate.
+
+## Set up listening
+
+Configure passive listening on the **Configuration** page under the **Triggers** tab.
+
+<Aside type="tip" title="Before You Begin">
+  - **Invite the Promptless bot to every Slack channel you want monitored** with `/invite @promptless`. This applies to public and private channels alike—Promptless can't see messages in a channel it hasn't been added to.
+  - **For Microsoft Teams, install the Promptless Teams app** with permission to read channel messages, plus admin consent, so it can read channel conversations without an @mention. Teams support is in beta—contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) to enable it for your organization. See the [Microsoft Teams integration](/docs/reference/integrations/microsoft-teams) setup guide for installation.
+  - **Have at least one [active doc collection](/docs/connect/doc-locations/how-promptless-learns-your-docs)** so Promptless has somewhere to send suggestions.
+</Aside>
+
+<Steps>
+  1. **Add a Slack passive-listening trigger.** Choose the channels to monitor. Slack matches on channel names (no `#` prefix). Promptless tracks Slack channel renames automatically, so renaming a monitored channel doesn't break the trigger.
+
+  2. **Add a Microsoft Teams passive-listening trigger.** Pick channels from the channel selector, or paste a channel's conversation ID, which looks like `19:...@thread.tacv2`.
+</Steps>
+
+Each trigger you configure in the dashboard is stored as YAML. If you prefer config as code, add or edit these trigger blocks directly in `promptless.yaml` and push via git instead of using the dashboard—see the [Configuration Reference](/docs/reference/configuration-reference#triggers). For reference, the underlying shape looks like this—one `slack_listen` block and one `msteams_listen` block:
+
+```yaml
+triggers:
+  support-channels:
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - slack-connect-acme
+          - docs-feedback
+  teams-support:
+    trigger_type: msteams_listen
+    match:
+      - channel_ids:
+          - 19:abc123@thread.tacv2
+```
+
+For Slack trigger details, see [Slack messages](/docs/connect/triggers/slack-messages). For Teams trigger details, see [Microsoft Teams messages](/docs/connect/triggers/microsoft-teams-messages). For the full set of match fields, see the [Configuration Reference](/docs/reference/configuration-reference#triggers).
+
+To stop monitoring a channel, remove or edit its trigger on the **Configuration** page (or delete the trigger block from `promptless.yaml`).
+
+## Steer it in the moment
+
+You don't have to wait for passive listening to decide. Mention @Promptless directly in a monitored channel to trigger it immediately for a specific message or thread. This runs right away as a normal mention and isn't subject to the passive "is this worth documenting?" judgment—use it when you want something documented now.
+
+Once Promptless is active in a thread, it keeps listening to replies so you can refine a suggestion or add context without tagging it again. To tell it to skip a specific reply, start the message with `aside` or `/aside`. Whether Promptless listens to all replies or only @mentions is an organization-level setting.
+
+For how follow-up replies are handled, see [Thread auto-reply](/docs/work-the-queue/reviewing-from-slack-and-teams#thread-auto-reply). To change the reply mode, see [Thread reply trigger mode](/docs/connect/triggers/slack-messages#thread-reply-trigger-mode).
+
+Need help getting the most out of passive listening? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).

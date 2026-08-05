@@ -281,13 +281,144 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  assert.match(homeHtml, /Write the docs/);
+  // Product switcher (ProductSwitcher.astro): an accessible tablist of two pills
+  // rendered above the hero. Both pills and both hero panels are server-rendered,
+  // so we assert the full structure and copy of both.
+  assert.match(homeHtml, /role="tablist"/);
+  assert.match(homeHtml, /for customer-facing docs/);
+  assert.match(homeHtml, /for agent instructions/);
+  // Default tab (ProductSwitcher.astro): the "for agent instructions" pill is now
+  // the default-selected tab, and "for customer-facing docs" is not. Use lookahead
+  // regexes so raw HTML attribute order can vary — we only require the pill's id and
+  // aria-selected to co-occur in the same opening tag.
+  assert.match(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    homeHtml,
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
+  assert.match(homeHtml, /id="pl-hero-panel-docs"/);
+  // The docs panel carries the `hidden` attribute; the agents panel does not.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
+  // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
+  // the default-active tab; it is revealed client-side whenever the docs pill becomes
+  // active, whether by auto-rotate or an explicit click (ProductSwitcher.astro
+  // syncTabSlots()). Fetch-only smoke tests never run that JS, so we can only assert
+  // the default server state, which is `hidden`. Lookahead regex keeps us agnostic to
+  // raw HTML attribute ordering.
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
+  // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
+  // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
+  // agents pill is the default-active tab, this slot ships server-rendered with no
+  // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
+  // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
+  // smoke tests never run that JS, so we assert the default server state, which has no
+  // `hidden` attribute. Lookahead regex keeps us agnostic to raw HTML attribute ordering.
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  // Per-tab hero asides (home.mdx: .pl-hero-v2-asides in the hero right column). They
+  // follow the active pill exactly like the below-fold slots, so with agents as the
+  // default tab the agents aside ships visible and the docs aside ships `hidden`.
+  assert.match(homeHtml, /id="pl-hero-aside-agents"/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /id="pl-hero-aside-docs"/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*\shidden)[^>]*>/);
+  // The docs aside ships `hidden`, but its contents are still server-rendered (the
+  // switcher only toggles the attribute, it never injects markup): the hero vertical
+  // ticker, the mobile-only full carousel, and that carousel's heading. Assert the
+  // `class="…` attribute rather than the bare class name so a stylesheet mentioning
+  // the same selector can't satisfy these on its own. TestimonialsVertical.astro uses
+  // scoped styles, so Astro appends a scope class — match the prefix, not a closed quote.
+  assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
+  assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
+  assert.match(homeHtml, /Writers, developers, and founders all love Promptless/);
+  // Two testimonial identities, asserted independently of each other. Order-independent
+  // on purpose: the testimonials array is fixed today, but an open PR (#674) adds a
+  // build-time Fisher-Yates shuffle to TestimonialsVertical.astro, so nothing here may
+  // depend on order, adjacency, or a full quote string.
+  assert.match(homeHtml, /Mo King/);
+  assert.match(homeHtml, /Nicholas DeWald/);
+  // Nesting lock: the stat cards must stay inside #pl-hero-aside-agents and the vertical
+  // ticker inside #pl-hero-aside-docs, so a refactor cannot re-orphan either from the tab
+  // machinery (the #776 regression that put the agent stats on both tabs). Index
+  // comparison against the aside wrappers rather than exact markup, so intervening
+  // attributes or wrappers stay allowed.
+  // Match on the `class="…` prefix, not the bare class name, so a bundled or inlined
+  // stylesheet mentioning the same selector can't satisfy the index comparison. The
+  // prefix (rather than a closed quote) tolerates Astro's appended scope class.
+  const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
+  const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
+  const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
+  const verticalTestimonialsIndex = homeHtml.indexOf('class="pl-testimonials-vertical');
+  assert.ok(
+    agentsAsideIndex !== -1 && statCardsIndex > agentsAsideIndex && statCardsIndex < docsAsideIndex,
+    'Expected .pl-stat-cards to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
+  );
+  assert.ok(
+    docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
+    'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
+  );
+  // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
+  // the demo-video id lock below).
+  assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
+  // New "How it works" section header (home.mdx: <h2> at the top of #pl-below-fold-agents).
+  // The agents below-fold ships server-rendered visible, so this flywheel section header is
+  // in the fetched HTML. Distinct from /How Promptless works/ below (the HowItWorks component
+  // copy), so this locks the new flywheel section header specifically.
+  assert.match(homeHtml, /How it works/);
+  // "Typical improvements after 30 days" stat block (home.mdx, inside
+  // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
+  // aside ships server-rendered visible because agents is the default tab, so the
+  // heading and the four stat figures are present in the fetched HTML. The
+  // "Compared against our pre-governed instructions" caveat was removed from home.mdx, so
+  // we assert it is absent.
+  assert.match(homeHtml, /Typical improvements after 30 days/);
+  assert.match(homeHtml, /42%/);
+  assert.match(homeHtml, /15%/);
+  assert.match(homeHtml, /32%/);
+  assert.match(homeHtml, /18%/);
+  assert.doesNotMatch(homeHtml, /Compared against our pre-governed instructions/);
+  // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
+  // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
+  // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
+  // the demo video id so a regression that drops the video is caught.
+  assert.match(homeHtml, /data-video-id="AONpRsZJkTY"/);
+  assert.match(homeHtml, /Write the docs\./);
+  assert.match(homeHtml, /Skip the busywork\./);
+  assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
+  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
+  assert.match(homeHtml, /id="pl-hero-panel-agents"/);
+  assert.match(homeHtml, /Give your AI workforce superpowers/);
+  // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
+  // in "team's"; assert fragments that straddle those so we don't depend on either.
+  assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
+  assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
+  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
+  assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
+  assert.match(homeHtml, /Works with all your agents/);
+  // Lock the new agents-panel logo strip that follows the third bullet.
+  assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
+  assert.match(homeHtml, /alt="Gemini CLI"/);
   assert.match(homeHtml, /How Promptless works/);
   assert.match(homeHtml, /Get a demo/);
   assert.match(homeHtml, /Ask your favorite AI about Promptless/);
   assert.match(homeHtml, /data-track-action="ask_ai"/);
   assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);
   assert.doesNotMatch(homeHtml, /Getting Started/i);
+  // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
+  assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
+  assert.doesNotMatch(homeHtml, /Promptless for Docs/);
+  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
+  assert.doesNotMatch(homeHtml, /Coming soon/i);
+  // Guard against the pre-reword agents-panel copy silently returning.
+  assert.doesNotMatch(homeHtml, /governed documentation/);
+  assert.doesNotMatch(homeHtml, /control plane/);
+  assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);
@@ -302,6 +433,36 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(pricingHtml, /Startup/);
   assert.match(pricingHtml, /Growth/);
   assert.match(pricingHtml, /Enterprise/);
+  // New two-tab pricing switcher (PricingCards.astro) mirroring the homepage. Both
+  // pricing panels are server-rendered, so the switcher and the agent-instructions
+  // content are present in the fetched HTML regardless of the default tab.
+  assert.match(pricingHtml, /role="tablist"/);
+  assert.match(pricingHtml, /for agent instructions/);
+  assert.match(pricingHtml, /for customer-facing docs/);
+  // Default tab (PricingCards.astro): the docs pill is now the default-selected tab
+  // and the agents pill is not; correspondingly the agents panel carries `hidden`
+  // and the docs panel does not. DOM order of pills/panels is unchanged. Lookahead
+  // regexes keep us agnostic to raw HTML attribute ordering.
+  assert.match(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.doesNotMatch(
+    pricingHtml,
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+  );
+  assert.match(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*\shidden)[^>]*>/);
+  // Agent-instructions pricing view: "Contact us" price, usage boundaries, footnote,
+  // and distinctive feature bullets — all strings that do not collide with docs-side copy.
+  assert.match(pricingHtml, /Contact us/);
+  assert.match(pricingHtml, /Fewer than 50 agent instructions/);
+  assert.match(pricingHtml, /50-200 agent instructions/);
+  assert.match(pricingHtml, /More than 200 agent instructions/);
+  assert.match(pricingHtml, /Agent instructions are skills, subagent/);
+  assert.match(pricingHtml, /Centralized Instruction Hub/);
+  assert.match(pricingHtml, /Native plugins for Claude Code and Codex/);
+  // Docs-side pricing (server-rendered on the hidden docs panel) still holds in full.
   assert.match(pricingHtml, /\$500\s*\/\s*mo/);
   assert.match(pricingHtml, /All plans include a 14-day free trial\./);
   assert.match(pricingHtml, /Up to 200 Pages\*/);
@@ -318,14 +479,148 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.doesNotMatch(pricingHtml, /<h3>Compare plans<\/h3>/);
 });
 
-test('website header renders expected CTAs and search control', async () => {
-  const response = await fetch(`${preview.baseUrl}/`);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
-  assert.match(html, /href="\/meet"[^>]*>\s*Get a demo/i);
-  assert.match(html, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
-  assert.match(html, /aria-label="Search"/i);
+test('every same-origin docs link on the homepage resolves to a real page', async (t) => {
+  // The smoke harness is the right layer for this. preview-server.ts replays the
+  // Vercel redirect routes from .vercel/output/config.json as real 3xx responses
+  // (loadRedirectRoutes), so an adapter build reproduces production's exact-match,
+  // trailing-slash-sensitive redirect behavior. That is what the authored hero
+  // hrefs tripped over: a redirect source without a trailing slash never matches
+  // an href that has one. A static build carries no redirect routes at all
+  // (resolveBuildOutput returns `redirects: []`), so the exact-match guarantee
+  // holds only under the adapter build — see the stub note in resolveHref below.
+  const homepage = await fetch(`${preview.baseUrl}/`);
+  assert.equal(homepage.status, 200);
+  const html = await homepage.text();
+
+  const previewOrigin = new URL(preview.baseUrl).origin;
+  const MAX_HOPS = 5;
+
+  // Collect same-site docs hrefs in both authored forms: root-relative (/docs…)
+  // and origin-prefixed (https://promptless.ai/docs…). Absolute hrefs are
+  // normalized to their pathname so every request below goes to the preview
+  // server — this test must never reach promptless.ai, or a link broken on this
+  // branch would pass against production.
+  const hrefs = new Set<string>();
+  for (const [, value] of html.matchAll(/href="([^"]*)"/g)) {
+    const isAbsolute = /^https:\/\/promptless\.ai\/docs(?:[/?#]|$)/.test(value);
+    if (!isAbsolute && !/^\/docs(?:[/?#]|$)/.test(value)) continue;
+    const pathname = isAbsolute ? new URL(value).pathname : value;
+    hrefs.add(pathname.replace(/#.*$/, ''));
+  }
+
+  // Vacuity guard: a refactor that drops the hero must fail here instead of
+  // passing an empty loop.
+  assert.ok(
+    hrefs.size >= 10,
+    `Homepage rendered fewer docs links than expected (found ${hrefs.size}, expected at least 10).`
+  );
+
+  type Resolution =
+    | { kind: 'final'; status: number; chain: string[] }
+    | { kind: 'off-origin'; location: string; chain: string[] };
+
+  async function resolveHref(href: string): Promise<Resolution> {
+    const chain: string[] = [href];
+    const visited = new Set<string>();
+    let current = new URL(href, preview.baseUrl);
+    let hops = 0;
+
+    for (;;) {
+      assert.ok(
+        !visited.has(current.href),
+        `Redirect loop for ${href} (chain: ${chain.join(' -> ')}).`
+      );
+      visited.add(current.href);
+      assert.ok(
+        hops <= MAX_HOPS,
+        `${href} exceeded ${MAX_HOPS} redirect hops (chain: ${chain.join(' -> ')}).`
+      );
+      hops += 1;
+
+      const response = await fetch(current, { redirect: 'manual' });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        assert.ok(
+          location,
+          `${href} returned ${response.status} with no Location header (chain: ${chain.join(' -> ')}).`
+        );
+        const next = new URL(location, current);
+        // loadRedirectRoutes replays each Vercel route without its `has`
+        // conditions, so a host-conditional rule could in principle surface an
+        // absolute production Location. Never fetch off-origin from a smoke test:
+        // report it as unverifiable rather than asserting on production.
+        if (next.origin !== previewOrigin) return { kind: 'off-origin', location: next.href, chain };
+        chain.push(next.pathname);
+        current = next;
+        continue;
+      }
+
+      if (response.status === 200) {
+        // Static builds (MCP_ENABLED=false → dist) have no platform redirects:
+        // Astro emits a "Redirecting to: …" stub page with a 200 instead, as the
+        // /blog/all and website-alias tests above allow for. Follow the stub so
+        // the dist path keeps real coverage instead of accepting the stub itself.
+        // The trade-off: on a trailing-slash mismatch the directory-level stub
+        // answers 200 on its own, so following it cannot tell a correctly slashed
+        // href from one that only resolves because the stub bridges the mismatch.
+        // The exact-match assertion is therefore only real under the adapter
+        // build, which is what CI's check.yml runs.
+        const stubTarget = (await response.text()).match(/Redirecting to:\s*([^\s<"']+)/)?.[1];
+        if (stubTarget) {
+          const next = new URL(stubTarget, current);
+          if (next.origin !== previewOrigin) return { kind: 'off-origin', location: next.href, chain };
+          chain.push(next.pathname);
+          current = next;
+          continue;
+        }
+      }
+
+      return { kind: 'final', status: response.status, chain };
+    }
+  }
+
+  let verified = 0;
+  for (const href of [...hrefs].sort()) {
+    const resolution = await resolveHref(href);
+    if (resolution.kind === 'off-origin') {
+      t.diagnostic(
+        `${href} redirects off-origin to ${resolution.location}; not locally verifiable (chain: ${resolution.chain.join(' -> ')}).`
+      );
+      continue;
+    }
+    assert.equal(
+      resolution.status,
+      200,
+      `Homepage docs link ${href} resolved to ${resolution.status}, expected 200 (chain: ${resolution.chain.join(' -> ')}).`
+    );
+    verified += 1;
+  }
+
+  // Off-origin hops above are reported, not asserted on. This keeps that escape
+  // hatch from turning the whole test into diagnostics-only coverage.
+  assert.ok(
+    verified >= 10,
+    `Only ${verified} of ${hrefs.size} homepage docs links were verified against the preview server; expected at least 10.`
+  );
+});
+
+test('website header replaces home search with the launch announcement', async () => {
+  const homeResponse = await fetch(`${preview.baseUrl}/`);
+  assert.equal(homeResponse.status, 200);
+  const homeHtml = await homeResponse.text();
+  assert.match(homeHtml, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
+  assert.match(homeHtml, /href="\/meet"[^>]*>\s*Get a demo/i);
+  assert.match(homeHtml, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
+  assert.match(
+    homeHtml,
+    /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
+  );
+  assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
+
+  const docsResponse = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
+  assert.equal(docsResponse.status, 200);
+  assert.match(await docsResponse.text(), /aria-label="Search"/i);
 });
 
 test('legal pages render', async () => {
@@ -394,6 +689,12 @@ test('website markdown endpoints are available for agent-friendly content', asyn
     assert.match(body, route.heading, `Expected ${route.path} to include its markdown title.`);
     assert.match(body, route.detail, `Expected ${route.path} to include key agent-facing content.`);
   }
+
+  // The pricing markdown mirror now also carries the agent-instructions section
+  // (websiteMarkdown/pricing.md) alongside the unchanged docs-side plans.
+  const pricingMd = await (await fetch(`${preview.baseUrl}/pricing.md`)).text();
+  assert.match(pricingMd, /## For agent instructions/);
+  assert.match(pricingMd, /Agent instructions are skills, subagent/);
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
