@@ -1,0 +1,122 @@
+{
+  "specId": "environment-variables-settings",
+  "description": "Guards the Environment Variables settings view against UI drift. The `## Add environment variables` and `## Update and delete variables` walkthroughs in src/content/docs/docs/scale/environment-variables.mdx name each control by its visible label -- Key Name, Value, Secret, Add Variable, Update, Delete -- and promise the Value field masks once Secret is on; these labels and the page's screenshots went stale once before, so this spec asserts them. Non-destructive: it checks presence, labels, and masking and never submits the form or deletes a variable.",
+  "tests": [
+    {
+      "testId": "env-vars-settings-page-and-variables-table",
+      "description": "A bare /settings link lands on the Environment Variables view, which shows the variables table with Key, Value, Created, and Actions columns and both an Update and a Delete control on every row. Save and Cancel stay hidden on load (`## Update and delete variables`).",
+      "before": "login.spec.json",
+      "steps": [
+        {
+          "description": "Open the Settings page the docs link to. It 307-redirects to the Environment Variables view.",
+          "goTo": "https://app.gopromptless.ai/settings"
+        },
+        {
+          "description": "Wait for the Environment Variables view to render",
+          "find": {
+            "elementText": "/Environment Variables/",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Settings opens on the Environment Variables view and the documented name is present",
+          "runBrowserScript": {
+            "script": "const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); const named = Array.from(document.querySelectorAll('body *')).some((el) => own(el) === 'Environment Variables'); return ['path=' + window.location.pathname, 'envVarsTabName=' + (named ? 'present' : 'missing')].join(' ');",
+            "output": "path=/settings/env-vars envVarsTabName=present",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "The variables table has the four documented columns in the documented order",
+          "runBrowserScript": {
+            "script": "const cells = document.querySelectorAll('thead th').length ? document.querySelectorAll('thead th') : document.querySelectorAll('[role=columnheader]'); if (!cells.length) return 'headers=none-found'; const headers = Array.from(cells).map((c) => (c.textContent || '').replace(/\\s+/g, ' ').trim()).filter(Boolean); return 'headers=' + headers.join('|');",
+            "output": "headers=Key|Value|Created|Actions",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Every row carries an Update and a Delete control, and neither Save nor Cancel is present before an Update is clicked",
+          "runBrowserScript": {
+            "script": "const table = document.querySelector('table'); if (!table) return 'table=missing'; const label = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim().toLowerCase(); const controls = (root) => Array.from(root.querySelectorAll('button, a, [role=button]')); const rows = Array.from(table.querySelectorAll('tbody tr')); const has = (row, name) => controls(row).some((el) => label(el) === name); const complete = rows.length > 0 && rows.every((row) => has(row, 'update') && has(row, 'delete')); const anyIn = (name) => controls(table).some((el) => label(el) === name); return ['rows=' + rows.length, 'rowActions=' + (rows.length === 0 ? 'none' : complete ? 'complete' : 'incomplete'), 'saveOnLoad=' + (anyIn('save') ? 'present' : 'absent'), 'cancelOnLoad=' + (anyIn('cancel') ? 'present' : 'absent')].join(' ');",
+            "output": "rowActions=complete saveOnLoad=absent cancelOnLoad=absent",
+            "timeout": 15000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "env-vars-add-variable-form-secret-toggle",
+      "description": "The Add Variable form sits inline below the variables table with nothing to expand, labels its two inputs Key Name and Value as the docs call them, and masks the Value field as you type once the Secret toggle is on. The submit control is checked for existence by its Add Variable label and never clicked, so the run creates no variable.",
+      "before": "login.spec.json",
+      "steps": [
+        {
+          "description": "Open the Environment Variables settings page",
+          "goTo": "https://app.gopromptless.ai/settings"
+        },
+        {
+          "description": "Wait for the Add Variable form's Key Name input to render",
+          "find": {
+            "selector": "input[placeholder='e.g. TEST_ACCOUNT_USERNAME']",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "The Add Variable form is already present with nothing to expand: both documented inputs exist, the Value field starts unmasked, the Secret label matches its documented wording, and the submit control reads Add Variable",
+          "runBrowserScript": {
+            "script": "const key = document.querySelector('input[placeholder=\"e.g. TEST_ACCOUNT_USERNAME\"]'); const value = document.querySelector('input[placeholder=\"Variable value\"]'); const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); let form = null; if (key && value) { const ancestors = new Set(); for (let el = key; el; el = el.parentElement) ancestors.add(el); for (let el = value; el; el = el.parentElement) { if (ancestors.has(el)) { form = el; break; } } } const labelled = (name) => form ? (Array.from(form.querySelectorAll('*')).some((el) => own(el) === name) ? 'present' : 'missing') : 'no-form'; const secret = Array.from(document.querySelectorAll('label')).find((l) => (l.textContent || '').replace(/\\s+/g, ' ').trim() === 'Secret (value will be hidden after saving)'); const submit = Array.from(document.querySelectorAll('button, input[type=submit]')).find((el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase() === 'ADD VARIABLE'); return ['keyInput=' + (key ? 'present' : 'missing'), 'valueInput=' + (value ? 'present' : 'missing'), 'keyLabel=' + labelled('Key Name'), 'valueLabel=' + labelled('Value'), 'valueType=' + (value ? value.type : 'n-a'), 'secretLabel=' + (secret ? 'present' : 'missing'), 'submit=' + (submit ? 'present' : 'missing')].join(' ');",
+            "output": "keyInput=present valueInput=present keyLabel=present valueLabel=present valueType=text secretLabel=present submit=present",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Focus the Key Name input",
+          "find": {
+            "selector": "input[placeholder='e.g. TEST_ACCOUNT_USERNAME']",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type an inert sentinel key that is never submitted",
+          "type": "DOC_DETECTIVE_ENV_VARS_SPEC_NOT_SAVED"
+        },
+        {
+          "description": "Turn on the Secret toggle by clicking its label",
+          "find": {
+            "elementText": "/^Secret \\(value will be hidden after saving\\)$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "The Value field became a masked input, which matches what the docs promise",
+          "runBrowserScript": {
+            "script": "const value = document.querySelector('input[placeholder=\"Variable value\"]'); return 'valueType=' + (value ? value.type : 'missing');",
+            "output": "valueType=password",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Focus the now-masked Value field",
+          "find": {
+            "selector": "input[placeholder='Variable value']",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type an inert value; nothing here submits the form",
+          "type": "doc-detective-not-saved"
+        },
+        {
+          "description": "The value stayed masked while being typed, and the sentinel key never reached the variables table -- so this run created no environment variable",
+          "runBrowserScript": {
+            "script": "const value = document.querySelector('input[placeholder=\"Variable value\"]'); const table = document.querySelector('table'); const cells = table ? Array.from(table.querySelectorAll('tbody td')) : []; const leaked = cells.some((td) => (td.textContent || '').includes('DOC_DETECTIVE_ENV_VARS_SPEC_NOT_SAVED')); return ['valueStillMasked=' + (value ? (value.type === 'password' ? 'yes' : 'no') : 'missing'), 'sentinelInTable=' + (leaked ? 'yes' : 'no')].join(' ');",
+            "output": "valueStillMasked=yes sentinelInTable=no",
+            "timeout": 15000
+          }
+        }
+      ]
+    }
+  ]
+}
