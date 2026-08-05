@@ -25,7 +25,7 @@ Form mode saves one item at a time. When you add or change a doc collection, tri
 
 When you need precise control over the file format, switch to **YAML** mode using the toggle at the top of the page. YAML mode is the raw editor with syntax highlighting, schema-driven completions, and inline validation. Use it when you want to copy configurations between environments or edit the file directly.
 
-In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, or GitHub Enterprise) comes from the integration that reaches the repository rather than a field you set, and the repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
+In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) comes from the integration that reaches the repository rather than a field you set, and the repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save, and warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so you never end up with a rule pointing at something that no longer exists.
 
@@ -96,7 +96,7 @@ All sections are optional. Unknown keys are rejected with validation errors.
 
 ## Doc collections
 
-Doc collections define the documentation repositories where Promptless publishes updates. Each collection is keyed by its GitHub repository name in `owner/repo` format.
+Doc collections define the documentation repositories where Promptless publishes updates. GitHub collections are keyed by `owner/repo`; GitLab collections are keyed by the project's full path, including every namespace segment (for example, `acme/platform/developer-docs`).
 
 ```yaml
 doc_collections:
@@ -110,21 +110,34 @@ doc_collections:
 
 ### Fields
 
-| Field              | Description                                                                   |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `platform`         | Repository platform: `github` (default), `github_oss`, or `github_enterprise` |
-| `host`             | GitHub Enterprise hostname (required when `platform: github_enterprise`)      |
-| `default_branch`   | Branch to target for PRs (defaults to repository's default branch)            |
-| `docs_framework`   | Documentation framework (docusaurus, mkdocs, starlight, etc.)                 |
-| `docs_root_url`    | Published documentation site URL                                              |
-| `config_file_path` | Path to framework config file (e.g., `docusaurus.config.js`)                  |
-| `vale_config_path` | Path to Vale config file to enable prose linting                              |
-| `doc_detective`    | Doc Detective configuration (presence enables the feature)                    |
-| `filter`           | List of directory prefixes or file paths Promptless can modify                |
+| Field              | Description                                                                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`                                                                                                                          |
+| `host`             | Bare instance hostname (no scheme, no path). **Required** for `github_enterprise`; **optional** for `gitlab` (blank means gitlab.com, a hostname means self-hosted GitLab); **invalid** for every other platform |
+| `default_branch`   | Branch to target for PRs (defaults to repository's default branch)                                                                                                                                               |
+| `docs_framework`   | Documentation framework (docusaurus, mkdocs, starlight, etc.)                                                                                                                                                    |
+| `docs_root_url`    | Published documentation site URL                                                                                                                                                                                 |
+| `config_file_path` | Path to framework config file (e.g., `docusaurus.config.js`)                                                                                                                                                     |
+| `vale_config_path` | Path to Vale config file to enable prose linting                                                                                                                                                                 |
+| `doc_detective`    | Doc Detective configuration (presence enables the feature)                                                                                                                                                       |
+| `filter`           | List of directory prefixes or file paths Promptless can modify                                                                                                                                                   |
 
 <Aside type="note">
   One repository can have at most one doc collection per organization. Collection "names" are the repository names. There's no separate display name field.
 </Aside>
+
+A GitLab-backed collection sets `platform: gitlab` and is keyed by its project path. Leave `host` off for gitlab.com; set it to your instance hostname for self-hosted GitLab. Promptless opens merge requests on these projects the same way it opens pull requests on GitHub.
+
+```yaml
+doc_collections:
+  acme/docs:                 # gitlab.com project
+    platform: gitlab
+    docs_framework: docusaurus
+  acme/handbook:             # self-hosted GitLab project
+    platform: gitlab
+    host: gitlab.acme.com
+    docs_framework: mkdocs
+```
 
 ### Path scope (filter)
 
@@ -413,11 +426,11 @@ Escalations reach the escalation channel(s) even when suggestion notifications a
 
 **publishing**
 
-| Field                         | Description                              |
-| ----------------------------- | ---------------------------------------- |
-| `auto_create_pr`              | Automatically create PRs for suggestions |
-| `auto_merge`                  | Automatically merge documentation PRs    |
-| `suppress_source_pr_comments` | Skip posting comments on source PRs      |
+| Field                         | Description                                                                                                                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auto_create_pr`              | Automatically create PRs for suggestions, or merge requests on GitLab                                                                                                                                                                                                    |
+| `auto_merge`                  | Automatically merge documentation PRs. On GitLab the merge is immediate and squashes, and a merge request that can't merge right away stays open for you to merge manually ([full detail](/docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation)) |
+| `suppress_source_pr_comments` | Skip posting comments on source PRs                                                                                                                                                                                                                                      |
 
 **archiving**
 
@@ -535,7 +548,7 @@ Common validation errors:
 - Invalid enum values (e.g., wrong trigger type)
 - Missing required fields (e.g., `host` for `github_enterprise` platform)
 - Duplicate repository keys in `doc_collections`
-- Malformed `doc_collections` keys (each must be exactly `owner/repo`, with no extra path segments or surrounding whitespace)
+- Malformed `doc_collections` keys (a GitHub, GitHub OSS, or GitHub Enterprise key must be exactly `owner/repo`, with no extra path segments; a GitLab key is the project's full path, so nested namespace segments are valid; no key may carry surrounding whitespace)
 
 <Aside type="tip">
   If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
