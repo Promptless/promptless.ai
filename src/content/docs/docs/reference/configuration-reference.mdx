@@ -19,6 +19,8 @@ All Promptless configuration lives in a single `promptless.yaml` file in your or
 
 View and edit your configuration in the dashboard at [app.gopromptless.ai/configuration](https://app.gopromptless.ai/configuration). The page opens in **Form** mode, a structured editor that groups your configuration into four tabs—**Doc collections**, **Triggers**, **Context sources**, and **Policies**—so you can manage everything without hand-editing YAML. Each tab shows how many items it holds and surfaces the fields for that section directly.
 
+You can also ask Promptless to make these changes for you in Slack or Microsoft Teams. See [Ask Promptless to update your configuration](/docs/get-the-most-out/ask-promptless-to-update-config).
+
 Form mode saves one item at a time. When you add or change a doc collection, trigger, or context source, you save that item on its own, and Promptless commits the change to your Agent Knowledge Base right away. Policies save as a single section. There's no separate review-and-commit step—each save is its own commit.
 
 When you need precise control over the file format, switch to **YAML** mode using the toggle at the top of the page. YAML mode is the raw editor with syntax highlighting, schema-driven completions, and inline validation. Use it when you want to copy configurations between environments or edit the file directly.
@@ -62,7 +64,7 @@ Connecting Jira, Confluence, Linear, or Notion *after* onboarding works the same
 
 ### Add a commit trigger
 
-A commit trigger (`github_commit`) fires when commits are pushed to a branch you monitor, rather than when a pull request opens or merges. Without a `branches` filter, it watches only the repository's default branch. Add one when you want Promptless to react to commits directly:
+A commit trigger (`github_commit`) activates when commits are pushed to a branch you monitor, rather than when a pull request opens or merges. Without a `branches` filter, it watches only the repository's default branch. Add one when you want Promptless to react to commits directly:
 
 ```yaml
 triggers:
@@ -77,7 +79,7 @@ triggers:
           - src/
 ```
 
-In a typical pull request workflow, this overlaps with your PR triggers: merging a pull request also pushes a merge commit to the default branch, so the commit trigger fires alongside the `github_pr` merge event. A commit trigger earns its place when changes reach a branch without a pull request—hotfixes or commits pushed straight to the default branch, for example—so Promptless still documents those changes. See [GitHub Commits](/docs/connect/triggers/github-commits) for the full workflow.
+In a typical pull request workflow, this overlaps with your PR triggers: merging a pull request also pushes a merge commit to the default branch, so the commit trigger activates alongside the `github_pr` merge event. A commit trigger earns its place when changes reach a branch without a pull request—hotfixes or commits pushed straight to the default branch, for example—so Promptless still documents those changes. See [GitHub Commits](/docs/connect/triggers/github-commits) for the full workflow.
 
 ## File structure
 
@@ -184,7 +186,7 @@ context_sources:
 
 ## Triggers
 
-Triggers define events that automatically initiate documentation work. These are passive intake events that require explicit configuration. Each trigger has a `trigger_type` and a `match` list—the trigger fires when any clause in the list matches, and fields within a clause are ANDed together.
+Triggers define events that automatically initiate documentation work. These are passive intake events that require explicit configuration. Each trigger has a `trigger_type` and a `match` list—the trigger activates when any clause in the list matches, and fields within a clause are ANDed together.
 
 ```yaml
 triggers:
@@ -222,7 +224,7 @@ triggers:
   | --------------------- | ---------------------------------------------------------------------------------- |
   | `repos`               | Required. The literal `all` or a list of repositories (`owner/repo` format)        |
   | `excluded_repos`      | Repositories to exclude from monitoring                                            |
-  | `trigger_on`          | Required. Events that fire: `opened`, `first_approval`, `merge`                    |
+  | `trigger_on`          | Required. Events that activate the trigger: `opened`, `first_approval`, `merge`    |
   | `trigger_directories` | Only trigger when changes touch these directories                                  |
   | `branches`            | Only trigger for PRs targeting these branches                                      |
   | `repo_topics`         | Only trigger for repos with these GitHub topics                                    |
@@ -253,13 +255,13 @@ triggers:
 
   **Match clause fields:**
 
-  | Field                 | Description                                              |
-  | --------------------- | -------------------------------------------------------- |
-  | `repos`               | Required. The literal `all` or a list of GitLab projects |
-  | `excluded_repos`      | Projects to exclude                                      |
-  | `trigger_on`          | Required. Events that fire: `opened`, `merge`            |
-  | `trigger_directories` | Only trigger when changes touch these directories        |
-  | `branches`            | Only trigger for MRs targeting these branches            |
+  | Field                 | Description                                                   |
+  | --------------------- | ------------------------------------------------------------- |
+  | `repos`               | Required. The literal `all` or a list of GitLab projects      |
+  | `excluded_repos`      | Projects to exclude                                           |
+  | `trigger_on`          | Required. Events that activate the trigger: `opened`, `merge` |
+  | `trigger_directories` | Only trigger when changes touch these directories             |
+  | `branches`            | Only trigger for MRs targeting these branches                 |
 </details>
 
 <details>
@@ -273,7 +275,7 @@ triggers:
   | --------------------- | --------------------------------------------------------------- |
   | `repos`               | Required. The literal `all` or a list of Bitbucket repositories |
   | `excluded_repos`      | Repositories to exclude                                         |
-  | `trigger_on`          | Required. Events that fire: `opened`, `merge`                   |
+  | `trigger_on`          | Required. Events that activate the trigger: `opened`, `merge`   |
   | `trigger_directories` | Only trigger when changes touch these directories               |
   | `branches`            | Only trigger for PRs targeting these branches                   |
 </details>
@@ -340,6 +342,11 @@ policies:
     notification:
       slack_channel: docs-notifications
       msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
+      email:
+        - docs-team@example.com
     publishing:
       auto_create_pr: true
       auto_merge: false
@@ -390,6 +397,20 @@ policies:
           slack_channel: null   # silence Slack for this collection
 ```
 
+**escalation**
+
+Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, a test account is missing the feature flags to screenshot a screen. Or a PR references a Jira issue that Promptless can't read—either the Jira integration isn't connected, or it's connected but the project isn't accessible. See [Escalation channel](/docs/tune/notifications#escalation-channel) for the full behavior.
+
+| Field             | Description                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------ |
+| `slack_channel`   | Slack channel name for escalations (no `#` prefix)                                               |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for escalations               |
+| `email`           | List of email addresses for escalations (escalation only; not used for suggestion notifications) |
+
+Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+
+`escalation.email` routes escalations to a list of email addresses. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
+
 **publishing**
 
 | Field                         | Description                              |
@@ -397,6 +418,35 @@ policies:
 | `auto_create_pr`              | Automatically create PRs for suggestions |
 | `auto_merge`                  | Automatically merge documentation PRs    |
 | `suppress_source_pr_comments` | Skip posting comments on source PRs      |
+
+**archiving**
+
+Promptless automatically archives suggestions that have gone stale, so your dashboard stays focused on active work. The `archiving` block controls this behavior.
+
+| Field              | Description                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| `enabled`          | Whether automatic archiving runs for this scope. Defaults to `true`.                              |
+| `stale_after_days` | Days of inactivity before a suggestion is archived. Defaults to `30`; must be a positive integer. |
+
+Unlike `publishing`, archiving is **opt-out**: it runs with a 30-day window unless you disable or adjust it. Set `enabled: false` to keep a scope's suggestions open indefinitely—useful when a team leaves a suggestion open until a linked ticket closes—or lower `stale_after_days` to archive sooner. Staleness is measured from a suggestion's last activity rather than its creation date, taking the most recent of when it was created, updated, had its diff refreshed, or was reopened. A suggestion viewed within the window is always spared.
+
+```yaml
+policies:
+  default:
+    archiving:
+      stale_after_days: 45
+
+  rules:
+    - if:
+        doc_collection: acme/docs
+      then:
+        archiving:
+          enabled: false   # keep this collection's suggestions indefinitely
+```
+
+<Aside type="note">
+  Archiving resolves per doc collection, so a rule can disable it or change the window for one collection while the default covers the rest. Because archiving runs on a schedule rather than in response to a trigger, only `policies.default` and rules scoped by `doc_collection` apply to it—a rule scoped by `trigger` never affects archiving.
+</Aside>
 
 ### Rule matching
 
@@ -408,7 +458,7 @@ Rules are evaluated in order. When multiple rules match, fields from later rules
 Both conditions must match if both are specified (AND logic).
 
 <Aside type="caution">
-  Policies resolve at publish time, not when the trigger fires. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
+  Policies resolve at publish time, not when the trigger activates. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
 </Aside>
 
 ## Example configuration
@@ -485,6 +535,7 @@ Common validation errors:
 - Invalid enum values (e.g., wrong trigger type)
 - Missing required fields (e.g., `host` for `github_enterprise` platform)
 - Duplicate repository keys in `doc_collections`
+- Malformed `doc_collections` keys (each must be exactly `owner/repo`, with no extra path segments or surrounding whitespace)
 
 <Aside type="tip">
   If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
@@ -495,7 +546,7 @@ Common validation errors:
 Promptless automatically updates your configuration when repositories or Slack channels are renamed:
 
 - **GitHub repository renames**: The `doc_collections` key and any references in trigger `repos`/`excluded_repos` are updated.
-- **Slack channel renames**: Channel names in `slack_listen` triggers and `notification.slack_channel` policies are updated.
+- **Slack channel renames**: Channel names in `slack_listen` triggers and the `slack_channel` of `notification` and `escalation` policies are updated. Teams conversation IDs are not Slack channel names and are left unchanged.
 
 These updates are committed directly to your Agent Knowledge Base.
 

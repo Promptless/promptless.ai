@@ -1,8 +1,8 @@
 // remark-lint configuration — structural linting for docs Markdown/MDX.
 //
-// Complements Vale (prose style) and starlight-links-validator (link targets) by
-// checking Markdown/MDX *structure*: heading increments, list/blank-line
-// consistency, undefined references, trailing whitespace, hard tabs, etc.
+// Complements Vale (prose style) by checking Markdown/MDX *structure*: heading
+// increments, list/blank-line consistency, undefined references, trailing
+// whitespace, hard tabs, etc.
 //
 // We use remark (not markdownlint) because Astro + Starlight already parse this
 // site with remark, so this shares their parser and understands MDX, JSX, and
@@ -51,9 +51,12 @@ export default {
     // own prose. `maximum-line-length` isn't in the recommended preset, so no
     // override is needed for that.
     //
-    // Starlight link syntax uses site-absolute paths like `/docs/start-here/welcome/`
-    // that have no on-disk target during a lint pass; link *targets* are validated
-    // separately by starlight-links-validator during `build`, so we don't duplicate
-    // that here.
+    // Starlight link syntax uses site-absolute (root-relative) paths like
+    // `/docs/start-here/welcome/` that have no on-disk target during a lint pass,
+    // so remark does not check link *targets*. We haven't wired a build-time link
+    // validator yet either: starlight-links-validator is Starport Phase 6b, still
+    // open (see docs/starport-migration/README.md and, at the repo root,
+    // CUSTOMIZE.md:47). Link checking today is the manual `check-broken-links`
+    // skill plus the homepage docs-link assertion in tests/smoke/smoke.spec.ts.
   ],
 }
