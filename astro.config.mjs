@@ -178,6 +178,7 @@ export default defineConfig({
                     { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
                     { label: 'Keep changelogs current', slug: 'docs/get-the-most-out/release-notes' },
+                    { label: 'Passive channel listening', slug: 'docs/get-the-most-out/passive-channel-listening' },
                     { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
                     {
                       label: 'Teach a custom task',
@@ -194,6 +195,7 @@ export default defineConfig({
                 { label: 'Audit', collapsed: true, items: [{ autogenerate: { directory: 'docs/audit', collapsed: true } }] },
                 { label: 'Migrate', collapsed: true, items: [{ autogenerate: { directory: 'docs/migrate', collapsed: true } }] },
                 { label: 'Security', collapsed: true, items: [{ autogenerate: { directory: 'docs/security', collapsed: true } }] },
+                { label: 'Measure impact', collapsed: true, items: [{ autogenerate: { directory: 'docs/measure', collapsed: true } }] },
                 {
                   label: 'Reference',
                   collapsed: true,
