@@ -1,0 +1,291 @@
+{
+  "specId": "new-task-composer",
+  "description": "Guards the New Task composer's control labels and default states on the authenticated dashboard against UI drift. The '## Submit a request' walkthrough in src/content/docs/docs/get-the-most-out/pay-down-docs-debt.mdx names each control by its visible label, and those labels went stale once before (Promptless/promptless #4306), so this spec asserts the labels and defaults a reader is told to look for.",
+  "tests": [
+    {
+      "testId": "new-task-composer-default-controls",
+      "description": "Guards that a freshly loaded composer shows the documented default control states and labels -- the default chips, the notify default, a disabled submit, and the template rail -- then that switching Mode to Deep analysis updates the Mode chip.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the New Task page, which is where the documented composer lives",
+          "goTo": "$PROMPTLESS_NEW_TASK_URL"
+        },
+        {
+          "description": "Wait for the composer to finish loading. The submit control is the last thing rendered inside the composer card, so its presence means doc collections and org config both resolved. A timeout here means the session is signed out, the test org has no doc collection (the page renders 'No doc collections configured' instead of the composer), or the dashboard is slow.",
+          "find": {
+            "selector": "button[aria-label='Submit task']",
+            "timeout": 30000
+          }
+        },
+        {
+          "description": "Walkthrough steps 2 and 3: the Doc Collection chip defaults to 'Let Promptless decide' and the Mode chip defaults to 'Default'. Each chip is located through its own field label rather than by DOM order, so renaming either the label or the chip value fails this step.",
+          "runBrowserScript": {
+            "script": "const chipText = (fieldLabel) => { const label = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === fieldLabel && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); if (!label) return 'no-field-labeled-' + fieldLabel; const chip = label.parentElement.querySelector('button[aria-haspopup=\"menu\"]'); return chip.textContent.trim() || 'empty'; }; return ['docCollection=' + chipText('Doc Collection'), 'mode=' + chipText('Mode')].join(' ');",
+            "output": "docCollection=Let Promptless decide mode=Default",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 7: the Notify control is a three-segment group and it starts on 'No notification'. The segment aria-labels are the only names these icon-only buttons have, and the docs quote two of them ('No notification', 'Notify in Slack'). The Teams segment is asserted to exist only -- it is frontend-only and delivers nothing.",
+          "runBrowserScript": {
+            "script": "const group = document.querySelector('div[role=\"group\"][aria-label=\"Task notification target\"]'); if (!group) return 'group=missing'; const segments = Array.from(group.querySelectorAll('button')); const pressed = segments.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.getAttribute('aria-label')); return ['group=present', 'segments=' + segments.map((b) => b.getAttribute('aria-label')).join('|'), 'pressed=' + (pressed.join(',') || 'none')].join(' ');",
+            "output": "group=present segments=No notification|Notify in Slack|Notify in Microsoft Teams pressed=No notification",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough steps 5, 6 and 8: the instructions textarea carries the documented placeholder (a single-character ellipsis, not three dots), the paperclip carries aria-label 'Attach files' and is available, and the submit arrow carries aria-label 'Submit task' and is disabled while the instructions are empty. The textarea is reached from the Attach files button up to the composer card rather than by a global textarea lookup, so an unrelated textarea elsewhere on the dashboard cannot make this ambiguous; the card-scoped count is reported so a second textarea inside the card would still fail loudly.",
+          "runBrowserScript": {
+            "script": "const attach = document.querySelector('button[aria-label=\"Attach files\"]'); const card = attach && attach.parentElement ? attach.parentElement.parentElement : null; const inCard = card ? Array.from(card.querySelectorAll('textarea')) : []; const input = inCard[0]; const submit = document.querySelector('button[aria-label=\"Submit task\"]'); const state = (el) => (el ? (el.disabled ? 'disabled' : 'enabled') : 'missing'); return ['cardTextareas=' + inCard.length, 'placeholder=' + (input ? input.placeholder : 'missing'), 'instructions=' + (input ? (input.value === '' ? 'empty' : 'prefilled') : 'missing'), 'attach=' + state(attach), 'submit=' + state(submit)].join(' ');",
+            "output": "cardTextareas=1 placeholder=Ask Promptless to update your docs… instructions=empty attach=enabled submit=disabled",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 7: the 'Auto-create PRs' chip is present and off by default. Matched on its exact visible text among the page's toggle buttons, since that text is what the docs tell readers to look for.",
+          "runBrowserScript": {
+            "script": "const matches = Array.from(document.querySelectorAll('button[aria-pressed]')).filter((b) => b.textContent.trim() === 'Auto-create PRs'); if (matches.length !== 1) return 'autoCreatePRs=' + matches.length + '-matches'; return 'autoCreatePRs=present pressed=' + matches[0].getAttribute('aria-pressed');",
+            "output": "autoCreatePRs=present pressed=false",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 4 and the '## Templates' section: the rail is headed 'Use a template' and holds exactly four cards, in the documented order, with the exact labels the Templates section lists. Cards are read from inside the rail rather than from the whole page so the 'Auto-create PRs' toggle cannot be miscounted as a template.",
+          "runBrowserScript": {
+            "script": "const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); if (!heading) return 'railHeading=missing'; const cards = Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')); return ['railHeading=present', 'count=' + cards.length, 'cards=' + cards.map((c) => c.textContent.trim()).join('|'), 'selected=' + cards.filter((c) => c.getAttribute('aria-pressed') === 'true').length].join(' ');",
+            "output": "railHeading=present count=4 cards=Refactor a bad section of docs|Add error codes to OpenAPI spec|Write docs from scratch|Audit for consistency selected=0",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 3, first half: open the Mode chip. The chip has no aria-label, so it is located through the 'Mode' field label and clicked in-page; the probe reports the click so a failed lookup cannot pass silently.",
+          "runBrowserScript": {
+            "script": "const label = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === 'Mode' && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); if (!label) return 'modeChip=missing'; const chip = label.parentElement.querySelector('button[aria-haspopup=\"menu\"]'); chip.click(); return 'modeChip=clicked';",
+            "output": "modeChip=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the popover mount",
+          "wait": 700
+        },
+        {
+          "description": "The open Mode popover exposes exactly the three documented mode labels -- 'Fast', 'Default', 'Deep analysis' (lowercase 'a') -- with 'Default' selected, matching the walkthrough's 'Default ... is selected until you change it'. The deep option also carries the 'many agents, many PRs' summary the walkthrough quotes. Options are matched by leading visible text, so any relabeling drops that label's count to 0. Nothing is asserted about what Fast does.",
+          "runBrowserScript": {
+            "script": "const labels = ['Fast', 'Default', 'Deep analysis']; const modeLabel = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === 'Mode' && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); const chip = modeLabel ? modeLabel.parentElement.querySelector('button[aria-haspopup=\"menu\"]') : null; const group = document.querySelector('div[role=\"radiogroup\"][aria-label=\"Task mode\"]'); if (!group) return 'radiogroup=missing'; const options = Array.from(group.querySelectorAll('button[role=\"radio\"]')); const named = (o) => labels.find((l) => o.textContent.trim().startsWith(l)) || 'unlabeled'; const count = (l) => options.filter((o) => o.textContent.trim().startsWith(l)).length; const deep = options.find((o) => o.textContent.trim().startsWith('Deep analysis')); const checked = options.filter((o) => o.getAttribute('aria-checked') === 'true').map(named); return ['expanded=' + (chip ? chip.getAttribute('aria-expanded') : 'no-chip'), 'radiogroup=present', 'total=' + options.length, 'Fast=' + count('Fast'), 'Default=' + count('Default'), 'DeepAnalysis=' + count('Deep analysis'), 'checked=' + (checked.join(',') || 'none'), 'deepSummary=' + (deep ? (deep.textContent.toLowerCase().includes('many agents, many prs') ? 'yes' : 'no') : 'no-deep-option')].join(' ');",
+            "output": "expanded=true radiogroup=present total=3 Fast=1 Default=1 DeepAnalysis=1 checked=Default deepSummary=yes",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 3, second half: choose 'Deep analysis' in the popover",
+          "runBrowserScript": {
+            "script": "const group = document.querySelector('div[role=\"radiogroup\"][aria-label=\"Task mode\"]'); if (!group) return 'radiogroup=missing'; const deep = Array.from(group.querySelectorAll('button[role=\"radio\"]')).find((o) => o.textContent.trim().startsWith('Deep analysis')); if (!deep) return 'deepOption=missing'; deep.click(); return 'deepOption=clicked';",
+            "output": "deepOption=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the selection settle",
+          "wait": 700
+        },
+        {
+          "description": "Choosing the option is what puts Deep analysis on the chip: the Mode chip now reads 'Deep analysis' and that option is the checked radio. The submit control stays untouched, so nothing was submitted -- 'submitted=no' fails if a success message ever appears, which would mean this test created a real trigger in the test org.",
+          "runBrowserScript": {
+            "script": "const modeLabel = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === 'Mode' && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); const chip = modeLabel ? modeLabel.parentElement.querySelector('button[aria-haspopup=\"menu\"]') : null; const group = document.querySelector('div[role=\"radiogroup\"][aria-label=\"Task mode\"]'); const checkedDeep = group ? Array.from(group.querySelectorAll('button[role=\"radio\"]')).some((o) => o.getAttribute('aria-checked') === 'true' && o.textContent.trim().startsWith('Deep analysis')) : false; return ['mode=' + (chip ? chip.textContent.trim() : 'no-chip'), 'checkedDeep=' + checkedDeep, 'submitted=' + (/Task submitted successfully/.test(document.body.innerText) ? 'yes' : 'no')].join(' ');",
+            "output": "mode=Deep analysis checkedDeep=true submitted=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "new-task-composer-deep-analysis-entry-points",
+      "description": "Guards the two client-side shortcuts into Deep analysis -- selecting or deselecting a template card, and the `?mode=deep` deep link -- confirming each sets Mode to Deep analysis without submitting anything.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open New Task without the deep link, so Mode starts at its default",
+          "goTo": "$PROMPTLESS_NEW_TASK_URL"
+        },
+        {
+          "description": "Wait for the composer to finish loading",
+          "find": {
+            "selector": "button[aria-label='Submit task']",
+            "timeout": 30000
+          }
+        },
+        {
+          "description": "Baseline before touching a template: Mode reads 'Default', the instructions are empty, and submit is disabled",
+          "runBrowserScript": {
+            "script": "const modeLabel = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === 'Mode' && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); const chip = modeLabel ? modeLabel.parentElement.querySelector('button[aria-haspopup=\"menu\"]') : null; const attach = document.querySelector('button[aria-label=\"Attach files\"]'); const card = attach && attach.parentElement ? attach.parentElement.parentElement : null; const input = card ? card.querySelector('textarea') : null; const submit = document.querySelector('button[aria-label=\"Submit task\"]'); return ['mode=' + (chip ? chip.textContent.trim() : 'no-chip'), 'instructions=' + (input ? (input.value === '' ? 'empty' : 'prefilled') : 'missing'), 'submit=' + (submit ? (submit.disabled ? 'disabled' : 'enabled') : 'missing')].join(' ');",
+            "output": "mode=Default instructions=empty submit=disabled",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Click the first documented template card, 'Refactor a bad section of docs'. Located by its exact visible label inside the 'Use a template' rail, which is how the docs identify it; a renamed card fails here rather than later.",
+          "runBrowserScript": {
+            "script": "const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); if (!heading) return 'railHeading=missing'; const card = Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')).find((c) => c.textContent.trim() === 'Refactor a bad section of docs'); if (!card) return 'templateCard=missing'; card.click(); return 'templateCard=clicked';",
+            "output": "templateCard=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the template selection fill and resize the instructions field",
+          "wait": 1000
+        },
+        {
+          "description": "Selecting a template marks the card selected, seeds the instructions with that template's title line (the walkthrough's 'the first line of your instructions becomes the request title' and its '{curly braces}' placeholder hints both show up here), switches the Mode chip to 'Deep analysis', and makes submit available. Nothing is submitted.",
+          "runBrowserScript": {
+            "script": "const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); const cards = heading ? Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')) : []; const card = cards.find((c) => c.textContent.trim() === 'Refactor a bad section of docs'); const modeLabel = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === 'Mode' && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); const chip = modeLabel ? modeLabel.parentElement.querySelector('button[aria-haspopup=\"menu\"]') : null; const attach = document.querySelector('button[aria-label=\"Attach files\"]'); const composerCard = attach && attach.parentElement ? attach.parentElement.parentElement : null; const input = composerCard ? composerCard.querySelector('textarea') : null; const value = input ? input.value : ''; const submit = document.querySelector('button[aria-label=\"Submit task\"]'); return ['cardSelected=' + (card ? card.getAttribute('aria-pressed') : 'missing'), 'selectedCount=' + cards.filter((c) => c.getAttribute('aria-pressed') === 'true').length, 'firstLine=' + (value.split('\\n')[0] || 'empty'), 'placeholderHints=' + (/\\{[^}]+\\}/.test(value) ? 'yes' : 'no'), 'mode=' + (chip ? chip.textContent.trim() : 'no-chip'), 'submit=' + (submit ? (submit.disabled ? 'disabled' : 'enabled') : 'missing'), 'submitted=' + (/Task submitted successfully/.test(document.body.innerText) ? 'yes' : 'no')].join(' ');",
+            "output": "cardSelected=true selectedCount=1 firstLine=Improve {section name} section of docs placeholderHints=yes mode=Deep analysis submit=enabled submitted=no",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Click the same card again, which the walkthrough says deselects it",
+          "runBrowserScript": {
+            "script": "const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); if (!heading) return 'railHeading=missing'; const card = Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')).find((c) => c.textContent.trim() === 'Refactor a bad section of docs'); if (!card) return 'templateCard=missing'; card.click(); return 'templateCard=clicked';",
+            "output": "templateCard=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the deselection settle",
+          "wait": 1000
+        },
+        {
+          "description": "Clicking the selected card again clears the instructions field entirely and leaves no card selected, so submit goes back to disabled. Mode is intentionally not asserted here -- the docs do not claim deselecting a template reverts the mode.",
+          "runBrowserScript": {
+            "script": "const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); const cards = heading ? Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')) : []; const attach = document.querySelector('button[aria-label=\"Attach files\"]'); const card = attach && attach.parentElement ? attach.parentElement.parentElement : null; const input = card ? card.querySelector('textarea') : null; const submit = document.querySelector('button[aria-label=\"Submit task\"]'); return ['selectedCount=' + cards.filter((c) => c.getAttribute('aria-pressed') === 'true').length, 'instructions=' + (input ? (input.value === '' ? 'empty' : 'prefilled') : 'missing'), 'submit=' + (submit ? (submit.disabled ? 'disabled' : 'enabled') : 'missing')].join(' ');",
+            "output": "selectedCount=0 instructions=empty submit=disabled",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Walkthrough step 1: load the Deep Analysis deep link, ?mode=deep, as a fresh page load",
+          "goTo": "$PROMPTLESS_NEW_TASK_DEEP_LINK_URL"
+        },
+        {
+          "description": "Wait for the composer to finish loading",
+          "find": {
+            "selector": "button[aria-label='Submit task']",
+            "timeout": 30000
+          }
+        },
+        {
+          "description": "The deep link preselects Deep analysis: the Mode chip reads 'Deep analysis' instead of the 'Default' the previous load showed, while the Doc Collection chip still reads 'Let Promptless decide' and no template is preselected. Nothing was submitted.",
+          "runBrowserScript": {
+            "script": "const chipText = (fieldLabel) => { const label = Array.from(document.querySelectorAll('span')).find((s) => s.textContent.trim() === fieldLabel && s.parentElement && s.parentElement.querySelector('button[aria-haspopup=\"menu\"]')); if (!label) return 'no-field-labeled-' + fieldLabel; const chip = label.parentElement.querySelector('button[aria-haspopup=\"menu\"]'); return chip.textContent.trim() || 'empty'; }; const heading = Array.from(document.querySelectorAll('div')).find((d) => d.children.length === 0 && d.textContent.trim() === 'Use a template'); const cards = heading ? Array.from(heading.parentElement.querySelectorAll('button[aria-pressed]')) : []; const attach = document.querySelector('button[aria-label=\"Attach files\"]'); const card = attach && attach.parentElement ? attach.parentElement.parentElement : null; const input = card ? card.querySelector('textarea') : null; return ['mode=' + chipText('Mode'), 'docCollection=' + chipText('Doc Collection'), 'selectedCount=' + cards.filter((c) => c.getAttribute('aria-pressed') === 'true').length, 'instructions=' + (input ? (input.value === '' ? 'empty' : 'prefilled') : 'missing'), 'submitted=' + (/Task submitted successfully/.test(document.body.innerText) ? 'yes' : 'no')].join(' ');",
+            "output": "mode=Deep analysis docCollection=Let Promptless decide selectedCount=0 instructions=empty submitted=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    }
+  ]
+}
