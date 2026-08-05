@@ -399,15 +399,25 @@ policies:
 
 **escalation**
 
-Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, a test account is missing the feature flags to screenshot a screen. Or a PR references a Jira issue that Promptless can't read—either the Jira integration isn't connected, or it's connected but the project isn't accessible. See [Escalation channel](/docs/tune/notifications#escalation-channel) for the full behavior.
+The escalation channel is where Promptless routes operational alerts—such as [proactive notifications](/docs/reference/integrations#proactive-notifications) when a connected integration develops a problem—rather than suggestion announcements. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, a test account is missing the feature flags to screenshot a screen, or a PR references a Jira issue that Promptless can't read—either the Jira integration isn't connected, or it's connected but the project isn't accessible. See [Escalation channel](/docs/tune/notifications#escalation-channel) for the full behavior. It's a sibling of `notification` and, unlike `notification`, also accepts `email`.
 
-| Field             | Description                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------------ |
-| `slack_channel`   | Slack channel name for escalations (no `#` prefix)                                               |
-| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for escalations               |
-| `email`           | List of email addresses for escalations (escalation only; not used for suggestion notifications) |
+```yaml
+policies:
+  default:
+    escalation:
+      slack_channel: ops-alerts
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+      email:
+        - oncall@acme.com
+```
 
-Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+| Field             | Description                                                                                                                                  |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `slack_channel`   | Slack channel name for escalation alerts (no `#` prefix), or `null` to disable an inherited Slack channel                                    |
+| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`), or `null` to disable an inherited Teams channel                          |
+| `email`           | List of email addresses for escalation alerts (escalation only; not used for suggestion notifications), or `[]` to disable an inherited list |
+
+Set any combination of the three; the same presence semantics as `notification` apply (omit to inherit; `null` for `slack_channel`/`msteams_channel` or `[]` for `email` to disable), and `msteams_channel` carries the same Teams-activity prerequisite as `notification`. Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
 
 `escalation.email` routes escalations to a list of email addresses. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
 
