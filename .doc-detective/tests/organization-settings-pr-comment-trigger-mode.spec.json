@@ -1,0 +1,40 @@
+{
+  "specId": "organization-settings-pr-comment-trigger-mode",
+  "description": "Guards the dashboard destination that `src/content/docs/docs/work-the-queue/reviewing-prs.mdx` sends readers to when it tells them to change the comment trigger mode under Settings -> Organization Settings. Two documented facts have to hold for that instruction to work: the tab is named Organization Settings and lives at /settings/org, and the GitHub PR Comment Trigger Mode card is on that tab offering exactly the two modes the prose explains (Require @promptless, and Listen to all PR comments). A renamed tab, a moved route, or a renamed mode would strand readers on a page that no longer holds the setting they were sent to change; this spec fails first instead.\n\nNon-destructive: it reads the tab label and the trigger-mode card without selecting a radio or pressing Save, so it never changes the test org's PR-comment setting. The currently selected mode is reported for debugging but not asserted, since that is the org's live choice rather than a documented fact. Scope stops at Organization Settings -- the Environment Variables tab and its controls are covered by environment-variables-settings.spec.json.",
+  "tests": [
+    {
+      "testId": "org-settings-tab-named-and-routed-as-documented",
+      "description": "Confirms the documented Settings -> Organization Settings destination and the setting it holds: the /settings/org route serves a tab labeled Organization Settings (not the short form Org Settings a reader could not find), and that tab carries the GitHub PR Comment Trigger Mode card with both documented modes as a single radio group and its own Save. The radios and Save are asserted present but never activated, so the org's configuration is untouched.",
+      "before": "login.spec.json",
+      "steps": [
+        {
+          "description": "Open the Organization Settings tab the docs link to",
+          "goTo": "https://app.gopromptless.ai/settings/org"
+        },
+        {
+          "description": "Wait for the Organization Settings tab to render, keyed on a card heading that only this tab has",
+          "find": {
+            "elementText": "/GitHub PR Comment Trigger Mode/",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "The documented URL served this tab without redirecting elsewhere, the tab row offers the documented Organization Settings name as some element's own text, that name is the label on the link to /settings/org, and no tab is called the short form Org Settings",
+          "runBrowserScript": {
+            "script": "const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); const els = Array.from(document.querySelectorAll('body *')); const named = els.some((el) => own(el) === 'Organization Settings'); const shortForm = els.some((el) => own(el) === 'Org Settings'); const orgLink = Array.from(document.querySelectorAll('a[href]')).find((a) => new URL(a.href, window.location.origin).pathname === '/settings/org'); return ['path=' + window.location.pathname, 'orgTabName=' + (named ? 'present' : 'missing'), 'orgTabLink=' + (orgLink ? 'present' : 'missing'), 'orgTabLinkLabel=' + (orgLink ? ((orgLink.textContent || '').replace(/\\s+/g, ' ').trim() === 'Organization Settings' ? 'Organization Settings' : 'other') : 'n-a'), 'shortFormOrgSettings=' + (shortForm ? 'present' : 'absent')].join(' ');",
+            "output": "path=/settings/org orgTabName=present orgTabLink=present orgTabLinkLabel=Organization Settings shortFormOrgSettings=absent",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "The GitHub PR Comment Trigger Mode card is on this tab and offers exactly the two modes the page's prose explains, as one radio group so they stay mutually exclusive, with its own save control. The card is scoped to the smallest ancestor of its heading that holds a radio without also swallowing another card's heading, so the neighbouring Slack Thread Reply Trigger Mode card -- which carries its own Require @promptless option, its own two radios, and its own Save -- cannot satisfy any of these assertions. If no such ancestor exists the probe reports cardScope=leaky and fails rather than asserting against a scope wide enough to be satisfied by the wrong card. Nothing is clicked: the radios are read, never selected, and the save control is asserted present, never pressed, so the org's setting is unchanged. selectedMode is diagnostic only -- which mode the org has chosen is its own live setting, not a documented fact.",
+          "runBrowserScript": {
+            "script": "const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); const flat = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim(); const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')); const heading = headings.find((h) => flat(h) === 'GitHub PR Comment Trigger Mode'); if (!heading) return 'prCard=missing'; const others = headings.filter((h) => h !== heading && ['Default role for new members', 'Slack Thread Reply Trigger Mode', 'Suggestion Status Updates'].includes(flat(h))); let card = null; for (let el = heading.parentElement; el; el = el.parentElement) { if (!el.querySelector('input[type=radio]')) continue; card = others.some((h) => el.contains(h)) ? null : el; break; } if (!card) return 'prCard=present cardScope=leaky'; const radios = Array.from(card.querySelectorAll('input[type=radio]')); const groups = new Set(radios.map((r) => r.name || '')); const labelled = (name) => Array.from(card.querySelectorAll('*')).some((el) => own(el) === name) ? 'present' : 'missing'; const save = Array.from(card.querySelectorAll('button, input[type=submit]')).find((el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase() === 'SAVE'); const selected = radios.find((r) => r.checked); return ['prCard=present', 'cardScope=isolated', 'modeRequireMention=' + labelled('Require @promptless'), 'modeListenAll=' + labelled('Listen to all PR comments (opt out with aside)'), 'prModeCount=' + radios.length, 'prModeGroups=' + groups.size, 'prCardSave=' + (save ? 'present' : 'missing'), 'selectedMode=' + (selected ? selected.value || 'unnamed' : 'none')].join(' ');",
+            "output": "prCard=present cardScope=isolated modeRequireMention=present modeListenAll=present prModeCount=2 prModeGroups=1 prCardSave=present",
+            "timeout": 15000
+          }
+        }
+      ]
+    }
+  ]
+}
