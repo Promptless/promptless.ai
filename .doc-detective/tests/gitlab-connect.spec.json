@@ -1,0 +1,194 @@
+{
+  "specId": "gitlab-connect",
+  "description": "Guards the dashboard connect controls that the rewritten '## Installation' walkthrough in src/content/docs/docs/reference/integrations/gitlab.mdx tells a reader to click, against UI drift. The walkthrough names the two GitLab tiles on the Integrations page and the modal fields where the token and self-hosted hostname go, so this spec asserts those labels exist on the authenticated dashboard. These labels are exactly the kind that can be renamed in the app without the docs following, which would leave a reader unable to find the control the step points at.",
+  "tests": [
+    {
+      "testId": "gitlab-connect-tiles",
+      "description": "Confirms the Integrations page still offers both documented GitLab entry points -- the gitlab.com tile and the self-hosted tile -- each with the Connect control the walkthrough sends the reader to. This is the on-page state a reader reaches before opening either connect modal.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Integrations page, where the GitLab tiles live",
+          "goTo": "$PROMPTLESS_INTEGRATIONS_URL"
+        },
+        {
+          "description": "Let the Integrations page finish rendering its tiles",
+          "wait": 6000
+        },
+        {
+          "description": "Both documented tiles are present and each carries a Connect button. Tiles are located by their exact visible title -- the names the walkthrough uses -- and the Connect button is found within each tile's own container rather than by DOM order, so renaming a tile title or its button fails here. The dashboard is styled with build-hashed CSS-module classes, so matching is on visible text, not class names.",
+          "runBrowserScript": {
+            "script": "const tile = (title) => { const label = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,p')).find((n) => n.children.length === 0 && n.textContent.trim() === title); if (!label) return { title: 'missing', connect: 'n/a' }; let node = label; let btn = null; for (let i = 0; i < 6 && node; i++) { btn = Array.from(node.querySelectorAll('button')).find((b) => b.textContent.trim() === 'Connect'); if (btn) break; node = node.parentElement; } return { title: 'present', connect: btn ? 'present' : 'missing' }; }; const g = tile('Connect GitLab'); const s = tile('Connect self-hosted GitLab'); return ['gitlabTile=' + g.title, 'gitlabConnect=' + g.connect, 'selfHostedTile=' + s.title, 'selfHostedConnect=' + s.connect].join(' ');",
+            "output": "gitlabTile=present gitlabConnect=present selfHostedTile=present selfHostedConnect=present",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "gitlab-connect-modal-fields",
+      "description": "Confirms that opening each GitLab connect modal surfaces the input the walkthrough tells the reader to fill: the group access token on the gitlab.com path, and both the instance hostname and the group access token on the self-hosted path. Nothing is submitted -- the modals are opened only to verify the field labels a reader is directed to.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Integrations page",
+          "goTo": "$PROMPTLESS_INTEGRATIONS_URL"
+        },
+        {
+          "description": "Let the Integrations page finish rendering its tiles",
+          "wait": 6000
+        },
+        {
+          "description": "Open the gitlab.com connect modal by clicking the Connect button inside the 'Connect GitLab' tile. This opens the modal; it does not submit the connection.",
+          "runBrowserScript": {
+            "script": "const label = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,p')).find((n) => n.children.length === 0 && n.textContent.trim() === 'Connect GitLab'); if (!label) return 'tile=missing'; let node = label; let btn = null; for (let i = 0; i < 6 && node; i++) { btn = Array.from(node.querySelectorAll('button')).find((b) => b.textContent.trim() === 'Connect'); if (btn) break; node = node.parentElement; } if (!btn) return 'connect=missing'; btn.click(); return 'connect=clicked';",
+            "output": "connect=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the modal mount",
+          "wait": 1000
+        },
+        {
+          "description": "The gitlab.com modal exposes the documented group access token field -- asserted by both its visible label and its placeholder -- and keeps its own Connect submit button. The token field is modal-only, so a present placeholder proves the modal opened. Assertions are scoped to the dialog when the modal exposes one, falling back to the page body otherwise; that fallback is reported so a missing dialog is visible rather than passing silently. Nothing is submitted.",
+          "runBrowserScript": {
+            "script": "const dialog = document.querySelector('[role=\"dialog\"]'); const scope = dialog || document.body; const norm = (s) => s.trim().replace(/:$/, ''); const hasLabel = (t) => Array.from(scope.querySelectorAll('label,span,div,p')).some((n) => n.children.length === 0 && norm(n.textContent) === t); const hasPlaceholder = (p) => Array.from(scope.querySelectorAll('input,textarea')).some((i) => (i.getAttribute('placeholder') || '').trim() === p); const submit = Array.from(scope.querySelectorAll('button')).some((b) => b.textContent.trim() === 'Connect'); return ['dialog=' + (dialog ? 'present' : 'fallback-body'), 'groupTokenLabel=' + (hasLabel('Group Access Token') ? 'present' : 'missing'), 'tokenPlaceholder=' + (hasPlaceholder('Enter group access token') ? 'present' : 'missing'), 'submitConnect=' + (submit ? 'present' : 'missing')].join(' ');",
+            "output": "dialog=present groupTokenLabel=present tokenPlaceholder=present submitConnect=present",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Reload the Integrations page to close the gitlab.com modal before opening the self-hosted one",
+          "goTo": "$PROMPTLESS_INTEGRATIONS_URL"
+        },
+        {
+          "description": "Let the Integrations page finish rendering its tiles again",
+          "wait": 6000
+        },
+        {
+          "description": "Open the self-hosted connect modal by clicking the Connect button inside the 'Connect self-hosted GitLab' tile. This opens the modal; it does not submit the connection.",
+          "runBrowserScript": {
+            "script": "const label = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,p')).find((n) => n.children.length === 0 && n.textContent.trim() === 'Connect self-hosted GitLab'); if (!label) return 'tile=missing'; let node = label; let btn = null; for (let i = 0; i < 6 && node; i++) { btn = Array.from(node.querySelectorAll('button')).find((b) => b.textContent.trim() === 'Connect'); if (btn) break; node = node.parentElement; } if (!btn) return 'connect=missing'; btn.click(); return 'connect=clicked';",
+            "output": "connect=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the modal mount",
+          "wait": 1000
+        },
+        {
+          "description": "The self-hosted modal exposes both documented fields -- the instance hostname (verified by label and placeholder) and the group access token -- plus its own Connect submit button. Both placeholders are modal-only, so their presence proves the self-hosted modal opened. Scope and dialog fallback behave as in the gitlab.com step. Nothing is submitted.",
+          "runBrowserScript": {
+            "script": "const dialog = document.querySelector('[role=\"dialog\"]'); const scope = dialog || document.body; const norm = (s) => s.trim().replace(/:$/, ''); const hasLabel = (t) => Array.from(scope.querySelectorAll('label,span,div,p')).some((n) => n.children.length === 0 && norm(n.textContent) === t); const hasPlaceholder = (p) => Array.from(scope.querySelectorAll('input,textarea')).some((i) => (i.getAttribute('placeholder') || '').trim() === p); const submit = Array.from(scope.querySelectorAll('button')).some((b) => b.textContent.trim() === 'Connect'); return ['dialog=' + (dialog ? 'present' : 'fallback-body'), 'hostnameLabel=' + (hasLabel('Instance hostname') ? 'present' : 'missing'), 'hostnamePlaceholder=' + (hasPlaceholder('gitlab.acme.com') ? 'present' : 'missing'), 'groupTokenLabel=' + (hasLabel('Group Access Token') ? 'present' : 'missing'), 'tokenPlaceholder=' + (hasPlaceholder('Enter group access token') ? 'present' : 'missing'), 'submitConnect=' + (submit ? 'present' : 'missing')].join(' ');",
+            "output": "dialog=present hostnameLabel=present hostnamePlaceholder=present groupTokenLabel=present tokenPlaceholder=present submitConnect=present",
+            "timeout": 10000
+          }
+        }
+      ]
+    }
+  ]
+}
