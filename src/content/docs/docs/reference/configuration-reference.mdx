@@ -29,6 +29,54 @@ In Form mode, Promptless fills in fields from your connected integrations. The d
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save, and warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so you never end up with a rule pointing at something that no longer exists.
 
+### Set notifications, escalations, and publishing in Form mode
+
+On the [Policies](#policies) tab, each policy has three groups: **Notifications**, **Escalations**, and **Publishing**. A policy is either the default policy or a rule.
+
+| Group         | Purpose                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Notifications | Announces a new doc suggestion.                                                                                  |
+| Escalations   | Routes an item that needs a person, such as a question about a change or an integration Promptless cannot reach. |
+| Publishing    | Controls a doc update after it is ready.                                                                         |
+
+Notifications and Escalations each have two channel selects: **Slack channel** and **Microsoft Teams channel**. The four selects use only two labels, repeated across the two groups. The group heading above a select is the only thing that identifies it. Always check the heading before you choose a channel.
+
+The Notifications selects write the singular `notification` key.
+
+| Select                      | YAML field                     |
+| --------------------------- | ------------------------------ |
+| **Slack channel**           | `notification.slack_channel`   |
+| **Microsoft Teams channel** | `notification.msteams_channel` |
+
+On a rule, each channel select maps to the tri-state resolution described in [Policy fields](#policy-fields).
+
+| Action                   | Option on a rule                         | Option on the default policy                              |
+| ------------------------ | ---------------------------------------- | --------------------------------------------------------- |
+| Inherit the channel      | `Inherit from default` (omits the field) | Not available. The default policy has nothing to inherit. |
+| Stop Slack notifications | `Disabled — no Slack notifications`      | `No Slack notifications`                                  |
+| Stop Teams notifications | `Disabled — no Teams notifications`      | `No Teams notifications`                                  |
+| Stop Slack escalations   | `Disabled — no Slack escalations`        | `No Slack escalations`                                    |
+| Stop Teams escalations   | `Disabled — no Teams escalations`        | `No Teams escalations`                                    |
+| Route to a channel       | Pick the channel name.                   | Pick the channel name.                                    |
+
+The disable options are the Form-mode equivalent of `null`. Selecting one stops announcements or escalations on that platform.
+
+On a rule that routes nothing for a group, the two selects are hidden and an **Add notifications** or **Add escalations** button appears instead. Click the button to show the two selects. Both default to `Inherit from default`.
+
+- You pick from a list. You do not type a channel name.
+- The Slack selects list the channels the Slack integration can see.
+- The Teams selects list the channels Promptless has seen activity in.
+- When no Teams channels are available, the **Microsoft Teams channel** select under **Notifications** lets you paste a channel's conversation ID instead.
+- The paste fallback can inherit or route to a channel. It cannot disable an inherited Teams channel. To disable one, switch to YAML mode and set `msteams_channel: null`.
+
+On the default policy, each **Publishing** flag is a switch. On a rule, each flag is a segmented control with **Inherit**, **On**, and **Off**. A rule can force a flag on or off against an inherited value. The switch and the segmented control write the same YAML keys:
+
+| Control                                  | YAML field (under `publishing:`) |
+| ---------------------------------------- | -------------------------------- |
+| **Open a pull request automatically**    | `auto_create_pr`                 |
+| **Merge the pull request automatically** | `auto_merge`                     |
+| **Skip the comment on the source PR**    | `suppress_source_pr_comments`    |
+
 ### Permissions and conflict detection
 
 Every organization member can view the configuration, but only admins can edit and save changes. Non-admins see a read-only view.
