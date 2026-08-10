@@ -1,0 +1,161 @@
+---
+title: Schedule triggers
+slug: docs/connect/triggers/schedule
+type: reference
+tags:
+  - connect
+  - triggers
+  - reference
+timestamp: "2026-08-10T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 15
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+A schedule trigger runs your standing instructions on a repeating clock schedule. It's the first time-driven trigger in Promptless—every other trigger responds to an inbound event, like a pull request, a message, or a ticket. Think of it as the API trigger with a clock attached: it carries free-text standing instructions that Promptless dispatches to the agent each time a scheduled time comes due.
+
+<Aside type="note" title="Before you start">
+  A schedule trigger runs against your active doc collections, so your organization needs at least one active doc collection and a saved configuration—a scheduled run is dropped if neither is in place.
+
+  Only [organization admins](/docs/reference/configuration-reference#permissions-and-conflict-detection) can create or edit triggers.
+</Aside>
+
+## Use cases
+
+Schedule triggers work well when you want to:
+
+- Run a weekly check that your release notes reflect what actually shipped
+- Periodically audit a changelog against a release-notes page
+- Sweep for documentation drift on a recurring basis when there's no triggering event of its own
+
+## Set up a schedule trigger in the dashboard
+
+<Steps>
+
+1. Open your organization's [Configuration page](https://app.gopromptless.ai/configuration) and select the **Triggers** tab.
+
+2. Choose the **"On a schedule"** group and its catalog entry, "A recurring schedule — Run instructions you write on a repeating schedule you pick."
+
+3. Under **"When should Promptless run?"**, set the schedule. The help text reads "Start from a preset or write your own schedule. Schedules can run at most once an hour." Choose a preset chip, or enter your own cron expression:
+
+   - **"Every day at 9am"** (`0 9 * * *`)
+   - **"Every weekday at 9am"** (`0 9 * * 1-5`)
+   - **"Every Monday at 9am"** (`0 9 * * 1`)
+   - **"First of the month"** (`0 9 1 * *`)
+
+   The raw cron text field takes the placeholder `0 9 * * 1` and the helper "Five fields: minute, hour, day of month, month, day of week." When you enter a cron expression, a live gloss reads "Runs {plain-English description}." so you can confirm the cadence.
+
+4. Under **"In which timezone?"**, pick the timezone the schedule runs in. It defaults to UTC, and the help text reads "Schedules keep this wall-clock time across daylight-saving changes."
+
+5. Under **"What should Promptless do each time?"**, write your standing instructions. The help text reads "There's no pull request or message behind a scheduled run, so these standing instructions are the whole job."
+
+6. Save your configuration. After you save, the schedule runs at its next matching occurrence—Promptless doesn't run it retroactively for times that have already passed.
+
+</Steps>
+
+## Cron schedule rules
+
+A schedule uses a standard five-field cron expression: minute, hour, day of month, month, day of week. Six-field expressions that add seconds and shorthand aliases like `@daily` are both rejected.
+
+A schedule can run at most once an hour. Promptless validates this by sampling real occurrences of the expression, so a schedule disguised as sub-hourly is caught too.
+
+| Accepted        | Rejected (too frequent) |
+| --------------- | ----------------------- |
+| `0 9 * * 1`     | `*/5 * * * *`           |
+| `0 9 * * *`     | `0,30 * * * *`          |
+| `0 * * * *`     | `0-10 * * * *`          |
+| `0 9,10 * * *`  | `* * * * *`             |
+| `0 9 1 * *`     | —                       |
+| `30 2 * * 1-5`  | —                       |
+
+Expressions with the wrong number of fields, such as `@daily` or a six-field expression, are also rejected.
+
+## Timezones and daylight saving
+
+The timezone is an optional IANA name, such as `America/Los_Angeles`, and defaults to UTC when you leave it unset. A schedule keeps its wall-clock meaning across daylight-saving changes: a schedule set for 9am local stays at 9am local through both spring-forward and fall-back.
+
+<Aside type="note">
+  Because a schedule keeps its wall-clock time, a 9am-local run stays at 9am local on both sides of a daylight-saving transition rather than shifting by an hour.
+</Aside>
+
+## Write standing instructions
+
+The standing instructions are the whole job. There's no inbound event describing the work, so be explicit about which repos and files to compare and what to open a suggestion for.
+
+Instructions are required and can't be empty. Promptless trims leading and trailing whitespace, and there's no maximum length.
+
+Any repositories or context sources you name in your instructions need to be connected first—through [source control](/docs/connect/source-control) and [context sources](/docs/connect/context-sources)—so Promptless can read them.
+
+## Configure in YAML
+
+For precise control, configure the schedule trigger in the `triggers` section of your `promptless.yaml` file:
+
+```yaml
+triggers:
+  weekly-release-notes-check:
+    trigger_type: schedule
+    match:
+      - cron: "0 9 * * 1"
+        timezone: America/Los_Angeles   # optional; defaults to UTC
+    instructions: |
+      Compare the changelog in acme/api against docs/release-notes.md and open a
+      suggestion for anything that shipped but isn't documented.
+```
+
+| Field          | Description                                                                     |
+| -------------- | ------------------------------------------------------------------------------- |
+| `trigger_type` | Set to `schedule`.                                                              |
+| `cron`         | Required. Five-field cron expression inside a `match` clause. Runs at most once an hour. |
+| `timezone`     | Optional. IANA timezone name inside a `match` clause; defaults to UTC.          |
+| `instructions` | Required, non-empty. The standing instructions Promptless runs each time.       |
+
+The `instructions` field sits alongside `match`, not inside a clause. This is the one trigger type with a top-level `instructions` field, because no inbound event describes the work.
+
+Each `match` clause is a `{cron, timezone}` pair, and at least one clause is required. Multiple clauses run the same instructions on multiple cadences—for example, a Monday 9am run and a Thursday 9am run:
+
+```yaml
+triggers:
+  twice-weekly-check:
+    trigger_type: schedule
+    match:
+      - cron: "0 9 * * 1"
+        timezone: America/Los_Angeles
+      - cron: "0 9 * * 4"
+        timezone: America/Los_Angeles
+    instructions: |
+      Compare the changelog in acme/api against docs/release-notes.md and open a
+      suggestion for anything that shipped but isn't documented.
+```
+
+## What to expect
+
+- A missed occurrence is skipped rather than run late. If Promptless is briefly unavailable when a scheduled time passes, it doesn't run that occurrence after the fact.
+- If a previous run of the same schedule is still in progress, Promptless skips the next occurrence rather than stacking runs.
+- A run that finds nothing worth changing finishes quietly, with no suggestion and no notification.
+- A scheduled run flows through the same pipeline as every other trigger. It's addressable by its trigger key in your `policies` rules, and it's dropped if your org has no active doc collections or configuration.
+
+<Aside type="tip">
+  A scheduled run's only signals are the suggestions it opens and the notifications your policy sends, so set a notification channel and shape your instructions to control noise. See [Notifications](/docs/tune/notifications) and [Noise and relevance filtering](/docs/tune/noise-and-relevance-filtering).
+</Aside>
+
+<Aside type="note">
+  Scheduled suggestions follow your configured [policies](/docs/reference/configuration-reference#policies) for publishing and notifications, just like suggestions from any other trigger.
+</Aside>
+
+## View schedule triggers
+
+Scheduled runs appear on the [Triggers page](https://app.gopromptless.ai/triggers) like any other trigger, labeled as a scheduled run, so you can see when each occurrence ran and what it produced.
+
+## How it works
+
+When a scheduled time comes due:
+
+1. **Dispatch**: Promptless dispatches your standing instructions to the agent.
+2. **Analysis**: Promptless analyzes your docs against those instructions and your configured context sources.
+3. **Suggestion Creation**: If updates are needed, Promptless creates suggestions—otherwise the run finishes quietly.
+
+<Aside type="note">
+  See the [triggers section](/docs/reference/configuration-reference#triggers) of the Configuration Reference for the full schema.
+</Aside>
