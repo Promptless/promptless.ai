@@ -267,6 +267,10 @@ export default defineConfig({
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
         Header: './src/components/starlight/Header.astro',
+        // Per-page social cards: injects each page's og:image/twitter:image,
+        // pointing at its generated card (/og/<slug>.png). Replaces the single
+        // global og:image/twitter:image that used to live in head[] below.
+        Head: './src/components/starlight/Head.astro',
         SiteTitle: './src/components/starlight/SiteTitle.astro',
         PageTitle: './src/components/starlight/PageTitle.astro',
         Footer: './src/components/starlight/Footer.astro',
@@ -291,14 +295,10 @@ export default defineConfig({
             crossorigin: '',
           },
         },
-        {
-          tag: 'meta',
-          attrs: { property: 'og:image', content: 'https://promptless.ai/assets/social-card.png' },
-        },
-        {
-          tag: 'meta',
-          attrs: { name: 'twitter:image', content: 'https://promptless.ai/assets/social-card.png' },
-        },
+        // og:image / twitter:image are injected per page by the Head override
+        // (src/components/starlight/Head.astro) so each page gets its own
+        // generated social card, with public/assets/social-card.png as the
+        // fallback. They are intentionally no longer set globally here.
         {
           tag: 'link',
           attrs: { rel: 'preconnect', href: 'https://www.youtube-nocookie.com' },
