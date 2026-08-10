@@ -275,7 +275,7 @@ export default defineConfig({
         SiteTitle: './src/components/starlight/SiteTitle.astro',
         PageTitle: './src/components/starlight/PageTitle.astro',
         Footer: './src/components/starlight/Footer.astro',
-        ThemeProvider: './src/components/starlight/ThemeProviderLightOnly.astro',
+        ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
       titleDelimiter: '|',
