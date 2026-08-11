@@ -382,7 +382,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
   assert.match(homeHtml, /Turn hidden agent waste into measurable savings\./);
-  assert.match(homeHtml, /Agent instruction governance, explained\./);
+  assert.match(homeHtml, /Questions, answered\./);
   assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
   assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
   assert.match(homeHtml, /Instruction debt report/);
