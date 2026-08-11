@@ -403,7 +403,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
   assert.match(homeHtml, /Improve every agent without giving up control\./);
   assert.match(homeHtml, /Questions, answered\./);
-  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
+  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
   assert.match(homeHtml, /Turn your agent traces into better instructions\./);
   assert.match(homeHtml, /Your traces never leave your system\./);
   assert.match(homeHtml, /Start with a demo\. Then we run a local diagnostic/);
@@ -501,7 +501,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
   assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
-  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
+  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
   // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
   // without depending on Astro's scoped attributes.
   assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
