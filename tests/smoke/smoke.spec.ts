@@ -432,7 +432,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
   assert.match(homeHtml, />Token spend</);
-  assert.match(homeHtml, />1st attempt completion</);
+  assert.match(homeHtml, /1<sup[^>]*>st<\/sup> attempt completion/);
   assert.match(homeHtml, />Session time</);
   assert.match(homeHtml, />Human interruptions</);
   assert.match(homeHtml, /aria-label="18 percent decrease"/);
