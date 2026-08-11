@@ -375,24 +375,24 @@ test('homepage, meet, and pricing render website content', async () => {
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
   // The agent story renders a complete narrative, rather than only the flywheel.
-  assert.match(homeHtml, /Your model isn’t being nerfed\. Your instruction stack is drifting\./);
-  assert.match(homeHtml, /From repeated friction to a better default for everyone\./);
+  assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
   assert.match(homeHtml, /See the work your agents keep making humans redo\./);
   assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
   assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
   assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
-  assert.match(homeHtml, /Thirty days\. Four measurable gains\./);
+  assert.match(homeHtml, /Turn hidden agent waste into measurable savings\./);
   assert.match(homeHtml, /Agent instruction governance, explained\./);
   assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
-  assert.match(homeHtml, /Illustrative examples based on Promptless internal dogfooding/);
+  assert.match(homeHtml, /Illustrative fleet-wide impact/);
   assert.match(homeHtml, /Instruction debt report/);
   assert.match(homeHtml, /Proposed fleet upgrades/);
   assert.match(homeHtml, /Before vs\. governed/);
+  assert.match(homeHtml, /12\.8M/);
+  assert.match(homeHtml, /\$24K/);
   assert.match(homeHtml, /What counts as an agent instruction\?/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
-    'agent-instruction-drift',
     'agent-impact-examples',
     'agent-use-cases',
     'agent-governance',
@@ -402,18 +402,18 @@ test('homepage, meet, and pricing render website content', async () => {
   ]) {
     assert.match(homeHtml, new RegExp(`data-section-tracked="${section}"`));
   }
-  // "Typical improvements after 30 days" stat block (home.mdx, inside
+  // The 30-day impact stat block (home.mdx, inside
   // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
   // aside ships server-rendered visible because agents is the default tab, so the
   // heading and the four stat figures are present in the fetched HTML. The
-  // The proof block repeats the figures with an explicit internal-dogfooding source label.
-  assert.match(homeHtml, /Typical improvements after 30 days/);
+  // The proof block reinforces the time, token, and dollar outcomes.
+  assert.match(homeHtml, /What 30 days of improvement can unlock/);
   assert.match(homeHtml, /42%/);
-  assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
-  assert.match(homeHtml, /Promptless internal dogfooding · 30-day window/);
-  assert.match(homeHtml, /Measured against our pre-governance baseline/);
+  assert.match(homeHtml, /monthly cost avoided/);
+  assert.match(homeHtml, /team capacity recovered/);
+  assert.doesNotMatch(homeHtml, /dogfood/i);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
