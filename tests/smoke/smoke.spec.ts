@@ -135,6 +135,18 @@ test('homepage and docs pages include the llms.txt directive in html', async () 
   assert.match(await docsPage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 });
 
+test('website and docs pages render in permanent dark mode', async () => {
+  for (const route of ['/', '/docs/start-here/welcome']) {
+    const response = await fetch(`${preview.baseUrl}${route}`);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+
+    assert.match(html, /<html[^>]*data-theme="dark"/i);
+    assert.match(html, /localStorage\.setItem\('starlight-theme', 'dark'\)/);
+    assert.doesNotMatch(html, /<starlight-theme-select\b/i);
+  }
+});
+
 test('primary nav keeps canonical routes with free tools tab', async () => {
   const response = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
   assert.equal(response.status, 200);
@@ -299,6 +311,16 @@ test('homepage, meet, and pricing render website content', async () => {
     homeHtml,
     /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
   );
+  // Automatic rotation is intentionally paused while agent instructions leads
+  // the homepage. Keep the implementation behind the flag so it can return
+  // without rebuilding the switcher behavior.
+  const switcherSource = readFileSync(
+    path.join(REPO_ROOT, 'src/components/site/ProductSwitcher.astro'),
+    'utf8'
+  );
+  assert.match(switcherSource, /const AUTO_ROTATE_ENABLED = false;/);
+  assert.match(switcherSource, /const startRotation = \(\) =>/);
+  assert.match(switcherSource, /startRotation\(\);/);
   // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
   assert.match(homeHtml, /id="pl-hero-panel-docs"/);
   // The docs panel carries the `hidden` attribute; the agents panel does not.
@@ -307,16 +329,16 @@ test('homepage, meet, and pricing render website content', async () => {
   // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
   // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
   // the default-active tab; it is revealed client-side whenever the docs pill becomes
-  // active, whether by auto-rotate or an explicit click (ProductSwitcher.astro
-  // syncTabSlots()). Fetch-only smoke tests never run that JS, so we can only assert
+  // active through an explicit click (ProductSwitcher.astro syncTabSlots()).
+  // Fetch-only smoke tests never run that JS, so we can only assert
   // the default server state, which is `hidden`. Lookahead regex keeps us agnostic to
   // raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
-  // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
+  // expanded agent-governance story. It is the mirror image of the docs slot: because the
   // agents pill is the default-active tab, this slot ships server-rendered with no
   // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
-  // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
+  // one by click (ProductSwitcher.astro syncTabSlots()). Fetch-only
   // smoke tests never run that JS, so we assert the default server state, which has no
   // `hidden` attribute. Lookahead regex keeps us agnostic to raw HTML attribute ordering.
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
@@ -362,26 +384,54 @@ test('homepage, meet, and pricing render website content', async () => {
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
-  // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
-  // the demo-video id lock below).
-  assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
-  // New "How it works" section header (home.mdx: <h2> at the top of #pl-below-fold-agents).
-  // The agents below-fold ships server-rendered visible, so this flywheel section header is
-  // in the fetched HTML. Distinct from /How Promptless works/ below (the HowItWorks component
-  // copy), so this locks the new flywheel section header specifically.
-  assert.match(homeHtml, /How it works/);
-  // "Typical improvements after 30 days" stat block (home.mdx, inside
+  // The agent story renders a complete narrative, rather than only the flywheel.
+  assert.match(homeHtml, /Secure, on‑prem by default/);
+  assert.match(homeHtml, /White-glove onboarding/);
+  assert.match(homeHtml, /From DevOps to marketing/);
+  assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
+  assert.match(homeHtml, /See the work your agents keep making humans redo\./);
+  assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
+  assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
+  assert.match(homeHtml, /Every session feeds the next improvement\./);
+  assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
+  assert.match(homeHtml, /Improve the fleet without giving up control\./);
+  assert.match(homeHtml, /Questions, answered\./);
+  assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
+  assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
+  assert.match(homeHtml, /Instruction debt report/);
+  assert.match(homeHtml, /Proposed fleet upgrades/);
+  assert.match(homeHtml, /Before vs\. governed/);
+  assert.match(homeHtml, /12\.8M/);
+  assert.match(homeHtml, /\$24K/);
+  assert.match(homeHtml, /What counts as an agent instruction\?/);
+  assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
+  for (const section of [
+    'agent-differentiation',
+    'agent-impact-examples',
+    'agent-learning-loop',
+    'agent-governance',
+    'agent-faq',
+    'agent-final-cta',
+  ]) {
+    assert.match(homeHtml, new RegExp(`data-section-tracked="${section}"`));
+  }
+  // The 30-day impact stat block (home.mdx, inside
   // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
   // aside ships server-rendered visible because agents is the default tab, so the
   // heading and the four stat figures are present in the fetched HTML. The
-  // "Compared against our pre-governed instructions" caveat was removed from home.mdx, so
-  // we assert it is absent.
+  // The proof block reinforces the time, token, and dollar outcomes.
   assert.match(homeHtml, /Typical improvements after 30 days/);
   assert.match(homeHtml, /42%/);
   assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
-  assert.doesNotMatch(homeHtml, /Compared against our pre-governed instructions/);
+  assert.match(homeHtml, />Token spend</);
+  assert.match(homeHtml, />1st attempt completion</);
+  assert.match(homeHtml, />Session time</);
+  assert.match(homeHtml, />Human interruptions</);
+  assert.match(homeHtml, /aria-label="18 percent decrease"/);
+  assert.match(homeHtml, /aria-label="15 percent increase"/);
+  assert.doesNotMatch(homeHtml, /dogfood/i);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
@@ -392,10 +442,11 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Give your AI workforce superpowers/);
-  // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
-  // in "team's"; assert fragments that straddle those so we don't depend on either.
-  assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
+  assert.match(homeHtml, /Promptless Instruction Governance/);
+  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
+  // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
+  // without depending on Astro's scoped attributes.
+  assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
   assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
   assert.match(homeHtml, /with every session trace across your fleet/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
@@ -413,12 +464,12 @@ test('homepage, meet, and pricing render website content', async () => {
   // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
   assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
   assert.doesNotMatch(homeHtml, /Promptless for Docs/);
-  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
   assert.doesNotMatch(homeHtml, /Coming soon/i);
   // Guard against the pre-reword agents-panel copy silently returning.
   assert.doesNotMatch(homeHtml, /governed documentation/);
   assert.doesNotMatch(homeHtml, /control plane/);
   assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
+  assert.doesNotMatch(homeHtml, /Give your AI workforce superpowers/);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);

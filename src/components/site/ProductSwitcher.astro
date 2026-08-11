@@ -1,6 +1,7 @@
 ---
 // Full-content-width product switcher rendered at the top of the homepage,
-// above the hero layout. Two pills form an accessible, auto-advancing tablist
+// above the hero layout. Two pills form an accessible tablist with optional
+// auto-advance support
 // that drives three pairs of per-track regions:
 //   - HeroV2's two left-column tabpanels (pl-hero-panel-docs /
 //     pl-hero-panel-agents) — the actual tabpanels;
@@ -99,6 +100,10 @@
     const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('.pl-product-switcher-pill'));
     if (!tablist || pills.length === 0) return;
 
+    // Intentionally paused while the homepage leads with agent instructions.
+    // Keep the rotation implementation below intact: we may bring the automatic
+    // product preview back after the agent-governance launch window.
+    const AUTO_ROTATE_ENABLED = false;
     const ROTATE_MS = 10000;
     // Single source of truth for the rotate window: drive the CSS underline-fill
     // animation duration from the JS constant so the two can't desync.
@@ -183,10 +188,10 @@
     };
 
     // Start (or restart) the auto-rotate timer. No-op under reduced motion,
-    // once locked, or if a timer is already running — so hover/focus resume
-    // can't accidentally spin up rotation in those modes.
+    // while rotation is disabled, once locked, or if a timer is already running
+    // — so hover/focus resume can't accidentally spin up rotation in those modes.
     const startRotation = () => {
-      if (reduceMotion || locked || intervalId !== undefined) return;
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked || intervalId !== undefined) return;
       intervalId = window.setInterval(() => {
         if (locked) {
           stopRotation();
@@ -206,9 +211,11 @@
     const restartUnderline = (pill: HTMLButtonElement) => {
       const underline = pill.querySelector<HTMLElement>('.pl-product-switcher-underline');
       if (!underline) return;
-      // Freeze all underlines when reduced motion is requested or once locked.
-      if (reduceMotion || locked) {
+      // Keep a static active indicator while rotation is disabled, reduced motion
+      // is requested, or the visitor has committed to a tab.
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked) {
         underline.style.animation = 'none';
+        underline.style.transform = 'scaleX(1)';
         return;
       }
       // Restart the fill animation from 0 by forcing a reflow. Also clear any
@@ -246,6 +253,17 @@
       activate(index, { focus: true });
     };
 
+    // Commit the currently previewed track without moving focus. This is used
+    // once somebody reaches below-the-fold content: allowing the carousel to
+    // keep rotating there would replace the story they are actively reading
+    // and could collapse the page underneath their scroll position.
+    const lockCurrentSelection = () => {
+      if (locked) return;
+      locked = true;
+      stopRotation();
+      restartUnderline(pills[activeIndex]);
+    };
+
     // Move focus for the roving-tabindex tab pattern: exactly one pill is ever
     // tabbable (tabIndex 0), the rest are -1. Focus moves without activating
     // (manual activation) — only Enter/Space/click activate + lock a tab.
@@ -256,8 +274,9 @@
       pills[toIndex].focus();
     };
 
-    // Auto-rotate: flip to the other pill every ROTATE_MS. Never starts under
-    // reduced-motion, and stops permanently once the user locks a selection.
+    // Auto-rotate: flip to the other pill every ROTATE_MS when the feature flag
+    // above is enabled. This call deliberately stays in place so restoring the
+    // preview only requires changing AUTO_ROTATE_ENABLED.
     startRotation();
 
     // Guard introduced alongside the fix that lets the docs below-fold slot show
@@ -269,10 +288,27 @@
     // the user clicks a pill.
     belowFoldDocs?.querySelectorAll<HTMLElement>('.lite-youtube').forEach((embed) => {
       embed.addEventListener('click', () => {
-        locked = true;
-        stopRotation();
+        lockCurrentSelection();
       });
     });
+
+    // If auto-rotation returns, it must stop as soon as either product's long-form
+    // story enters the viewport. Observe both slots because the active one can
+    // change before the visitor scrolls down; hidden slots cannot intersect, so
+    // only the visible story pins its track.
+    if ('IntersectionObserver' in window) {
+      const belowFoldObserver = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          lockCurrentSelection();
+          belowFoldObserver.disconnect();
+        },
+        { threshold: 0.01 }
+      );
+      [belowFoldAgents, belowFoldDocs].forEach((slot) => {
+        if (slot) belowFoldObserver.observe(slot);
+      });
+    }
 
     // Pause on hover / keyboard focus and resume on leave — the common,
     // unintrusive carousel behavior. Pausing suspends both the flip timer and
@@ -280,12 +316,12 @@
     // Guarded so it stays a no-op under reduced motion or once locked (a lock
     // is permanent and takes precedence).
     const pause = () => {
-      if (reduceMotion || locked) return;
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked) return;
       stopRotation();
       pauseUnderline();
     };
     const resume = () => {
-      if (reduceMotion || locked || intervalId !== undefined) return;
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked || intervalId !== undefined) return;
       restartUnderline(pills[activeIndex]);
       startRotation();
     };
@@ -351,31 +387,34 @@
       });
     });
 
-    // Kick off the initial underline fill for the default active pill.
+    // Initialize the active indicator. It stays filled while rotation is disabled.
     restartUnderline(pills[activeIndex]);
   })();
 </script>
 
 <style>
   .pl-product-switcher {
-    position: sticky;
-    top: var(--sl-nav-height);
+    position: relative;
     z-index: 5;
     display: flex;
     justify-content: center;
     width: 100%;
     padding: 0.75rem 0;
     margin: 0 0 0.75rem;
-    background: var(--sl-color-bg);
+    background: transparent;
   }
 
   .pl-product-switcher-tablist {
     display: inline-flex;
     align-items: stretch;
-    gap: 0.5rem;
-    background: #f3f4f6;
+    gap: 0.2rem;
+    border: 1px solid var(--pl-color-border);
+    background: rgba(17, 19, 25, 0.78);
     border-radius: 999px;
-    padding: 0.35rem;
+    padding: 0.3rem;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--pl-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.035);
   }
 
   .pl-product-switcher-pill {
@@ -388,7 +427,7 @@
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: #6b7280;
+    color: var(--pl-color-text-muted);
     font-size: 0.95rem;
     font-weight: 600;
     line-height: 1.2;
@@ -399,17 +438,17 @@
   }
 
   .pl-product-switcher-pill:hover {
-    color: #111827;
+    color: var(--pl-color-text-strong);
   }
 
   .pl-product-switcher-pill.is-active {
-    background: #fff;
-    color: #111827;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    background: linear-gradient(135deg, rgba(110, 124, 250, 0.16), rgba(255, 255, 255, 0.045));
+    color: var(--pl-color-text-strong);
+    box-shadow: inset 0 0 0 1px rgba(151, 162, 255, 0.13), 0 8px 20px rgba(0, 0, 0, 0.2);
   }
 
   .pl-product-switcher-pill:focus-visible {
-    outline: 2px solid #506aea;
+    outline: 2px solid var(--pl-color-accent);
     outline-offset: 2px;
   }
 
@@ -421,9 +460,9 @@
     display: inline-block;
   }
 
-  /* Progress underline: fills left-to-right over the 10s auto-rotate window on
-     the active pill only, signalling the imminent switch. It restarts whenever
-     the active pill changes (see script). */
+  /* Optional progress underline: fills left-to-right over the 10s auto-rotate
+     window when rotation is enabled. The script keeps it statically filled while
+     the homepage is pinned to agent instructions. */
   .pl-product-switcher-underline {
     position: absolute;
     left: 0.6rem;
@@ -431,7 +470,8 @@
     bottom: 0.28rem;
     height: 2px;
     border-radius: 2px;
-    background: #506aea;
+    background: linear-gradient(90deg, #7887ff, #b39bff);
+    box-shadow: 0 0 12px rgba(120, 135, 255, 0.55);
     transform: scaleX(0);
     transform-origin: left center;
     opacity: 0;
@@ -454,6 +494,7 @@
   @media (max-width: 768px) {
     .pl-product-switcher {
       position: static;
+      background: transparent;
     }
 
     .pl-product-switcher-tablist {
