@@ -375,6 +375,9 @@ test('homepage, meet, and pricing render website content', async () => {
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
   // The agent story renders a complete narrative, rather than only the flywheel.
+  assert.match(homeHtml, /Most tools improve one agent\. Promptless improves your AI workforce\./);
+  assert.match(homeHtml, /Your traces stay on your systems/);
+  assert.match(homeHtml, /Software, backed by instruction experts/);
   assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
   assert.match(homeHtml, /See the work your agents keep making humans redo\./);
   assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
@@ -393,6 +396,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /What counts as an agent instruction\?/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
+    'agent-differentiation',
     'agent-impact-examples',
     'agent-use-cases',
     'agent-governance',
