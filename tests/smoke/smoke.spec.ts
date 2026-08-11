@@ -425,8 +425,12 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
-  assert.match(homeHtml, /decrease in token spend/);
-  assert.match(homeHtml, /increase in first-attempt completion/);
+  assert.match(homeHtml, />Token spend</);
+  assert.match(homeHtml, />1st attempt completion</);
+  assert.match(homeHtml, />Session time</);
+  assert.match(homeHtml, />Human interruptions</);
+  assert.match(homeHtml, /aria-label="18 percent decrease"/);
+  assert.match(homeHtml, /aria-label="15 percent increase"/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade

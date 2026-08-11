@@ -166,12 +166,20 @@
   height: 1.1rem;
 }
 
-/* Hero V2 two-column layout */
+/* The docs hero keeps its original two-column composition. When agent
+   instructions are active, the hero panel spans the full width and its metrics
+   become a proof row beneath it. */
 .pl-hero-v2-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: clamp(2rem, 4vw, 3rem);
   align-items: center;
+}
+
+.pl-hero-v2-layout:has(#pl-hero-panel-agents:not([hidden])) {
+  grid-template-columns: 1fr;
+  gap: clamp(2.5rem, 5vw, 4rem);
+  align-items: stretch;
 }
 
 /* The full testimonials carousel is a mobile-only stand-in for the hero's
@@ -201,15 +209,12 @@
   }
 }
 
-/* Per-tab hero asides (home.mdx: #pl-hero-aside-agents holds the 30-day
-   improvement stats, #pl-hero-aside-docs the testimonials). Same reasoning as
-   HeroV2's left-column panel stack: both asides occupy the same grid cell so the
-   wrapper reserves the height of the taller one and switching tabs causes no
-   layout shift. The inactive aside keeps the `hidden` attribute (removing it from
-   the a11y tree and tab order) but stays in layout via visibility:hidden. That
-   matters concretely here — `.pl-stat-cards` and `.pl-testimonials-vertical`
-   (fixed height: 24rem) have different intrinsic heights, so a display:none swap
-   would visibly jump the hero on every auto-rotate.
+/* Per-tab hero supporting regions (home.mdx: #pl-hero-aside-agents holds the
+   30-day improvement stats, #pl-hero-aside-docs the testimonials). Both occupy
+   the same grid cell. The inactive aside keeps the `hidden` attribute (removing
+   it from the a11y tree and tab order) but normally stays in layout via
+   visibility:hidden. The agent-specific override below removes the hidden docs
+   aside because this view intentionally uses a shorter, full-width proof row.
 
    The `min-width: 0` on both boxes is load-bearing and must not be removed. Grid
    and flex items default to `min-width: auto`, which sizes them to their content's
@@ -233,10 +238,15 @@
   visibility: hidden;
 }
 
+/* The docs testimonial column still reserves its original height when the docs
+   tab is active. In the agent layout, the hidden docs aside drops out so the
+   shorter metric row does not leave a large empty gap beneath the cards. */
+.pl-hero-v2-layout:has(#pl-hero-panel-agents:not([hidden])) .pl-hero-v2-aside[hidden] {
+  display: none;
+}
+
 .pl-stat-cards {
-  max-width: 460px;
-  margin-left: auto;
-  margin-right: auto;
+  width: 100%;
 }
 
 .pl-stat-cards-eyebrow {
@@ -246,12 +256,12 @@
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
-  text-align: center;
+  text-align: left;
 }
 
 .pl-stat-cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.1rem;
 }
 
@@ -265,10 +275,12 @@
     linear-gradient(145deg, rgba(255, 255, 255, 0.055), transparent 45%),
     var(--pl-color-surface-raised);
   box-shadow: var(--pl-shadow-sm);
-  padding: 1.5rem;
+  min-height: 9.25rem;
+  padding: 1.65rem;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  justify-content: space-between;
+  gap: 1rem;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
@@ -279,7 +291,10 @@
 }
 
 .pl-stat-card-figure {
-  font-size: 2rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: clamp(2.5rem, 4.5vw, 3.15rem);
   font-weight: 700;
   color: transparent;
   background: linear-gradient(115deg, #dfe3ff, #8797ff);
@@ -288,10 +303,24 @@
   line-height: 1.1;
 }
 
+.pl-stat-card-figure strong {
+  font: inherit;
+}
+
 .pl-stat-card-label {
-  font-size: 0.9rem;
-  color: var(--pl-color-text-subtle);
-  line-height: 1.4;
+  color: var(--pl-color-text-muted);
+  font-size: clamp(0.75rem, 1vw, 0.9rem);
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1040px) {
+  .pl-stat-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 480px) {
