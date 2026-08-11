@@ -375,10 +375,15 @@ test('homepage, meet, and pricing render website content', async () => {
   const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
   const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
   const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
+  const agentLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="agents"');
   const verticalTestimonialsIndex = homeHtml.indexOf('class="pl-testimonials-vertical');
   assert.ok(
     agentsAsideIndex !== -1 && statCardsIndex > agentsAsideIndex && statCardsIndex < docsAsideIndex,
     'Expected .pl-stat-cards to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
+  );
+  assert.ok(
+    agentLogoCarouselIndex > statCardsIndex && agentLogoCarouselIndex < docsAsideIndex,
+    'Expected the agents customer-logo carousel directly after the stat cards, inside #pl-hero-aside-agents.'
   );
   assert.ok(
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
@@ -439,6 +444,50 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /aria-label="18 percent decrease"/);
   assert.match(homeHtml, /aria-label="15 percent increase"/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
+  // Both products share the canonical customer-proof set from the sales deck,
+  // while each carousel stays nested inside its own tab-specific region.
+  const customerLogoHeading = /Serving Fortune 500 and fast-growing startups alike/g;
+  assert.equal(homeHtml.match(customerLogoHeading)?.length, 2);
+  assert.match(homeHtml, /data-customer-logo-carousel="agents"/);
+  assert.match(homeHtml, /data-customer-logo-carousel="docs"/);
+  for (const logo of [
+    'amplitude.svg',
+    'fis.png',
+    'megaport.webp',
+    'mezmo.png',
+    'temporal.png',
+    'vitess.svg',
+    'helm.svg',
+    'aptible.avif',
+    'whatfix.png',
+    'capillary.png',
+    'metabase.png',
+    'runpod.png',
+    'flatfile.png',
+    'latitude.svg',
+    'mautic.png',
+    'canvas-medical.png',
+    'vellum.png',
+    'coactive.png',
+    'rain.png',
+    'miter.svg',
+    'basis.svg',
+  ]) {
+    assert.ok(
+      existsSync(path.join(REPO_ROOT, 'public/site/logos/customers', logo)),
+      `Expected the sales-deck customer logo asset ${logo}.`
+    );
+    assert.match(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
+  }
+  const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
+  const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
+  const docsVideoIndex = homeHtml.indexOf('data-video-id="AONpRsZJkTY"');
+  assert.ok(
+    docsBelowFoldIndex !== -1 &&
+      docsLogoCarouselIndex > docsBelowFoldIndex &&
+      docsVideoIndex > docsLogoCarouselIndex,
+    'Expected the docs customer-logo carousel above the docs demo video.'
+  );
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
