@@ -406,28 +406,40 @@ test('homepage, meet, and pricing render website content', async () => {
   const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
   const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
   const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
+  const agentLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="agents"');
   const verticalTestimonialsIndex = homeHtml.indexOf('class="pl-testimonials-vertical');
   assert.ok(
     agentsAsideIndex !== -1 && statCardsIndex > agentsAsideIndex && statCardsIndex < docsAsideIndex,
     'Expected .pl-stat-cards to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
   );
   assert.ok(
+    agentLogoCarouselIndex > statCardsIndex && agentLogoCarouselIndex < docsAsideIndex,
+    'Expected the agents customer-logo carousel directly after the stat cards, inside #pl-hero-aside-agents.'
+  );
+  assert.ok(
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
   // The agent story renders a complete narrative, rather than only the flywheel.
-  assert.match(homeHtml, /Secure, on‑prem by default/);
+  assert.match(homeHtml, /Secure and on‑prem by default/);
+  assert.match(homeHtml, /Your agent sessions never leave your systems\. All analysis happens on your infrastructure\./);
+  assert.match(homeHtml, /A forward-deployed AI engineer and technical writer work with you to optimize your agents\./);
   assert.match(homeHtml, /White-glove onboarding/);
-  assert.match(homeHtml, /From DevOps to marketing/);
+  assert.match(homeHtml, /Works across teams, from DevOps to marketing/);
   assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
-  assert.match(homeHtml, /See the work your agents keep making humans redo\./);
-  assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
-  assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
+  assert.match(homeHtml, /Find the work your agents keep making humans redo\./);
+  assert.match(homeHtml, /Turn the best fix into a team-wide standard\./);
+  assert.match(homeHtml, /Make one person’s breakthrough the standard for every session\./);
   assert.match(homeHtml, /Every session feeds the next improvement\./);
   assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
-  assert.match(homeHtml, /Improve the fleet without giving up control\./);
+  assert.match(homeHtml, /Improve every agent without giving up control\./);
   assert.match(homeHtml, /Questions, answered\./);
-  assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
+  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
+  assert.match(homeHtml, /Turn your agent traces into better instructions\./);
+  assert.match(homeHtml, /Your traces never leave your system\./);
+  assert.match(homeHtml, /Start with a demo\. Then we run a local diagnostic/);
+  assert.match(homeHtml, /The Promptless difference/);
+  assert.doesNotMatch(homeHtml, /What continuous improvement looks like|Governance built into the loop/);
   assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
   assert.match(homeHtml, /Instruction debt report/);
   assert.match(homeHtml, /Proposed fleet upgrades/);
@@ -435,10 +447,12 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /12\.8M/);
   assert.match(homeHtml, /\$24K/);
   assert.match(homeHtml, /What counts as an agent instruction\?/);
+  assert.match(homeHtml, /data-track-location="agent_governance_midpage"/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
     'agent-differentiation',
     'agent-impact-examples',
+    'agent-mid-cta',
     'agent-learning-loop',
     'agent-governance',
     'agent-faq',
@@ -456,13 +470,61 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
-  assert.match(homeHtml, />Token spend</);
-  assert.match(homeHtml, />1st attempt completion</);
-  assert.match(homeHtml, />Session time</);
-  assert.match(homeHtml, />Human interruptions</);
+  assert.match(homeHtml, />Token Spend</);
+  assert.match(homeHtml, /1<sup[^>]*>st<\/sup> Attempt Completion/);
+  assert.match(homeHtml, />Wall-Clock Time</);
+  assert.match(homeHtml, />Human Interruptions</);
   assert.match(homeHtml, /aria-label="18 percent decrease"/);
   assert.match(homeHtml, /aria-label="15 percent increase"/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
+  // Both products share the curated customer-proof set from the sales deck,
+  // while each carousel stays nested inside its own tab-specific region.
+  const customerLogoHeading = /Serving Fortune 500 enterprises and fast-growing startups alike/g;
+  assert.equal(homeHtml.match(customerLogoHeading)?.length, 2);
+  assert.match(homeHtml, /data-customer-logo-carousel="agents"/);
+  assert.match(homeHtml, /data-customer-logo-carousel="docs"/);
+  for (const logo of [
+    'megaport.webp',
+    'mezmo.png',
+    'vitess.svg',
+    'helm.svg',
+    'aptible.avif',
+    'runpod.png',
+    'flatfile.png',
+    'latitude.svg',
+    'mautic.png',
+    'vellum.png',
+    'coactive.png',
+    'rain.png',
+    'miter.svg',
+    'basis.svg',
+  ]) {
+    assert.ok(
+      existsSync(path.join(REPO_ROOT, 'public/site/logos/customers', logo)),
+      `Expected the sales-deck customer logo asset ${logo}.`
+    );
+    assert.match(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
+  }
+  for (const logo of [
+    'amplitude.svg',
+    'fis.png',
+    'temporal.png',
+    'whatfix.png',
+    'capillary.png',
+    'metabase.png',
+    'canvas-medical.png',
+  ]) {
+    assert.doesNotMatch(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
+  }
+  const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
+  const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
+  const docsVideoIndex = homeHtml.indexOf('data-video-id="AONpRsZJkTY"');
+  assert.ok(
+    docsBelowFoldIndex !== -1 &&
+      docsLogoCarouselIndex > docsBelowFoldIndex &&
+      docsVideoIndex > docsLogoCarouselIndex,
+    'Expected the docs customer-logo carousel above the docs demo video.'
+  );
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
@@ -473,13 +535,13 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Promptless Instruction Governance/);
-  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
+  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
+  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
   // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
   // without depending on Astro's scoped attributes.
   assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
   assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
-  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /with every session trace across your agent fleet/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
   assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
   assert.match(homeHtml, /Works with all your agents/);
