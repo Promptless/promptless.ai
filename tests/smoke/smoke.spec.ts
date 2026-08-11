@@ -446,29 +446,22 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /aria-label="18 percent decrease"/);
   assert.match(homeHtml, /aria-label="15 percent increase"/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
-  // Both products share the canonical customer-proof set from the sales deck,
+  // Both products share the curated customer-proof set from the sales deck,
   // while each carousel stays nested inside its own tab-specific region.
   const customerLogoHeading = /Serving Fortune 500 and fast-growing startups alike/g;
   assert.equal(homeHtml.match(customerLogoHeading)?.length, 2);
   assert.match(homeHtml, /data-customer-logo-carousel="agents"/);
   assert.match(homeHtml, /data-customer-logo-carousel="docs"/);
   for (const logo of [
-    'amplitude.svg',
-    'fis.png',
     'megaport.webp',
     'mezmo.png',
-    'temporal.png',
     'vitess.svg',
     'helm.svg',
     'aptible.avif',
-    'whatfix.png',
-    'capillary.png',
-    'metabase.png',
     'runpod.png',
     'flatfile.png',
     'latitude.svg',
     'mautic.png',
-    'canvas-medical.png',
     'vellum.png',
     'coactive.png',
     'rain.png',
@@ -480,6 +473,17 @@ test('homepage, meet, and pricing render website content', async () => {
       `Expected the sales-deck customer logo asset ${logo}.`
     );
     assert.match(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
+  }
+  for (const logo of [
+    'amplitude.svg',
+    'fis.png',
+    'temporal.png',
+    'whatfix.png',
+    'capillary.png',
+    'metabase.png',
+    'canvas-medical.png',
+  ]) {
+    assert.doesNotMatch(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
   }
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
