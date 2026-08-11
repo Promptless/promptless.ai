@@ -135,6 +135,18 @@ test('homepage and docs pages include the llms.txt directive in html', async () 
   assert.match(await docsPage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 });
 
+test('website and docs pages render in permanent dark mode', async () => {
+  for (const route of ['/', '/docs/start-here/welcome']) {
+    const response = await fetch(`${preview.baseUrl}${route}`);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+
+    assert.match(html, /<html[^>]*data-theme="dark"/i);
+    assert.match(html, /localStorage\.setItem\('starlight-theme', 'dark'\)/);
+    assert.doesNotMatch(html, /<starlight-theme-select\b/i);
+  }
+});
+
 test('primary nav keeps canonical routes with free tools tab', async () => {
   const response = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
   assert.equal(response.status, 200);
