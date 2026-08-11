@@ -387,16 +387,20 @@ test('homepage, meet, and pricing render website content', async () => {
   // The agent story renders a complete narrative, rather than only the flywheel.
   assert.match(homeHtml, /Secure, on‑prem by default/);
   assert.match(homeHtml, /White-glove onboarding/);
-  assert.match(homeHtml, /From DevOps to marketing/);
+  assert.match(homeHtml, /Works across teams, from DevOps to marketing/);
   assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
-  assert.match(homeHtml, /See the work your agents keep making humans redo\./);
-  assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
-  assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
+  assert.match(homeHtml, /Find the work your agents keep making humans redo\./);
+  assert.match(homeHtml, /Turn the best fix into a team-wide standard\./);
+  assert.match(homeHtml, /Make one person’s breakthrough the standard for every session\./);
   assert.match(homeHtml, /Every session feeds the next improvement\./);
   assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
-  assert.match(homeHtml, /Improve the fleet without giving up control\./);
+  assert.match(homeHtml, /Improve every agent without giving up control\./);
   assert.match(homeHtml, /Questions, answered\./);
-  assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
+  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
+  assert.match(homeHtml, /Turn your agent traces into better instructions\./);
+  assert.match(homeHtml, /Your traces never leave your system\./);
+  assert.match(homeHtml, /Start with a demo\. Then we run a local diagnostic/);
+  assert.doesNotMatch(homeHtml, /The Promptless difference|What continuous improvement looks like|Governance built into the loop/);
   assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
   assert.match(homeHtml, /Instruction debt report/);
   assert.match(homeHtml, /Proposed fleet upgrades/);
@@ -404,10 +408,12 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /12\.8M/);
   assert.match(homeHtml, /\$24K/);
   assert.match(homeHtml, /What counts as an agent instruction\?/);
+  assert.match(homeHtml, /data-track-location="agent_governance_midpage"/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
     'agent-differentiation',
     'agent-impact-examples',
+    'agent-mid-cta',
     'agent-learning-loop',
     'agent-governance',
     'agent-faq',
@@ -442,7 +448,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Promptless Instruction Governance/);
+  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
   assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
   // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
   // without depending on Astro's scoped attributes.
