@@ -394,7 +394,6 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
   assert.match(homeHtml, /Every session feeds the next improvement\./);
   assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
-  assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
   assert.match(homeHtml, /Questions, answered\./);
   assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
@@ -410,7 +409,6 @@ test('homepage, meet, and pricing render website content', async () => {
     'agent-differentiation',
     'agent-impact-examples',
     'agent-learning-loop',
-    'agent-use-cases',
     'agent-governance',
     'agent-faq',
     'agent-final-cta',

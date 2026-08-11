@@ -75,7 +75,7 @@ section per page load.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `agent-differentiation`, `agent-impact-examples`, `agent-learning-loop`, `agent-use-cases`, `agent-governance`, `agent-faq`, or `agent-final-cta` |
+| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `agent-differentiation`, `agent-impact-examples`, `agent-learning-loop`, `agent-governance`, `agent-faq`, or `agent-final-cta` |
 | `page` | string | Pathname (always `/` for homepage) |
 
 **Component**: Inline IntersectionObserver in `posthog.astro`. Elements opt in
