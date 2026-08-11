@@ -382,6 +382,8 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /See the work your agents keep making humans redo\./);
   assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
   assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
+  assert.match(homeHtml, /Every session feeds the next improvement\./);
+  assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
   assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
   assert.match(homeHtml, /Turn hidden agent waste into measurable savings\./);
@@ -398,6 +400,7 @@ test('homepage, meet, and pricing render website content', async () => {
   for (const section of [
     'agent-differentiation',
     'agent-impact-examples',
+    'agent-learning-loop',
     'agent-use-cases',
     'agent-governance',
     'agent-proof',
