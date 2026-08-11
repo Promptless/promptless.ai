@@ -246,6 +246,17 @@
       activate(index, { focus: true });
     };
 
+    // Commit the currently previewed track without moving focus. This is used
+    // once somebody reaches below-the-fold content: allowing the carousel to
+    // keep rotating there would replace the story they are actively reading
+    // and could collapse the page underneath their scroll position.
+    const lockCurrentSelection = () => {
+      if (locked) return;
+      locked = true;
+      stopRotation();
+      restartUnderline(pills[activeIndex]);
+    };
+
     // Move focus for the roving-tabindex tab pattern: exactly one pill is ever
     // tabbable (tabIndex 0), the rest are -1. Focus moves without activating
     // (manual activation) — only Enter/Space/click activate + lock a tab.
@@ -269,10 +280,27 @@
     // the user clicks a pill.
     belowFoldDocs?.querySelectorAll<HTMLElement>('.lite-youtube').forEach((embed) => {
       embed.addEventListener('click', () => {
-        locked = true;
-        stopRotation();
+        lockCurrentSelection();
       });
     });
+
+    // Auto-rotation is useful as an above-the-fold preview, but it must stop as
+    // soon as either product's long-form story enters the viewport. Observe both
+    // slots because the active one can change before the visitor scrolls down;
+    // hidden slots cannot intersect, so only the visible story pins its track.
+    if ('IntersectionObserver' in window) {
+      const belowFoldObserver = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          lockCurrentSelection();
+          belowFoldObserver.disconnect();
+        },
+        { threshold: 0.01 }
+      );
+      [belowFoldAgents, belowFoldDocs].forEach((slot) => {
+        if (slot) belowFoldObserver.observe(slot);
+      });
+    }
 
     // Pause on hover / keyboard focus and resume on leave — the common,
     // unintrusive carousel behavior. Pausing suspends both the flip timer and

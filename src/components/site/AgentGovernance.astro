@@ -1,0 +1,964 @@
+---
+const painPoints = [
+  {
+    title: 'Instruction sprawl',
+    body: 'Skills and conventions spread across local machines, repositories, chat threads, and shared drives. Nobody can tell which version an agent is following.',
+  },
+  {
+    title: 'Invisible performance debt',
+    body: 'Agents repeat searches, retries, and dead ends your team has already solved. The waste hides inside individual sessions until someone stops to measure it.',
+  },
+  {
+    title: 'No safe improvement loop',
+    body: 'Even when a teammate finds a better approach, there is no consistent way to review it, validate it, and distribute it to every agent that needs it.',
+  },
+];
+
+const workflowSteps = [
+  {
+    number: '01',
+    title: 'Detect',
+    body: 'Find churn, hallucinations, stale instructions, tool and MCP failures, leaks, and repeated corrections in real session traces.',
+  },
+  {
+    number: '02',
+    title: 'Draft',
+    body: 'Turn repeated failure patterns into a concrete instruction addition, update, or deletion.',
+  },
+  {
+    number: '03',
+    title: 'Review and validate',
+    body: 'Let your team inspect every remediation and optionally test it against an eval gate before merging.',
+  },
+  {
+    number: '04',
+    title: 'Distribute',
+    body: 'Refresh approved instructions through native agent plugins, with access limited to the agents and teams that need them.',
+  },
+];
+
+const dogfoodExamples = [
+  {
+    label: 'Engineering enablement',
+    title: 'Share the best development setup',
+    body: 'Promptless found one engineer’s streamlined local environment and turned it into a reusable skill for the rest of the team.',
+  },
+  {
+    label: 'GTM quality',
+    title: 'Keep placeholders out of customer work',
+    body: 'Repeated corrections in sales-deck sessions became a stronger skill, reducing the risk of unfinished placeholders reaching prospects.',
+  },
+  {
+    label: 'Developer productivity',
+    title: 'Recover from expired credentials',
+    body: 'When agents repeatedly stalled on expired authentication, Promptless proposed a hook that sends people straight to reauthentication.',
+  },
+  {
+    label: 'Incident response',
+    title: 'Route agents to the right tools',
+    body: 'Promptless saw agents bypassing the team’s Datadog workflow, then strengthened AGENTS.md and added a specialist subagent.',
+  },
+];
+
+const governanceControls = [
+  'Trace analysis runs on your systems.',
+  'Instructions are organized and versioned in one hub.',
+  'Your team reviews and merges every remediation.',
+  'Optional eval gates catch regressions before changes ship.',
+  'Access controls limit each agent to the instructions it needs.',
+];
+
+const proofMetrics = [
+  { figure: '42%', label: 'fewer human interruptions' },
+  { figure: '15%', label: 'more first-attempt completions' },
+  { figure: '32%', label: 'less wall-clock time per session' },
+  { figure: '18%', label: 'fewer tokens consumed' },
+];
+
+const faqs = [
+  {
+    question: 'What counts as an agent instruction?',
+    answer:
+      'Skills, subagent definitions, hooks, AGENTS.md files, and shared MCP server configurations—anything that tells an agent how your team works.',
+  },
+  {
+    question: 'Which agents does Promptless support?',
+    answer:
+      'Promptless works with the agent tools your team already uses, including Claude Code, Codex, Cursor, Gemini and Gemini CLI, Devin, and OpenClaw.',
+  },
+  {
+    question: 'Does Promptless change instructions automatically?',
+    answer:
+      'Promptless drafts additions, updates, and deletions from trace evidence. Your team reviews and merges the remediation; enterprise teams can also require an eval gate.',
+  },
+  {
+    question: 'Where are our session traces processed?',
+    answer:
+      'The Trace Analyzer runs on your systems so raw session traces do not need to leave your environment.',
+  },
+  {
+    question: 'How do we get started?',
+    answer:
+      'Start with a local diagnostic. Promptless analyzes where instruction debt is creating churn, interruptions, and wasted spend, then walks your team through the highest-impact opportunities.',
+  },
+];
+---
+
+<div class="pl-agent-story">
+  <section
+    class="pl-agent-section pl-agent-problem"
+    aria-labelledby="agent-problem-title"
+  >
+    <div class="pl-agent-heading" data-section-tracked="agent-instruction-drift">
+      <p class="pl-agent-eyebrow">Why capable agents still underperform</p>
+      <h2 id="agent-problem-title">Your model isn’t being nerfed. Your instruction stack is drifting.</h2>
+      <p>
+        Every stale skill, conflicting hook, and buried team convention makes capable models rediscover work your people already know how to do.
+      </p>
+    </div>
+    <div class="pl-agent-card-grid pl-agent-card-grid-three">
+      {painPoints.map((point) => (
+        <article class="pl-agent-card">
+          <h3>{point.title}</h3>
+          <p>{point.body}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-comparison"
+    aria-labelledby="agent-comparison-title"
+  >
+    <div class="pl-agent-heading pl-agent-heading-centered" data-section-tracked="agent-session-comparison">
+      <p class="pl-agent-eyebrow">A session receipt, not a vague promise</p>
+      <h2 id="agent-comparison-title">Same task. Better instruction stack.</h2>
+      <p>
+        Promptless sees where agents search, churn, retry, and ask for help—then turns repeated failure into a fix the whole team can use.
+      </p>
+    </div>
+
+    <div class="pl-agent-receipt" aria-label="Illustrative session comparison">
+      <div class="pl-agent-receipt-note">
+        <span>Illustrative comparison</span>
+        <span>Replace bracketed fields with a verified replay before publishing</span>
+      </div>
+      <p class="pl-agent-receipt-prompt"><span aria-hidden="true">›</span> Investigate a production incident</p>
+      <div class="pl-agent-receipt-grid">
+        <article class="pl-agent-run pl-agent-run-before">
+          <div class="pl-agent-run-heading">
+            <span>Without Promptless</span>
+            <strong>Instruction debt</strong>
+          </div>
+          <ol>
+            <li>Searches for tools and team conventions</li>
+            <li>Repeats known investigative dead ends</li>
+            <li>Needs a teammate to redirect the session</li>
+          </ol>
+          <dl>
+            <div><dt>Tokens</dt><dd>[baseline]</dd></div>
+            <div><dt>Wall clock</dt><dd>[baseline]</dd></div>
+            <div><dt>Retries</dt><dd>[baseline]</dd></div>
+            <div><dt>Interruptions</dt><dd>[baseline]</dd></div>
+          </dl>
+        </article>
+
+        <article class="pl-agent-run pl-agent-run-after">
+          <div class="pl-agent-run-heading">
+            <span>With Promptless</span>
+            <strong>Governed instructions</strong>
+          </div>
+          <ol>
+            <li>Loads the team’s approved incident skill</li>
+            <li>Routes directly to the right Datadog tools</li>
+            <li>Invokes the specialist investigation subagent</li>
+          </ol>
+          <dl>
+            <div><dt>Tokens</dt><dd>[with Promptless]</dd></div>
+            <div><dt>Wall clock</dt><dd>[with Promptless]</dd></div>
+            <div><dt>Retries</dt><dd>[with Promptless]</dd></div>
+            <div><dt>Interruptions</dt><dd>[with Promptless]</dd></div>
+          </dl>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-workflow"
+    aria-labelledby="agent-workflow-title"
+  >
+    <div class="pl-agent-heading pl-agent-heading-centered" data-section-tracked="agent-improvement-loop">
+      <p class="pl-agent-eyebrow">The improvement loop</p>
+      <h2 id="agent-workflow-title">From session trace to governed improvement</h2>
+      <p>
+        Real work produces the evidence. Promptless turns that evidence into a reviewed, validated instruction that every relevant agent can use.
+      </p>
+    </div>
+
+    <div class="pl-agent-workflow-overview">
+      <img
+        src="/site/virtuous-cycle-flywheel.svg"
+        alt="A continuous loop where agent session traces reveal improvements, approved changes enter the Instruction Hub, and refreshed instructions make the AI workforce more effective"
+        loading="lazy"
+        width="820"
+        height="820"
+      />
+      <ol class="pl-agent-workflow-steps">
+        {workflowSteps.map((step) => (
+          <li>
+            <span class="pl-agent-step-number">{step.number}</span>
+            <div>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <div class="pl-agent-product-view" aria-label="Illustrative trace-to-remediation product workflow">
+      <div class="pl-agent-product-bar">
+        <span>Trace-to-remediation</span>
+        <span>Illustrative product view</span>
+      </div>
+      <div class="pl-agent-product-grid">
+        <article>
+          <p class="pl-agent-product-label">01 · Finding</p>
+          <h3>Repeated authentication dead end</h3>
+          <p>Agents continue working after universal credentials expire, producing stalled or degraded sessions.</p>
+          <span class="pl-agent-status pl-agent-status-alert">Repeated pattern</span>
+        </article>
+        <article>
+          <p class="pl-agent-product-label">02 · Remediation</p>
+          <h3>Add an expired-token hook</h3>
+          <div class="pl-agent-diff">
+            <span>+ Detect the authentication failure</span>
+            <span>+ Prompt the user to sign in again</span>
+            <span>+ Resume only after verification</span>
+          </div>
+          <span class="pl-agent-status">Ready for review</span>
+        </article>
+        <article>
+          <p class="pl-agent-product-label">03 · Validation</p>
+          <h3>Replay against affected sessions</h3>
+          <p>The optional eval gate checks that the hook resolves the dead end without regressing successful flows.</p>
+          <span class="pl-agent-status pl-agent-status-pass">Eval passed</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-use-cases"
+    aria-labelledby="agent-use-cases-title"
+  >
+    <div class="pl-agent-heading" data-section-tracked="agent-use-cases">
+      <p class="pl-agent-eyebrow">Promptless internal dogfooding</p>
+      <h2 id="agent-use-cases-title">Make your best work the team’s new default.</h2>
+      <p>
+        One person’s breakthrough should not stay trapped in one chat. Promptless turns proven ways of working into reusable instructions for engineering, GTM, and operations.
+      </p>
+    </div>
+    <div class="pl-agent-card-grid pl-agent-card-grid-two">
+      {dogfoodExamples.map((example) => (
+        <article class="pl-agent-card pl-agent-example-card">
+          <p class="pl-agent-card-label">{example.label}</p>
+          <h3>{example.title}</h3>
+          <p>{example.body}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-governance"
+    aria-labelledby="agent-governance-title"
+  >
+    <div class="pl-agent-governance-copy" data-section-tracked="agent-governance">
+      <p class="pl-agent-eyebrow">Governance built into the loop</p>
+      <h2 id="agent-governance-title">Improve the fleet without giving up control.</h2>
+      <p>
+        Continuous improvement should not mean uncontrolled change. Promptless gives technical owners a versioned, reviewable path from trace evidence to the instructions running across their organization.
+      </p>
+    </div>
+    <ul class="pl-agent-checklist">
+      {governanceControls.map((control) => (
+        <li>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="m5 12 4 4L19 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>{control}</span>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-proof"
+    aria-labelledby="agent-proof-title"
+  >
+    <div class="pl-agent-proof-heading" data-section-tracked="agent-proof">
+      <div>
+        <p class="pl-agent-eyebrow">Promptless internal dogfooding · 30-day window</p>
+        <h2 id="agent-proof-title">Thirty days. Four measurable gains.</h2>
+      </div>
+      <p>Measured against our pre-governance baseline across engineering, GTM, and operations.</p>
+    </div>
+    <div class="pl-agent-proof-grid">
+      {proofMetrics.map((metric) => (
+        <div>
+          <strong>{metric.figure}</strong>
+          <span>{metric.label}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-section pl-agent-faq"
+    aria-labelledby="agent-faq-title"
+  >
+    <div class="pl-agent-heading" data-section-tracked="agent-faq">
+      <p class="pl-agent-eyebrow">Common questions</p>
+      <h2 id="agent-faq-title">Agent instruction governance, explained.</h2>
+    </div>
+    <div class="pl-agent-faq-list">
+      {faqs.map((faq) => (
+        <details>
+          <summary>{faq.question}</summary>
+          <p>{faq.answer}</p>
+        </details>
+      ))}
+    </div>
+  </section>
+
+  <section
+    class="pl-agent-final-cta"
+    aria-labelledby="agent-final-cta-title"
+    data-section-tracked="agent-final-cta"
+  >
+    <p class="pl-agent-eyebrow">Start with the evidence you already have</p>
+    <h2 id="agent-final-cta-title">See what your agent traces are already trying to teach you.</h2>
+    <p>Start with a diagnostic of the instruction debt slowing down your AI workforce.</p>
+    <a
+      href="/meet#book"
+      data-track-action="book_demo"
+      data-track-funnel="conversion"
+      data-track-location="agent_governance_footer"
+      data-track-campaign="agent_instructions"
+    >
+      Get a demo
+      <span aria-hidden="true">→</span>
+    </a>
+  </section>
+</div>
+
+<style>
+  .pl-agent-story {
+    --agent-ink: #111827;
+    --agent-muted: #5f6b7a;
+    --agent-line: #dfe5ec;
+    --agent-soft: #f5f7fb;
+    --agent-accent: #506aea;
+    --agent-accent-soft: #eef2ff;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4.5rem, 9vw, 7.5rem);
+    margin: clamp(3.5rem, 7vw, 6rem) auto 0;
+    max-width: 1120px;
+    color: var(--agent-ink);
+  }
+
+  .pl-agent-section {
+    scroll-margin-top: calc(var(--sl-nav-height) + 5rem);
+  }
+
+  .pl-agent-heading {
+    max-width: 760px;
+    margin-bottom: 2rem;
+  }
+
+  .pl-agent-heading-centered {
+    margin-inline: auto;
+    text-align: center;
+  }
+
+  .pl-agent-eyebrow,
+  .pl-agent-card-label,
+  .pl-agent-product-label {
+    margin: 0 0 0.65rem;
+    color: var(--agent-accent);
+    font-size: 0.78rem;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .pl-agent-heading h2,
+  .pl-agent-governance h2,
+  .pl-agent-proof h2,
+  .pl-agent-final-cta h2 {
+    margin: 0;
+    color: var(--agent-ink);
+    font-size: clamp(2rem, 5vw, 3.45rem);
+    line-height: 1.06;
+    letter-spacing: -0.045em;
+  }
+
+  .pl-agent-heading > p:last-child,
+  .pl-agent-governance-copy > p:last-child,
+  .pl-agent-proof-heading > p,
+  .pl-agent-final-cta > p:not(.pl-agent-eyebrow) {
+    margin: 1rem 0 0;
+    color: var(--agent-muted);
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .pl-agent-card-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .pl-agent-card-grid-three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pl-agent-card-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pl-agent-card {
+    margin: 0;
+    border: 1px solid var(--agent-line);
+    border-radius: 1rem;
+    background: #fff;
+    padding: 1.55rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+
+  .pl-agent-card h3 {
+    margin: 0;
+    color: var(--agent-ink);
+    font-size: 1.15rem;
+  }
+
+  .pl-agent-card p:last-child {
+    margin: 0.65rem 0 0;
+    color: var(--agent-muted);
+    line-height: 1.65;
+  }
+
+  .pl-agent-receipt {
+    overflow: hidden;
+    border: 1px solid #2d3242;
+    border-radius: 1.1rem;
+    background: #101117;
+    color: #e8eaf2;
+    box-shadow: 0 20px 50px rgb(15 23 42 / 0.16);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .pl-agent-receipt-note,
+  .pl-agent-product-bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #2d3242;
+    padding: 0.7rem 1rem;
+    color: #9aa2b3;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .pl-agent-receipt-note span:first-child {
+    color: #f4c873;
+  }
+
+  .pl-agent-receipt-prompt {
+    margin: 0;
+    border-bottom: 1px solid #2d3242;
+    padding: 1.2rem 1.3rem;
+    color: #f8fafc;
+    font-size: 1rem;
+  }
+
+  .pl-agent-receipt-prompt span {
+    margin-right: 0.45rem;
+    color: #a5b4fc;
+    font-weight: 800;
+  }
+
+  .pl-agent-receipt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pl-agent-run {
+    padding: clamp(1.25rem, 3vw, 2rem);
+  }
+
+  .pl-agent-run-before {
+    border-right: 1px solid #2d3242;
+  }
+
+  .pl-agent-run-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 2px solid #ef6f6c;
+    color: #ef9a98;
+  }
+
+  .pl-agent-run-after .pl-agent-run-heading {
+    border-color: #53d39a;
+    color: #74e1ad;
+  }
+
+  .pl-agent-run-heading strong {
+    color: #c8ceda;
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .pl-agent-run ol {
+    min-height: 9rem;
+    margin: 1.25rem 0;
+    padding-left: 1.35rem;
+    color: #c7cbd6;
+    font-size: 0.83rem;
+    line-height: 1.75;
+  }
+
+  .pl-agent-run dl {
+    margin: 0;
+    border-top: 1px solid #2d3242;
+    padding-top: 0.75rem;
+  }
+
+  .pl-agent-run dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.35rem 0;
+    color: #9aa2b3;
+    font-size: 0.78rem;
+  }
+
+  .pl-agent-run dd {
+    margin: 0;
+    color: #e8eaf2;
+    text-align: right;
+  }
+
+  .pl-agent-workflow-overview {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 4rem);
+  }
+
+  .pl-agent-workflow-overview > img {
+    width: 100%;
+    height: auto;
+    max-width: 470px;
+    margin-inline: auto;
+  }
+
+  .pl-agent-workflow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pl-agent-workflow-steps li {
+    display: grid;
+    grid-template-columns: 2.7rem 1fr;
+    gap: 1rem;
+    padding: 1.2rem 0;
+    border-bottom: 1px solid var(--agent-line);
+  }
+
+  .pl-agent-workflow-steps li:first-child {
+    border-top: 1px solid var(--agent-line);
+  }
+
+  .pl-agent-step-number {
+    color: var(--agent-accent);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+  }
+
+  .pl-agent-workflow-steps h3 {
+    margin: 0;
+    color: var(--agent-ink);
+    font-size: 1.05rem;
+  }
+
+  .pl-agent-workflow-steps p {
+    margin: 0.35rem 0 0;
+    color: var(--agent-muted);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .pl-agent-product-view {
+    margin-top: 3rem;
+    overflow: hidden;
+    border: 1px solid var(--agent-line);
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 15px 40px rgb(15 23 42 / 0.08);
+  }
+
+  .pl-agent-product-bar {
+    border-color: var(--agent-line);
+    background: var(--agent-soft);
+    color: var(--agent-muted);
+  }
+
+  .pl-agent-product-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pl-agent-product-grid article {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    min-height: 245px;
+    padding: 1.35rem;
+  }
+
+  .pl-agent-product-grid article + article {
+    border-left: 1px solid var(--agent-line);
+  }
+
+  .pl-agent-product-grid h3 {
+    margin: 0;
+    color: var(--agent-ink);
+    font-size: 1rem;
+  }
+
+  .pl-agent-product-grid article > p:not(.pl-agent-product-label) {
+    margin: 0.65rem 0 1rem;
+    color: var(--agent-muted);
+    font-size: 0.86rem;
+    line-height: 1.6;
+  }
+
+  .pl-agent-diff {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0.75rem 0 1rem;
+    color: #207a52;
+    font: 0.72rem/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .pl-agent-status {
+    display: inline-flex;
+    margin-top: auto;
+    border-radius: 999px;
+    background: var(--agent-accent-soft);
+    color: #3f51bf;
+    padding: 0.32rem 0.55rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .pl-agent-status-alert {
+    background: #fff4e6;
+    color: #a15c00;
+  }
+
+  .pl-agent-status-pass {
+    background: #e9f9f0;
+    color: #207a52;
+  }
+
+  .pl-agent-example-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pl-agent-example-card::after {
+    position: absolute;
+    right: -2rem;
+    bottom: -3rem;
+    width: 8rem;
+    height: 8rem;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgb(80 106 234 / 0.1), transparent 68%);
+    content: '';
+  }
+
+  .pl-agent-card-label {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .pl-agent-governance {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 6vw, 5rem);
+    border-radius: 1.25rem;
+    background: #121622;
+    padding: clamp(2rem, 6vw, 4rem);
+  }
+
+  .pl-agent-governance h2 {
+    color: #fff;
+  }
+
+  .pl-agent-governance-copy > p:last-child {
+    color: #b6bdcb;
+  }
+
+  .pl-agent-checklist {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pl-agent-checklist li {
+    display: grid;
+    grid-template-columns: 1.3rem 1fr;
+    gap: 0.75rem;
+    border-bottom: 1px solid #303545;
+    padding: 0.9rem 0;
+    color: #e8eaf2;
+    line-height: 1.45;
+  }
+
+  .pl-agent-checklist svg {
+    color: #75e0ae;
+  }
+
+  .pl-agent-proof {
+    border-top: 1px solid var(--agent-line);
+    border-bottom: 1px solid var(--agent-line);
+    padding: clamp(2.5rem, 6vw, 4.25rem) 0;
+  }
+
+  .pl-agent-proof-heading {
+    display: grid;
+    grid-template-columns: 1.25fr 0.75fr;
+    align-items: end;
+    gap: 2rem;
+  }
+
+  .pl-agent-proof-heading > p {
+    margin: 0 0 0.35rem;
+  }
+
+  .pl-agent-proof-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 2.5rem;
+  }
+
+  .pl-agent-proof-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    border-left: 3px solid var(--agent-accent);
+    padding: 0.45rem 0 0.45rem 1rem;
+  }
+
+  .pl-agent-proof-grid strong {
+    color: var(--agent-ink);
+    font-size: clamp(1.8rem, 4vw, 2.75rem);
+    line-height: 1;
+  }
+
+  .pl-agent-proof-grid span {
+    color: var(--agent-muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .pl-agent-faq {
+    display: grid;
+    grid-template-columns: 0.7fr 1.3fr;
+    gap: clamp(2rem, 6vw, 5rem);
+  }
+
+  .pl-agent-faq .pl-agent-heading {
+    margin-bottom: 0;
+  }
+
+  .pl-agent-faq-list details {
+    border-bottom: 1px solid var(--agent-line);
+    padding: 1rem 0;
+  }
+
+  .pl-agent-faq-list details:first-child {
+    border-top: 1px solid var(--agent-line);
+  }
+
+  .pl-agent-faq-list summary {
+    position: relative;
+    cursor: pointer;
+    color: var(--agent-ink);
+    font-weight: 700;
+    list-style: none;
+    padding-right: 2rem;
+  }
+
+  .pl-agent-faq-list summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .pl-agent-faq-list summary::after {
+    position: absolute;
+    top: -0.1rem;
+    right: 0;
+    color: var(--agent-accent);
+    font-size: 1.35rem;
+    content: '+';
+  }
+
+  .pl-agent-faq-list details[open] summary::after {
+    content: '−';
+  }
+
+  .pl-agent-faq-list p {
+    margin: 0.75rem 2rem 0 0;
+    color: var(--agent-muted);
+    line-height: 1.65;
+  }
+
+  .pl-agent-final-cta {
+    border-radius: 1.25rem;
+    background: linear-gradient(135deg, #eef2ff, #f4fbff 55%, #edfaf5);
+    padding: clamp(2.25rem, 7vw, 5rem);
+    text-align: center;
+  }
+
+  .pl-agent-final-cta h2 {
+    max-width: 820px;
+    margin-inline: auto;
+  }
+
+  .pl-agent-final-cta > p:not(.pl-agent-eyebrow) {
+    max-width: 600px;
+    margin-inline: auto;
+  }
+
+  .pl-agent-final-cta > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1.5rem;
+    border-radius: 0.5rem;
+    background: var(--agent-accent);
+    color: #fff;
+    padding: 0.82rem 1.15rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+
+  .pl-agent-final-cta > a:hover {
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgb(80 106 234 / 0.24);
+  }
+
+  @media (max-width: 860px) {
+    .pl-agent-card-grid-three,
+    .pl-agent-product-grid,
+    .pl-agent-proof-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .pl-agent-card-grid-three .pl-agent-card:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .pl-agent-workflow-overview,
+    .pl-agent-governance,
+    .pl-agent-faq {
+      grid-template-columns: 1fr;
+    }
+
+    .pl-agent-product-grid article:last-child {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--agent-line);
+      border-left: 0;
+    }
+
+    .pl-agent-product-grid article {
+      min-height: 220px;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .pl-agent-story {
+      gap: 4rem;
+    }
+
+    .pl-agent-card-grid-three,
+    .pl-agent-card-grid-two,
+    .pl-agent-product-grid,
+    .pl-agent-proof-grid,
+    .pl-agent-proof-heading,
+    .pl-agent-receipt-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .pl-agent-card-grid-three .pl-agent-card:last-child,
+    .pl-agent-product-grid article:last-child {
+      grid-column: auto;
+    }
+
+    .pl-agent-receipt-note,
+    .pl-agent-product-bar {
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .pl-agent-run-before {
+      border-right: 0;
+      border-bottom: 1px solid #2d3242;
+    }
+
+    .pl-agent-run ol {
+      min-height: auto;
+    }
+
+    .pl-agent-product-grid article + article,
+    .pl-agent-product-grid article:last-child {
+      border-top: 1px solid var(--agent-line);
+      border-left: 0;
+    }
+
+    .pl-agent-product-grid article {
+      min-height: 0;
+    }
+
+    .pl-agent-proof-heading {
+      align-items: start;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pl-agent-final-cta > a {
+      transition: none;
+    }
+  }
+</style>

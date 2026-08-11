@@ -325,7 +325,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
-  // virtuous-cycle flywheel SVG. It is the mirror image of the docs slot: because the
+  // expanded agent-governance story, including the flywheel SVG. It is the mirror image of the docs slot: because the
   // agents pill is the default-active tab, this slot ships server-rendered with no
   // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
   // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
@@ -377,23 +377,43 @@ test('homepage, meet, and pricing render website content', async () => {
   // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
   // the demo-video id lock below).
   assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
-  // New "How it works" section header (home.mdx: <h2> at the top of #pl-below-fold-agents).
-  // The agents below-fold ships server-rendered visible, so this flywheel section header is
-  // in the fetched HTML. Distinct from /How Promptless works/ below (the HowItWorks component
-  // copy), so this locks the new flywheel section header specifically.
-  assert.match(homeHtml, /How it works/);
+  // The agent story renders a complete narrative, rather than only the flywheel.
+  assert.match(homeHtml, /Your model isn’t being nerfed\. Your instruction stack is drifting\./);
+  assert.match(homeHtml, /Same task\. Better instruction stack\./);
+  assert.match(homeHtml, /From session trace to governed improvement/);
+  assert.match(homeHtml, /Make your best work the team’s new default\./);
+  assert.match(homeHtml, /Improve the fleet without giving up control\./);
+  assert.match(homeHtml, /Thirty days\. Four measurable gains\./);
+  assert.match(homeHtml, /Agent instruction governance, explained\./);
+  assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
+  assert.match(homeHtml, /Illustrative comparison/);
+  assert.match(homeHtml, /Illustrative product view/);
+  assert.match(homeHtml, /What counts as an agent instruction\?/);
+  assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
+  for (const section of [
+    'agent-instruction-drift',
+    'agent-session-comparison',
+    'agent-improvement-loop',
+    'agent-use-cases',
+    'agent-governance',
+    'agent-proof',
+    'agent-faq',
+    'agent-final-cta',
+  ]) {
+    assert.match(homeHtml, new RegExp(`data-section-tracked="${section}"`));
+  }
   // "Typical improvements after 30 days" stat block (home.mdx, inside
   // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
   // aside ships server-rendered visible because agents is the default tab, so the
   // heading and the four stat figures are present in the fetched HTML. The
-  // "Compared against our pre-governed instructions" caveat was removed from home.mdx, so
-  // we assert it is absent.
+  // The proof block repeats the figures with an explicit internal-dogfooding source label.
   assert.match(homeHtml, /Typical improvements after 30 days/);
   assert.match(homeHtml, /42%/);
   assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
-  assert.doesNotMatch(homeHtml, /Compared against our pre-governed instructions/);
+  assert.match(homeHtml, /Promptless internal dogfooding · 30-day window/);
+  assert.match(homeHtml, /Measured against our pre-governance baseline/);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
   // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
@@ -404,12 +424,14 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Give your AI workforce superpowers/);
-  // Subtitle contains an inline <code>AGENTS.md</code> tag and a straight apostrophe
-  // in "team's"; assert fragments that straddle those so we don't depend on either.
-  assert.match(homeHtml, /Skills, Subagents, Hooks, and/);
+  assert.match(homeHtml, /Instruction governance for your AI workforce/);
+  assert.match(homeHtml, /Make every agent session improve the next one\./);
+  // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
+  // without depending on Astro's scoped attributes.
+  assert.match(homeHtml, /governed updates to your Skills, Subagents, Hooks,/);
   assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
-  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /shared MCP configurations—reviewed by your team/);
+  assert.match(homeHtml, /distributed to every agent that needs them/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
   assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
   assert.match(homeHtml, /Works with all your agents/);
@@ -431,6 +453,7 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.doesNotMatch(homeHtml, /governed documentation/);
   assert.doesNotMatch(homeHtml, /control plane/);
   assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
+  assert.doesNotMatch(homeHtml, /Give your AI workforce superpowers/);
 
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);
