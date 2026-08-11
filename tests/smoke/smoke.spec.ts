@@ -390,7 +390,9 @@ test('homepage, meet, and pricing render website content', async () => {
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
   // The agent story renders a complete narrative, rather than only the flywheel.
-  assert.match(homeHtml, /Secure, on‑prem by default/);
+  assert.match(homeHtml, /Secure and on‑prem by default/);
+  assert.match(homeHtml, /Your agent sessions never leave your systems\. All analysis happens on your infrastructure\./);
+  assert.match(homeHtml, /A forward-deployed AI engineer and technical writer work with you to optimize your agents\./);
   assert.match(homeHtml, /White-glove onboarding/);
   assert.match(homeHtml, /Works across teams, from DevOps to marketing/);
   assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
@@ -504,7 +506,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // without depending on Astro's scoped attributes.
   assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
   assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
-  assert.match(homeHtml, /with every session trace across your fleet/);
+  assert.match(homeHtml, /with every session trace across your agent fleet/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
   assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
   assert.match(homeHtml, /Works with all your agents/);
