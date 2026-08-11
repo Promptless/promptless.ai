@@ -3,11 +3,11 @@
  * title / description / eyebrow each card is built from.
  *
  * Both sides of the feature read this list:
- *   - src/pages/og/[...slug].png.ts  — generates one PNG per entry at build time.
+ *   - scripts/generate-og-images.ts — incrementally generates one PNG per entry.
  *   - src/components/starlight/Head.astro — points each page's og:image at its
- *     generated card by matching the current pathname to an entry here.
+ *     pre-generated card by matching the current pathname to an entry here.
  *
- * Keeping enumeration in one place means the endpoint and the meta tags can
+ * Keeping enumeration in one place means the generator and the meta tags can
  * never drift out of sync (a card with no meta tag, or a meta tag with no card).
  */
 
@@ -91,8 +91,9 @@ function buildPages(): OgPage[] {
 
   // Content-driven pages (docs, blog, changelog), skipping hidden ones — a
   // hidden page is excluded from the sitemap/nav, so it does not need a card.
+  // Blog posts with an explicit socialImage already have a hand-authored card.
   for (const entry of routeManifest as RouteManifestEntry[]) {
-    if (entry.hidden) continue;
+    if (entry.hidden || entry.socialImage) continue;
     add(entry.routePath, entry.title, entry.description, EYEBROW[entry.contentType]);
   }
 

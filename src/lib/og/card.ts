@@ -12,9 +12,9 @@
  * Satori gives us a real flex layout engine, so the title wraps inside its
  * column automatically — no manual text measurement.
  *
- * Rendered at build time by src/pages/og/[...slug].png.ts, so the satori /
- * resvg / sharp devDependencies are only needed during the build and never
- * ship to the browser.
+ * Rendered before the Astro build by scripts/generate-og-images.ts, so the
+ * satori / resvg / sharp devDependencies are only needed during the build and
+ * never ship to the browser.
  */
 
 import { readFile } from 'node:fs/promises';
