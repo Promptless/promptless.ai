@@ -400,7 +400,8 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Turn your agent traces into better instructions\./);
   assert.match(homeHtml, /Your traces never leave your system\./);
   assert.match(homeHtml, /Start with a demo\. Then we run a local diagnostic/);
-  assert.doesNotMatch(homeHtml, /The Promptless difference|What continuous improvement looks like|Governance built into the loop/);
+  assert.match(homeHtml, /The Promptless difference/);
+  assert.doesNotMatch(homeHtml, /What continuous improvement looks like|Governance built into the loop/);
   assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
   assert.match(homeHtml, /Instruction debt report/);
   assert.match(homeHtml, /Proposed fleet upgrades/);
