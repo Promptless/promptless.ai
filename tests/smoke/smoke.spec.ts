@@ -325,7 +325,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
-  // expanded agent-governance story, including the flywheel SVG. It is the mirror image of the docs slot: because the
+  // expanded agent-governance story. It is the mirror image of the docs slot: because the
   // agents pill is the default-active tab, this slot ships server-rendered with no
   // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
   // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
@@ -374,26 +374,26 @@ test('homepage, meet, and pricing render website content', async () => {
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
-  // Lock the flywheel embed itself so a regression that drops the SVG is caught (mirrors
-  // the demo-video id lock below).
-  assert.match(homeHtml, /src="\/site\/virtuous-cycle-flywheel\.svg"/);
   // The agent story renders a complete narrative, rather than only the flywheel.
   assert.match(homeHtml, /Your model isn’t being nerfed\. Your instruction stack is drifting\./);
-  assert.match(homeHtml, /Same task\. Better instruction stack\./);
-  assert.match(homeHtml, /From session trace to governed improvement/);
+  assert.match(homeHtml, /From repeated friction to a better default for everyone\./);
+  assert.match(homeHtml, /See the work your agents keep making humans redo\./);
+  assert.match(homeHtml, /Turn the best correction into a team-wide standard\./);
+  assert.match(homeHtml, /Make one person’s breakthrough show up in every relevant session\./);
   assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
   assert.match(homeHtml, /Thirty days\. Four measurable gains\./);
   assert.match(homeHtml, /Agent instruction governance, explained\./);
   assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
-  assert.match(homeHtml, /Illustrative comparison/);
-  assert.match(homeHtml, /Illustrative product view/);
+  assert.match(homeHtml, /Illustrative examples based on Promptless internal dogfooding/);
+  assert.match(homeHtml, /Instruction debt report/);
+  assert.match(homeHtml, /Proposed fleet upgrades/);
+  assert.match(homeHtml, /Before vs\. governed/);
   assert.match(homeHtml, /What counts as an agent instruction\?/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
     'agent-instruction-drift',
-    'agent-session-comparison',
-    'agent-improvement-loop',
+    'agent-impact-examples',
     'agent-use-cases',
     'agent-governance',
     'agent-proof',
