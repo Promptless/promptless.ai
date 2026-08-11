@@ -311,6 +311,16 @@ test('homepage, meet, and pricing render website content', async () => {
     homeHtml,
     /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
   );
+  // Automatic rotation is intentionally paused while agent instructions leads
+  // the homepage. Keep the implementation behind the flag so it can return
+  // without rebuilding the switcher behavior.
+  const switcherSource = readFileSync(
+    path.join(REPO_ROOT, 'src/components/site/ProductSwitcher.astro'),
+    'utf8'
+  );
+  assert.match(switcherSource, /const AUTO_ROTATE_ENABLED = false;/);
+  assert.match(switcherSource, /const startRotation = \(\) =>/);
+  assert.match(switcherSource, /startRotation\(\);/);
   // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
   assert.match(homeHtml, /id="pl-hero-panel-docs"/);
   // The docs panel carries the `hidden` attribute; the agents panel does not.
@@ -319,8 +329,8 @@ test('homepage, meet, and pricing render website content', async () => {
   // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
   // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
   // the default-active tab; it is revealed client-side whenever the docs pill becomes
-  // active, whether by auto-rotate or an explicit click (ProductSwitcher.astro
-  // syncTabSlots()). Fetch-only smoke tests never run that JS, so we can only assert
+  // active through an explicit click (ProductSwitcher.astro syncTabSlots()).
+  // Fetch-only smoke tests never run that JS, so we can only assert
   // the default server state, which is `hidden`. Lookahead regex keeps us agnostic to
   // raw HTML attribute ordering.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
@@ -328,7 +338,7 @@ test('homepage, meet, and pricing render website content', async () => {
   // expanded agent-governance story. It is the mirror image of the docs slot: because the
   // agents pill is the default-active tab, this slot ships server-rendered with no
   // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
-  // one, by auto-rotate or click (ProductSwitcher.astro syncTabSlots()). Fetch-only
+  // one by click (ProductSwitcher.astro syncTabSlots()). Fetch-only
   // smoke tests never run that JS, so we assert the default server state, which has no
   // `hidden` attribute. Lookahead regex keeps us agnostic to raw HTML attribute ordering.
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
