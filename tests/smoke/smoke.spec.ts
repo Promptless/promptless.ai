@@ -281,7 +281,6 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
   assert.equal(homepage.status, 200);
   const homepageHtml = await homepage.text();
   assert.match(homepageHtml, /pl-site-page/);
-  assert.match(homepageHtml, /How Promptless works/);
 
   const homeAlias = await fetch(`${preview.baseUrl}/home`, { redirect: 'manual' });
   if (homeAlias.status >= 300 && homeAlias.status < 400) {
@@ -302,7 +301,6 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
 
   const pricing = await fetch(`${preview.baseUrl}/pricing`);
   assert.equal(pricing.status, 200);
-  assert.match(await pricing.text(), /Pricing/);
 
   // Alias → canonical destination (see the `redirects` map in astro.config.mjs;
   // /api-reference points at the API reference, not the homepage).
@@ -319,90 +317,49 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
   }
 });
 
-test('homepage, meet, and pricing render website content', async () => {
+test('homepage product switcher renders accessible default state and product regions', async () => {
   const homeResponse = await fetch(`${preview.baseUrl}/`);
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
   assert.match(homeHtml, /pl-site-page/);
-  // Product switcher (ProductSwitcher.astro): an accessible tablist of two pills
-  // rendered above the hero. Both pills and both hero panels are server-rendered,
-  // so we assert the full structure and copy of both.
+
+  // Both product tabs and panels are server-rendered. Assert their accessible
+  // relationships and initial state without treating marketing copy as a contract.
   assert.match(homeHtml, /role="tablist"/);
-  assert.match(homeHtml, /for customer-facing docs/);
-  assert.match(homeHtml, /for agent instructions/);
-  // Default tab (ProductSwitcher.astro): the "for agent instructions" pill is now
-  // the default-selected tab, and "for customer-facing docs" is not. Use lookahead
-  // regexes so raw HTML attribute order can vary — we only require the pill's id and
-  // aria-selected to co-occur in the same opening tag.
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
   );
-  assert.doesNotMatch(
+  assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
   );
-  // Automatic rotation is intentionally paused while agent instructions leads
-  // the homepage. Keep the implementation behind the flag so it can return
-  // without rebuilding the switcher behavior.
-  const switcherSource = readFileSync(
-    path.join(REPO_ROOT, 'src/components/site/ProductSwitcher.astro'),
-    'utf8'
+  assert.match(
+    homeHtml,
+    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
   );
-  assert.match(switcherSource, /const AUTO_ROTATE_ENABLED = false;/);
-  assert.match(switcherSource, /const startRotation = \(\) =>/);
-  assert.match(switcherSource, /startRotation\(\);/);
-  // Docs panel (HeroV2.astro, id=pl-hero-panel-docs, now hidden by default but in the DOM).
-  assert.match(homeHtml, /id="pl-hero-panel-docs"/);
-  // The docs panel carries the `hidden` attribute; the agents panel does not.
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*\shidden)[^>]*>/);
-  // Below-fold docs-only slot (home.mdx: <div id="pl-below-fold-docs" hidden>) wraps
-  // the 1.0 demo video. It ships server-rendered `hidden` because the agents pill is
-  // the default-active tab; it is revealed client-side whenever the docs pill becomes
-  // active through an explicit click (ProductSwitcher.astro syncTabSlots()).
-  // Fetch-only smoke tests never run that JS, so we can only assert
-  // the default server state, which is `hidden`. Lookahead regex keeps us agnostic to
-  // raw HTML attribute ordering.
+  assert.match(
+    homeHtml,
+    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+  );
+
+  // Supporting regions follow the default-active product on the server. The
+  // smoke harness does not execute the client-side tab-switching JavaScript.
   assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
-  // Below-fold agents-only slot (home.mdx: <div id="pl-below-fold-agents">) wraps the
-  // expanded agent-governance story. It is the mirror image of the docs slot: because the
-  // agents pill is the default-active tab, this slot ships server-rendered with no
-  // `hidden` attribute, and is hidden client-side whenever the docs pill is the active
-  // one by click (ProductSwitcher.astro syncTabSlots()). Fetch-only
-  // smoke tests never run that JS, so we assert the default server state, which has no
-  // `hidden` attribute. Lookahead regex keeps us agnostic to raw HTML attribute ordering.
   assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
-  // Per-tab hero asides (home.mdx: .pl-hero-v2-asides in the hero right column). They
-  // follow the active pill exactly like the below-fold slots, so with agents as the
-  // default tab the agents aside ships visible and the docs aside ships `hidden`.
-  assert.match(homeHtml, /id="pl-hero-aside-agents"/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*\shidden)[^>]*>/);
-  assert.match(homeHtml, /id="pl-hero-aside-docs"/);
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*\shidden)[^>]*>/);
-  // The docs aside ships `hidden`, but its contents are still server-rendered (the
-  // switcher only toggles the attribute, it never injects markup): the hero vertical
-  // ticker, the mobile-only full carousel, and that carousel's heading. Assert the
-  // `class="…` attribute rather than the bare class name so a stylesheet mentioning
-  // the same selector can't satisfy these on its own. TestimonialsVertical.astro uses
-  // scoped styles, so Astro appends a scope class — match the prefix, not a closed quote.
+  assert.match(
+    homeHtml,
+    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+  );
+  assert.match(
+    homeHtml,
+    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+  );
   assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
   assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
-  assert.match(homeHtml, /Writers, developers, and founders all love Promptless/);
-  // Two testimonial identities, asserted independently of each other. Order-independent
-  // on purpose: the testimonials array is fixed today, but an open PR (#674) adds a
-  // build-time Fisher-Yates shuffle to TestimonialsVertical.astro, so nothing here may
-  // depend on order, adjacency, or a full quote string.
-  assert.match(homeHtml, /Mo King/);
-  assert.match(homeHtml, /Nicholas DeWald/);
-  // Nesting lock: the stat cards must stay inside #pl-hero-aside-agents and the vertical
-  // ticker inside #pl-hero-aside-docs, so a refactor cannot re-orphan either from the tab
-  // machinery (the #776 regression that put the agent stats on both tabs). Index
-  // comparison against the aside wrappers rather than exact markup, so intervening
-  // attributes or wrappers stay allowed.
-  // Match on the `class="…` prefix, not the bare class name, so a bundled or inlined
-  // stylesheet mentioning the same selector can't satisfy the index comparison. The
-  // prefix (rather than a closed quote) tolerates Astro's appended scope class.
+
+  // Keep the regression coverage that product-specific content stays inside the
+  // correct region, using structural hooks instead of sentences or brand names.
   const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
   const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
   const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
@@ -420,33 +377,9 @@ test('homepage, meet, and pricing render website content', async () => {
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
   );
-  // The agent story renders a complete narrative, rather than only the flywheel.
-  assert.match(homeHtml, /Secure and on‑prem by default/);
-  assert.match(homeHtml, /Your agent sessions never leave your systems\. All analysis happens on your infrastructure\./);
-  assert.match(homeHtml, /A forward-deployed AI engineer and technical writer work with you to optimize your agents\./);
-  assert.match(homeHtml, /White-glove onboarding/);
-  assert.match(homeHtml, /Works across teams, from DevOps to marketing/);
-  assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
-  assert.match(homeHtml, /Find the work your agents keep making humans redo\./);
-  assert.match(homeHtml, /Turn the best fix into a team-wide standard\./);
-  assert.match(homeHtml, /Make one person’s breakthrough the standard for every session\./);
-  assert.match(homeHtml, /Every session feeds the next improvement\./);
-  assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
-  assert.match(homeHtml, /Improve every agent without giving up control\./);
-  assert.match(homeHtml, /Questions, answered\./);
-  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
-  assert.match(homeHtml, /Turn your agent traces into better instructions\./);
-  assert.match(homeHtml, /Your traces never leave your system\./);
-  assert.match(homeHtml, /Start with a demo\. Then we run a local diagnostic/);
-  assert.match(homeHtml, /The Promptless difference/);
-  assert.doesNotMatch(homeHtml, /What continuous improvement looks like|Governance built into the loop/);
-  assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
-  assert.match(homeHtml, /Instruction debt report/);
-  assert.match(homeHtml, /Proposed fleet upgrades/);
-  assert.match(homeHtml, /Before vs\. governed/);
-  assert.match(homeHtml, /12\.8M/);
-  assert.match(homeHtml, /\$24K/);
-  assert.match(homeHtml, /What counts as an agent instruction\?/);
+
+  // The section and analytics hooks are the stable contract for the complete
+  // agent story. Its prose and figures can now change without changing this test.
   assert.match(homeHtml, /data-track-location="agent_governance_midpage"/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
@@ -460,167 +393,72 @@ test('homepage, meet, and pricing render website content', async () => {
   ]) {
     assert.match(homeHtml, new RegExp(`data-section-tracked="${section}"`));
   }
-  // The 30-day impact stat block (home.mdx, inside
-  // #pl-hero-aside-agents in the hero right column's .pl-hero-v2-asides stack). That
-  // aside ships server-rendered visible because agents is the default tab, so the
-  // heading and the four stat figures are present in the fetched HTML. The
-  // The proof block reinforces the time, token, and dollar outcomes.
-  assert.match(homeHtml, /Typical improvements after 30 days/);
-  assert.match(homeHtml, /42%/);
-  assert.match(homeHtml, /15%/);
-  assert.match(homeHtml, /32%/);
-  assert.match(homeHtml, /18%/);
-  assert.match(homeHtml, />Token Spend</);
-  assert.match(homeHtml, /1<sup[^>]*>st<\/sup> Attempt Completion/);
-  assert.match(homeHtml, />Wall-Clock Time</);
-  assert.match(homeHtml, />Human Interruptions</);
-  assert.match(homeHtml, /aria-label="18 percent decrease"/);
-  assert.match(homeHtml, /aria-label="15 percent increase"/);
-  assert.doesNotMatch(homeHtml, /dogfood/i);
-  // Both products share the curated customer-proof set from the sales deck,
-  // while each carousel stays nested inside its own tab-specific region.
-  const customerLogoHeading = /Serving Fortune 500 enterprises and fast-growing startups alike/g;
-  assert.equal(homeHtml.match(customerLogoHeading)?.length, 2);
-  assert.match(homeHtml, /data-customer-logo-carousel="agents"/);
-  assert.match(homeHtml, /data-customer-logo-carousel="docs"/);
-  for (const logo of [
-    'megaport.webp',
-    'mezmo.png',
-    'vitess.svg',
-    'helm.svg',
-    'aptible.avif',
-    'runpod.png',
-    'flatfile.png',
-    'latitude.svg',
-    'mautic.png',
-    'vellum.png',
-    'coactive.png',
-    'rain.png',
-    'miter.svg',
-    'basis.svg',
-  ]) {
-    assert.ok(
-      existsSync(path.join(REPO_ROOT, 'public/site/logos/customers', logo)),
-      `Expected the sales-deck customer logo asset ${logo}.`
-    );
-    assert.match(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
-  }
-  for (const logo of [
-    'amplitude.svg',
-    'fis.png',
-    'temporal.png',
-    'whatfix.png',
-    'capillary.png',
-    'metabase.png',
-    'canvas-medical.png',
-  ]) {
-    assert.doesNotMatch(homeHtml, new RegExp(`/site/logos/customers/${escapeRegExp(logo)}`));
-  }
+
+  assert.equal(homeHtml.match(/class="pl-stat-card[\s"]/g)?.length, 4);
+  assert.equal(homeHtml.match(/aria-label="\d+ percent (?:increase|decrease)"/g)?.length, 4);
+  assert.equal(homeHtml.match(/data-customer-logo-carousel="(?:agents|docs)"/g)?.length, 2);
+
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
-  const docsVideoIndex = homeHtml.indexOf('data-video-id="AONpRsZJkTY"');
+  const docsVideoIndex = homeHtml.indexOf('data-video-id="');
   assert.ok(
     docsBelowFoldIndex !== -1 &&
       docsLogoCarouselIndex > docsBelowFoldIndex &&
       docsVideoIndex > docsLogoCarouselIndex,
     'Expected the docs customer-logo carousel above the docs demo video.'
   );
-  // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
-  // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
-  // marks the container with data-video-id (LiteYouTube.astro). Assert that marker for
-  // the demo video id so a regression that drops the video is caught.
-  assert.match(homeHtml, /data-video-id="AONpRsZJkTY"/);
-  assert.match(homeHtml, /Write the docs\./);
-  assert.match(homeHtml, /Skip the busywork\./);
-  assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
-  // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
-  assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
-  assert.match(homeHtml, /Every agent session should teach your entire AI workforce\./);
-  // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
-  // without depending on Astro's scoped attributes.
-  assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
-  assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
-  assert.match(homeHtml, /with every session trace across your agent fleet/);
-  assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
-  assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
-  assert.match(homeHtml, /Works with all your agents/);
-  // Lock the new agents-panel logo strip that follows the third bullet.
+  assert.match(homeHtml, /data-video-id="[A-Za-z0-9_-]+"/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
-  assert.match(homeHtml, /alt="Gemini CLI"/);
-  assert.match(homeHtml, /How Promptless works/);
-  assert.match(homeHtml, /Get a demo/);
-  assert.match(homeHtml, /Ask your favorite AI about Promptless/);
+  assert.match(homeHtml, /id="book-a-demo"/);
+  assert.match(homeHtml, /id="book-a-demo-docs"/);
   assert.match(homeHtml, /data-track-action="ask_ai"/);
   assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);
-  assert.doesNotMatch(homeHtml, /Getting Started/i);
-  // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
-  assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
-  assert.doesNotMatch(homeHtml, /Promptless for Docs/);
-  assert.doesNotMatch(homeHtml, /Coming soon/i);
-  // Guard against the pre-reword agents-panel copy silently returning.
-  assert.doesNotMatch(homeHtml, /governed documentation/);
-  assert.doesNotMatch(homeHtml, /control plane/);
-  assert.doesNotMatch(homeHtml, /Surfaces stale, missing, or contradictory/);
-  assert.doesNotMatch(homeHtml, /Give your AI workforce superpowers/);
+});
 
+test('meet page renders the booking embed', async () => {
   const meetResponse = await fetch(`${preview.baseUrl}/meet`);
   assert.equal(meetResponse.status, 200);
   const meetHtml = await meetResponse.text();
-  assert.match(meetHtml, /Book a 15-minute demo/);
   assert.match(meetHtml, /cal-inline-demo-booking/);
+});
 
+test('pricing renders accessible default state and plan structure', async () => {
   const pricingResponse = await fetch(`${preview.baseUrl}/pricing`);
   assert.equal(pricingResponse.status, 200);
   const pricingHtml = await pricingResponse.text();
-  assert.match(pricingHtml, /Pricing/);
-  assert.match(pricingHtml, /Startup/);
-  assert.match(pricingHtml, /Growth/);
-  assert.match(pricingHtml, /Enterprise/);
-  // New two-tab pricing switcher (PricingCards.astro) mirroring the homepage. Both
-  // pricing panels are server-rendered, so the switcher and the agent-instructions
-  // content are present in the fetched HTML regardless of the default tab.
+
   assert.match(pricingHtml, /role="tablist"/);
-  assert.match(pricingHtml, /for agent instructions/);
-  assert.match(pricingHtml, /for customer-facing docs/);
-  // Default tab (PricingCards.astro): the docs pill is now the default-selected tab
-  // and the agents pill is not; correspondingly the agents panel carries `hidden`
-  // and the docs panel does not. DOM order of pills/panels is unchanged. Lookahead
-  // regexes keep us agnostic to raw HTML attribute ordering.
   assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*aria-selected="true")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-pricing-panel-docs")[^>]*>/
   );
-  assert.doesNotMatch(
+  assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*aria-selected="true")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-pricing-panel-agents")[^>]*>/
   );
-  assert.match(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(pricingHtml, /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*\shidden)[^>]*>/);
-  // Agent-instructions pricing view: "Contact us" price, usage boundaries, footnote,
-  // and distinctive feature bullets — all strings that do not collide with docs-side copy.
-  assert.match(pricingHtml, /Contact us/);
-  assert.match(pricingHtml, /Fewer than 50 agent instructions/);
-  assert.match(pricingHtml, /50-200 agent instructions/);
-  assert.match(pricingHtml, /More than 200 agent instructions/);
-  assert.match(pricingHtml, /Agent instructions are skills, subagent/);
-  assert.match(pricingHtml, /Centralized Instruction Hub/);
-  assert.match(pricingHtml, /Native plugins for Claude Code and Codex/);
-  // Docs-side pricing (server-rendered on the hidden docs panel) still holds in full.
-  assert.match(pricingHtml, /\$500\s*\/\s*mo/);
-  assert.match(pricingHtml, /All plans include a 14-day free trial\./);
-  assert.match(pricingHtml, /Up to 200 Pages\*/);
-  assert.match(pricingHtml, /Pages are normalized/);
-  assert.match(pricingHtml, /name=\"growth_bundle\"/);
-  assert.match(pricingHtml, /200-500 Pages\*/);
-  assert.match(pricingHtml, /500-1,000 Pages\*/);
-  assert.match(pricingHtml, /1,000-2,000 Pages\*/);
-  assert.match(pricingHtml, /2,000-5,000 Pages\*/);
-  assert.match(pricingHtml, /Slack \+ GitHub integrations/);
-  assert.match(pricingHtml, /Open-source, non-commercial project\?/);
-  assert.match(pricingHtml, /href=\"https:\/\/promptless\.ai\/docs\/start-here\/open-source-quickstart\"/);
-  assert.match(pricingHtml, /Book demo/);
-  assert.doesNotMatch(pricingHtml, /<h3>Compare plans<\/h3>/);
+  assert.match(
+    pricingHtml,
+    /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-agents")(?=[^>]*\shidden)[^>]*>/
+  );
+  assert.match(
+    pricingHtml,
+    /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-docs")(?![^>]*\shidden)[^>]*>/
+  );
+
+  for (const plan of ['startup', 'growth', 'enterprise']) {
+    assert.equal(
+      pricingHtml.match(new RegExp(`<article(?=[^>]*data-plan="${plan}")[^>]*>`, 'g'))?.length,
+      2,
+      `Expected one ${plan} card in each pricing panel.`
+    );
+    assert.equal(
+      pricingHtml.match(new RegExp(`<a(?=[^>]*data-track-location="pricing_${plan}")[^>]*>`, 'g'))?.length,
+      2,
+      `Expected each ${plan} card to retain its tracked CTA.`
+    );
+  }
+  assert.match(pricingHtml, /name="growth_bundle"/);
+  assert.match(pricingHtml, /data-growth-price/);
 });
 
 test('every same-origin docs link on the homepage resolves to a real page', async (t) => {
@@ -753,9 +591,9 @@ test('website header replaces home search with the launch announcement', async (
   const homeResponse = await fetch(`${preview.baseUrl}/`);
   assert.equal(homeResponse.status, 200);
   const homeHtml = await homeResponse.text();
-  assert.match(homeHtml, /href="https:\/\/app\.gopromptless\.ai"[^>]*>\s*Sign in/i);
-  assert.match(homeHtml, /href="\/meet"[^>]*>\s*Get a demo/i);
-  assert.match(homeHtml, /href="https:\/\/accounts\.gopromptless\.ai\/sign-up"[^>]*>\s*Start for free/i);
+  assert.match(homeHtml, /<a(?=[^>]*href="https:\/\/app\.gopromptless\.ai")[^>]*>/i);
+  assert.match(homeHtml, /<a(?=[^>]*href="\/meet")[^>]*>/i);
+  assert.match(homeHtml, /<a(?=[^>]*href="https:\/\/accounts\.gopromptless\.ai\/sign-up")[^>]*>/i);
   assert.match(
     homeHtml,
     /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
@@ -781,64 +619,54 @@ test('legal pages render', async () => {
   assert.match(termsHtml, /hello@gopromptless\.ai/i);
 });
 
-test('free tool page renders form fields and explanatory copy', async () => {
+test('free tool page renders its link and form contract', async () => {
   const indexResponse = await fetch(`${preview.baseUrl}/free-tools`);
   assert.equal(indexResponse.status, 200);
   const indexHtml = await indexResponse.text();
-  assert.match(indexHtml, /Free tools/i);
-  assert.match(indexHtml, /Broken Link Report/i);
+  assert.match(indexHtml, /href="\/free-tools\/broken-link-report"/);
 
   const response = await fetch(`${preview.baseUrl}/free-tools/broken-link-report`);
   assert.equal(response.status, 200);
   const html = await response.text();
 
-  assert.match(html, /Broken Link Report/);
-  assert.match(html, /Paste your site URL and email/i);
+  assert.match(html, /id="broken-link-report-form"/);
   assert.match(html, /name="url"/);
   assert.match(html, /name="email"/);
-  assert.match(html, /Show advanced options/i);
   assert.match(html, /name="check_external"/);
   assert.match(html, /name="check_anchors"/);
   assert.match(html, /name="max_pages"/);
   assert.doesNotMatch(html, /name="concurrency"/);
   assert.doesNotMatch(html, /name="timeout_seconds"/);
   assert.match(html, /name="website"/);
-  assert.match(html, /Send me the report/);
+  assert.match(html, /<button[^>]*type="submit"[^>]*>/);
+  assert.match(html, /aria-live="polite"/);
 
   assert.doesNotMatch(html, /data-website-sidebar="true"/);
 });
 
 test('website markdown endpoints are available for agent-friendly content', async () => {
   const routes = [
-    { path: '/index.md', heading: /# Automatically update your docs/, detail: /## How Promptless works/ },
-    { path: '/pricing.md', heading: /# Pricing that fits teams of all sizes/, detail: /## Startup/ },
-    { path: '/free-tools.md', heading: /# Free tools/, detail: /## Broken Link Report/ },
-    {
-      path: '/free-tools/broken-link-report.md',
-      heading: /# Broken Link Report/,
-      detail: /## Advanced options/,
-    },
+    '/index.md',
+    '/pricing.md',
+    '/free-tools.md',
+    '/free-tools/broken-link-report.md',
   ];
 
   for (const route of routes) {
-    const response = await fetch(`${preview.baseUrl}${route.path}`);
-    assert.equal(response.status, 200, `Expected ${route.path} to be available.`);
+    const response = await fetch(`${preview.baseUrl}${route}`);
+    assert.equal(response.status, 200, `Expected ${route} to be available.`);
     assert.match(
       response.headers.get('content-type') ?? '',
       /^text\/markdown\b/i,
-      `Expected ${route.path} to return markdown.`
+      `Expected ${route} to return markdown.`
     );
 
     const body = await response.text();
-    assert.match(body, route.heading, `Expected ${route.path} to include its markdown title.`);
-    assert.match(body, route.detail, `Expected ${route.path} to include key agent-facing content.`);
+    assert.match(body, /^# \S.+/m, `Expected ${route} to include a title.`);
+    assert.match(body, /^## \S.+/m, `Expected ${route} to include structured content.`);
+    assert.match(body, /\[llms\.txt\]\(\/llms\.txt\)/, `Expected ${route} to link to the docs index.`);
+    assert.ok(body.length > 100, `Expected ${route} to include substantive content.`);
   }
-
-  // The pricing markdown mirror now also carries the agent-instructions section
-  // (websiteMarkdown/pricing.md) alongside the unchanged docs-side plans.
-  const pricingMd = await (await fetch(`${preview.baseUrl}/pricing.md`)).text();
-  assert.match(pricingMd, /## For agent instructions/);
-  assert.match(pricingMd, /Agent instructions are skills, subagent/);
 });
 
 test('website compatibility routes redirect to canonical destinations', async () => {
