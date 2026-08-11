@@ -472,14 +472,14 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /18%/);
   assert.match(homeHtml, />Token Spend</);
   assert.match(homeHtml, /1<sup[^>]*>st<\/sup> Attempt Completion/);
-  assert.match(homeHtml, />Session Time</);
+  assert.match(homeHtml, />Wall-Clock Time</);
   assert.match(homeHtml, />Human Interruptions</);
   assert.match(homeHtml, /aria-label="18 percent decrease"/);
   assert.match(homeHtml, /aria-label="15 percent increase"/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
   // Both products share the curated customer-proof set from the sales deck,
   // while each carousel stays nested inside its own tab-specific region.
-  const customerLogoHeading = /Serving Fortune 500 and fast-growing startups alike/g;
+  const customerLogoHeading = /Serving Fortune 500 enterprises and fast-growing startups alike/g;
   assert.equal(homeHtml.match(customerLogoHeading)?.length, 2);
   assert.match(homeHtml, /data-customer-logo-carousel="agents"/);
   assert.match(homeHtml, /data-customer-logo-carousel="docs"/);
