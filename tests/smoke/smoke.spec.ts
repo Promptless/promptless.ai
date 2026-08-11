@@ -426,7 +426,8 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /A forward-deployed AI engineer and technical writer work with you to optimize your agents\./);
   assert.match(homeHtml, /White-glove onboarding/);
   assert.match(homeHtml, /Works across teams, from DevOps to marketing/);
-  assert.match(homeHtml, /Stop making your AI workforce relearn what your team already knows\./);
+  assert.match(homeHtml, /Your AI workforce keeps paying to relearn the same lessons\./);
+  assert.match(homeHtml, /Every correction, workaround, and breakthrough stays trapped in the session where it happened\./);
   assert.match(homeHtml, /Find the work your agents keep making humans redo\./);
   assert.match(homeHtml, /Turn the best fix into a team-wide standard\./);
   assert.match(homeHtml, /Make one person’s breakthrough the standard for every session\./);
