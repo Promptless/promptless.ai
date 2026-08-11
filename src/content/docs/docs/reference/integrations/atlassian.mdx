@@ -5,7 +5,7 @@ type: reference
 tags:
   - reference
   - integrations
-timestamp: "2026-07-10T17:59:48Z"
+timestamp: "2026-08-11T00:00:00Z"
 sidebar:
   hidden: false
   order: 55
@@ -13,7 +13,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-**Used for: Context**
+**Used for: Context and triggers**
 
 <Aside type="note">
   Promptless integrates with both Jira and Confluence through a single OAuth connection. When engineers reference Jira issue keys in GitHub PRs or commit messages (like "PROJ-123"), Promptless automatically retrieves the ticket for context. Promptless also searches your Confluence spaces for existing patterns, terminology, and architectural decisions to keep new documentation consistent.
@@ -32,7 +32,7 @@ The OAuth consent screen displays the permissions Promptless requests when you c
 | Scope             | Purpose                                                                    |
 | ----------------- | -------------------------------------------------------------------------- |
 | `read:jira-work`  | Read Jira issues, projects, and work data                                  |
-| `write:jira-work` | Required by Atlassian for API access; Promptless uses read-only operations |
+| `write:jira-work` | Used to reply on a ticket and attach the documentation PR as a remote link when a Jira trigger runs |
 | `read:jira-user`  | Read user information for issue context                                    |
 
 ### Confluence scopes
@@ -54,7 +54,7 @@ The OAuth consent screen displays the permissions Promptless requests when you c
 | `offline_access` | Allow Promptless to refresh tokens without re-authentication |
 
 <Aside type="note">
-  Confluence scopes include both classic and granular variants for compatibility with Atlassian's API v2. Promptless only reads issue and page data—it does not write to Jira or Confluence. The `write:jira-work` scope is required by Atlassian's OAuth system for certain read operations.
+  Confluence scopes include both classic and granular variants for compatibility with Atlassian's API v2. Promptless writes to Jira only when a [Jira trigger](/docs/connect/triggers/jira) runs—posting the reply comment and attaching the documentation PR as a remote link—never proactively, and never to Confluence. This write happens whether or not a [service account](#atlassian-service-account) is attached; the service account only changes the identity Promptless posts as (a dedicated bot account instead of the connecting user). Reading Jira and Confluence for context remains read-only.
 </Aside>
 
 <Aside type="note">
@@ -101,9 +101,30 @@ Once connected, you can use Jira and Confluence as context sources to enhance do
 
 <img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/atlassian-integration-confluence-jira-unified-517b0f75.png" alt="Atlassian integration showing both Jira projects and Confluence spaces in a unified interface" />
 
+## Atlassian service account
+
+Attaching an Atlassian service account gives Promptless its own bot identity, so it can start sessions from Jira tickets and reply on them. See the [Jira trigger](/docs/connect/triggers/jira) page for what the identity does. This is distinct from the invited-user account described in [Provision an Atlassian account for Promptless](#provision-an-atlassian-account-for-promptless): that account is a standard Atlassian user you invite by email and authenticate through the normal OAuth connect flow, whereas the client-credentials **service account** described here is authenticated directly with a Client ID and secret and is what gives Promptless a dedicated write identity for Jira triggers.
+
+**How to attach.** An Atlassian organization admin first creates OAuth 2.0 credentials for a service account in Atlassian admin (Directory → Service accounts → create OAuth 2.0 credentials). From the Atlassian integration card, attach the service account by entering its **Client ID** and **Client secret** ("Attach service account"). The card then shows the attached account's display name, email, account ID, and client ID.
+
+**Token handling.** The service account uses a client-credentials grant with 60-minute tokens that Promptless re-mints as needed; there is no refresh token.
+
+**Required scopes and role.** The service account needs the following OAuth scopes, plus the Jira **User** application role:
+
+- `read:me`
+- `read:jira-user`
+- `read:jira-work`
+- `write:jira-work`
+
+These scopes are Jira-only—there is no Confluence scope—so the service account is used for Jira trigger writes, not Confluence.
+
+**Identity implications.** Whichever account Promptless acts as is the identity behind assignment triggering, mention matching, and ignoring its own activity. Attaching a service account moves that identity off the connecting admin. Without one, the connecting admin is that identity—so assigning a ticket to them starts a session, and their own ticket activity is ignored.
+
+Attaching a service account does not change the read-only context-source behavior—reading Jira for context still works the same way (see the [Jira context source](/docs/connect/context-sources/jira) page). The next section covers inviting a standard Atlassian user account instead.
+
 ## Provision an Atlassian account for Promptless
 
-We recommend creating a dedicated Atlassian account for Promptless to access both Jira and Confluence. A dedicated account gives you complete audit trail visibility and lets you configure fine-grained permissions for both services.
+You can also provision a dedicated Atlassian account by inviting a standard user rather than attaching a service account. We recommend creating a dedicated Atlassian account for Promptless to access both Jira and Confluence. A dedicated account gives you complete audit trail visibility and lets you configure fine-grained permissions for both services.
 
 Create the account using an email alias like `your_email+promptless@company.com`, or ask your IT admin to provision a new email account like `promptless@company.com`.
 
