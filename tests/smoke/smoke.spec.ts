@@ -424,14 +424,13 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /Promptless suggests doc updates when your product changes\./);
   // Agents panel (HeroV2.astro, id=pl-hero-panel-agents, now default-visible).
   assert.match(homeHtml, /id="pl-hero-panel-agents"/);
-  assert.match(homeHtml, /Instruction governance for your AI workforce/);
-  assert.match(homeHtml, /Make every agent session improve the next one\./);
+  assert.match(homeHtml, /Promptless Instruction Governance/);
+  assert.match(homeHtml, /Every agent trace should improve your entire AI workforce\./);
   // Subtitle contains an inline <code>AGENTS.md</code> tag; assert fragments around it
   // without depending on Astro's scoped attributes.
-  assert.match(homeHtml, /governed updates to your Skills, Subagents, Hooks,/);
+  assert.match(homeHtml, /automatically improves your team’s Skills, Subagents, Hooks,/);
   assert.match(homeHtml, /<code[^>]*>AGENTS\.md<\/code>/);
-  assert.match(homeHtml, /shared MCP configurations—reviewed by your team/);
-  assert.match(homeHtml, /distributed to every agent that needs them/);
+  assert.match(homeHtml, /with every session trace across your fleet/);
   assert.match(homeHtml, /Consistent, access-controlled skills across your teams/);
   assert.match(homeHtml, /Your traces are securely analyzed on your systems/);
   assert.match(homeHtml, /Works with all your agents/);
@@ -447,7 +446,6 @@ test('homepage, meet, and pricing render website content', async () => {
   // Guard against the removed #776 "two cards" / TwoTracks positioning creeping back.
   assert.doesNotMatch(homeHtml, /Promptless keeps it correct/);
   assert.doesNotMatch(homeHtml, /Promptless for Docs/);
-  assert.doesNotMatch(homeHtml, /Promptless Instruction Governance/);
   assert.doesNotMatch(homeHtml, /Coming soon/i);
   // Guard against the pre-reword agents-panel copy silently returning.
   assert.doesNotMatch(homeHtml, /governed documentation/);
