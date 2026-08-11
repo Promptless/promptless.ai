@@ -414,10 +414,13 @@ test('homepage, meet, and pricing render website content', async () => {
   // aside ships server-rendered visible because agents is the default tab, so the
   // heading and the four stat figures are present in the fetched HTML. The
   // The proof block reinforces the time, token, and dollar outcomes.
-  assert.match(homeHtml, /What 30 days of improvement can unlock/);
+  assert.match(homeHtml, /Typical improvements after 30 days/);
   assert.match(homeHtml, /42%/);
+  assert.match(homeHtml, /15%/);
   assert.match(homeHtml, /32%/);
   assert.match(homeHtml, /18%/);
+  assert.match(homeHtml, /decrease in token spend/);
+  assert.match(homeHtml, /increase in first-attempt completion/);
   assert.match(homeHtml, /monthly cost avoided/);
   assert.match(homeHtml, /team capacity recovered/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
