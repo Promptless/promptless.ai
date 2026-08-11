@@ -386,7 +386,6 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /virtuous-cycle-flywheel\.svg/);
   assert.match(homeHtml, /Make your best work the team’s new default\./);
   assert.match(homeHtml, /Improve the fleet without giving up control\./);
-  assert.match(homeHtml, /Turn hidden agent waste into measurable savings\./);
   assert.match(homeHtml, /Questions, answered\./);
   assert.match(homeHtml, /See what your agent traces are already trying to teach you\./);
   assert.doesNotMatch(homeHtml, /Illustrative fleet-wide impact/);
@@ -403,7 +402,6 @@ test('homepage, meet, and pricing render website content', async () => {
     'agent-learning-loop',
     'agent-use-cases',
     'agent-governance',
-    'agent-proof',
     'agent-faq',
     'agent-final-cta',
   ]) {
@@ -421,8 +419,6 @@ test('homepage, meet, and pricing render website content', async () => {
   assert.match(homeHtml, /18%/);
   assert.match(homeHtml, /decrease in token spend/);
   assert.match(homeHtml, /increase in first-attempt completion/);
-  assert.match(homeHtml, /monthly cost avoided/);
-  assert.match(homeHtml, /team capacity recovered/);
   assert.doesNotMatch(homeHtml, /dogfood/i);
   // The 1.0 demo video is KEPT (wrapped, not removed). VideoEmbed.astro extracts the
   // YouTube id from the embed URL and renders LiteYouTube, whose server-rendered facade
