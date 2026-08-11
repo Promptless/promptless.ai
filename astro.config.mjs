@@ -270,13 +270,13 @@ export default defineConfig({
         Sidebar: './src/components/starlight/Sidebar.astro',
         Header: './src/components/starlight/Header.astro',
         // Per-page social cards: injects each page's og:image/twitter:image,
-        // pointing at its generated card (/og/<slug>.png). Replaces the single
-        // global og:image/twitter:image that used to live in head[] below.
+        // pointing at its incrementally pre-generated card (/og/<slug>.png).
+        // Replaces the global og:image/twitter:image that lived in head[].
         Head: './src/components/starlight/Head.astro',
         SiteTitle: './src/components/starlight/SiteTitle.astro',
         PageTitle: './src/components/starlight/PageTitle.astro',
         Footer: './src/components/starlight/Footer.astro',
-        ThemeProvider: './src/components/starlight/ThemeProviderLightOnly.astro',
+        ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
       titleDelimiter: '|',
@@ -299,7 +299,7 @@ export default defineConfig({
         },
         // og:image / twitter:image are injected per page by the Head override
         // (src/components/starlight/Head.astro) so each page gets its own
-        // generated social card, with public/assets/social-card.png as the
+        // pre-generated social card, with public/assets/social-card.png as the
         // fallback. They are intentionally no longer set globally here.
         {
           tag: 'link',
