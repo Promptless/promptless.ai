@@ -1,0 +1,478 @@
+{
+  "specId": "schedule-trigger-form",
+  "description": "Guards the 'On a schedule' trigger creation form that `schedule.mdx`'s '## Set up a schedule trigger in the dashboard' walkthrough (Steps 3-4) and '## Timezones and daylight saving' section describe. The raw cron field's three distinct validation responses and the timezone field's default-fill behavior are both new prose in this revision, so this spec types each documented cron example and reads back the matching response, and separately checks that the timezone field starts non-empty and that opening it surfaces a search input and the documented group headings.",
+  "tests": [
+    {
+      "testId": "schedule-trigger-cron-field-invalid-expression",
+      "description": "Confirms an unparseable cron expression in the raw cron field surfaces the documented error message and its crontab.guru link, instead of the valid-expression gloss or the too-frequent message.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Configuration page",
+          "goTo": "https://app.gopromptless.ai/configuration"
+        },
+        {
+          "description": "Open the Triggers tab",
+          "find": {
+            "elementText": "/^Triggers$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Click the catalog-entry button that starts a new trigger",
+          "find": {
+            "elementText": "/^Add an automatic or scheduled trigger$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Choose the 'On a schedule' catalog entry by its documented description text",
+          "find": {
+            "elementText": "/^A recurring schedule — Run instructions you write on a repeating schedule you pick\\.$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Wait for the raw cron field to render, located by its documented placeholder",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Click the raw cron field",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type an expression Promptless can't read",
+          "type": "not-a-cron"
+        },
+        {
+          "description": "Let the field's validation response render",
+          "wait": 1500
+        },
+        {
+          "description": "The documented error line is showing, alongside a crontab.guru link, and neither the valid-expression gloss nor the too-frequent message is present",
+          "runBrowserScript": {
+            "script": "const bodyText = (document.body.innerText || '').replace(/\\s+/g, ' '); const hasInvalid = /Invalid schedule\\. Use crontab\\.guru to iterate on your schedule\\./.test(bodyText); const hasSubHourly = /Schedules can run at most once an hour\\. Pick a less frequent time\\./.test(bodyText); const link = Array.from(document.querySelectorAll('a')).find((a) => (a.getAttribute('href') || '').includes('crontab.guru') && a.textContent.trim() === 'crontab.guru'); return ['invalidMessage=' + (hasInvalid ? 'present' : 'missing'), 'crontabGuruLink=' + (link ? 'present' : 'missing'), 'subHourlyMessageAlsoShown=' + (hasSubHourly ? 'yes' : 'no')].join(' ');",
+            "output": "invalidMessage=present crontabGuruLink=present subHourlyMessageAlsoShown=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "schedule-trigger-cron-field-sub-hourly-expression",
+      "description": "Confirms a syntactically valid but sub-hourly cron expression surfaces the documented too-frequent message rather than being called invalid.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Configuration page",
+          "goTo": "https://app.gopromptless.ai/configuration"
+        },
+        {
+          "description": "Open the Triggers tab",
+          "find": {
+            "elementText": "/^Triggers$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Click the catalog-entry button that starts a new trigger",
+          "find": {
+            "elementText": "/^Add an automatic or scheduled trigger$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Choose the 'On a schedule' catalog entry by its documented description text",
+          "find": {
+            "elementText": "/^A recurring schedule — Run instructions you write on a repeating schedule you pick\\.$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Wait for the raw cron field to render, located by its documented placeholder",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Click the raw cron field",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the documented sub-hourly example",
+          "type": "*/5 * * * *"
+        },
+        {
+          "description": "Let the field's validation response render",
+          "wait": 1500
+        },
+        {
+          "description": "The documented too-frequent message is showing, and the invalid-expression error is not -- this expression is real cron, just too frequent",
+          "runBrowserScript": {
+            "script": "const bodyText = (document.body.innerText || '').replace(/\\s+/g, ' '); const hasSubHourly = /Schedules can run at most once an hour\\. Pick a less frequent time\\./.test(bodyText); const hasInvalid = /Invalid schedule\\./.test(bodyText); return ['subHourlyMessage=' + (hasSubHourly ? 'present' : 'missing'), 'invalidMessageAlsoShown=' + (hasInvalid ? 'yes' : 'no')].join(' ');",
+            "output": "subHourlyMessage=present invalidMessageAlsoShown=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "schedule-trigger-cron-field-valid-expression",
+      "description": "Confirms a valid, hourly-or-slower cron expression surfaces the documented plain-English gloss and neither of the other two messages.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Configuration page",
+          "goTo": "https://app.gopromptless.ai/configuration"
+        },
+        {
+          "description": "Open the Triggers tab",
+          "find": {
+            "elementText": "/^Triggers$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Click the catalog-entry button that starts a new trigger",
+          "find": {
+            "elementText": "/^Add an automatic or scheduled trigger$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Choose the 'On a schedule' catalog entry by its documented description text",
+          "find": {
+            "elementText": "/^A recurring schedule — Run instructions you write on a repeating schedule you pick\\.$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Wait for the raw cron field to render, located by its documented placeholder",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Click the raw cron field",
+          "find": {
+            "selector": "input[placeholder='0 9 * * 1']",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the documented Every-Monday-at-9am preset expression",
+          "type": "0 9 * * 1"
+        },
+        {
+          "description": "Let the field's validation response render",
+          "wait": 1500
+        },
+        {
+          "description": "The documented plain-English gloss is showing (its exact wording is generated, so this matches the 'Runs ...' prefix the docs quote), and neither the invalid-expression error nor the too-frequent message is present",
+          "runBrowserScript": {
+            "script": "const bodyText = (document.body.innerText || '').replace(/\\s+/g, ' '); const hasGloss = /Runs [^.]+\\./.test(bodyText); const hasInvalid = /Invalid schedule\\./.test(bodyText); const hasSubHourly = /Schedules can run at most once an hour\\./.test(bodyText); return ['glossShown=' + (hasGloss ? 'present' : 'missing'), 'invalidMessageShown=' + (hasInvalid ? 'yes' : 'no'), 'subHourlyMessageShown=' + (hasSubHourly ? 'yes' : 'no')].join(' ');",
+            "output": "glossShown=present invalidMessageShown=no subHourlyMessageShown=no",
+            "timeout": 10000
+          }
+        }
+      ]
+    },
+    {
+      "testId": "schedule-trigger-timezone-field",
+      "description": "Confirms the timezone field is pre-filled rather than left blank on load, and that opening it surfaces a search input along with the documented group headings.",
+      "steps": [
+        {
+          "description": "Navigate to the Clerk sign-in page",
+          "goTo": "$PROMPTLESS_SIGN_IN_URL"
+        },
+        {
+          "description": "Click the email input",
+          "find": {
+            "selector": "#identifier-field",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Type the test email",
+          "type": "$PROMPTLESS_TEST_EMAIL"
+        },
+        {
+          "description": "Click Continue after email",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for the password page to load",
+          "wait": 3000
+        },
+        {
+          "description": "Click the password input",
+          "find": {
+            "selector": "#password-field",
+            "click": true,
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Type the test password",
+          "type": "$PROMPTLESS_TEST_PASSWORD"
+        },
+        {
+          "description": "Click Continue to sign in",
+          "find": {
+            "selector": "button.cl-formButtonPrimary",
+            "click": true,
+            "timeout": 5000
+          }
+        },
+        {
+          "description": "Wait for sign-in to complete",
+          "wait": 5000
+        },
+        {
+          "description": "Open the Configuration page",
+          "goTo": "https://app.gopromptless.ai/configuration"
+        },
+        {
+          "description": "Open the Triggers tab",
+          "find": {
+            "elementText": "/^Triggers$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Click the catalog-entry button that starts a new trigger",
+          "find": {
+            "elementText": "/^Add an automatic or scheduled trigger$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Choose the 'On a schedule' catalog entry by its documented description text",
+          "find": {
+            "elementText": "/^A recurring schedule — Run instructions you write on a repeating schedule you pick\\.$/",
+            "click": true,
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Wait for the timezone field's field label to render",
+          "find": {
+            "elementText": "/^In which timezone\\?$/",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "The timezone control, located through its field label rather than by DOM order, already shows a non-empty value before anything is clicked -- the docs' claim that it is pre-filled rather than left blank",
+          "runBrowserScript": {
+            "script": "const findLabel = () => Array.from(document.querySelectorAll('span,label,div,p')).find((n) => n.children.length === 0 && n.textContent.trim() === 'In which timezone?'); const findControl = () => { const l = findLabel(); if (!l) return null; let node = l; for (let i = 0; i < 6 && node; i++) { const c = node.querySelector('input, button, [role=\"combobox\"]'); if (c) return c; node = node.parentElement; } return null; }; const control = findControl(); if (!control) return 'timezoneField=missing'; const displayed = control.value !== undefined && control.value !== '' ? control.value : (control.textContent || '').trim(); return ['timezoneField=present', 'initialValue=' + (displayed ? 'non-empty' : 'empty')].join(' ');",
+            "output": "timezoneField=present initialValue=non-empty",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Open the timezone control",
+          "runBrowserScript": {
+            "script": "const findLabel = () => Array.from(document.querySelectorAll('span,label,div,p')).find((n) => n.children.length === 0 && n.textContent.trim() === 'In which timezone?'); const findControl = () => { const l = findLabel(); if (!l) return null; let node = l; for (let i = 0; i < 6 && node; i++) { const c = node.querySelector('input, button, [role=\"combobox\"]'); if (c) return c; node = node.parentElement; } return null; }; const control = findControl(); if (!control) return 'timezoneField=missing'; control.click(); return 'timezoneField=clicked';",
+            "output": "timezoneField=clicked",
+            "timeout": 10000
+          }
+        },
+        {
+          "description": "Let the picker mount",
+          "wait": 700
+        },
+        {
+          "description": "The open picker exposes a text input to search by, and the documented friendly group headings are visible somewhere in the open picker. Groups are matched on their exact quoted text, so a relabeled or ungrouped picker fails here.",
+          "runBrowserScript": {
+            "script": "const bodyText = (document.body.innerText || '').replace(/\\s+/g, ' '); const groups = ['Pacific Time — Los Angeles', 'Eastern Time — New York', 'UTC', 'Japan — Tokyo']; const groupsFound = groups.filter((g) => bodyText.includes(g)); const searchInput = document.querySelector('[role=\"listbox\"] input, [role=\"dialog\"] input, [role=\"menu\"] input, [cmdk-input]'); return ['searchInput=' + (searchInput ? 'present' : 'missing'), 'groupsFound=' + groupsFound.length, 'groups=' + groupsFound.join('|')].join(' ');",
+            "output": "searchInput=present groupsFound=4 groups=Pacific Time — Los Angeles|Eastern Time — New York|UTC|Japan — Tokyo",
+            "timeout": 10000
+          }
+        }
+      ]
+    }
+  ]
+}
