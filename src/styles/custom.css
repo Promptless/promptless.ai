@@ -45,6 +45,24 @@
   --pl-color-success-soft: #102824;
   --pl-color-danger: #ffaaa9;
   --pl-color-danger-soft: #32191d;
+  /* Per-product-track hues for the homepage product switcher. The
+     agent-instructions track keeps the brand indigo; the customer-facing-docs
+     track shifts to a cooler steel-blue so switching pills reads as moving
+     between two products. Deliberately a near neighbour of the indigo rather
+     than a jump to teal or cyan: it stays a decorative wash behind unchanged
+     body text, so no text, link, or icon color has to move with it.
+
+     Every docs-track hue lives here — the wash below and the pill in
+     ProductSwitcher.astro both read these, so retuning the hue is a one-place
+     edit. Keep wash and pill on the same hue: the pill previewing the wash it
+     activates is what sells the switch. */
+  --pl-track-docs-wash-near: rgba(46, 124, 224, 0.15);
+  --pl-track-docs-wash-far: rgba(56, 172, 216, 0.09);
+  --pl-track-docs-tint: rgba(56, 150, 232, 0.18);
+  --pl-track-docs-ring: rgba(110, 180, 240, 0.16);
+  --pl-track-docs-accent: #3a92e6;
+  --pl-track-docs-accent-bright: #63c6e8;
+
   --pl-gradient-action: linear-gradient(135deg, #5264ec 0%, #725cea 100%);
   --pl-gradient-action-hover: linear-gradient(135deg, #5868ec 0%, #7459e8 100%);
   --pl-gradient-brand: linear-gradient(115deg, #ffffff 12%, #d9ddff 52%, #9daaff 100%);
@@ -616,11 +634,32 @@ button[aria-controls='starlight__sidebar']:hover {
     var(--sl-color-bg);
 }
 
+/* The homepage ambient wash follows the active product-switcher pill. Only the
+   two gradient colors change between tracks — geometry and alpha stay put, so
+   neither product reads as brighter or heavier than the other, just different.
+   The wash vars are declared here rather than on :root so they stay scoped to
+   the homepage frame.
+
+   The swap is deliberately instant. ProductSwitcher.astro toggles the hero
+   panels with `hidden`, so every bit of copy changes in one frame; a background
+   that cross-faded over ~400ms would trail the content it is describing and
+   read as a repaint bug rather than a transition. */
 .main-frame:has(.pl-site-page-home) {
+  --pl-home-wash-near: rgba(82, 100, 236, 0.14);
+  --pl-home-wash-far: rgba(114, 92, 234, 0.08);
   background:
-    radial-gradient(ellipse 72% 34rem at 50% 0, rgba(82, 100, 236, 0.14), transparent 74%),
-    radial-gradient(ellipse 48% 28rem at 68% 2rem, rgba(114, 92, 234, 0.08), transparent 78%),
+    radial-gradient(ellipse 72% 34rem at 50% 0, var(--pl-home-wash-near), transparent 74%),
+    radial-gradient(ellipse 48% 28rem at 68% 2rem, var(--pl-home-wash-far), transparent 78%),
     var(--sl-color-bg);
+}
+
+/* Keyed off the docs tabpanel's `hidden` state, which is the same signal
+   HeroV2.astro already uses for its per-track layout switches. The docs panel
+   ships `hidden` in the markup, so the indigo default above is what paints
+   before the switcher's script runs — no flash of the wrong track. */
+.main-frame:has(.pl-site-page-home):has(#pl-hero-panel-docs:not([hidden])) {
+  --pl-home-wash-near: var(--pl-track-docs-wash-near);
+  --pl-home-wash-far: var(--pl-track-docs-wash-far);
 }
 
 .right-sidebar-panel {
