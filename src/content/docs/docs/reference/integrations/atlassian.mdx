@@ -105,7 +105,7 @@ Once connected, you can use Jira and Confluence as context sources to enhance do
 
 Attaching an Atlassian service account gives Promptless its own bot identity, so it can start sessions from Jira tickets and reply on them. See the [Jira trigger](/docs/connect/triggers/jira) page for what the identity does. This is distinct from the invited-user account described in [Provision an Atlassian account for Promptless](#provision-an-atlassian-account-for-promptless): that account is a standard Atlassian user you invite by email and authenticate through the normal OAuth connect flow, whereas the client-credentials **service account** described here is authenticated directly with a Client ID and secret and is what gives Promptless a dedicated write identity for Jira triggers.
 
-**How to attach.** An Atlassian organization admin first creates OAuth 2.0 credentials for a service account in Atlassian admin (Directory → Service accounts → create OAuth 2.0 credentials). From the Atlassian integration card, attach the service account by entering its **Client ID** and **Client secret** ("Attach service account"). The card then shows the attached account's display name, email, account ID, and client ID.
+**How to attach.** An Atlassian organization admin first creates OAuth 2.0 credentials for a service account in Atlassian admin (Directory → Service accounts → create OAuth 2.0 credentials). From the Atlassian integration card, enter the service account's **Client ID** and **Client secret**, plus an optional **Atlassian Admin address**, then click "Attach service account." The admin address isn't required—attaching works without it. If Atlassian rejects the credentials, Promptless leaves the account unattached and shows an error notification. The card then shows the attached account's display name, email, account ID, and client ID.
 
 **Token handling.** The service account uses a client-credentials grant with 60-minute tokens that Promptless re-mints as needed; there is no refresh token.
 
@@ -119,6 +119,17 @@ Attaching an Atlassian service account gives Promptless its own bot identity, so
 These scopes are Jira-only—there is no Confluence scope—so the service account is used for Jira trigger writes, not Confluence.
 
 **Identity implications.** Whichever account Promptless acts as is the identity behind assignment triggering, mention matching, and ignoring its own activity. Attaching a service account moves that identity off the connecting admin. Without one, the connecting admin is that identity—so assigning a ticket to them starts a session, and their own ticket activity is ignored.
+
+The connected Atlassian drawer shows a labeled panel at the top naming the account that authorized the connection—the connecting admin's display name and email. Promptless always reads Jira and Confluence as this account, whether or not a service account is attached. What changes with a service account is who Jira comments post as, and the panel's label reflects that:
+
+- No service account attached: the panel reads "Reading and commenting on Jira as this person"—the connecting admin is also who Jira comments post as. (The label names only Jira because Jira is the only product Promptless writes to; Confluence reads still run as this account.)
+- Service account attached: comment identity moves to the service account, and the panel reads "Reading Jira and Confluence as this person," scoping the connecting admin to reads.
+
+If Atlassian doesn't expose that account's profile, the panel shows the account ID instead.
+
+**Service-account health.** The Atlassian integration card's service-account section expands into a drawer; its collapsed line carries a health badge. It reads **Not working** (red) when Atlassian refuses the credential (for example, a rotated or revoked secret, or an account that has lost its Jira **User** application role), and **Unconfirmed** (amber) when Promptless can't reach Atlassian to check. Opening the drawer shows a health message alongside **Last worked… · Checked…** timings.
+
+To fix a broken service account, re-attach it: re-enter its Client ID and secret on the [integrations page](https://app.gopromptless.ai/integrations). Reconnecting (re-consenting) the Atlassian OAuth connection does not fix a broken service account, because the OAuth connection and the service-account credential are separate. If you're troubleshooting from a symptom instead, see [Connection health](/docs/connect/connection-health).
 
 Attaching a service account does not change the read-only context-source behavior—reading Jira for context still works the same way (see the [Jira context source](/docs/connect/context-sources/jira) page). The next section covers inviting a standard Atlassian user account instead.
 

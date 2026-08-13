@@ -27,7 +27,7 @@ Four paths start a session from a ticket. Three are built in and active whenever
 
 Each of these three paths creates a reply obligation: Promptless owes an answer on the ticket and tracks it the way it tracks an unanswered Slack thread. All three are the built-in `jira_mention` trigger—active whenever Atlassian is connected, with no YAML configuration. Like other built-in triggers, these paths are always on when Atlassian is connected and cannot be disabled. (Internally they are the assignment, label, and mention subtypes, but they route through the single `jira_mention` key, so a policy rule targets `jira_mention` rather than a per-path key.)
 
-The fourth path is a configured Jira trigger that matches a project, label, or status. It is passive and creates no reply obligation—Promptless analyzes the ticket but does not owe an answer on it.
+The fourth path is a configured Jira trigger that matches a project, label, status, or status category. It is passive and creates no reply obligation—Promptless analyzes the ticket but does not owe an answer on it.
 
 ## Reply on the ticket
 
@@ -35,9 +35,9 @@ Promptless answers on the ticket and attaches the documentation PR as a remote l
 
 ## How a configured trigger activates
 
-A configured Jira trigger activates only on the transition *into* a matching project, label, or status, reconstructed from the issue's change history. A later comment does not re-activate a ticket that already matches. A clause that matches only on `projects` effectively activates only when an issue is created in that project.
+A configured Jira trigger activates only on the transition *into* a matching project, label, status, or status category. Promptless reconstructs that transition from the issue's change history. A later comment does not re-activate a ticket that already matches. A clause that matches only on `projects` effectively activates only when an issue is created in that project.
 
-Match semantics follow the same rules as other triggers: within one clause the fields are ANDed; multiple clauses are ORed. Projects, labels, and statuses all match case-insensitively.
+Match semantics follow the same rules as other triggers: within one clause the fields are ANDed; multiple clauses are ORed. Projects, labels, statuses, and status categories all match case-insensitively.
 
 ## Configuration
 
@@ -54,7 +54,22 @@ triggers:
       - statuses: ["Ready for Docs"]
 ```
 
-`match` takes at least one clause. Within a clause, `projects`, `labels`, and `statuses` are each optional, but at least one must be set. The optional top-level `instructions` field gives the trigger standing instructions handed to Promptless on each run—like a schedule trigger's instructions, but optional here. Leave it out to run with no standing instructions; a present-but-blank value is rejected.
+`match` takes at least one clause. Within a clause, `projects`, `labels`, `statuses`, and `status_categories` are each optional, but at least one must be set. The optional top-level `instructions` field gives the trigger standing instructions handed to Promptless on each run—like a schedule trigger's instructions, but optional here. Leave it out to run with no standing instructions; a present-but-blank value is rejected.
+
+### Match on status category
+
+To match on where an issue sits in its workflow rather than by status name, match a status category:
+
+```yaml
+triggers:
+  jira-done:
+    trigger_type: jira
+    match:
+      - projects: [DOCS]
+        status_categories: [done]
+```
+
+Jira status names are per-project and can be renamed. Listing them by name (`statuses: ["Done", "Closed", ...]`) is fragile: it misses any done-like status added later. A status category is stable across projects and renames, so `status_categories: [done]` matches every done-like status in one clause. The valid category keys are `new`, `indeterminate`, and `done`.
 
 See the [Configuration Reference](/docs/reference/configuration-reference#triggers) for the full schema.
 
