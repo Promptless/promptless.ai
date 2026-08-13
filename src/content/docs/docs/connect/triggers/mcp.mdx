@@ -1,0 +1,174 @@
+---
+title: MCP triggers
+description: Start Promptless documentation tasks, list your collections, and check task status from your editor over MCP, authorized with OAuth instead of an API key.
+slug: docs/connect/triggers/mcp
+type: reference
+tags:
+  - connect
+  - triggers
+  - reference
+timestamp: "2026-08-13T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 16
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The Promptless Model Context Protocol (MCP) server lets you start documentation tasks from an MCP client—Claude Code, Cursor, and others—without creating or pasting an API key. [MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools; if your editor has an "MCP servers" setting (Claude Code and Cursor both do), it can connect to Promptless.
+
+Like the API trigger, MCP is a built-in surface that's always available: it needs no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
+
+Every organization member can connect: authorizing issues a token tied to your own user, not an organization-wide secret, so there's nothing for an admin to gate. MCP access can't be restricted per member or role today. To control submission noise, use your [publishing policies and relevance filtering](/docs/tune/noise-and-relevance-filtering) instead.
+
+## Use cases
+
+Connecting over MCP works well when you want to:
+
+- Start and check documentation tasks interactively, from the editor you already have open.
+- Skip API key management—there's no key to generate, store, or rotate.
+- Target a single collection with `submit_documentation_task`'s optional `doc_collection_id`, or omit it to route across all your collections—without leaving your editor.
+
+The [API trigger](/docs/connect/triggers/api) is unchanged and remains the recommended path for server-to-server and CI callers: an API key plus the `POST /triggers` REST endpoint. MCP is the no-key path for interactive editor use. Both dispatch through the same intake pipeline, so a task started either way behaves identically.
+
+<Aside type="note" title="Before you start">
+  You need an MCP-capable editor, such as Claude Code or Cursor, and your organization must have finished setting up Promptless. No API key is required.
+</Aside>
+
+## Set up
+
+Connect the server once per editor. The server URL is `https://api.gopromptless.ai/mcp`, and the canonical add command is:
+
+```bash
+claude mcp add --transport http promptless https://api.gopromptless.ai/mcp
+```
+
+You can find the URL and the add command in-app under dashboard **Settings**, in the **Editor connection (MCP)** section, which is visible to every organization member. The app is at [app.gopromptless.ai](https://app.gopromptless.ai).
+
+### Claude Code
+
+<Steps>
+  1. Run the add command shown above.
+
+  2. Run `/mcp` and pick **promptless** to authorize.
+
+  3. Authorize the connection in the browser tab that opens. See [Authorize the connection](#authorize-the-connection).
+</Steps>
+
+### Cursor
+
+<Steps>
+  1. Add an HTTP MCP server for Promptless at `https://api.gopromptless.ai/mcp`, with the server name `promptless` and HTTP transport. You can do this in Cursor's MCP settings or by editing `mcp.json` directly.
+
+  2. Click **Needs login**.
+
+  3. Authorize the connection in the browser tab that opens. See [Authorize the connection](#authorize-the-connection).
+</Steps>
+
+### Other MCP clients
+
+Any MCP client that supports HTTP transport and OAuth can connect using the same URL, `https://api.gopromptless.ai/mcp`. The exact steps vary by client.
+
+## Authorize the connection
+
+Authorization uses OAuth, so no key ever touches your editor config. Here's what you see:
+
+<Steps>
+  1. The first request has no token, so the server returns a 401 challenge. Your client discovers the OAuth endpoints and self-registers automatically—no action needed from you.
+
+  2. Your browser opens the Promptless consent page at `https://app.gopromptless.ai/mcp/authorize`.
+
+  3. The consent page names the client, the target organization, and your role in that organization. The target-organization field is an organization picker that defaults to your active organization, and the approve button reads **Authorize as \{your email}**.
+
+  4. You approve. The page shows "Connected — Returning you to your editor. You can close this tab.", and the editor stores the token itself.
+</Steps>
+
+<Aside type="note">
+  There's deliberately no permission picker. The connection can submit documentation tasks, list your documentation collections, and check the status of tasks it submitted—there are no narrower permissions to choose from. An approved client acts with the same access its approver already has.
+</Aside>
+
+## Available tools
+
+The organization is fixed by the token's consent, so no tool takes an organization argument and a token can't reach a second organization.
+
+### `submit_documentation_task`
+
+Starts a documentation task the same way the API trigger does.
+
+| Argument            | Type          | Required | Description                                 |
+| ------------------- | ------------- | -------- | ------------------------------------------- |
+| `instructions`      | string        | Yes      | What you want documented.                   |
+| `context`           | object        | No       | Arbitrary metadata attached to the request. Appears in trigger history for reference. |
+| `doc_collection_id` | string (UUID) | No       | Omit to route across all your collections.  |
+
+Returns `{ trigger_event_id, status: "received", message }`.
+
+### `list_doc_collections`
+
+Takes no arguments. Returns `{ doc_collections: [{ id, name, platform, default_branch }] }`. Use it to get a `doc_collection_id` to pass to `submit_documentation_task`.
+
+### `get_task_status`
+
+| Argument           | Type   | Required | Description                                  |
+| ------------------ | ------ | -------- | -------------------------------------------- |
+| `trigger_event_id` | string | Yes      | The ID returned when you submitted the task. |
+
+Returns `{ trigger_event_id, status, submitted_at, request }`. The `status` field reflects where the task is in processing; a freshly submitted task starts as `received`. The `request` field echoes the instructions you submitted (formatted as `API: {your instructions}`). It doesn't include `context`, which appears separately in the dashboard's trigger history. A task that belongs to another organization reports as not found.
+
+### Example
+
+Ask your editor in plain language, for example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection."
+
+The client maps that to `list_doc_collections`, then `submit_documentation_task` with the chosen collection's `id` as `doc_collection_id` and your request as `instructions`. Promptless starts the task and returns a `trigger_event_id` you can pass to `get_task_status`.
+
+## Token lifecycle and revoking access
+
+The access token lasts 8 hours, and the client refreshes it automatically; each refresh rotates the whole token pair. The authorization code is single-use and expires 5 minutes after consent, and a consent request expires after 10 minutes. Promptless stores only digests of these credentials, never the raw values.
+
+When a token expires, the client re-authorizes automatically, so you rarely notice the boundary. Revoking a connection's access takes effect on its next call: that call gets a 401, and the client has to authorize again before it can do anything.
+
+## View MCP triggers
+
+Tasks started over MCP appear in the same places as other API-triggered tasks, labeled with the "API" source. They carry the same "API" trigger source as `sk-pl-` key submissions and aren't separately filterable from them today. See them on the [Triggers page](https://app.gopromptless.ai/triggers), and set the **Trigger source** filter to "API" on the [Suggestions list](https://app.gopromptless.ai/suggestions) to find suggestions that came from them.
+
+## Troubleshooting
+
+Tool failures come back as errors the editor's model sees, not silent failures. Common ones:
+
+- **Empty `instructions`**: the task needs instructions to act on. Resubmit with a specific `instructions` string.
+- **A `doc_collection_id` that isn't a valid UUID**: call `list_doc_collections` and pass an `id` from the returned list.
+- **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish organization setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask your organization's Promptless admin to.
+- **A requested collection isn't configured**: the tool returns "The requested doc collection is not configured." Call `list_doc_collections` to get a valid `id`, or configure the collection before submitting against it.
+- **A denied, cancelled, or expired consent**: what the consent page shows depends on how the request ended.
+  - If you cancel or decline on the consent screen, the page shows "Authorization cancelled" and your editor reports the connection as declined.
+  - If the consent request expired (it's valid for 10 minutes) or is otherwise stale, the page shows that the authorization request is no longer valid.
+  - If you revisit a request that was already approved or denied, the page shows that the request has already been answered.
+
+  In every case, re-run the authorize step to start fresh—in Claude Code, run `/mcp` and pick **promptless** again; in Cursor, click **Needs login** again.
+
+An expired token re-authorizes automatically, so an expiry isn't something to fix by hand. A plain `GET` of the endpoint returns 405—the endpoint only accepts POST from an MCP client.
+
+### Setup issues
+
+First-run snags usually clear with a retry:
+
+- **The browser consent tab doesn't open**: re-run the authorize step—in Claude Code, run `/mcp` and pick **promptless**; in Cursor, click **Needs login**.
+- **No promptless entry under `/mcp` in Claude Code**: confirm the add command ran, then re-open the client.
+- **Cursor's Needs login button doesn't respond**: remove the server and add it again.
+
+## Protocol details
+
+The server speaks stateless JSON-RPC over `POST https://api.gopromptless.ai/mcp`, with no server-sent stream. Authorization is OAuth 2.1 with PKCE and dynamic client registration, driven by the client. The server identifies itself as `promptless` (title `Promptless`), version `1.0.0`.
+
+## How it works
+
+When you submit a task over MCP:
+
+1. **Validation**: Promptless validates your token and request.
+2. **Routing**: The request is routed to your configured doc collections.
+3. **Analysis**: Promptless analyzes your instructions along with configured context sources.
+4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions.
+
+<Aside type="note">
+  MCP-started tasks flow through the same pipeline as every other trigger and follow your configured [publishing policies](/docs/reference/configuration-reference#policies).
+</Aside>
