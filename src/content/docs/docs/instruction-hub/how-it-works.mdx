@@ -1,0 +1,79 @@
+---
+title: How Instruction Hub works
+description: >-
+  The path from an agent session to a finding to a remediation pull request
+slug: docs/instruction-hub/how-it-works
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+An Instruction Hub run starts with a coding agent session that already happened and ends with a pull request against the repository holding your instruction assets.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## The pipeline
+
+<Steps>
+
+1. **A session produces a native ledger.** Claude Code, Claude Desktop, and Codex each write JSONL as the session runs.
+
+2. **The host runtime uploads new line ranges.** Lifecycle hooks invoke the plugin-shipped executable, which uploads complete new ranges to the worker. Collection is nonblocking, so a failed upload never breaks the agent session.
+
+3. **The worker admits and normalizes the batch.** It validates the whole batch before any durable write, stores raw JSONL in your S3, and normalizes records into a canonical trace object in your Postgres.
+
+4. **The analyzer runs over the trace.** Terminal traces are scheduled immediately; open traces wait for the quiet window.
+
+5. **Findings are written to hosted Promptless.** The analyzer creates a new finding or appends evidence to one that already exists.
+
+6. **High-confidence findings get a remediation.** A pull request is opened against your Instruction Hub repository.
+
+</Steps>
+
+TODO: Add the sequence diagram.
+
+## Trace ingestion
+
+TODO: Describe what a canonical trace object is and why normalization matters. Reference the per-batch limits rather than restating them.
+
+Records the parser does not model become `other` events with full provenance. Unknown record types never reject a batch — only undecodable lines count as unparsed.
+
+## Analysis scheduling
+
+Analysis stays disabled until activation time, model configuration, and repository identity are configured together.
+
+- Terminal traces are scheduled as soon as they finish.
+- Open traces are scheduled after the quiet window, which defaults to 30 minutes.
+- Normal scheduling considers only traces at or after the configured activation time.
+- Administrators can backfill an explicit half-open time window.
+
+TODO: Explain when an administrator would choose a backfill over waiting for normal scheduling.
+
+## What the analyzer does
+
+Each attempt runs in a fresh child process with a one-hour deadline, and the worker retries with a new process up to three times.
+
+TODO: Expand each step below into prose once the orchestrator stabilizes.
+
+1. Builds a digest of the trace.
+2. Reads the digest and submits independent friction candidates to investigator agents, with at most eight running concurrently.
+3. Lists every existing organization finding.
+4. Runs supplemental investigations when the catalog reveals plausible new evidence for a finding that already exists.
+5. Creates a new finding, or refines an existing one with append-only evidence.
+
+The analysis workspace holds the raw trace, any locally known descendant sessions, and a credential-free checkout of your Instruction Hub repository.
+
+## Pausing analysis
+
+Organization administrators can pause and resume analysis for each worker. Trace ingestion continues while analyzer sweeps are paused.
+
+TODO: Note where this control lives in the dashboard.

@@ -1,0 +1,72 @@
+---
+title: Enroll your hosts
+description: >-
+  Approve a machine in the browser and issue it a revocable per-host credential
+slug: docs/instruction-hub/enroll-hosts
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 3
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Every machine running a Promptless-managed agent plugin carries its own credential. There is no shared enrollment secret, and any single host can be revoked without affecting the others.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## Approving a host
+
+<Steps>
+
+1. **The plugin bootstrap starts enrollment.** It reads the worker's deployment identity and opens hosted Promptless with a loopback callback URL and the host metadata it will display.
+
+2. **An organization member approves in the browser.** The approval page shows which machine is asking.
+
+3. **The bootstrap claims the credential.** Approval redirects to the local callback, and the bootstrap polls hosted Promptless for a one-time credential.
+
+4. **The credential is stored locally.** The plugin uses it for policy reads, check-ins, and trace uploads.
+
+</Steps>
+
+TODO: Add screenshots of the approval prompt.
+
+Sessions are one-time and time-boxed. A pending session can be approved once, an approved session can be exchanged for exactly one credential, and a consumed session cannot mint another.
+
+## What the worker trusts
+
+The worker holds no shared plugin secret. It validates each credential against hosted Promptless before returning policy or accepting a check-in or upload.
+
+Authentication requires a concrete host target, so a credential minted for one host family or deployment cannot authenticate as another. Introspection also supplies the host instance ID and label the worker uses for attribution.
+
+## Revoking a host
+
+TODO: Document the dashboard revocation path.
+
+The worker caches only active introspection results, and only for as long as hosted Promptless says it may. Revocations and failures are never cached, so the window between revoking a host and the worker rejecting it is limited by that returned lifetime.
+
+## Requiring a minimum host runtime version
+
+The enrollment policy carries an optional version gate. When it is set, the worker checks the version each host reports before accepting check-ins or uploads.
+
+- A SemVer value is treated as a minimum.
+- A non-SemVer value, such as a release tag, requires an exact match.
+- A missing or unsatisfied version is rejected and not recorded.
+
+When the gate is omitted, the worker records whatever version the host reports.
+
+TODO: Explain when a team would set this — most likely to force a fleet past a known-bad collector build.
+
+## Supported hosts
+
+TODO: Confirm the supported matrix and note that Claude Desktop collection is best-effort and only runs when its audit-store sources and an enrolled credential are both present.
+
+- Claude Code
+- Claude Desktop
+- Codex

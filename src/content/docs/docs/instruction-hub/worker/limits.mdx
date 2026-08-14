@@ -1,0 +1,99 @@
+---
+title: Worker limits and budgets
+description: >-
+  Ingestion, concurrency, and analysis workspace limits enforced by the
+  Instruction Hub worker
+slug: docs/instruction-hub/worker/limits
+type: reference
+tags:
+  - instruction-hub
+  - self-hosting
+  - reference
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 8
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The worker enforces explicit limits on what it will admit and how much work it will run at once. Everything here is limited on purpose: a single upload cannot exhaust the process, and a large repository cannot fill the analysis volume.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## Trace upload limits
+
+| Limit | Default |
+| --- | --- |
+| Decompressed JSONL and snapshots per batch | 256 MiB |
+| Single JSONL chunk | 8 MiB |
+| Chunks per batch | 200 |
+| Upload spool deadline | 5 minutes |
+
+The aggregate limit is configurable. The HTTP transport limit is derived from it, adding only the gzip, base64, and JSON envelope allowance.
+
+TODO: State which environment variable customers should change, and what happens to hosts that were already uploading when it changes.
+
+## Structural limits
+
+Applied before any structured parsing, so a malformed or hostile payload is rejected before it is materialized:
+
+- Metadata strings: 2 MiB
+- Top-level collection items: 16 MiB
+- JSON container entries: 4,096
+- Chunk and snapshot collections: 200 items each
+
+## Records that are too large
+
+A native record above the worker's limits is not silently dropped. The worker reports it as an oversized record, and the host runtime only advances past it once the worker has accepted the skip.
+
+TODO: Explain how an operator notices this has happened.
+
+## Admission and concurrency
+
+The worker admits one trace request at a time. It authenticates the credential before reading the request body, then spools the request and its content to disk rather than holding it in memory.
+
+The complete batch — every byte range, digest, line count, UTF-8 stream, and parsed record — is validated before the first durable write. Policy and host gates also run before any mutation.
+
+Synchronous parser, S3, and Postgres work runs in threads behind a single process-wide limit of four units.
+
+TODO: Note whether this limit is tunable, and what a saturated worker looks like from the outside.
+
+## Analysis repository limits
+
+Checked before checkout. A repository above any of these is rejected rather than partially analyzed:
+
+| Limit | Default |
+| --- | --- |
+| Tracked entries | 20,000 |
+| Aggregate tracked content | 256 MiB |
+| Single file | 64 MiB |
+
+## Analysis workspace budget
+
+Each analysis reserves its measured checkout plus a worst-case remediation checkout and one maximum bundle, before it starts. Git objects and checked-out entries are charged separately, at a minimum of 4 KiB per tracked entry.
+
+The default weighted budget of roughly 5.42 GiB admits three maximum-size analyses, or four smaller ones. A lease is held until the analysis child exits and its workspace is deleted.
+
+<Aside type="caution">
+  In the production deployment, all disposable workspaces share one 7 GiB volume. That is a shared physical limit, not a per-workspace quota — unexpected writes consume the same volume, and the worker fails closed when it is full.
+</Aside>
+
+TODO: Give guidance for sizing this volume against repository size.
+
+## Remediation publication limits
+
+| Limit | Default |
+| --- | --- |
+| Largest accepted blob | 64 MiB |
+| Bundle ceiling | 512 MiB |
+| Hosted staging quota | 544 MiB |
+| Publication lifetime | 660 seconds |
+
+TODO: Confirm whether any of these are customer-tunable or fixed.
+
+## Shutdown
+
+Shutdown cancels the active analysis sweep and waits for it. Cancellation reaches the child process runner, which terminates the analyzer's process group and waits for it before shutdown completes.

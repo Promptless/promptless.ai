@@ -1,0 +1,92 @@
+---
+title: Deploy the worker
+description: >-
+  Install the Instruction Hub worker in your own Kubernetes cluster with Helm
+slug: docs/instruction-hub/worker/deploy
+type: guide
+tags:
+  - instruction-hub
+  - self-hosting
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 6
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The worker runs in your cluster and holds every raw artifact Instruction Hub collects. It is a single-replica service backed by your own Postgres and S3.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## Before you start
+
+TODO: List the prerequisites as a checklist — a Postgres database, an S3 bucket, an install token from the dashboard, and cluster access.
+
+## Install
+
+TODO: Add the `helm install` command and a minimal `values.yaml`.
+
+## Required configuration
+
+| Setting | Purpose |
+| --- | --- |
+| `INSTRUCTION_HUB_RUNTIME_BASE_URL` | Hosted Promptless endpoint |
+| `INSTRUCTION_HUB_INSTALL_TOKEN` | Install token issued from the dashboard |
+| `INSTRUCTION_HUB_DEPLOYMENT_NAME` | Deployment name |
+| `INSTRUCTION_HUB_DEPLOYMENT_INSTANCE_ID` | Stable identifier for this deployment |
+| `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` | Your Postgres database |
+| `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` | Your S3 bucket for trace objects |
+
+TODO: Add the optional settings, including the analysis model provider block. Note that activation time, model configuration, and repository identity have to be set together or analysis stays off.
+
+## How the workload runs
+
+The chart supports exactly one replica and uses the `Recreate` strategy, so a rollout never runs two workers at once.
+
+Both the worker and the migration hook run hardened by default:
+
+- UID and GID 10001, never root
+- Read-only root filesystem
+- All Linux capabilities dropped
+- The runtime-default seccomp profile
+
+`/tmp` is the only writable application path provisioned by default. Enabling trace analysis also mounts an ephemeral writable volume at `/var/lib/instruction-hub` for repository mirrors and analysis workspaces.
+
+TODO: Confirm whether customers need to do anything to accommodate the read-only filesystem, or whether the chart handles it entirely.
+
+## Health checks
+
+| Endpoint | Checks |
+| --- | --- |
+| `/healthz` | Process liveness only. No dependency checks. |
+| `/readyz` | The local metadata repository, including the required Postgres schema and index contract, plus a usable cached policy. |
+
+`/readyz` never calls hosted Promptless. A cached policy counts as usable until its signed expiry, and for at most five minutes after the worker cached it.
+
+<Aside type="note">
+  Set the readiness probe timeout above the worker's own internal limit so a slow local check surfaces as a probe failure rather than a timeout race.
+</Aside>
+
+TODO: Give the recommended probe values.
+
+## Network exposure
+
+The service is `ClusterIP` by default. Set `gateway.enabled=true` to render an Ingress for customer-managed exposure.
+
+The default gateway routes only `/healthz`, the two credential-protected host-enrollment endpoints, and the trace batch endpoint. It deliberately does not expose broad host-enrollment prefixes.
+
+## Cloud identity
+
+Set `serviceAccount.annotations` when the worker needs cloud identity for your storage — for example, an AWS IRSA role that can write to the configured S3 bucket.
+
+TODO: Add a worked IRSA example.
+
+## Validation
+
+The chart's values schema rejects invalid configuration at render time rather than at runtime: replica counts other than one, blank or out-of-range ports, non-positive timeouts, and unknown keys.
+
+TODO: Confirm the full list of validated fields.

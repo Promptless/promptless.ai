@@ -1,0 +1,80 @@
+---
+title: Upgrade the worker
+description: >-
+  Run worker schema migrations and understand the supported upgrade path
+slug: docs/instruction-hub/worker/upgrade
+type: guide
+tags:
+  - instruction-hub
+  - self-hosting
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 7
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+From chart version 0.3.0, the worker database is managed by ordered, checksummed migrations instead of schema inference. Upgrades are explicit, and unsupported starting states are rejected rather than modified.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## Back up before upgrading to 0.3.0
+
+<Aside type="danger">
+  Back up your worker database before running the 0.3.0 migration hook.
+</Aside>
+
+TODO: Say how far back a customer can recover if they skip this.
+
+## How migrations run
+
+A Helm `pre-install` and `pre-upgrade` hook runs the migrations. You do not run them by hand.
+
+- Each ordered migration commits independently, under a Postgres advisory lock.
+- Every applied migration records its name and checksum in a ledger table.
+- Re-running is safe. An unknown or changed ledger entry stops the deployment.
+
+The hook is least-privilege: its container receives only the customer Postgres DSN, and it mounts no Kubernetes service-account token. Runtime, install-token, analysis, and S3 settings are not rendered into it.
+
+## Which databases can be upgraded in place
+
+| Starting state | Result |
+| --- | --- |
+| Fresh database | Installs directly at 0.3.0. |
+| Already ledgered | Applies any new migrations. |
+| The exact supported pre-0.3.0 schema | Adopted after verification, without rewriting data. |
+| Older, partial, or unknown | Rejected without modification. |
+
+The only supported unledgered upgrade path is the exact schema produced by one specific prior release. The first migration verifies the complete shape before adopting it.
+
+<Aside type="danger">
+  Do not deploy that older image as a conversion step to reach the supported floor. Its legacy schema setup can drop incompatible worker tables.
+</Aside>
+
+TODO: Publish the exact chart or image version corresponding to the supported floor, so customers can check their own state without reading a commit SHA.
+
+## If your database is rejected
+
+An older, partial, or unknown schema has to be recreated and repopulated from the native trace artifacts you already own.
+
+TODO: Write the recreate-and-reingest procedure. This is the worst path a customer can land on and it currently has no steps.
+
+## Rolling back
+
+Applied migrations are forward-only. Fix forward after a schema-changing migration rather than rolling the worker image back across it.
+
+If the hook fails, correct the underlying condition and re-run it. Nothing partial is left behind, because each migration commits on its own.
+
+## Version numbers
+
+Three version numbers move independently:
+
+- The Python project version identifies the worker application.
+- The chart `appVersion` and default image tag identify the same worker release.
+- The chart `version` identifies the chart package, and deployed pods report it. Configuration or template changes can advance it without changing the application.
+
+TODO: Give customers a one-line rule for which number to quote in a support request.

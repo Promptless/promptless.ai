@@ -1,0 +1,73 @@
+---
+title: Remediation
+description: >-
+  How Instruction Hub turns a high-confidence finding into a reviewable pull
+  request
+slug: docs/instruction-hub/remediation
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+When a finding reaches high confidence, Instruction Hub proposes the fix as a pull request against the repository holding your instruction assets. You review and merge it like any other change.
+
+<Aside type="caution">
+  This section is a work in progress. The structure is settled; the prose is still being filled in.
+</Aside>
+
+## When a remediation is created
+
+Creating a high-confidence finding — or promoting one to high confidence — reserves exactly one remediation for its linked repository, in the same transaction. The analyzer claims that reservation after it finishes reconciling findings.
+
+TODO: State plainly that low-confidence findings never produce a pull request.
+
+## The worker never holds a write credential
+
+This is the part worth understanding before you enable remediation.
+
+The analysis process and its shell never receive GitHub write credentials. Instead, the worker hands hosted Promptless a size-limited Git bundle containing its exact committed changes, and hosted Promptless does the publishing:
+
+1. Re-verifies the finding and the immutable repository binding.
+2. Imports and validates the exact commits in isolated staging.
+3. Mints a short-lived, repository-scoped token inside the hosted control plane.
+4. Pushes only the generated branch.
+5. Verifies the resulting commit, metadata, ownership marker, repository, branch, and pull request state.
+
+The remediation checkout in the worker has no remote and no credential helper, and it is deleted before its reserved capacity is released.
+
+TODO: Decide how much of this belongs here versus the security section. Reviewers evaluating the deployment will want it; a docs reader deciding whether to enable remediation may not.
+
+## Outcomes
+
+A remediation ends exactly once, with one of:
+
+| Outcome | Meaning |
+| --- | --- |
+| `pr_created` | A pull request was opened and verified. |
+| `no_change` | The analyzer concluded no instruction change was warranted. |
+| `manual_action` | The fix needs a human. |
+| `blocked` | Something prevented publication. |
+| `failed` | The attempt errored. |
+
+There is no retry or reconciliation workflow. A remediation that ends does not restart.
+
+TODO: Explain what a reviewer should do after `blocked` or `failed`, since nothing will retry on its own.
+
+## Pull request lifecycle
+
+Once a pull request exists, its identity and summary stay fixed while GitHub webhooks update its status. Merging, closing, and reopening are reflected back onto the finding.
+
+TODO: Confirm how a merged remediation affects the finding's state and its impact measurement.
+
+## Remediation choices
+
+Some remediations ask a question before proceeding rather than guessing.
+
+TODO: Document the choice prompt — where it appears, who can answer, and what happens on the default when nobody does.
