@@ -1,0 +1,93 @@
+---
+title: 'Do You Actually Need Versioned Documentation?'
+subtitle: Published August 2026
+description: >-
+  Most teams add documentation versions because the tool supports it. The questions to answer before you commit determine whether versioning helps or haunts you.
+date: '2026-08-14T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A team ships v2 of their API. They do the responsible thing. They set up Docusaurus versioning, branch the existing docs, publish both versions to separate URLs, and add a version selector to the header.
+
+Six months later, the v1 docs have had eleven updates. Each one required a cherry-pick or a separate edit in the v1 branch. Nobody on the team knows which customers are still on v1. Nobody has committed to a deprecation date. The version selector exists. Very few users click it.
+
+That is a common version-one mistake: adding documentation versioning because it feels right, not because there is a documented case for why users need it.
+
+## The decision the tooling doesn't make for you
+
+Docusaurus, MkDocs Material, and Read the Docs all support versioning. The feature is prominently documented. The implementation takes an afternoon.
+
+None of these tools tell you whether you should use the feature.
+
+Docusaurus's own versioning documentation includes this: "Think carefully before versioning. Most of the time, you don't need versioning as it will just increase your build time and introduce complexity."
+
+That warning is buried in implementation details that most teams skim. The decision to version is made before the team ever reads those paragraphs, usually in a sentence like: "We should set up versioned docs for the v2 release."
+
+The problem is that adding a documentation version is a maintenance commitment that continues for as long as that version stays live. Teams routinely underestimate it. Four hours a month to maintain one set of docs becomes twenty hours for five versions. Each live version is a separate surface where [documentation drift](/blog/technical/documentation-drift-detection-problem) accumulates.
+
+## The question to answer before anything else
+
+Before setting up versioning, answer one question: who will use the older documentation, and for how long?
+
+If you cannot answer that with any specificity, you have not made the case for versioning yet.
+
+For API products, the answer often exists in usage data. You can query how many active API keys are calling v1 endpoints. If that number is close to zero six months after v2 ships, the argument for maintaining live v1 documentation is thin.
+
+For SDK products, the calculus is different. An SDK with a breaking v2 may be installed in production systems across thousands of applications that will not be updated on any schedule. Those users have a legitimate need to reference v1 docs. The question is whether they will look at your documentation site to find them, or whether they will use IDE tooling, package documentation, or community answers instead.
+
+The sufficient reason for versioning is identifying users who will actively need to reference old content. "We are shipping v2" by itself is not a sufficient reason.
+
+<BlogNewsletterCTA />
+
+## What actually needs versioning
+
+If you do add versioned documentation, not every content type warrants it.
+
+**API reference documentation** usually does. Each version of your API has a specific set of endpoints, parameters, and response schemas. A developer integrating against v1 needs the v1 reference, not v2's.
+
+**Conceptual guides** typically don't. An explanation of how webhook delivery works, or why authentication uses refresh tokens, is rarely specific to a particular API version. Maintaining separate conceptual content for each version doubles the maintenance surface without adding clarity for most readers.
+
+**Tutorials** are the most expensive content type to version and among the least used in their versioned form. A developer following a quickstart guide is almost always on the current version. Maintaining v1 quickstarts alongside v2 adds overhead that rarely pays off.
+
+The practical approach: version the reference. Mark conceptual and tutorial content as version-agnostic and maintain one set. Most docs platforms support this through conditional content or shared content blocks.
+
+## The canonical URL problem
+
+If you do publish multiple versions, configure canonical URLs immediately.
+
+Every versioned documentation page lives at a separate URL. Search engines index all of them. Without a canonical URL configuration pointing to the current version, Google decides which version to prioritize based on inbound links and indexing history.
+
+Older versions often have more inbound links because they have existed longer. A developer searching for "how to authenticate with your API" may land on a v1 page that has not been updated in two years, with no clear signal that it is outdated.
+
+Read the Docs, MkDocs Material, and Docusaurus all support canonical version configuration. Setting it to your latest stable release concentrates organic search traffic on the version you actively maintain. It is a five-minute change with a real impact on which version your users reach.
+
+## The exit question
+
+Before adding a documentation version, decide when it will be retired.
+
+This sounds premature. You are about to publish v2, and thinking about when to shut down v1 feels like a later problem. Teams that never answer this question are the teams that accumulate live documentation versions indefinitely.
+
+[Documentation debt](/blog/technical/documentation-debt) compounds across versions. A parameter that gets renamed in v1's underlying codebase requires a fix in v1 docs, v2 docs, and any future version. Nobody budgets for that work because nobody planned for it when setting up versioning.
+
+Twilio's developer documentation commits to a minimum of one year's notice before removing any API version, which means they maintain documentation for deprecated versions for at least that period. That is a predictable commitment. A team that says "we will keep v1 live until nobody is using it" has an open-ended commitment that will never formally close.
+
+Set a retirement date before publishing the old version. If you cannot commit to one, that uncertainty is useful information: you have not decided what support for v1 actually means, and you should clarify that before creating infrastructure around it.
+
+## Versioned docs and AI agents
+
+One thing has changed in the past two years that makes this decision more consequential.
+
+The State of Docs Report 2026 found that 76% of teams had an AI coding assistant surface a stale document and produce a wrong answer. AI tools do not know which documentation version is current for a particular user. They retrieve whatever they find, including old versioned pages that rank well in search or appear in training data.
+
+A v1 authentication guide that accurately describes the v1 OAuth flow will confuse an AI assistant helping a developer integrate against v2. The v1 page is technically accurate. Its continued existence as a live, indexed URL is the problem.
+
+This does not mean you should never version. It means the cost of maintaining unretired versioned content is higher than it was when only human developers were reading your docs. Every old versioned page that stays live is an opportunity for an AI-assisted developer to follow outdated instructions without realizing it.
+
+The [API changelog](/blog/technical/api-changelog-best-practices) and the version strategy work together. Versioning manages which documentation set a user sees. The changelog communicates what changed and why. Neither substitutes for deciding upfront who the versioned documentation serves.
+
+<BlogRequestDemo />
