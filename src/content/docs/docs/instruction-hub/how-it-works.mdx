@@ -24,19 +24,17 @@ An Instruction Hub run starts with a coding agent session that already happened 
 ## The pipeline
 
 <Steps>
+  1. **A session produces a native ledger.** Claude Code, Claude Desktop, and Codex each write JSONL as the session runs.
 
-1. **A session produces a native ledger.** Claude Code, Claude Desktop, and Codex each write JSONL as the session runs.
+  2. **The host runtime uploads new line ranges.** Lifecycle hooks invoke the plugin-shipped executable, which uploads complete new ranges to the worker. Collection is nonblocking, so a failed upload never breaks the agent session.
 
-2. **The host runtime uploads new line ranges.** Lifecycle hooks invoke the plugin-shipped executable, which uploads complete new ranges to the worker. Collection is nonblocking, so a failed upload never breaks the agent session.
+  3. **The worker admits and normalizes the batch.** It validates the whole batch before any durable write, stores raw JSONL in your S3, and normalizes records into a canonical trace object in your Postgres.
 
-3. **The worker admits and normalizes the batch.** It validates the whole batch before any durable write, stores raw JSONL in your S3, and normalizes records into a canonical trace object in your Postgres.
+  4. **The analyzer runs over the trace.** Terminal traces are scheduled immediately; open traces wait for the quiet window.
 
-4. **The analyzer runs over the trace.** Terminal traces are scheduled immediately; open traces wait for the quiet window.
+  5. **Findings are written to hosted Promptless.** The analyzer creates a new finding or appends evidence to one that already exists.
 
-5. **Findings are written to hosted Promptless.** The analyzer creates a new finding or appends evidence to one that already exists.
-
-6. **High-confidence findings get a remediation.** A pull request is opened against your Instruction Hub repository.
-
+  6. **High-confidence findings get a remediation.** A pull request is opened against your Instruction Hub repository.
 </Steps>
 
 TODO: Add the sequence diagram.
