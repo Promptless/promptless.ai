@@ -1,0 +1,57 @@
+---
+title: Review findings
+description: >-
+  Read the evidence, confidence, and measured impact behind an Instruction Hub
+  finding
+slug: docs/instruction-hub/findings
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 4
+---
+
+A finding is a claim about your instructions, backed by the sessions that produced it. Findings live at the organization level, so the same problem seen on three machines is one finding with three pieces of evidence rather than three separate reports.
+
+You review findings from the Findings view in the dashboard, where each one carries its evidence, confidence, and measured impact.
+
+## Anatomy of a finding
+
+A finding pairs a mutable claim with an append-only trail of evidence:
+
+- The finding itself is a semantic record, refined as more sessions arrive. Its wording, scope, and confidence change as the analyzer learns more.
+- Each evidence occurrence records one place the finding was seen: the host it came from, the range of the digest it cites, and the Instruction Hub release installed at the time.
+
+Occurrences are not rewritten. The analyzer only appends new ones, with one narrow exception: an existing occurrence may gain a field it was missing — release attribution, an occurrence time, or a measured impact — never a change to a value it already carried. Treat occurrences as an accumulating record that fills in over time rather than a strictly immutable one.
+
+## Confidence
+
+A finding sits at one of two confidence levels, low or high. High confidence means the evidence clearly establishes negative impact.
+
+The analyzer promotes a finding from low to high confidence by authoring a semantic edit when new evidence supports it; there is no automatic promotion threshold. A low-confidence finding stays low until an analysis run concludes the evidence now establishes negative impact and rewrites the finding accordingly. Only high-confidence findings reserve a remediation, so a low-confidence finding never produces a pull request on its own.
+
+## Evidence and deduplication
+
+An occurrence is unique by finding, installation, analyzer identity and version, source, session, source fingerprint, and digest range. Replaying the exact same evidence from the same host is idempotent — it records nothing new and keeps the original host label.
+
+A later trace revision or a newer analyzer version records the same range again as a separate occurrence. That is deliberate: two occurrences of the same range across a change are how you see that a finding survived a trace revision or an analyzer upgrade.
+
+## Tracking findings as issues
+
+Findings are projected into your Instruction Hub repository as GitHub issues, one issue per finding.
+
+- The Promptless-managed section of the body carries each evidence occurrence and its investigation coordinates — the session identifiers plus a way back into the session. For a Claude Code session that is a `claude --resume <session-id>` command; for a Codex session it is a `codex://threads/<thread-id>` URI. When an occurrence time is known, the body records it, along with the installed-plugin provenance.
+- The issue body deliberately omits host attribution, analyzer attribution, and digest coordinates. Those stay in the dashboard and the API.
+- An update replaces only the managed labels and the managed body section, leaving anything a human wrote intact, and it never changes the issue's open or closed state. Updating a closed issue does not reopen it.
+
+## Measured impact
+
+Measured impact is the primary answer to "is this worth fixing." The reported totals combine turn-level counts, measured as whole-root-turn upper limits, with provider spend. Promptless allocates that spend by token share and reports it in the model provider's billing terms (for example, USD). Read those totals with their limits in mind:
+
+- Totals are whole-root-turn upper limits and can overlap across evidence, so treat them as a ceiling on cost rather than an exact sum.
+- Impact is measured against the latest analyzed revision of each physical session, so a re-analyzed session counts once at its newest reading.
+
+Recovery after a remediation is the non-negative difference between the per-analyzed-session values in the two comparison windows. It is reported only after both exact 30-day windows have closed and both windows contain analyzed sessions — so a recovery number appears once there is enough settled evidence on each side to compare.

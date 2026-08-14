@@ -1,0 +1,61 @@
+---
+title: Remediation
+description: >-
+  How Instruction Hub turns a high-confidence finding into a reviewable pull
+  request
+slug: docs/instruction-hub/remediation
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+When a finding reaches high confidence, Instruction Hub proposes the fix as a pull request against your Instruction Hub repository. You review and merge it like any other change.
+
+## When a remediation is created
+
+Creating a high-confidence finding — or promoting one to high confidence — reserves exactly one remediation for its linked repository, in the same transaction. The analyzer claims that reservation after it finishes reconciling findings.
+
+A low-confidence finding never produces a pull request. A remediation exists only for a finding whose evidence already establishes negative impact, so reviewing a low-confidence finding means reviewing the claim — there is no proposed change to review yet.
+
+## The worker never holds a write credential
+
+The analysis process and its shell never receive GitHub write credentials. Instead, the worker hands hosted Promptless a size-limited Git bundle containing its exact committed changes, and hosted Promptless does the publishing:
+
+1. Re-verifies the finding and the immutable repository binding.
+2. Imports and validates the exact commits in isolated staging.
+3. Mints a short-lived, repository-scoped token inside the hosted control plane.
+4. Pushes only the generated branch.
+5. Verifies the resulting commit, metadata, ownership marker, repository, branch, and pull request state.
+
+The remediation checkout in the worker has no remote and no credential helper, and the worker deletes it before it releases the capacity the remediation reserved. A write credential never exists inside your environment.
+
+## Outcomes
+
+A remediation ends exactly once, with one of five outcomes:
+
+- **Pull request created** — hosted Promptless opened and verified a pull request.
+- **No change** — the analyzer concluded no instruction change was warranted.
+- **Manual action needed** — the fix needs a human rather than an automated change.
+- **Blocked** — something prevented publication.
+- **Failed** — the attempt errored.
+
+There is no retry or reconciliation workflow. A remediation that ends does not restart, so a remediation that ends blocked or failed stays that way until a later finding reserves a new one. When you see either outcome, resolve the underlying condition and rely on the next high-confidence finding to open a fresh remediation rather than waiting for the ended one to recover.
+
+## Pull request lifecycle
+
+Once a pull request exists, its identity and summary stay fixed while GitHub webhooks update its status. Merging, closing, and reopening the pull request are reflected back onto the finding, so the finding's state tracks what you did with the fix.
+
+## Remediation choices
+
+Some remediations ask a question before proceeding rather than guessing at an ambiguous fix.
+
+<Aside type="note">
+  The choice prompt is not yet documented. Where it appears, who can answer it, and what happens when nobody does are not settled in the source, so this page does not describe those specifics. This page documents the choice prompt once its behavior is confirmed rather than guessed.
+</Aside>

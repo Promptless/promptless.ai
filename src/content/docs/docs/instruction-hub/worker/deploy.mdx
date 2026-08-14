@@ -1,0 +1,139 @@
+---
+title: Deploy the worker
+description: >-
+  Install the Instruction Hub worker in your own Kubernetes cluster with Helm
+slug: docs/instruction-hub/worker/deploy
+type: guide
+tags:
+  - instruction-hub
+  - self-hosting
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 6
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The worker runs in your cluster and holds every raw artifact Instruction Hub collects. It is a single-replica service backed by your own Postgres and S3.
+
+## Before you start
+
+Have these ready before you install:
+
+- A Postgres database the worker owns, reachable from the cluster.
+- An S3 bucket for trace objects.
+- An install token issued from the dashboard.
+- Cluster access with permission to install a Helm release.
+
+<Aside type="note">
+  Specific version and extension requirements for the customer Postgres database, the least-privilege actions a storage policy needs, and pod CPU and memory sizing are not yet documented here.
+</Aside>
+
+## Required configuration
+
+The worker reads six required settings. Provide the install token and the Postgres DSN as secrets; the rest are plain chart values.
+
+| Setting                                  | Purpose                                 |
+| ---------------------------------------- | --------------------------------------- |
+| `INSTRUCTION_HUB_RUNTIME_BASE_URL`       | Hosted Promptless endpoint              |
+| `INSTRUCTION_HUB_INSTALL_TOKEN`          | Install token issued from the dashboard |
+| `INSTRUCTION_HUB_DEPLOYMENT_NAME`        | Deployment name                         |
+| `INSTRUCTION_HUB_DEPLOYMENT_INSTANCE_ID` | Stable identifier for this deployment   |
+| `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`  | Your Postgres database                  |
+| `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` | Your S3 bucket for trace objects        |
+
+Analysis is optional and stays off until you configure activation time, analysis model provider, and repository identity together. Provide all three chart values:
+
+| Setting                 | Chart value                                                       |
+| ----------------------- | ---------------------------------------------------------------- |
+| Activation time         | `instructionHub.analysis.activationAt`                           |
+| Analysis model provider | `instructionHub.analysis.openai.baseUrl` (OpenAI-compatible endpoint) |
+| Repository identity     | `instructionHub.analysis.repository.*`                           |
+
+Set only some of the three and analysis remains disabled; the worker still ingests traces.
+
+<Aside type="note">
+  The exact repository-identity sub-keys under `instructionHub.analysis.repository.*` are not yet documented here.
+</Aside>
+
+## Install
+
+<Steps>
+  1. **Provision the database and bucket.** Create the Postgres database and the S3 bucket the worker owns.
+
+  2. **Issue an install token.** Generate the token for this deployment from the dashboard.
+
+  3. **Write a `values.yaml`.** Set the required chart values, and supply the install token and Postgres DSN through the chart's secret values.
+
+     ```yaml
+     instructionHub:
+       runtimeBaseUrl: https://app.gopromptless.ai
+       deploymentName: acme-prod
+       deploymentInstanceId: acme-prod-use1
+       storageBackend: postgres_s3
+       traceObjectS3Bucket: acme-instruction-hub-traces
+     serviceAccount:
+       annotations:
+         # AWS IRSA role that can write to the trace bucket
+         eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/instruction-hub-worker
+     # Provide INSTRUCTION_HUB_INSTALL_TOKEN and
+     # INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN through the chart's secret values.
+     ```
+
+  4. **Install the release.** Install the worker with Helm (resolve the chart reference per the note below): `helm install instruction-hub instruction-hub-worker -f values.yaml`. The chart deploys the worker image `ghcr.io/promptless/instruction-hub-worker:0.3.0`, set through the `image.repository` and `image.tag` chart values.
+
+  5. **Confirm readiness.** Wait for the pod to pass its readiness probe before [enrolling any hosts](/docs/instruction-hub/enroll-hosts).
+</Steps>
+
+<Aside type="note">
+  The published location of the `instruction-hub-worker` chart — a Helm chart repository URL or an OCI reference to install it from — is not yet documented here. Until that location is documented, point the `helm install` command above at a local path or your own chart mirror.
+</Aside>
+
+## How the workload runs
+
+The chart supports exactly one replica and uses the `Recreate` strategy, so a rollout never runs two workers at once. The single replica is load-bearing: worker coordination is in-memory, so a second replica would not share it.
+
+Both the worker and the migration hook run hardened by default:
+
+- UID and GID 10001, never root.
+- Read-only root filesystem.
+- All Linux capabilities dropped.
+- The runtime-default seccomp profile, with privilege escalation disabled.
+
+`/tmp` is the only writable application path provisioned by default; the chart points `HOME` and `TMPDIR` there. Enabling analysis mounts an ephemeral writable volume at `/var/lib/instruction-hub` for repository mirrors and analysis workspaces. The migration hook receives only `/tmp` and never the analysis volume. The chart provisions these mounts for you, so the read-only root filesystem needs no accommodation on your side.
+
+## Health checks
+
+| Endpoint   | Checks                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `/healthz` | Process liveness only. No dependency checks.                                                                           |
+| `/readyz`  | The local metadata repository, including the required Postgres schema and index contract, plus a usable cached policy. |
+
+`/readyz` never calls hosted Promptless. A cached policy counts as usable until its signed expiry, and for at most five minutes after the worker cached it — so readiness reflects the worker's own state, not the reachability of the control plane.
+
+The chart's readiness probe uses `/readyz` with `timeoutSeconds: 3`.
+
+<Aside type="note">
+  The remaining readiness-probe values — initial delay, period, and failure threshold — are not yet documented. Source pins only `timeoutSeconds: 3`, so this page does not recommend the others rather than inventing numbers.
+</Aside>
+
+## Network exposure
+
+The service is `ClusterIP` by default. Set `gateway.enabled=true` to render an Ingress for customer-managed exposure.
+
+By default, the gateway routes only `/healthz`, the two credential-protected host-enrollment endpoints, and the trace batch endpoint. Those are the shipped default paths and you can override them; they are not an enforced invariant. The default deliberately keeps broad host-enrollment prefixes off the gateway.
+
+## Cloud identity
+
+Set `serviceAccount.annotations` when the worker needs cloud identity for your storage. On AWS, this is where an IAM Roles for Service Accounts (IRSA) role that can write to the configured S3 bucket is attached to the worker's service account, as shown in the `values.yaml` above.
+
+## Validation
+
+The chart's values schema rejects invalid configuration at render time rather than at runtime:
+
+- A replica count other than one.
+- A blank or out-of-range port (valid ports are 1 through 65535).
+- A non-positive timeout.
+- Any unknown key — the schema forbids additional properties throughout.

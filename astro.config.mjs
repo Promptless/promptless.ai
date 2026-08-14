@@ -197,6 +197,26 @@ export default defineConfig({
                 { label: 'Security', collapsed: true, items: [{ autogenerate: { directory: 'docs/security', collapsed: true } }] },
                 { label: 'Measure impact', collapsed: true, items: [{ autogenerate: { directory: 'docs/measure', collapsed: true } }] },
                 {
+                  // Enumerated rather than a blanket autogenerate so the nested
+                  // `worker/` directory gets a readable group label. Starlight's
+                  // autogenerate would label that subgroup with the raw folder
+                  // segment, and there is no frontmatter hook for subgroup labels.
+                  label: 'Instruction Hub',
+                  collapsed: true,
+                  items: [
+                    { label: 'Instruction Hub', slug: 'docs/instruction-hub/overview' },
+                    { label: 'How it works', slug: 'docs/instruction-hub/how-it-works' },
+                    { label: 'Enroll your hosts', slug: 'docs/instruction-hub/enroll-hosts' },
+                    { label: 'Review findings', slug: 'docs/instruction-hub/findings' },
+                    { label: 'Remediation', slug: 'docs/instruction-hub/remediation' },
+                    {
+                      label: 'Self-hosted worker',
+                      collapsed: true,
+                      items: [{ autogenerate: { directory: 'docs/instruction-hub/worker', collapsed: true } }],
+                    },
+                  ],
+                },
+                {
                   label: 'Reference',
                   collapsed: true,
                   items: [

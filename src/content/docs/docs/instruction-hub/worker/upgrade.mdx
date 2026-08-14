@@ -1,0 +1,94 @@
+---
+title: Upgrade the worker
+description: >-
+  Run worker schema migrations and understand the supported upgrade path
+slug: docs/instruction-hub/worker/upgrade
+type: guide
+tags:
+  - instruction-hub
+  - self-hosting
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 7
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+From chart version 0.3.0, the worker database is managed by ordered, checksummed migrations instead of schema inference. Upgrades are explicit, and the worker rejects an unsupported starting state rather than modifying it.
+
+## Back up before upgrading to 0.3.0
+
+<Aside type="danger">
+  Back up your worker database before you run the 0.3.0 migration hook.
+</Aside>
+
+The 0.3.0 hook is the first to apply ordered migrations. A backup is your only path back to the pre-upgrade state, because the worker does not roll a migration back for you.
+
+## How migrations run
+
+A Helm `pre-install` and `pre-upgrade` hook runs the migrations. You do not run them by hand.
+
+- Each ordered migration commits independently, under a Postgres advisory lock.
+- Every applied migration records its name and checksum in a ledger table.
+- Re-running is safe. An unknown or changed ledger entry stops the deployment.
+
+The hook is least-privilege: its container receives only the customer Postgres DSN, mounts no Kubernetes service-account token, and never renders the runtime, install-token, analysis, or S3 settings.
+
+Run an upgrade in this order:
+
+<Steps>
+  1. **Back up the database.** Back up the worker database, as the caution above requires.
+
+  2. **Run the Helm upgrade.** Run the Helm upgrade for the worker release: `helm upgrade instruction-hub instruction-hub-worker -f values.yaml`, resolving the `instruction-hub-worker` chart the same way as at [install time](/docs/instruction-hub/worker/deploy#install).
+
+  3. **Apply the migrations.** The pre-upgrade hook applies the ordered migrations under a Postgres advisory lock. If the hook fails, the deployment stops and nothing partial is left behind.
+
+  4. **Confirm readiness.** Confirm the worker reports ready at `/readyz` before you treat the upgrade as done; see the [health checks](/docs/instruction-hub/worker/deploy#health-checks).
+</Steps>
+
+## Which databases can be upgraded in place
+
+| Starting state                       | Result                                              |
+| ------------------------------------ | --------------------------------------------------- |
+| Fresh database                       | Installs directly at 0.3.0.                         |
+| Already ledgered                     | Applies any new migrations.                         |
+| The exact supported pre-0.3.0 schema | Adopted after verification, without rewriting data. |
+| Older, partial, or unknown           | Rejected without modification.                      |
+
+The only supported unledgered upgrade path is the exact schema produced by one specific prior release. The first migration verifies the complete shape before it adopts the database, and it leaves no ledger behind when the shape does not match.
+
+<Aside type="note">
+  The supported floor is a specific schema, not a version tag. It is the exact schema from one immutable commit, so "upgrade from 0.2.0" is not the right way to check your state — 0.2.0 is the migration-unaware image, and there is no floor version tag to match against. Confirm the schema shape rather than a version string. A precise identifier for that schema is not yet documented.
+</Aside>
+
+<Aside type="danger">
+  Do not deploy the older migration-unaware image as a conversion step to reach the supported floor. Its legacy schema setup can drop incompatible worker tables.
+</Aside>
+
+## If your database is rejected
+
+You must recreate and repopulate an older, partial, or unknown schema from the native trace artifacts you already own — the local Claude Code, Claude Desktop, and Codex JSONL ledgers your hosts wrote.
+
+<Aside type="note">
+  The recreate-and-reingest procedure is not yet documented. Source states the outcome — the database is recreated and populated again from your own native trace artifacts — but no step sequence exists yet, so this page does not provide a runbook rather than inventing one.
+</Aside>
+
+## Rolling back
+
+Applied migrations are forward-only. Fix forward after a schema-changing migration rather than rolling the worker image back across it.
+
+If the hook fails, correct the underlying condition and re-run it. Nothing partial is left behind, because each migration commits on its own.
+
+## Coordinated runtime and worker versions
+
+The v1 host-introspection response is a contract shared between the host runtime and the worker. Upgrade and roll back the two in lockstep — a worker on one side of the contract and hosts on the other do not interoperate.
+
+## Version numbers
+
+Three version numbers move independently:
+
+- The Python project version identifies the worker application.
+- The chart `appVersion` and default image tag identify the same worker release. At this release, both are 0.3.0; the prior release was 0.2.0.
+- The chart `version` identifies the chart package, and deployed pods report it. A configuration or template change can advance it without changing the application.

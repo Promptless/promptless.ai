@@ -1,0 +1,105 @@
+---
+title: Worker limits and budgets
+description: >-
+  Ingestion, concurrency, and analysis workspace limits enforced by the
+  Instruction Hub worker
+slug: docs/instruction-hub/worker/limits
+type: reference
+tags:
+  - instruction-hub
+  - self-hosting
+  - reference
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 8
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The worker enforces explicit limits on what it admits and how much work it runs at once. Everything here is limited on purpose: a single upload cannot exhaust the process, and a large repository cannot fill the analysis volume. Each row below is marked tunable, naming the setting that changes it, or fixed.
+
+## Trace upload limits
+
+| Limit                                      | Default   | Tunable or fixed                                  |
+| ------------------------------------------ | --------- | ------------------------------------------------- |
+| Decompressed JSONL and snapshots per batch | 256 MiB   | Tunable — `INSTRUCTION_HUB_MAX_TRACE_BATCH_BYTES` |
+| Chunks per batch                           | 200       | Fixed                                             |
+| Snapshots per batch                        | 200       | Fixed                                             |
+| Upload spool deadline                      | 5 minutes | Fixed                                             |
+
+The aggregate per-batch limit is the tunable one; its default is 268435456 bytes. The HTTP transport ceiling is derived from it, adding only the gzip, base64, and JSON envelope allowance — roughly 256 KiB. The worker rejects a batch over the aggregate limit with 413, and rejects a batch that stalls past the spool deadline with 408.
+
+There is no per-chunk byte limit. A single JSONL chunk may be as large as the aggregate batch limit.
+
+## Structural limits
+
+The worker applies these before any structured parsing, so a malformed or hostile payload is rejected before it is materialized. All are fixed.
+
+| Limit                                  | Default | Tunable or fixed |
+| -------------------------------------- | ------- | ---------------- |
+| Metadata string                        | 2 MiB   | Fixed            |
+| Per top-level collection item          | 16 MiB  | Fixed            |
+| JSON container entries                 | 4,096   | Fixed            |
+| Items per chunk or snapshot collection | 200     | Fixed            |
+
+The 16 MiB per-item limit measures metadata wire bytes; streamed record content is not counted against it.
+
+## Records that are too large
+
+A native record above the worker's limits is not silently dropped. The worker reports it as an oversized-record skip — the chunk carries no content, its skipped-record count is one, and the skip is echoed back in the acknowledged ranges. The host runtime advances past that record only once the worker accepts the skip, so an oversized record is accounted for rather than lost.
+
+## Admission and concurrency
+
+| Limit                          | Default | Tunable or fixed |
+| ------------------------------ | ------- | ---------------- |
+| Concurrent trace requests      | 1       | Fixed            |
+| Concurrent blocking-work units | 4       | Fixed            |
+
+The worker admits one trace request at a time. The worker authenticates and validates each batch before any durable write; see [How it works](/docs/instruction-hub/how-it-works) for that sequence.
+
+Synchronous parser, S3, and Postgres work runs in threads behind a single process-wide limit of four units.
+
+## Analysis repository limits
+
+The worker checks these before checkout. A repository above any of them is rejected rather than partially analyzed.
+
+| Limit                     | Default | Tunable or fixed                          |
+| ------------------------- | ------- | ----------------------------------------- |
+| Tracked entries           | 20,000  | Tunable — `ANALYSIS_MAX_REPOSITORY_FILES` |
+| Aggregate tracked content | 256 MiB | Tunable — `ANALYSIS_MAX_REPOSITORY_BYTES` |
+| Single file               | 64 MiB  | Fixed                                     |
+
+## Analysis workspace budget
+
+Each analysis reserves its measured checkout plus a worst-case remediation checkout and one maximum bundle, before it starts. Git objects and checked-out entries are charged separately, at a minimum of 4 KiB per tracked entry.
+
+| Limit                       | Default    | Tunable or fixed                                    |
+| --------------------------- | ---------- | --------------------------------------------------- |
+| Weighted workspace budget   | \~5.42 GiB | Tunable — `ANALYSIS_MAX_CONCURRENT_WORKSPACE_BYTES` |
+| Production workspace volume | 7 GiB      | Tunable — Helm `workspaceVolumeSizeLimit`           |
+
+The default weighted budget admits three maximum-size analyses, or four smaller ones. The worker holds the lease until the analysis child exits, then deletes its workspace. The repository mirror uses a separate 1 GiB volume.
+
+<Aside type="caution">
+  In the production deployment, all disposable workspaces share the one workspace volume. That is a shared physical limit, not a per-workspace quota — unexpected writes consume the same volume, and the worker fails closed when it is full.
+</Aside>
+
+<Aside type="note">
+  Sizing guidance for the workspace volume is not yet documented. Source does not reconcile the weighted budget against the volume size or say when to enlarge it, so this page states both values without a sizing recommendation rather than inventing one.
+</Aside>
+
+## Remediation publication limits
+
+These are enforced on the hosted side, and all are fixed.
+
+| Limit                 | Default     | Tunable or fixed |
+| --------------------- | ----------- | ---------------- |
+| Largest accepted blob | 64 MiB      | Fixed            |
+| Bundle ceiling        | 512 MiB     | Fixed            |
+| Hosted staging quota  | 544 MiB     | Fixed            |
+| Publication lifetime  | 660 seconds | Fixed            |
+
+## Shutdown
+
+Shutdown cancels the active analysis sweep and waits for it. Cancellation reaches the child-process runner, which terminates the analyzer's process group and waits for it before shutdown completes.

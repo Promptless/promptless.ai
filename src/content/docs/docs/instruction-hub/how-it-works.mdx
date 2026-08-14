@@ -1,0 +1,67 @@
+---
+title: How Instruction Hub works
+description: >-
+  The path from an agent session to a finding to a remediation pull request
+slug: docs/instruction-hub/how-it-works
+type: guide
+tags:
+  - instruction-hub
+  - guide
+timestamp: "2026-08-14T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+An Instruction Hub run starts with a coding agent session that already happened and ends with a pull request against your Instruction Hub repository.
+
+## The pipeline
+
+<Steps>
+  1. **A session produces a native ledger.** Claude Code, Claude Desktop, and Codex each write JSONL as the session runs.
+
+  2. **The host runtime uploads new line ranges.** Lifecycle hooks invoke the single managed executable the plugin ships, which uploads complete new ranges to the worker. Collection is nonblocking, so a failed upload never breaks the agent session.
+
+  3. **The worker admits and normalizes the batch.** It validates the whole batch before any durable write, stores the raw JSONL in your S3, and normalizes records into a canonical trace object in your Postgres.
+
+  4. **The analyzer runs over the trace.** The worker schedules a finished trace immediately and an open one after a quiet window.
+
+  5. **Findings reach hosted Promptless.** The analyzer creates a new finding or appends evidence to one that already exists.
+
+  6. **A high-confidence finding earns a remediation.** The worker prepares a pull request against your Instruction Hub repository, and hosted Promptless publishes it.
+</Steps>
+
+## Upload validation
+
+The host runtime batches uploads as gzip-compressed, base64-encoded JSONL chunks, each carrying its byte offsets, line counts, and SHA-256 digest so the worker can confirm it received exactly what the host sent.
+
+The worker authenticates the credential before it reads the request body, then spools the request to disk rather than holding it in memory. It validates the complete batch — every byte range, digest, line count, the UTF-8 stream, and every parsed record — before the first durable write. It then runs its policy and host gates before any mutation. The worker either admits the whole batch or rejects it whole.
+
+Records the parser does not model become `other` events that keep their full provenance. Unknown record types never reject a batch; only undecodable, non-JSON lines count as unparsed. See [Worker limits and budgets](/docs/instruction-hub/worker/limits) for the byte and structural limits a batch is held to.
+
+## When analysis runs
+
+Analysis stays disabled until activation time, model configuration, and repository identity are configured together. The operator sets these three when the worker is deployed; see [Deploy the worker](/docs/instruction-hub/worker/deploy). With all three set, the worker schedules traces as they arrive:
+
+- A terminal trace — one whose session has ended — is scheduled as soon as it finishes.
+- An open trace is scheduled after a quiet window, which defaults to 30 minutes.
+- Normal scheduling considers only traces at or after the configured activation time.
+- An administrator can backfill an explicit half-open time window to analyze sessions that predate activation — for example, to cover the week of sessions that ran while a team was still deploying the worker.
+
+## What the analyzer does
+
+Each attempt runs in a fresh child process with a one-hour deadline, and the worker retries with a new process up to three times. Within an attempt, the analyzer:
+
+1. Builds a digest of the trace.
+2. Submits independent friction candidates from that digest to investigator agents, with at most eight running concurrently.
+3. Lists every existing finding across the organization.
+4. Runs supplemental investigations when the catalog reveals plausible new evidence for a finding that already exists.
+5. Creates a new finding, or refines an existing one with append-only evidence.
+
+The analysis workspace holds the raw trace, any locally known descendant sessions, and a credential-free checkout of your Instruction Hub repository — so the analyzer reads the instructions in context without ever holding a write credential.
+
+## Pausing analysis
+
+Organization administrators pause and resume analysis for each worker independently. Trace ingestion continues while analyzer sweeps are paused, so no session is lost during a pause — the worker simply defers scheduling until analysis resumes.
