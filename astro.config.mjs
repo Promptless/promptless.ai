@@ -177,6 +177,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Keep changelogs current', slug: 'docs/get-the-most-out/release-notes' },
                     { label: 'Passive channel listening', slug: 'docs/get-the-most-out/passive-channel-listening' },
                     { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
                     {
@@ -267,10 +268,14 @@ export default defineConfig({
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
         Header: './src/components/starlight/Header.astro',
+        // Per-page social cards: injects each page's og:image/twitter:image,
+        // pointing at its incrementally pre-generated card (/og/<slug>.png).
+        // Replaces the global og:image/twitter:image that lived in head[].
+        Head: './src/components/starlight/Head.astro',
         SiteTitle: './src/components/starlight/SiteTitle.astro',
         PageTitle: './src/components/starlight/PageTitle.astro',
         Footer: './src/components/starlight/Footer.astro',
-        ThemeProvider: './src/components/starlight/ThemeProviderLightOnly.astro',
+        ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
       titleDelimiter: '|',
@@ -291,14 +296,10 @@ export default defineConfig({
             crossorigin: '',
           },
         },
-        {
-          tag: 'meta',
-          attrs: { property: 'og:image', content: 'https://promptless.ai/assets/social-card.png' },
-        },
-        {
-          tag: 'meta',
-          attrs: { name: 'twitter:image', content: 'https://promptless.ai/assets/social-card.png' },
-        },
+        // og:image / twitter:image are injected per page by the Head override
+        // (src/components/starlight/Head.astro) so each page gets its own
+        // pre-generated social card, with public/assets/social-card.png as the
+        // fallback. They are intentionally no longer set globally here.
         {
           tag: 'link',
           attrs: { rel: 'preconnect', href: 'https://www.youtube-nocookie.com' },

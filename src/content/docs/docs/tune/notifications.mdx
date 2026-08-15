@@ -142,6 +142,31 @@ When the [Microsoft Teams integration](/docs/reference/integrations/microsoft-te
   The Promptless bot needs prior activity in a Teams channel before it can deliver notifications there. If Promptless can't reach the configured channel, it replies in the originating thread instead.
 </Aside>
 
+## Escalation channel
+
+Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, the test account lacks the feature flags to reach a screen Promptless needs to screenshot. Or a PR references a Jira issue that Promptless can't read. Either the Jira integration isn't connected, or it's connected but the project isn't accessible.
+
+The `escalation` section is a sibling to `notification`. It has the same shape. Route these messages to a dedicated channel on Slack, Teams, or both:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
+      email:
+        - docs-team@example.com
+```
+
+Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack; `msteams_channel` routes them to Teams. The two are independent, like in `notification`. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+
+List one or more addresses under `escalation.email`. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
+
+Blockers flagged here include a test or staging account that can't reach a needed screen, an unreachable or unconfigured integration, an expired or rejected credential, a missing permission, or a configuration mismatch. Each escalation names the resource, quotes what Promptless saw, notes the workaround it applied, and ends with the one action that clears the blocker.
+
 ## Suggestion status updates
 
 When enabled, Promptless posts a follow-up reply in each suggestion's original Slack thread when the suggestion resolves. This closes the loop for anyone who requested documentation updates via Slack.
