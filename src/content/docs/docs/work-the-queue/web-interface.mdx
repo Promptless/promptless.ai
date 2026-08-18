@@ -30,9 +30,39 @@ Each suggestion includes a title and description that explains what changes are 
 
 <img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/suggestion-description-markdown-rendering-54a81da8.png" alt="Suggestion description with markdown formatting showing bold headers and bullet lists" />
 
+### Edit the title
+
+You can rename a suggestion from its detail page. Click the pencil next to the title, type a new name, and press Enter or click the checkmark to save. Press Escape or click the X to cancel. Titles can't be empty.
+
+When a suggestion already has an open or draft documentation PR, GitHub is the source of truth for the title. Saving pushes the rename to the GitHub PR title first, and Promptless keeps the new title only once GitHub accepts it, so your dashboard and the PR stay in sync. Only the PR title changes—your branch and commits are untouched. If the GitHub update fails, Promptless leaves the title unchanged and shows a retryable error. If you rename the PR on GitHub instead, opening the suggestion in the dashboard pulls the current PR title back in.
+
+For a suggestion with no open PR, Promptless saves the edit locally.
+
 ## Markdown preview
 
 Preview how Markdown and MDX files will render before publishing. Click **Preview Markdown** on any `.md`, `.mdx`, or `.markdown` file to open a preview modal with diff highlighting—added content appears with a green background and left rail, removed content shows red. This helps you review formatting, headings, lists, tables, and code blocks in context without switching between raw diff and published views.
+
+## Image preview
+
+When a suggestion changes an image or screenshot, the suggestion viewer shows a side-by-side before-and-after preview so you can compare the old and new versions directly. Both images render together for visual comparison—there's no overlay, slider, or automated pixel-diff.
+
+- Added images show only the new version; deleted images show only the previous version.
+- You can open an image at full size to inspect it more closely.
+- Previews render for common image formats: PNG, JPEG, GIF, BMP, WebP, and AVIF. Other files, including SVGs, fall back to the standard diff, and unsupported or very large files show a message instead of an inline preview.
+- Image-only suggestions get the same status as any other suggestion, so you can apply and publish them the same way.
+- Rejecting an individual image restores the previous version rather than deleting the file.
+
+## The commit timeline
+
+The commit timeline lists the commits on a suggestion's branch, so you can see the work behind it. It also includes the automatic **sync/merge** commits Promptless creates when it merges the base branch into the suggestion branch. A **sync/merge** row can report a large file count because it reflects content pulled in from the base branch, not changes the suggestion itself proposes.
+
+### When there's nothing to review
+
+When a suggestion's branch matches its base branch, the viewer shows an explanatory panel that reads "No changes against" plus the base branch name.
+
+This normally means the changes already landed on the base branch, or a sync merge replaced them. If the branch has no commits at all, the panel instead says the branch has no content that differs from the base.
+
+From here you can select **Request Changes** to ask Promptless for a different approach, or **Close Suggestion** to end the suggestion with [feedback](/docs/tune/teaching-conventions). If you think the empty result is an error, contact support. The panel also shows the branch name with a **View branch** link to the branch on GitHub or GitLab when available, and renders the commit timeline inline below it.
 
 ## Provide feedback
 
@@ -70,18 +100,19 @@ For details on when to use Deep Analysis and how to submit requests, see the [De
 
 ## Triggers page
 
-The Triggers page shows all events that triggered Promptless over the last 30 days. Each entry displays:
+The Triggers page shows every event that triggered Promptless over the last 30 days. Each trigger appears as a card with a timeline of what it produced, read from top to bottom, so you can see a trigger's outcome at a glance without opening it:
 
-- **Trigger source**: The event that activated the trigger (like a GitHub PR or Slack message)
-- **Status**: Processing state (completed, in progress, or error)
-- **Suggestions created**: Whether documentation updates resulted from this trigger
-- **Timestamp**: When the trigger occurred
+- **Received**: The event that fired—such as a GitHub PR or a Slack message—and when it landed.
+- **Suggestion created**, **Suggestion updated**, or **Suggestion closed**: A row for each documentation suggestion the trigger acted on. **Suggestion closed** appears when that trigger's Promptless run closed the suggestion itself, whatever state its pull request is in. Each row carries a chip showing where that suggestion's pull request stands: **PR Open**, **Published** (the PR merged), or **Closed** (the PR was closed without merging). Click a suggestion to open it. When a run finishes without producing a suggestion, the timeline notes **No suggestion created** instead.
+- **Trigger completed**: When Promptless finished handling the trigger.
 
-<img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/triggers-page-dashboard-1759623397.png" alt="Triggers page showing recent trigger events" />
+While a trigger is still being processed, its card shows a **Processing** indicator in place of the completion.
+
+<img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/triggers-page-timeline-e5bf00dd-d72f977b.png" alt="Triggers page timeline: a received event such as an opened PR, then Suggestion created rows with a status chip and Trigger completed, plus a No suggestion created badge" />
 
 ### Filter and search
 
-Use the search box to find triggers by PR info, Slack thread topic, task name, or other summary text—including events older than 30 days. The type and suggestion status filters help narrow results further.
+Use the search box to find triggers by PR info, Slack thread topic, task name, or other summary text—including events older than 30 days. The type and suggestion-activity filters help narrow results further.
 
 The **From** and **To** date fields filter by a specific date range. Date filtering searches your full trigger history, not just the default 30-day window. Clear the dates to return to the default view.
 
@@ -101,13 +132,15 @@ Click any trigger to see full details, including what research Promptless did an
 
 When you open a trigger—from the Triggers page, or from a suggestion's **Triggers & Analysis** tab—Promptless shows a breakdown of the research it did before drafting (or skipping) documentation. A summary line like "Promptless reviewed: 10 files, 2 knowledge base files, 3 searches" expands into a detailed list of what the agent read and searched.
 
-The breakdown groups the agent's work into categories:
+The detailed list shows the agent's work in roughly the order it happened, so you can follow the run as it unfolded. Along the way you see a few kinds of entries:
 
 - **Files**: source and documentation files the agent opened, shown as clean repository-relative paths.
-- **Knowledge base files**: files from your [Knowledge Base](https://app.gopromptless.ai/settings/knowledge)—such as contribution guidelines or style rules—that the agent consulted while handling the trigger. Each one is a link that opens that file in the [Agent Knowledge Base editor](/docs/how-to-use-promptless/agent-knowledge-base#viewing-files) in a new tab.
+- **Knowledge base files**: reads from your [Knowledge Base](https://app.gopromptless.ai/settings/knowledge)—such as contribution guidelines or style rules—shown inline at the point in the sequence where the agent consulted them. Each one is labeled "Read from knowledge base" and links to that file in the [Agent Knowledge Base editor](/docs/get-the-most-out/agent-knowledge-base#view-files) in a new tab.
 - **Searches**: content and filename searches the agent ran. Each search includes a chip showing where it ran: a branded chip for your doc collection, or a **sandbox** chip when the agent searched its own working directory.
 - **Webpages and Slack**: external pages the agent fetched and Slack threads it read.
 
-If the agent used any of [your own skills](/docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs#using-your-existing-skills), a "Used N of your skills" callout appears next to the summary, so you can see when Promptless applied a workflow you authored.
+When Promptless delegates part of its research to a specialized subagent, that work appears as an indented branch labeled "Delegated research to `<subagent-type>`". A tool-call count appears alongside it as "· N tool calls". The count stands in for that subagent's work—much of it shell commands, which don't each produce their own row. Older suggestions, created before delegation tracking existed, render flat, without a delegation branch.
+
+If the agent used any of [your own skills](/docs/connect/doc-locations/how-promptless-learns-your-docs#use-your-existing-skills), a "Used N of your skills" callout appears next to the summary, so you can see when Promptless applied a workflow you authored. When Promptless delegates research, a "N research agents" callout sits alongside the summary.
 
 Need help with the web interface? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).

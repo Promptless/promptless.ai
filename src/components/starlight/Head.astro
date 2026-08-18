@@ -1,0 +1,57 @@
+---
+/**
+ * Starlight <Head> override — per-page social cards.
+ *
+ * Every page on the site renders through Starlight, so this single override is
+ * where per-page og:image / twitter:image get wired. It resolves the current
+ * pathname to a pre-generated card and emits the meta tags pointing at it.
+ *
+ * Precedence, highest first:
+ *   1. An explicit og:image already declared by the page (e.g. a blog post's
+ *      `socialImage` frontmatter, added to the route's head config) — respected,
+ *      never overridden here.
+ *   2. The page's generated per-page card, when the path has one.
+ *   3. The static site-wide card (public/assets/social-card.png) as a fallback
+ *      for any page without a generated card (hidden pages, /jobs, /privacy…).
+ *
+ * This replaces the single global og:image/twitter:image that used to be
+ * injected in astro.config.mjs `head[]` for every page.
+ */
+import Default from '@astrojs/starlight/components/Head.astro';
+import { getOgPageForPath } from '@lib/og/pages';
+import { getOgImageVersion } from '@lib/og/image-manifest';
+
+const STATIC_FALLBACK = '/assets/social-card.png';
+
+// Absolute base URL for social meta (unfurlers require absolute image URLs).
+const siteUrl = (Astro.site?.href ?? 'https://promptless.ai/').replace(/\/+$/, '');
+
+// The route's merged head config (site defaults + page frontmatter) lives on
+// starlightRoute. If the page already declares its own og:image (e.g. a blog
+// post's socialImage), defer to it and add nothing here.
+const routeHead = (Astro.locals.starlightRoute?.head ?? []) as Array<{
+  tag?: string;
+  attrs?: Record<string, unknown> | null;
+}>;
+const hasExplicitOgImage = routeHead.some(
+  (entry) => entry.tag === 'meta' && entry.attrs?.property === 'og:image',
+);
+
+const ogPage = getOgPageForPath(Astro.url.pathname);
+const cardPath = ogPage ? `/og/${ogPage.slug}.png` : STATIC_FALLBACK;
+const cardVersion = ogPage ? getOgImageVersion(ogPage.slug) : undefined;
+const cardUrl = `${siteUrl}${cardPath}${cardVersion ? `?v=${cardVersion}` : ''}`;
+---
+
+<Default />
+{
+  !hasExplicitOgImage && (
+    <>
+      <meta property="og:image" content={cardUrl} />
+      <meta property="og:image:width" content="1200" />
+      <meta property="og:image:height" content="630" />
+      <meta name="twitter:image" content={cardUrl} />
+      <meta name="twitter:card" content="summary_large_image" />
+    </>
+  )
+}

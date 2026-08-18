@@ -12,6 +12,7 @@ export interface RouteManifestEntry {
   slug?: string;
   description?: string;
   date?: string;
+  socialImage?: string;
 }
 
 export interface RedirectRule {
