@@ -274,6 +274,33 @@
       pills[toIndex].focus();
     };
 
+    // Deep-link support: promptless.ai/#agents pins the agent-instructions tab
+    // and promptless.ai/#docs pins the customer-facing-docs tab, so a shared link
+    // lands prospects on the intended track. No element on the homepage carries
+    // an `agents`/`docs` id, so repurposing the hash as a tab control collides
+    // with no scroll anchor. Landing on a hashed tab counts as committing to it:
+    // we lock (rotation off) exactly as a click does, but without moving focus,
+    // so first paint doesn't yank scroll to the tablist.
+    const HASH_TO_TAB_ID: Record<string, string> = {
+      '#agents': AGENTS_TAB_ID,
+      '#docs': DOCS_TAB_ID,
+    };
+
+    const applyHashSelection = () => {
+      const tabId = HASH_TO_TAB_ID[window.location.hash];
+      if (!tabId) return;
+      const index = pills.findIndex((pill) => pill.id === tabId);
+      if (index < 0) return;
+      locked = true;
+      stopRotation();
+      activate(index);
+    };
+
+    // Pin the hashed tab on load, then keep following the hash so an in-page
+    // link between #agents and #docs re-pins without a reload.
+    applyHashSelection();
+    window.addEventListener('hashchange', applyHashSelection);
+
     // Auto-rotate: flip to the other pill every ROTATE_MS when the feature flag
     // above is enabled. This call deliberately stays in place so restoring the
     // preview only requires changing AUTO_ROTATE_ENABLED.
