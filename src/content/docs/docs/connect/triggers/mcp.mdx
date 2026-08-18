@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Start Promptless documentation tasks, list your collections, and check task status from your editor over MCP, authorized with OAuth instead of an API key.
+description: Start Promptless documentation tasks, list your collections, check task status, and search existing suggestions from your editor over MCP, authorized with OAuth instead of an API key.
 slug: docs/connect/triggers/mcp
 type: reference
 tags:
@@ -28,6 +28,7 @@ Connecting over MCP works well when you want to:
 - Start and check documentation tasks interactively, from the editor you already have open.
 - Skip API key management—there's no key to generate, store, or rotate.
 - Target a single collection with `submit_documentation_task`'s optional `doc_collection_id`, or omit it to route across all your collections.
+- Check whether a suggestion for a change already exists before submitting a new task, so you don't create a duplicate.
 
 The [API trigger](/docs/connect/triggers/api) is unchanged and remains the recommended path for server-to-server and CI callers: an API key plus the `POST /triggers` REST endpoint. MCP is the no-key path for interactive editor use. Both dispatch through the same intake pipeline, so a task started either way behaves identically.
 
@@ -96,7 +97,14 @@ Authorization uses OAuth, so no key ever touches your editor config. Here's what
 </Steps>
 
 <Aside type="note">
-  There's deliberately no permission picker. The connection can submit documentation tasks, list your documentation collections, and read the status of any documentation task in your organization—including tasks started from Slack, GitHub, the dashboard, and the API. There are no narrower permissions to choose from. An approved client acts with the same access its approver already has. MCP access isn't gated by your Promptless [organization role](/docs/security/access-and-permissions): any active member can authorize a connection, and every connection can use all three tools.
+  There's deliberately no permission picker. An approved connection can:
+
+  - Submit documentation tasks.
+  - List your documentation collections.
+  - Read the status of any documentation task in your organization, including tasks started from Slack, GitHub, the dashboard, and the API.
+  - Search your organization's documentation suggestions.
+
+  There are no narrower permissions to choose from. An approved client acts with the same access its approver already has. MCP access isn't gated by your Promptless [organization role](/docs/security/access-and-permissions): any active member can authorize a connection, and every connection can use all four tools.
 </Aside>
 
 ## Available tools
@@ -134,11 +142,37 @@ Returns `{ trigger_event_id, status, submitted_at, source, request }`.
 - `request` — a per-surface summary of the originating request, so a task started from Slack or GitHub is summarized for that surface and is not prefixed with `API:`; it doesn't include `context`, which appears separately in the dashboard's trigger history.
 - An ID that isn't in your organization reports as unknown, not forbidden—the runtime returns "No documentation task found with id …", the same message a nonexistent ID gets, so the two are indistinguishable.
 
+### `search_suggestions`
+
+Searches your organization's existing documentation suggestions by keyword, review status, or both. Use it to check whether a suggestion already exists before submitting a new task, or to find and review past suggestions. Results span all your collections; there's no collection-filter argument.
+
+| Argument | Type   | Required | Description                                                                                                              |
+| -------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `query`  | string | No       | Literal, case-insensitive substring matched against a suggestion's title and description—not a semantic or fuzzy search. |
+| `status` | string | No       | Restrict results to one review status. Allowed values: `draft`, `open`, `merged`, `closed`.                              |
+
+The `status` values are the lifecycle states of the docs pull request behind a suggestion:
+
+- `draft` — the docs pull request exists but hasn't been marked ready for review.
+- `open` — the docs pull request exists and is still open for review.
+- `merged` — the docs pull request was merged, so the suggestion shipped.
+- `closed` — the docs pull request was closed without being merged.
+
+Both parameters are optional; calling with neither returns all your suggestions. Because `query` matches literally, an empty result means no title or description contained that substring—try alternate keywords before concluding no suggestion exists.
+
+Returns `{ suggestions: [{ id, title, description, status, doc_collection_id, docs_pr_url, created_at }] }`, every match, newest first, with no pagination, limit, or offset. When deciding whether a change is already covered:
+
+- `status` — tells you whether a match is still live (`draft` or `open`) or already resolved (`merged` or `closed`).
+- `docs_pr_url` — links to the docs PR behind the suggestion, when present.
+- `doc_collection_id` — the collection the suggestion belongs to (may be null); results span all your collections, so filter on this client-side.
+
 ### Example
 
 Ask your editor in plain language, for example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection."
 
 The client maps that to `list_doc_collections`, then `submit_documentation_task` with the chosen collection's `id` as `doc_collection_id` and your request as `instructions`. Promptless starts the task and returns a `trigger_event_id` you can pass to `get_task_status`.
+
+To avoid duplicating work already in flight, search before you submit: "Before I ask Promptless to document the new webhook retries, search existing suggestions for 'webhook retries' to check nothing's already in flight." The client maps that to `search_suggestions`, and if no live (`draft` or `open`) match comes back, it proceeds to `submit_documentation_task`.
 
 ## Token lifecycle and revoking access
 
@@ -162,6 +196,7 @@ Tool failures come back as errors the editor's model sees, not silent failures. 
 
 - **Empty `instructions`**: the task needs instructions to act on. Resubmit with a specific `instructions` string.
 - **A `doc_collection_id` that isn't a valid UUID**: call `list_doc_collections` and pass an `id` from the returned list.
+- **An unrecognized `status` value in `search_suggestions`**: any value other than `draft`, `open`, `merged`, or `closed` comes back as a tool error. Pass one of those four.
 - **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish organization setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask your organization's Promptless admin to finish it.
 - **A requested collection isn't configured**: the tool returns "The requested doc collection is not configured." Call `list_doc_collections` to get a valid `id`, or configure the collection before submitting against it.
 - **A denied, cancelled, or expired consent**: what the consent page shows depends on how the request ended.
