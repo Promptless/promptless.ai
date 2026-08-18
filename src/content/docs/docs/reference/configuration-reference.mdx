@@ -341,25 +341,55 @@ triggers:
 </details>
 
 <details>
-  <summary>jira</summary>
+  <summary>jira\_new\_issue</summary>
 
-  Activates when a Jira issue matches a configured project, label, status, or status category—on the transition into that match.
+  Triggers when an issue is created in a matching project.
 
   **Match clause fields:**
 
-  | Field               | Description                                                                                                                             |
-  | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-  | `projects`          | Jira project keys to match (for example `DOCS`)                                                                                         |
-  | `labels`            | Issue labels to match                                                                                                                   |
-  | `statuses`          | Issue statuses to match                                                                                                                 |
-  | `status_categories` | Jira status categories to match (`new`, `indeterminate`, `done`) — stable across projects and renames, unlike per-project status names. |
+  | Field         | Description                                                        |
+  | ------------- | ------------------------------------------------------------------ |
+  | `project_key` | Required. Non-empty list of Jira project keys (for example `DOCS`) |
 
-  At least one of `projects`, `labels`, `statuses`, or `status_categories` must be set in each clause. Fields within a clause are ANDed and clauses are ORed, and all match case-insensitively.
-
-  A `jira` trigger also accepts an optional top-level `instructions` field (a sibling of `match`) that gives the trigger standing instructions passed to Promptless on each run. Unlike a schedule trigger it is optional, and a present-but-blank value is rejected.
-
-  A configured `jira` trigger is passive: it analyzes the matched issue and creates no reply obligation, so nothing obliges a reply on the ticket. The built-in `jira_mention` paths are the ones that owe a reply.
+  An optional top-level `instructions` field (a sibling of `match`) gives the trigger standing instructions passed to Promptless on each run; a present-but-blank value is rejected. The trigger is passive and creates no reply obligation—`jira_mention` is the built-in that owes a reply on the ticket.
 </details>
+
+<details>
+  <summary>jira\_label\_added</summary>
+
+  Triggers when a label is added to an issue.
+
+  **Match clause fields:**
+
+  | Field         | Description                                                                                   |
+  | ------------- | --------------------------------------------------------------------------------------------- |
+  | `new_label`   | Required. Labels whose addition activates the trigger; matches when any listed label is added |
+  | `project_key` | Optional. Restrict to these project keys                                                      |
+
+  A label whose first token is `promptless` is reserved for the built-in `jira_mention` path and never matches `new_label`; name the label something else.
+
+  Takes the same optional `instructions` field as `jira_new_issue`, and is likewise passive (no reply obligation).
+</details>
+
+<details>
+  <summary>jira\_status\_change</summary>
+
+  Triggers when an issue moves into a new status.
+
+  **Match clause fields:**
+
+  | Field         | Description                                                                                             |
+  | ------------- | ------------------------------------------------------------------------------------------------------- |
+  | `new_status`  | Status names the issue moved into                                                                       |
+  | `is_done`     | Only `true` is accepted; matches any status in Jira's done category, stable across projects and renames |
+  | `project_key` | Optional. Restrict to these project keys                                                                |
+
+  At least one of `new_status`, `is_done`, or `project_key` must be set in each clause.
+
+  Takes the same optional `instructions` field as `jira_new_issue`, and is likewise passive (no reply obligation).
+</details>
+
+A Jira trigger activates once per crossing and does not re-fire on later deliveries about an issue that still matches. Creating an issue crosses every edge at once, so a new issue that matches two Jira triggers dispatches once, tagged with both keys; and an issue moving between two done statuses activates an `is_done: true` trigger again. See [How a configured trigger activates](/docs/connect/triggers/jira#how-a-configured-trigger-activates) for the full explanation.
 
 <details>
   <summary>schedule</summary>

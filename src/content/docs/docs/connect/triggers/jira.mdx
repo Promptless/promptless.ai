@@ -27,7 +27,7 @@ Four paths start a session from a ticket. Three are built in and active whenever
 
 Each of these three paths creates a reply obligation: Promptless owes an answer on the ticket and tracks it the way it tracks an unanswered Slack thread. All three are the built-in `jira_mention` trigger—active whenever Atlassian is connected, with no YAML configuration. Like other built-in triggers, these paths are always on when Atlassian is connected and cannot be disabled. (Internally they are the assignment, label, and mention subtypes, but they route through the single `jira_mention` key, so a policy rule targets `jira_mention` rather than a per-path key.)
 
-The fourth path is a configured Jira trigger that matches a project, label, status, or status category. It is passive and creates no reply obligation—Promptless analyzes the ticket but does not owe an answer on it.
+The fourth path is a configured Jira trigger—one that activates when an issue is created, when a label is added, or when an issue changes status. It is passive and creates no reply obligation—Promptless analyzes the ticket but does not owe an answer on it.
 
 ## Reply on the ticket
 
@@ -35,41 +35,72 @@ Promptless answers on the ticket and attaches the documentation PR as a remote l
 
 ## How a configured trigger activates
 
-A configured Jira trigger activates only on the transition *into* a matching project, label, status, or status category. Promptless reconstructs that transition from the issue's change history. A later comment does not re-activate a ticket that already matches. A clause that matches only on `projects` effectively activates only when an issue is created in that project.
+Each trigger type names the edge an issue crosses—the moment it activates on, whether the issue is created, a label is added, or the status changes—and a trigger activates once per crossing—never on a later delivery about an issue that still matches. Editing the description of a `DOCS` issue does not re-activate a new-issue trigger, and commenting on an issue that already carries `needs-docs` does not re-activate a label trigger.
 
-Match semantics follow the same rules as other triggers: within one clause the fields are ANDed; multiple clauses are ORed. Projects, labels, statuses, and status categories all match case-insensitively.
+Creating an issue crosses every edge at once: the issue comes into existence with its labels and its status. A new `DOCS` issue filed with `needs-docs` matches both the new-issue trigger and the label trigger, and dispatches once tagged with both keys—the trigger names you give in the `triggers:` map (for example `jira-new-docs-issue` and `jira-needs-docs-label`).
+
+Match semantics follow the same rules as other triggers: within one clause the fields are ANDed; multiple clauses are ORed. All Jira fields match case-insensitively.
+
+Multi-value matches compare each value on its own: a second listed label activates the trigger even when the issue already holds the first, and a move between two listed statuses activates it again.
 
 ## Configuration
 
-Configure the Jira trigger in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section:
+Configure Jira triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section. Each type names the moment it activates on—an issue created, a label added, or a status change:
 
 ```yaml
 triggers:
-  jira-plan:
-    trigger_type: jira
+  jira-new-docs-issue:
+    trigger_type: jira_new_issue
+    match:
+      - project_key: [DOCS]
+  jira-needs-docs-label:
+    trigger_type: jira_label_added
+    match:
+      - new_label: [needs-docs]
+  jira-ready-for-docs:
+    trigger_type: jira_status_change
+    match:
+      - is_done: true
+      - new_status: ["In Review", "Pull Request"]
+```
+
+The trigger map keys (`jira-new-docs-issue`) are yours to name; the `trigger_type` values (`jira_new_issue`) are the fixed type identifiers.
+
+Fields inside a clause (each `-` item under `match:`) are ANDed and clauses are ORed. So `jira-ready-for-docs` above activates when an issue reaches any done status, and separately when it reaches `In Review` or `Pull Request`.
+
+### Scoping to projects
+
+`project_key` is required on `jira_new_issue`, which would otherwise activate on every issue created anywhere in the site. It is optional on the other two types, and worth setting unless you mean the whole site—`jira-needs-docs-label` above matches a `needs-docs` label in any project. A `jira_status_change` clause may hold `project_key` alone, which matches any status movement within those projects.
+
+### Labels
+
+Labels whose first token is `promptless` are reserved for the built-in `jira_mention` path (see [How a Jira ticket starts a session](#how-a-jira-ticket-starts-a-session)), which claims them before any configured trigger is consulted. A `new_label` listing one never matches, so name the label something else (`needs-docs`). A label that merely contains the word (`docs-promptless`, `not-promptless`) is not reserved and is free to use.
+
+### Matching done statuses
+
+`new_status` names statuses one by one, which is brittle: status names are per-project, anyone can rename them, and a done-like status added later is silently uncovered. `is_done: true` matches Jira's done category instead, which is stable across projects and renames, so one clause covers every done status a site has whatever it is called.
+
+`is_done` accepts only `true`. There is no way to say "moved to something not done": that would match ordinary in-progress churn, and the statuses worth acting on are better named with `new_status`.
+
+<Aside type="note">
+  An issue moved between two done statuses—`Shipped` to `Closed`—activates an `is_done: true` trigger a second time. This is expected, not a bug: the move is a second status change into a done status, so it is a second crossing of the edge the trigger names.
+</Aside>
+
+### Instructions and output
+
+`instructions` is optional on all three types (it is required on schedule triggers) and carries the same meaning: standing work handed to Promptless on each run. It is how a label carries a standing job—apply the label and Promptless runs those instructions against the issue. Omit it to work from the issue alone; a present-but-blank value is invalid.
+
+```yaml
+triggers:
+  jira-docs-plan:
+    trigger_type: jira_label_added
     instructions: Scope the docs impact, do not publish.
     match:
-      - projects: [DOCS]
-        labels: [docs-plan]
-      - statuses: ["Ready for Docs"]
+      - new_label: [docs-plan]
+        project_key: [DOCS]
 ```
 
-`match` takes at least one clause. Within a clause, `projects`, `labels`, `statuses`, and `status_categories` are each optional, but at least one must be set. The optional top-level `instructions` field gives the trigger standing instructions handed to Promptless on each run—like a schedule trigger's instructions, but optional here. Leave it out to run with no standing instructions; a present-but-blank value is rejected.
-
-### Match on status category
-
-To match on where an issue sits in its workflow rather than by status name, match a status category:
-
-```yaml
-triggers:
-  jira-done:
-    trigger_type: jira
-    match:
-      - projects: [DOCS]
-        status_categories: [done]
-```
-
-Jira status names are per-project and can be renamed. Listing them by name (`statuses: ["Done", "Closed", ...]`) is fragile: it misses any done-like status added later. A status category is stable across projects and renames, so `status_categories: [done]` matches every done-like status in one clause. The valid category keys are `new`, `indeterminate`, and `done`.
+A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it—a docs suggestion and PR, plus the usual Slack or Teams notification. It creates no reply obligation, unlike `jira_mention`, so nothing obliges an answer on the ticket.
 
 See the [Configuration Reference](/docs/reference/configuration-reference#triggers) for the full schema.
 
@@ -87,7 +118,9 @@ Attach the service account from the Atlassian integration card by entering its *
 
 ## Example
 
-A team adds the `jira-plan` trigger above. A writer moves ticket `DOCS-204` in the `DOCS` project to the **Ready for Docs** status. That transition activates the trigger. Following the standing instructions ("Scope the docs impact, do not publish"), Promptless analyzes the linked change and scopes what documentation is affected.
+A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. That label crossing activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected.
+
+Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once, matching both `jira-new-docs-issue` and `jira-needs-docs-label`—Promptless dispatches once, tagged with both keys.
 
 Separately, an engineer @mentions the Promptless account on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
 
