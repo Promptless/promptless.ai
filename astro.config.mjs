@@ -177,7 +177,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/get-the-most-out/pay-down-docs-debt' },
-                    { label: 'Translated docs', slug: 'docs/get-the-most-out/localization' },
+                    { label: 'Localized docs', slug: 'docs/get-the-most-out/localization' },
                     { label: 'Changelogs & release notes', slug: 'docs/get-the-most-out/release-notes' },
                     { label: 'Passive channel listening', slug: 'docs/get-the-most-out/passive-channel-listening' },
                     { label: 'Build an agent knowledge base', slug: 'docs/get-the-most-out/agent-knowledge-base' },
