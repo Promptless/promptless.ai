@@ -1,0 +1,165 @@
+openapi: 3.1.0
+info:
+  title: Promptless API
+  description: |
+    API for triggering Promptless documentation updates from external systems like CI/CD pipelines and custom automations.
+
+    <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
+  version: 1.0.0
+servers:
+- url: https://api.gopromptless.ai
+paths:
+  /triggers:
+    post:
+      tags:
+      - Triggers
+      summary: Submit an API trigger
+      description: |
+        Request a documentation update. Authenticate with your organization's API key as a bearer token. A successful request returns the identifier of the trigger event.
+
+        <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
+      operationId: submitApiTrigger
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiTriggerIntakeRequest'
+        required: true
+      responses:
+        '202':
+          description: The trigger was accepted and enqueued for processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerAcceptedResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The organization has not finished setting up Promptless (`org_not_configured`),
+            or the requested doc collection is not configured or not ready (`no_eligible_doc_collection`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The request body is invalid (e.g. empty instructions or a malformed
+            UUID).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '500':
+          description: The trigger could not be enqueued for processing (`enqueue_failed`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '503':
+          description: Trigger intake is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    ApiTriggerAcceptedResponse:
+      properties:
+        trigger_event_id:
+          type: string
+          title: Trigger Event Id
+          description: Identifier of the trigger event. Use it to correlate with trigger history.
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+      type: object
+      required:
+      - trigger_event_id
+      title: ApiTriggerAcceptedResponse
+      description: Response body returned when an API trigger is accepted for processing.
+    ApiTriggerErrorResponse:
+      properties:
+        error:
+          type: string
+          title: Error
+          description: Stable machine-readable error code.
+          examples:
+          - authentication_failed
+        message:
+          type: string
+          title: Message
+          description: Human-readable explanation of the error.
+          examples:
+          - Authentication failed.
+      type: object
+      required:
+      - error
+      - message
+      title: ApiTriggerErrorResponse
+      description: Error body returned when an API trigger request is rejected.
+    ApiTriggerIntakeRequest:
+      properties:
+        instructions:
+          type: string
+          title: Instructions
+          description: What you want Promptless to document. Be specific about which
+            docs to update and what changes to make.
+          minLength: 1
+          examples:
+          - Document the new rate limiting feature added in v2.5
+        context:
+          type: object
+          additionalProperties: true
+          title: Context
+          description: Optional arbitrary metadata to attach to the request. Appears in trigger
+            history for reference and is passed through to the workflow as additional
+            context.
+          examples:
+          - jira_ticket: DOC-456
+            release: v2.5.0
+      additionalProperties: false
+      type: object
+      required:
+      - instructions
+      title: ApiTriggerIntakeRequest
+      description: JSON request body for API-triggered task intake.
+    HTTPValidationError:
+      type: object
+      title: HTTPValidationError
+      description: Validation error body returned when the request fails schema validation.
+      properties:
+        detail:
+          type: array
+          title: Detail
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    ValidationError:
+      type: object
+      title: ValidationError
+      required:
+      - loc
+      - msg
+      - type
+      properties:
+        loc:
+          type: array
+          title: Location
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Organization API key issued from Settings > API Access.

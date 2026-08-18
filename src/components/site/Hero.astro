@@ -1,4 +1,7 @@
 ---
+import { Image } from 'astro:assets';
+import ycLogo from '../../assets/site/yc_logo.svg.png';
+
 interface Props {
   prefix?: string;
   words?: string[];
@@ -28,17 +31,17 @@ const {
     class="pl-site-form-row"
     action="https://submit-form.com/roBOd2Oxb"
     method="post"
-    data-redirect="/meet"
+    data-redirect="/demo#book"
   >
     <label class="sr-only" for="work-email">Work email</label>
     <input id="work-email" type="email" name="email" placeholder="Work email" required />
-    <input type="hidden" name="_redirect" value="/meet" />
-    <button type="submit" name="submit">Book demo</button>
+    <input type="hidden" name="_redirect" value="/demo#book" />
+    <button type="submit" name="submit" data-track-action="book_demo" data-track-funnel="conversion" data-track-location="hero">Book demo</button>
   </form>
 
   <div class="pl-site-trust-row">
     <div class="pl-site-trust-badge">
-      <img src="/site/yc_logo.svg.png" alt="Y Combinator" width="20" height="20" />
+      <Image src={ycLogo} alt="Y Combinator" width={40} height={40} />
       <span>Backed by Y Combinator</span>
     </div>
     <span>Trusted by fast-growing startups and Fortune 500 enterprises alike</span>
@@ -54,7 +57,7 @@ const {
     const redirectInput = form.querySelector('input[name="_redirect"]');
 
     if (redirectInput instanceof HTMLInputElement) {
-      redirectInput.value = `${window.location.origin}/meet`;
+      redirectInput.value = `${window.location.origin}/demo#book`;
     }
 
     form.addEventListener('submit', async (event) => {
@@ -70,6 +73,17 @@ const {
           link_url: form.action,
         });
       }
+
+      const email = (form.querySelector('input[name="email"]') as HTMLInputElement)?.value?.trim();
+      if (email) {
+        try { sessionStorage.setItem('pl_demo_email', email); } catch {}
+      }
+      (window as any).posthog?.capture('email_captured', {
+        intent: 'demo',
+        location: 'hero',
+        campaign: '',
+        ...(email ? { $set: { email } } : {}),
+      });
 
       if (submitButton instanceof HTMLButtonElement) {
         submitButton.disabled = true;
@@ -96,7 +110,7 @@ const {
           throw new Error(`Formspark submission failed with status ${response.status}`);
         }
 
-        const redirectTo = form.dataset.redirect || '/meet';
+        const redirectTo = form.dataset.redirect || '/demo';
         window.location.assign(redirectTo);
       } catch (_error) {
         // Fallback to native form post if fetch fails (e.g. CORS/network).

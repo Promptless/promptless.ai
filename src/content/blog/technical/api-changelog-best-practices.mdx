@@ -1,0 +1,93 @@
+---
+title: 'API Changelog Best Practices: Write for the Developer, Not the Team'
+subtitle: Published April 2026
+description: >-
+  68% of developers cite outdated API docs as their top frustration. Most changelogs cause it. Here's how to write one developers can actually use.
+date: '2026-04-24T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer reads your changelog. They see "Updated authentication flow." They open the authentication reference page. It still shows the old token format. They open a support ticket.
+
+That sequence plays out thousands of times across API ecosystems. The changelog announced the change, but the reference docs haven't caught up. The developer can't use either one to move forward.
+
+The [Postman 2024 State of the API report](https://www.postman.com/state-of-api/2024), which surveyed over 5,600 developers and API professionals, found that 68% of developers cite outdated documentation as their top frustration when working with APIs. 39% say inconsistent documentation is the biggest onboarding roadblock. Those numbers don't reflect teams that never wrote documentation. They reflect teams whose documentation described a previous version of the product.
+
+## What most changelogs get wrong
+
+Most API changelogs are written from the team's perspective, not the developer's.
+
+The team shipping a feature knows what changed internally. The developer integrating against the API needs to know what they have to do differently. These are different questions with different answers, and most changelogs answer the first one.
+
+A changelog entry that says "Refactored token validation to use JWT" tells a developer that something changed internally. It doesn't tell them whether their integration breaks, what parameter they need to update, or where to find the migration guide. The team that wrote it knows all of that. The developer reading it knows none of it.
+
+A good changelog entry meets a simple test. A developer who reads only that entry should be able to determine whether their integration requires changes, and if so, exactly what those changes are. Most entries fail that test.
+
+## Breaking changes need separate treatment
+
+Mixing breaking changes with additive ones is the most common structural failure in API changelogs.
+
+Breaking changes like removed endpoints, renamed parameters, or changed response schemas require the developer to modify their integration before it will continue to work. Additive changes like new optional fields, new endpoints, or expanded rate limits can be safely ignored. Burying both types in a single chronological list puts the burden on developers to read every entry to find the ones that actually require action.
+
+Stripe's API changelog separates these explicitly. Monthly releases are non-breaking by design and safe to adopt without code changes. Dated releases that include breaking changes are flagged separately, with each release shipping alongside updated SDK versions and reference documentation. A developer scanning for action items doesn't have to read the whole changelog to find them.
+
+Twilio's approach adds a deprecation policy commitment. They provide a minimum of one full year's notice before removing any API version. That commitment is written into their developer documentation, not just implied by practice. A developer reading Twilio's deprecation notices knows they have at least twelve months to plan a migration.
+
+The practical implementation is a consistent change classification at the top of every entry. "Non-breaking," "breaking," "deprecated" are three labels that let developers skip what doesn't apply to them.
+
+## Deprecation notices that actually give developers a date
+
+"This parameter is deprecated and will be removed in a future release."
+
+That sentence tells a developer nothing actionable. "Future release" could mean next month or next year. Without a date, there's no migration planning. Without a migration guide link, there's nowhere to go even if the developer wants to act.
+
+A useful deprecation notice has three components:
+
+**What is being deprecated.** The specific parameter, endpoint, or behavior. Name the exact field or endpoint path, like `X-Auth-Token` or `POST /v1/authorize`. A phrase like "the old authentication method" leaves developers guessing.
+
+**A specific date or version when it stops working.** Use concrete language like "removed in API version 2026-09-01" or "sunset on October 1, 2026." A phrase like "a future release" gives developers no date to put on their sprint board.
+
+**Where the migration guide lives.** A direct link to updated reference documentation that describes the replacement behavior. Pointing to the changelog entry is not a migration guide.
+
+Deprecation notices without dates get treated as low-priority indefinitely. When the removal happens, the developer who deprioritized it files a support ticket. The deprecation notice was the opportunity to prevent that ticket, and vague language threw it away.
+
+<BlogNewsletterCTA />
+
+## The changelog entry and the reference doc update are two different tasks
+
+Publishing a changelog entry and updating the affected reference pages are distinct operations. Teams consistently do the first and treat it as complete.
+
+44% of developers dig through source code to understand an API because the documentation doesn't match what the product actually does, according to the same Postman 2024 data. Those developers have documentation available. The documentation describes a previous state of the product. The changelog told them something changed, the reference page shows what it looked like before, and neither one tells them what to do with the product as it actually exists today.
+
+The failure mode is mechanical. An engineer ships a change and writes a changelog entry. The technical writer who owns the reference page wasn't in the PR review. The update goes on the backlog. The next developer to read the reference page encounters contradictory information, where the changelog says one thing and the reference page says another. One of them is wrong and the developer doesn't know which.
+
+The fix is making the reference doc update part of the release definition. If a PR changes a public API endpoint, the corresponding reference documentation updates in the same release cycle and is linked from the changelog entry. The changelog entry becomes a navigation point, not a destination.
+
+For teams using a [docs-as-code workflow](https://promptless.ai/blog/technical/help-center-to-docs-as-code), this means a PR touching a public endpoint surfaces the corresponding reference pages for review in the same cycle. The connection between "this code changed" and "these docs need updating" gets made at the point of change, before a developer hits the stale page.
+
+## Link changelogs to what developers need next
+
+A well-structured changelog entry points outward.
+
+To act on "Added required `client_id` field to POST /tokens," a developer needs three more pieces of information. They need the updated reference page for POST /tokens, a migration guide if they're on a version that doesn't include this field, and the SDK version that ships with this change.
+
+Good changelog entries link directly to all three where applicable. Stripe's model ships each release with updated SDK versions for every supported language, links to the reference documentation for changed endpoints, and links to dedicated migration guides for breaking changes. The changelog is a starting point for navigation, not the full answer.
+
+For teams managing high-change APIs, this matters more than it might seem. A developer evaluating whether to upgrade doesn't want to read the full changelog. They want to find the delta between their current version and the target version, understand what breaks, and find the path forward. A changelog that links to updated reference material and migration guides gives them that path. A changelog that lists what changed internally doesn't.
+
+## Write for the decision, not the record
+
+The purpose of an API changelog is to help developers answer whether a change requires them to modify their integration, and if so, where to start.
+
+A changelog designed around that question separates breaking from non-breaking changes, gives deprecation notices specific dates, links to updated reference documentation, and ships the docs with the release. A changelog designed as an internal record doesn't answer that question at all.
+
+Most of that 68% had documentation to read. The frustration comes from documentation that seemed accurate and turned out not to be. A changelog entry that announces a change alongside reference docs that still describe the old behavior is the most common source of that frustration.
+
+[Keeping reference docs synchronized with what ships](https://promptless.ai/blog/technical/how-teams-keep-docs-up-to-date-with-promptless) is the work that makes the changelog credible. [Documentation drift detection](https://promptless.ai/blog/technical/documentation-drift-detection-problem) catches the gap between a changelog entry and the reference pages that should reflect it, before the next developer hits the inconsistency.
+
+<BlogRequestDemo />
