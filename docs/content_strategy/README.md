@@ -3,7 +3,7 @@
 **Scope:** Versioned, agent-readable strategy artifacts for Promptless — **who we serve**
 (audiences), **as whom** (personas), **to do what** (critical user journeys), and **how the
 Docs tab should be organized** to serve them (information architecture). These are internal
-working docs; they live under `docs/content_strategy/` (repo-root `docs/` is internal meta-docs, not the published Starlight docs in `src/content/docs/`) and are **not** built into the
+working docs; they live under `docs/content_strategy/` (repo-root `docs/` is internal meta-docs, not the published Starlight docs in `src/content/docs/for-docs/`) and are **not** built into the
 site.
 
 Derived bottom-up from customer and prospect interviews. Only the synthesized, **anonymized**
@@ -23,15 +23,15 @@ strategy is published here — no customer names or source-call references.
 IDs are stable cross-reference anchors; follow them between files:
 
 ```
-audience (aud-*) ──< persona (persona-*) ──< journey (cuj-*) ──> doc touchpoint (/docs/...)
+audience (aud-*) ──< persona (persona-*) ──< journey (cuj-*) ──> doc touchpoint (/docs/for-docs/...)
                                                        │
                                           proposed-ia.md organizes those touchpoints
                                           ia-gap-analysis.md flags the missing ones
 ```
 
 - Each **persona** names its `audience`; each **CUJ** names its `personas` and maps `steps`
-  to real `/docs/...` routes (or flags `[GAP]`/`exists: false`).
-- The **IA** is built from the CUJs, scoped to the **Docs tab only** (`src/content/docs/docs/`).
+  to real `/docs/for-docs/...` routes (or flags `[GAP]`/`exists: false`).
+- The **IA** is built from the CUJs, scoped to the **Docs tab only** (`src/content/docs/docs/for-docs/`).
 
 ## Headline findings
 
@@ -53,4 +53,4 @@ audience (aud-*) ──< persona (persona-*) ──< journey (cuj-*) ──> doc
   these published files.
 - **Keep IDs stable** — they're referenced across files and from `AGENTS.md`.
 - **Keep frontmatter assertion-dense** (e.g. CUJ `steps[].doc` routes) so it can later be
-  link-checked against `src/content/docs/`.
+  link-checked against `src/content/docs/for-docs/`.

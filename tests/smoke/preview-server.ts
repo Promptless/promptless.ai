@@ -32,6 +32,12 @@ interface RedirectRoute {
   status: number;
 }
 
+function resolveRedirectLocation(location: string, match: RegExpMatchArray): string {
+  return location.replace(/\$(\d+)/g, (_placeholder, group: string) => {
+    return match[Number(group)] ?? '';
+  });
+}
+
 interface BuildOutput {
   staticRoot: string;
   redirects: RedirectRoute[];
@@ -162,8 +168,13 @@ export async function startPreviewServer(options: { port?: number } = {}): Promi
     const pathname = new URL(req.url ?? '/', baseUrl).pathname;
 
     for (const redirect of redirects) {
-      if (redirect.pattern.test(pathname)) {
-        res.writeHead(redirect.status, { Location: redirect.location }).end();
+      const match = pathname.match(redirect.pattern);
+      if (match) {
+        res
+          .writeHead(redirect.status, {
+            Location: resolveRedirectLocation(redirect.location, match),
+          })
+          .end();
         return;
       }
     }
