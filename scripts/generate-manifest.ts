@@ -66,8 +66,15 @@ function toTitleCase(str: string): string {
 }
 
 function getSectionFromSlug(slug: string): string {
-  // slug format: "docs/getting-started/welcome" → "Getting Started"
+  // Product docs use "docs/for-docs/<section>/<page>". Utility pages and
+  // product landing pages continue to use their first segment after /docs.
   const parts = slug.split('/');
+  if (parts[1] === 'for-docs' && parts.length >= 3) {
+    return toTitleCase(parts[2]);
+  }
+  if (parts[1] === 'governance') {
+    return 'Agent Instructions';
+  }
   if (parts.length >= 2) {
     return toTitleCase(parts[1]);
   }

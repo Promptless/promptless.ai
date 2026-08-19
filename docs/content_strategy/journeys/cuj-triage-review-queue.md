@@ -4,14 +4,14 @@ type: cuj
 title: Triage and review the suggestion queue
 personas: [persona-eng-docs-owner, persona-scaleup-solo-writer, persona-enterprise-docs-lead, persona-devrel-owner, persona-oss-maintainer]
 trigger: "Suggestions are flowing; someone needs to review, edit, approve, and—critically—own clearing the queue."
-entry_point: /docs/how-to-use-promptless/using-the-web-interface
+entry_point: /docs/for-docs/how-to-use-promptless/using-the-web-interface
 success_criteria: "Suggestions are reviewed and merged on a sustainable cadence, with clear ownership/assignment so the queue doesn't pile up unattended."
 steps:
-  - { stage: "See the queue / inbox", doc: /docs/how-to-use-promptless/using-the-web-interface, exists: true }
-  - { stage: "Review & edit a drafted PR", doc: /docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
-  - { stage: "Assign an owner / auto-assign", doc: "/docs/how-to-use-promptless/assigning-and-routing-suggestions", exists: false, note: "[GAP] Auto-assignment is the #1 ask of engineer-owned teams" }
-  - { stage: "Review from Slack/Teams", doc: /docs/how-to-use-promptless/working-with-slack, exists: true }
-  - { stage: "Give feedback to improve future drafts", doc: /docs/how-to-use-promptless/providing-feedback, exists: true }
+  - { stage: "See the queue / inbox", doc: /docs/for-docs/how-to-use-promptless/using-the-web-interface, exists: true }
+  - { stage: "Review & edit a drafted PR", doc: /docs/for-docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
+  - { stage: "Assign an owner / auto-assign", doc: "/docs/for-docs/how-to-use-promptless/assigning-and-routing-suggestions", exists: false, note: "[GAP] Auto-assignment is the #1 ask of engineer-owned teams" }
+  - { stage: "Review from Slack/Teams", doc: /docs/for-docs/how-to-use-promptless/working-with-slack, exists: true }
+  - { stage: "Give feedback to improve future drafts", doc: /docs/for-docs/how-to-use-promptless/providing-feedback, exists: true }
 ---
 
 # CUJ: Triage and review the suggestion queue
