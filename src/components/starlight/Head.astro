@@ -4,8 +4,7 @@
  *
  * Every page on the site renders through Starlight, so this single override is
  * where per-page og:image / twitter:image get wired. It resolves the current
- * pathname to a generated card (src/lib/og/pages.ts + the /og/<slug>.png
- * endpoint) and emits the meta tags pointing at it.
+ * pathname to a pre-generated card and emits the meta tags pointing at it.
  *
  * Precedence, highest first:
  *   1. An explicit og:image already declared by the page (e.g. a blog post's
@@ -20,6 +19,7 @@
  */
 import Default from '@astrojs/starlight/components/Head.astro';
 import { getOgPageForPath } from '@lib/og/pages';
+import { getOgImageVersion } from '@lib/og/image-manifest';
 
 const STATIC_FALLBACK = '/assets/social-card.png';
 
@@ -39,7 +39,8 @@ const hasExplicitOgImage = routeHead.some(
 
 const ogPage = getOgPageForPath(Astro.url.pathname);
 const cardPath = ogPage ? `/og/${ogPage.slug}.png` : STATIC_FALLBACK;
-const cardUrl = `${siteUrl}${cardPath}`;
+const cardVersion = ogPage ? getOgImageVersion(ogPage.slug) : undefined;
+const cardUrl = `${siteUrl}${cardPath}${cardVersion ? `?v=${cardVersion}` : ''}`;
 ---
 
 <Default />

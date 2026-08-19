@@ -48,6 +48,7 @@ interface BlogFrontmatter {
   tag?: string;
   section?: string;
   hidden?: boolean;
+  socialImage?: string;
 }
 
 interface ChangelogFrontmatter {
@@ -170,6 +171,7 @@ async function processBlogContent(): Promise<RouteManifestEntry[]> {
         tab: 'blog',
         ...(fm.description && { description: fm.description }),
         ...(fm.date && { date: fm.date }),
+        ...(fm.socialImage && { socialImage: fm.socialImage }),
       });
     } catch (err) {
       console.error(`Error processing ${filePath}:`, err);

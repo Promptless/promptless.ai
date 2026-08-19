@@ -19,7 +19,7 @@ those are noted inline.
 - **Canonical URL** — `SITE_URL` env var (falls back to `https://promptless.ai`); drives sitemap and canonical tags.
 - **Logo** — `public/assets/logo.svg` (wired via the Starlight `logo.src` option).
 - **Brand colors & fonts** — `src/styles/custom.css` and `src/styles/site.css`.
-- **Header / footer / title chrome** — the seven Starlight component overrides in `src/components/starlight/` (`Header`, `Footer`, `Sidebar`, `SiteTitle`, `PageTitle`, `MobileMenuFooter`, `ThemeProviderLightOnly`).
+- **Header / footer / title chrome** — the seven Starlight component overrides in `src/components/starlight/` (`Header`, `Footer`, `Sidebar`, `SiteTitle`, `PageTitle`, `MobileMenuFooter`, `ThemeProviderDarkOnly`).
 
 ## Content
 
