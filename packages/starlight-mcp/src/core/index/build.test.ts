@@ -153,3 +153,18 @@ test('draft pages are excluded', () => {
     },
   );
 });
+
+test('the production docs tree indexes both product namespaces', () => {
+  const docsDir = join(process.cwd(), 'src', 'content', 'docs');
+  const entries = buildDocsIndex({
+    docsDir,
+    site: 'https://promptless.ai/',
+    base: '/',
+    locales: ROOT_ONLY,
+  });
+  const paths = new Set(entries.map((entry) => entry.path));
+
+  assert(paths.has('/docs/for-docs/start-here/welcome/'));
+  assert(paths.has('/docs/for-docs/api/') === false, 'OpenAPI pages are injected separately.');
+  assert(paths.has('/docs/governance/'));
+});

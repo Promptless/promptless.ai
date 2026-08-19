@@ -1,0 +1,52 @@
+---
+import { ChevronDown } from '@lucide/astro';
+import { DOCS_PRODUCTS, getActiveDocsProduct } from '@lib/docs-products';
+import DocsProductIcon from './DocsProductIcon.astro';
+
+const { topics } = Astro.locals.starlightSidebarTopics;
+const currentTopic = topics.find((topic) => topic.isCurrent);
+const normalizePath = (value: string | undefined) => value?.replace(/\/+$/, '') || '/';
+const currentProduct =
+  DOCS_PRODUCTS.find(
+    (product) =>
+      normalizePath(product.href) === normalizePath(currentTopic?.link) ||
+      product.label === currentTopic?.label,
+  ) ?? getActiveDocsProduct(Astro.url.pathname);
+---
+
+{
+  currentProduct ? (
+    <details class="pl-docs-product-switcher" data-site-nav-disclosure>
+      <summary class="pl-docs-product-switcher-trigger">
+        <DocsProductIcon name={currentProduct.icon} class="pl-docs-product-switcher-icon" />
+        <span class="pl-docs-product-switcher-copy">
+          <span class="pl-docs-product-switcher-eyebrow">Documentation product</span>
+          <span class="pl-docs-product-switcher-label">{currentProduct.label}</span>
+        </span>
+        {currentProduct.badge && <span class="pl-docs-product-badge">{currentProduct.badge}</span>}
+        <ChevronDown class="pl-docs-product-switcher-chevron" size={16} stroke-width={2} aria-hidden="true" />
+      </summary>
+
+      <div class="pl-docs-product-switcher-menu">
+        {DOCS_PRODUCTS.map((product) => {
+          const active = product.id === currentProduct.id;
+          return (
+            <a
+              class:list={['pl-docs-product-switcher-option', { active }]}
+              href={product.href}
+              aria-current={active ? 'true' : undefined}
+              data-track-action="select_docs_product"
+              data-track-funnel="evaluation"
+              data-track-location="docs_sidebar"
+              data-track-campaign={product.id}
+            >
+              <DocsProductIcon name={product.icon} class="pl-docs-product-switcher-option-icon" />
+              <span>{product.label}</span>
+              {product.badge && <span class="pl-docs-product-badge">{product.badge}</span>}
+            </a>
+          );
+        })}
+      </div>
+    </details>
+  ) : null
+}

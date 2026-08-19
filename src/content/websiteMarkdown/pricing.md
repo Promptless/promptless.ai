@@ -7,7 +7,7 @@ All plans include a 14-day free trial.
 
 Pricing scales with the size and complexity of your docs site.
 
-Open-source, non-commercial project? [Learn about our OSS program](https://promptless.ai/docs/getting-started/promptless-oss).
+Open-source, non-commercial project? [Learn about our OSS program](https://promptless.ai/docs/for-docs/start-here/open-source-quickstart).
 
 ## For agent instructions
 

@@ -1,11 +1,20 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test } from 'node:test';
 import { startPreviewServer, type PreviewServer } from './preview-server';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const legacyRoutes = JSON.parse(
+  readFileSync(path.join(REPO_ROOT, 'tests', 'fixtures', 'pre-product-split-routes.json'), 'utf8')
+) as {
+  sourceCommit: string;
+  forDocsHtml: string[];
+  markdownAndOpenGraphExcluded: string[];
+  utilityHtml: string[];
+  apiHtml: string[];
+};
 
 let preview: PreviewServer;
 
@@ -47,6 +56,20 @@ function assertInactiveLink(navHtml: string, href: string, label: string) {
   assert.doesNotMatch(navHtml, pattern, `Did not expect ${href} to be active for ${label}.`);
 }
 
+function assertMenuState(navHtml: string, label: string, active: boolean) {
+  const pattern = new RegExp(
+    `<summary(?=[^>]*class="[^"]*\\bactive\\b[^"]*")[^>]*>[\\s\\S]*?${escapeRegExp(
+      label
+    )}[\\s\\S]*?<\\/summary>`,
+    'i'
+  );
+  if (active) {
+    assert.match(navHtml, pattern, `Expected ${label} menu to be active.`);
+  } else {
+    assert.doesNotMatch(navHtml, pattern, `Did not expect ${label} menu to be active.`);
+  }
+}
+
 function assertLabelOrder(navHtml: string, labels: string[]) {
   let previousIndex = -1;
   for (const label of labels) {
@@ -57,6 +80,21 @@ function assertLabelOrder(navHtml: string, labels: string[]) {
     }
     previousIndex = index;
   }
+}
+
+function getBuiltHtmlFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    const filePath = path.join(directory, entry);
+    if (statSync(filePath).isDirectory()) return getBuiltHtmlFiles(filePath);
+    return entry.endsWith('.html') ? [filePath] : [];
+  });
+}
+
+function routeForBuiltHtml(staticRoot: string, filePath: string): string {
+  const relative = path.relative(staticRoot, filePath).split(path.sep).join('/');
+  if (relative === 'index.html') return '/';
+  if (relative.endsWith('/index.html')) return `/${relative.slice(0, -'index.html'.length)}`;
+  return `/${relative}`;
 }
 
 before(async () => {
@@ -149,6 +187,9 @@ test('llms endpoints remain available', async () => {
   const llmsFullBody = await llmsFull.text();
   assert.match(llmsFullBody, /<SYSTEM>/i);
   assert.match(llmsFullBody, /Promptless/i);
+  assert.match(llmsFullBody, /# Promptless overview/i);
+  assert.match(llmsFullBody, /# Promptless for Agent Instructions/i);
+  assert.match(llmsFullBody, /\/docs\/for-docs\//i);
 
   const llmsSmall = await fetch(`${preview.baseUrl}/llms-small.txt`);
   assert.equal(llmsSmall.status, 200);
@@ -161,13 +202,13 @@ test('homepage and docs pages include the llms.txt directive in html', async () 
   assert.equal(homepage.status, 200);
   assert.match(await homepage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 
-  const docsPage = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
+  const docsPage = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(docsPage.status, 200);
   assert.match(await docsPage.text(), /href="\/llms\.txt"[^>]*>llms\.txt<\/a>/i);
 });
 
 test('website and docs pages render in permanent dark mode', async () => {
-  for (const route of ['/', '/docs/start-here/welcome']) {
+  for (const route of ['/', '/docs/for-docs/start-here/welcome']) {
     const response = await fetch(`${preview.baseUrl}${route}`);
     assert.equal(response.status, 200);
     const html = await response.text();
@@ -179,14 +220,17 @@ test('website and docs pages render in permanent dark mode', async () => {
 });
 
 test('primary nav keeps canonical routes with free tools tab', async () => {
-  const response = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
+  const response = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(response.status, 200);
   const html = await response.text();
   const nav = getPrimaryNav(html);
 
   assertLink(nav, '/', 'Home');
   assertLink(nav, '/pricing', 'Pricing');
-  assertLink(nav, '/docs', 'Docs');
+  assert.match(nav, /<summary[^>]*aria-label="Choose a documentation product"[^>]*>/i);
+  assertLink(nav, '/docs/for-docs/start-here/welcome', 'Promptless for Docs');
+  assertLink(nav, '/docs/governance', 'Promptless for Agent Instructions');
+  assert.match(nav, /class="pl-docs-product-badge">New<\/span>/i);
   assertLink(nav, '/blog', 'Blog');
   assertLink(nav, '/changelog', 'Changelog');
   assertLink(nav, '/free-tools', 'Free tools');
@@ -200,7 +244,7 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   const websiteHtml = await (await fetch(`${preview.baseUrl}/`)).text();
   const websitePricingHtml = await (await fetch(`${preview.baseUrl}/pricing`)).text();
   const meetHtml = await (await fetch(`${preview.baseUrl}/meet`)).text();
-  const docsHtml = await (await fetch(`${preview.baseUrl}/docs/start-here/welcome`)).text();
+  const docsHtml = await (await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`)).text();
   const blogHtml = await (await fetch(`${preview.baseUrl}/blog`)).text();
   const changelogHtml = await (await fetch(`${preview.baseUrl}/changelog`)).text();
   const freeToolsIndexHtml = await (await fetch(`${preview.baseUrl}/free-tools`)).text();
@@ -208,7 +252,7 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
 
   const websiteNav = getPrimaryNav(websiteHtml);
   assertActiveLink(websiteNav, '/', 'Home');
-  assertInactiveLink(websiteNav, '/docs', 'Docs');
+  assertMenuState(websiteNav, 'Docs', false);
   assertInactiveLink(websiteNav, '/blog', 'Blog');
   assertInactiveLink(websiteNav, '/changelog', 'Changelog');
   assertInactiveLink(websiteNav, '/free-tools', 'Free tools');
@@ -221,7 +265,7 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   assertInactiveLink(meetNav, '/', 'Home');
 
   const docsNav = getPrimaryNav(docsHtml);
-  assertActiveLink(docsNav, '/docs', 'Docs');
+  assertMenuState(docsNav, 'Docs', true);
   assertInactiveLink(docsNav, '/', 'Home');
   assertInactiveLink(docsNav, '/blog', 'Blog');
   assertInactiveLink(docsNav, '/changelog', 'Changelog');
@@ -230,30 +274,151 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   const blogNav = getPrimaryNav(blogHtml);
   assertActiveLink(blogNav, '/blog', 'Blog');
   assertInactiveLink(blogNav, '/', 'Home');
-  assertInactiveLink(blogNav, '/docs', 'Docs');
+  assertMenuState(blogNav, 'Docs', false);
   assertInactiveLink(blogNav, '/changelog', 'Changelog');
   assertInactiveLink(blogNav, '/free-tools', 'Free tools');
 
   const changelogNav = getPrimaryNav(changelogHtml);
   assertActiveLink(changelogNav, '/changelog', 'Changelog');
   assertInactiveLink(changelogNav, '/', 'Home');
-  assertInactiveLink(changelogNav, '/docs', 'Docs');
+  assertMenuState(changelogNav, 'Docs', false);
   assertInactiveLink(changelogNav, '/blog', 'Blog');
   assertInactiveLink(changelogNav, '/free-tools', 'Free tools');
 
   const freeToolsIndexNav = getPrimaryNav(freeToolsIndexHtml);
   assertActiveLink(freeToolsIndexNav, '/free-tools', 'Free tools');
   assertInactiveLink(freeToolsIndexNav, '/', 'Home');
-  assertInactiveLink(freeToolsIndexNav, '/docs', 'Docs');
+  assertMenuState(freeToolsIndexNav, 'Docs', false);
   assertInactiveLink(freeToolsIndexNav, '/blog', 'Blog');
   assertInactiveLink(freeToolsIndexNav, '/changelog', 'Changelog');
 
   const freeToolsToolNav = getPrimaryNav(freeToolsToolHtml);
   assertActiveLink(freeToolsToolNav, '/free-tools', 'Free tools');
   assertInactiveLink(freeToolsToolNav, '/', 'Home');
-  assertInactiveLink(freeToolsToolNav, '/docs', 'Docs');
+  assertMenuState(freeToolsToolNav, 'Docs', false);
   assertInactiveLink(freeToolsToolNav, '/blog', 'Blog');
   assertInactiveLink(freeToolsToolNav, '/changelog', 'Changelog');
+});
+
+test('each documentation product gets only its own active topic and product metadata', async () => {
+  const forDocsResponse = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
+  assert.equal(forDocsResponse.status, 200);
+  const forDocsHtml = await forDocsResponse.text();
+
+  assert.match(forDocsHtml, /class="pl-docs-product-switcher[\s"]/);
+  assert.match(
+    forDocsHtml,
+    /<a(?=[^>]*class="[^"]*pl-docs-product-switcher-option active)(?=[^>]*href="\/docs\/for-docs\/start-here\/welcome")(?=[^>]*aria-current="true")[^>]*>/i
+  );
+  assert.match(forDocsHtml, /href="\/docs\/for-docs\/start-here\/welcome\/" aria-current="page"/i);
+  assert.doesNotMatch(forDocsHtml, /href="\/docs\/governance\/" aria-current="page"/i);
+
+  const governanceResponse = await fetch(`${preview.baseUrl}/docs/governance`);
+  assert.equal(governanceResponse.status, 200);
+  const governanceHtml = await governanceResponse.text();
+
+  assert.match(
+    governanceHtml,
+    /<a(?=[^>]*class="[^"]*pl-docs-product-switcher-option active)(?=[^>]*href="\/docs\/governance")(?=[^>]*aria-current="true")[^>]*>/i
+  );
+  assert.match(governanceHtml, /href="\/docs\/governance\/" aria-current="page"/i);
+  assert.doesNotMatch(
+    governanceHtml,
+    /href="\/docs\/for-docs\/start-here\/welcome\/" aria-current="page"/i
+  );
+  assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
+  assert.match(
+    governanceHtml,
+    /uses evidence from agent sessions to help teams improve and govern skills, subagents, hooks, and other agent instructions\./i
+  );
+  assert.match(governanceHtml, /Detailed documentation is coming soon\./i);
+
+  for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
+    assert.match(
+      governanceHtml,
+      new RegExp(`data-track-action="select_docs_product"[\\s\\S]{0,220}data-track-location="${location}"`),
+      `Expected product selection tracking in ${location}.`
+    );
+  }
+});
+
+test('Docs disclosures expose keyboard and dismissal behavior', async () => {
+  const response = await fetch(`${preview.baseUrl}/docs/governance`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+
+  assert.match(html, /<details class="pl-site-tab-menu" data-site-nav-disclosure>/i);
+  assert.match(html, /document\.addEventListener\('click'/);
+  assert.match(html, /event\.key !== 'Escape'/);
+  assert.match(html, /restoreFocus/);
+  assert.match(html, /document\.addEventListener\('toggle'/);
+  assert.match(html, /typeof window\.posthog\?\.capture === 'function'/);
+});
+
+test('utility documentation pages stay outside product sidebars', async () => {
+  for (const route of legacyRoutes.utilityHtml) {
+    const response = await fetch(`${preview.baseUrl}${route}`);
+    assert.equal(response.status, 200, route);
+    const html = await response.text();
+    assert.doesNotMatch(html, /class="pl-docs-product-switcher[\s"]/i, route);
+    assert.doesNotMatch(html, /<ul class="top-level[^>]*>/i, route);
+    assert.match(html, /\.page > \.sidebar\s*\{\s*display: none !important;/i, route);
+  }
+});
+
+test('the frozen pre-split route inventory redirects once to successful canonical routes', async () => {
+  assert.equal(
+    legacyRoutes.sourceCommit,
+    '3981b325de50c2a2ad83edcf70816b70f2300afa',
+    'The compatibility fixture must stay tied to the fetched migration base.'
+  );
+
+  const excluded = new Set(legacyRoutes.markdownAndOpenGraphExcluded);
+  const cases: Array<{ source: string; destination: string }> = [];
+
+  for (const source of legacyRoutes.forDocsHtml) {
+    const destination = `/docs/for-docs${source.slice('/docs'.length)}`;
+    cases.push({ source, destination });
+    if (!excluded.has(source)) {
+      cases.push({ source: `${source}.md`, destination: `${destination}.md` });
+      cases.push({
+        source: `/og${source}.png`,
+        destination: `/og/docs/for-docs${source.slice('/docs'.length)}.png`,
+      });
+    }
+  }
+
+  for (const source of legacyRoutes.apiHtml) {
+    cases.push({ source, destination: `/docs/for-docs/api${source.slice('/api'.length)}` });
+  }
+
+  const batches: Array<typeof cases> = [];
+  for (let index = 0; index < cases.length; index += 20) {
+    batches.push(cases.slice(index, index + 20));
+  }
+
+  for (const batch of batches) {
+    await Promise.all(
+      batch.map(async ({ source, destination }) => {
+        const response = await fetch(`${preview.baseUrl}${source}`, { redirect: 'manual' });
+        let location: string | undefined;
+
+        if (response.status >= 300 && response.status < 400) {
+          assert.ok([301, 308].includes(response.status), `${source} was not a permanent redirect.`);
+          const header = response.headers.get('location');
+          assert.ok(header, `${source} did not provide a Location header.`);
+          location = new URL(header, preview.baseUrl).pathname;
+        } else {
+          assert.equal(response.status, 200, `${source} did not render a static redirect stub.`);
+          location = (await response.text()).match(/Redirecting to:\s*([^\s<"']+)/)?.[1];
+        }
+
+        assert.equal(location, destination, `${source} must redirect directly to its canonical route.`);
+        const canonical = await fetch(`${preview.baseUrl}${destination}`, { redirect: 'manual' });
+        assert.equal(canonical.status, 200, `${destination} must be a successful canonical destination.`);
+      })
+    );
+  }
 });
 
 test('/blog/all and /changelog/all remain compatibility redirects', async () => {
@@ -304,7 +469,7 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
 
   // Alias → canonical destination (see the `redirects` map in astro.config.mjs;
   // /api-reference points at the API reference, not the homepage).
-  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/', '/api-reference': '/api/' };
+  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/', '/api-reference': '/docs/for-docs/api/' };
   for (const [alias, destination] of Object.entries(aliases)) {
     const aliasResponse = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (aliasResponse.status >= 300 && aliasResponse.status < 400) {
@@ -587,6 +752,40 @@ test('every same-origin docs link on the homepage resolves to a real page', asyn
   );
 });
 
+test('every link to a built same-origin page resolves successfully', async () => {
+  const staticRoot = existsSync(path.join(REPO_ROOT, '.vercel', 'output', 'static'))
+    ? path.join(REPO_ROOT, '.vercel', 'output', 'static')
+    : path.join(REPO_ROOT, 'dist');
+  const targets = new Map<string, string>();
+
+  for (const filePath of getBuiltHtmlFiles(staticRoot)) {
+    const sourceRoute = routeForBuiltHtml(staticRoot, filePath);
+    const html = readFileSync(filePath, 'utf8');
+    for (const match of html.matchAll(/<a\b[^>]*\bhref="([^"]+)"/gi)) {
+      const href = match[1].replaceAll('&amp;', '&');
+      if (href.startsWith('#')) continue;
+
+      const target = new URL(href, `https://promptless.ai${sourceRoute}`);
+      if (target.origin !== 'https://promptless.ai' || target.pathname === '/mcp') continue;
+      targets.set(`${target.pathname}${target.search}`, sourceRoute);
+    }
+  }
+
+  const entries = [...targets.entries()];
+  const broken: string[] = [];
+  for (let index = 0; index < entries.length; index += 30) {
+    await Promise.all(
+      entries.slice(index, index + 30).map(async ([target, source]) => {
+        const response = await fetch(`${preview.baseUrl}${target}`);
+        if (response.status !== 200) {
+          broken.push(`${source} -> ${target} (${response.status})`);
+        }
+      })
+    );
+  }
+  assert.deepEqual(broken.sort(), [], `Broken same-origin links:\n${broken.sort().join('\n')}`);
+});
+
 test('website header replaces home search with the launch announcement', async () => {
   const homeResponse = await fetch(`${preview.baseUrl}/`);
   assert.equal(homeResponse.status, 200);
@@ -600,7 +799,7 @@ test('website header replaces home search with the launch announcement', async (
   );
   assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
 
-  const docsResponse = await fetch(`${preview.baseUrl}/docs/start-here/welcome`);
+  const docsResponse = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(docsResponse.status, 200);
   assert.match(await docsResponse.text(), /aria-label="Search"/i);
 });
@@ -673,9 +872,11 @@ test('website compatibility routes redirect to canonical destinations', async ()
   // Alias → canonical destination (see the `redirects` map in astro.config.mjs).
   const rootAliases: Record<string, string> = {
     '/home': '/',
+    '/docs': '/docs/for-docs/start-here/welcome',
+    '/oss': '/docs/for-docs/start-here/open-source-quickstart',
     '/use-cases': '/',
     '/faq': '/',
-    '/api-reference': '/api/',
+    '/api-reference': '/docs/for-docs/api/',
     '/page': '/',
     '/wtd': '/',
     '/hn': '/',

@@ -5,7 +5,7 @@ scope: Phase 0 of the IA cut-over — the finalized slugs, section-index and pro
 covers_nav_tab: docs
 derived_from: [implementation-plan.md, proposed-ia.md, ia-gap-analysis.md]
 companion: [implementation-plan.md, proposed-ia.md, ia-gap-analysis.md]
-current_source: src/content/docs/docs/
+current_source: src/content/docs/docs/for-docs/
 ---
 
 # Phase 0 — Scaffolding & Conventions
@@ -19,7 +19,7 @@ and independently reviewable.
 
 Read [proposed-ia.md](proposed-ia.md) for the target structure and
 [ia-gap-analysis.md](ia-gap-analysis.md) for the current→proposed mapping; this file operationalizes
-both. Where either disagrees with what is actually on disk in `src/content/docs/docs/`, the on-disk
+both. Where either disagrees with what is actually on disk in `src/content/docs/docs/for-docs/`, the on-disk
 inventory taken for this phase (below) wins.
 
 ---
@@ -59,7 +59,7 @@ redirect and sidebar entry land in a coherent nav when it is authored.
 
 ### 1.2 Existing pages → finalized destination slug
 
-Every file currently under `src/content/docs/docs/` (verified against the tree on `main`), with the
+Every file currently under `src/content/docs/docs/for-docs/` (verified against the tree on `main`), with the
 phase that moves it. `[NEW]` pages are **not** here — they are reserved in §1.3.
 
 | Current slug (`docs/…`) | Finalized slug (`docs/…`) | Phase |
@@ -220,14 +220,14 @@ nav today (see the note below on the plan's stale sidebar assumption).
 
 **For every page a PR adds, moves, renames, or removes:**
 
-1. **Content file** is at its finalized slug under `src/content/docs/docs/` (§1), with frontmatter
+1. **Content file** is at its finalized slug under `src/content/docs/docs/for-docs/` (§1), with frontmatter
    updated to match: `slug` set to the new path, and `sidebar.order` / `sidebar.hidden` /
    `sidebar.label` set so the page lands in the right group, position, and label. **The nav is
    driven entirely by this frontmatter** — placement in a section comes from the slug's path
    segments, ordering from `sidebar.order`, visibility from `sidebar.hidden`, and the label from
    `sidebar.label ?? title`.
 2. **Redirect added** in `src/lib/generated/redirects.json` — a `{ "source", "destination",
-   "permanent": true }` entry from every retired `/docs/...` path to its destination. Consolidations
+   "permanent": true }` entry from every retired `/docs/for-docs/...` path to its destination. Consolidations
    redirect *every* retired path to the surviving page. This file **is hand-maintained** — no script
    writes it; `astro.config.mjs` imports and spreads it.
 3. **Sidebar regenerated, not hand-edited.** `src/lib/generated/sidebar.json` is a build artifact
