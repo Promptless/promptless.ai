@@ -4,13 +4,13 @@ type: cuj
 title: Make docs accurate and discoverable for AI agents
 personas: [persona-devrel-owner, persona-enterprise-docs-lead, persona-oss-maintainer, persona-scaleup-solo-writer]
 trigger: "AI coding agents are a primary docs consumer, but the docs aren't discoverable (no llms.txt) or accurate enough for agents to implement the product correctly."
-entry_point: /docs/configuring-promptless/doc-collections/doc-detective-integration
+entry_point: /docs/for-docs/configuring-promptless/doc-collections/doc-detective-integration
 success_criteria: "Docs expose agent-friendly artifacts (e.g. llms.txt) and code examples are validated, so AI agents recommend and correctly implement the product."
 steps:
-  - { stage: "Validate code examples (Doc Detective)", doc: /docs/configuring-promptless/doc-collections/doc-detective-integration, exists: true }
-  - { stage: "Generate agent-friendly artifacts (llms.txt)", doc: "/docs/how-to-use-promptless/agent-friendly-docs", exists: false, note: "[GAP] llms.txt / agent-discoverability requested by several customers" }
-  - { stage: "Keep SDK/API reference accurate", doc: "/docs/how-to-use-promptless/sdk-api-accuracy", exists: false, note: "[GAP] No SDK/API-accuracy use-case page" }
-  - { stage: "Treat doc feedback as a trigger", doc: /docs/configuring-promptless/triggers, exists: partial, note: "one customer wanted to trigger off doc feedback" }
+  - { stage: "Validate code examples (Doc Detective)", doc: /docs/for-docs/configuring-promptless/doc-collections/doc-detective-integration, exists: true }
+  - { stage: "Generate agent-friendly artifacts (llms.txt)", doc: "/docs/for-docs/how-to-use-promptless/agent-friendly-docs", exists: false, note: "[GAP] llms.txt / agent-discoverability requested by several customers" }
+  - { stage: "Keep SDK/API reference accurate", doc: "/docs/for-docs/how-to-use-promptless/sdk-api-accuracy", exists: false, note: "[GAP] No SDK/API-accuracy use-case page" }
+  - { stage: "Treat doc feedback as a trigger", doc: /docs/for-docs/configuring-promptless/triggers, exists: partial, note: "one customer wanted to trigger off doc feedback" }
 ---
 
 # CUJ: Make docs accurate and discoverable for AI agents

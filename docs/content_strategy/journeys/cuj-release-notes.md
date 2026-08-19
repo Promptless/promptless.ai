@@ -4,13 +4,13 @@ type: cuj
 title: Generate release notes and changelogs from change signal
 personas: [persona-eng-docs-owner, persona-scaleup-solo-writer, persona-enterprise-docs-lead]
 trigger: "The product ships continuously but there's no reliable release-notes/changelog process; updates go unannounced."
-entry_point: /docs/configuring-promptless/triggers/git-hub-p-rs
+entry_point: /docs/for-docs/configuring-promptless/triggers/git-hub-p-rs
 success_criteria: "Release notes / changelog entries are drafted automatically from PRs (and Slack/Jira context) on the team's cadence, published after release."
 steps:
-  - { stage: "Trigger on merged PRs", doc: /docs/configuring-promptless/triggers/git-hub-p-rs, exists: true }
-  - { stage: "Pull the 'why' from Slack/Jira/Linear", doc: /docs/configuring-promptless/context-sources, exists: true }
-  - { stage: "Draft release notes / changelog", doc: "/docs/how-to-use-promptless/release-notes", exists: false, note: "[GAP] No release-notes use-case page despite recurring demand" }
-  - { stage: "Time publication to release", doc: "/docs/configuring-promptless/release-timing", exists: false, note: "[GAP] shared with cuj-calibrate-suggestions" }
+  - { stage: "Trigger on merged PRs", doc: /docs/for-docs/configuring-promptless/triggers/git-hub-p-rs, exists: true }
+  - { stage: "Pull the 'why' from Slack/Jira/Linear", doc: /docs/for-docs/configuring-promptless/context-sources, exists: true }
+  - { stage: "Draft release notes / changelog", doc: "/docs/for-docs/how-to-use-promptless/release-notes", exists: false, note: "[GAP] No release-notes use-case page despite recurring demand" }
+  - { stage: "Time publication to release", doc: "/docs/for-docs/configuring-promptless/release-timing", exists: false, note: "[GAP] shared with cuj-calibrate-suggestions" }
 ---
 
 # CUJ: Generate release notes and changelogs from change signal

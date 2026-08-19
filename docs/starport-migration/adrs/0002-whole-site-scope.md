@@ -33,7 +33,7 @@ as-is on top of the template-based Astro/Starlight engine.
 - **The 7 Starlight overrides are the friction point.** They are written against
   Starlight 0.37's component API; the template is on 0.41. Each override
   (Header, Footer, Sidebar, SiteTitle, PageTitle, MobileMenuFooter,
-  ThemeProviderLightOnly) must be re-validated against 0.41's component contract
+  ThemeProviderDarkOnly) must be re-validated against 0.41's component contract
   during the engine upgrade (plan §Phase 1). The `Sidebar` override in
   particular interacts with the nav-mechanic switch (§Phase 3).
 - **Automation must keep working.** `generate-article` and `launch-post` write

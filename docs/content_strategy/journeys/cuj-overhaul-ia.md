@@ -4,14 +4,14 @@ type: cuj
 title: Restructure the information architecture of an existing doc set
 personas: [persona-brownfield-docs-lead, persona-enterprise-docs-lead]
 trigger: "The doc set's navigation/structure reflects an older product shape and no longer maps to how the product or its users work."
-entry_point: /docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs
+entry_point: /docs/for-docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs
 success_criteria: "The corpus is reorganized into an IA that matches today's product (e.g. capability-based), with content moved/merged/retitled and URLs preserved — without losing or stranding pages."
 steps:
-  - { stage: "Map the current corpus & its structure", doc: "/docs/how-to-use-promptless/content-audit", exists: false, note: "[GAP] shared with cuj-remediate-legacy-content" }
-  - { stage: "Design the target IA (e.g. capability-based)", doc: "/docs/how-to-use-promptless/restructuring-your-docs", exists: false, note: "[GAP] one customer's capability-based 'v3.0' rebuild; another's template/IA refactor" }
-  - { stage: "Move, merge, and retitle pages into the new IA", doc: "/docs/how-to-use-promptless/restructuring-your-docs#executing", exists: false, note: "[GAP]" }
-  - { stage: "Preserve URLs / redirects", doc: "/docs/migrations/redirects", exists: false, note: "[GAP] shared with cuj-migrate-to-docs-as-code" }
-  - { stage: "Keep new content flowing into the new structure", doc: /docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs, exists: true }
+  - { stage: "Map the current corpus & its structure", doc: "/docs/for-docs/how-to-use-promptless/content-audit", exists: false, note: "[GAP] shared with cuj-remediate-legacy-content" }
+  - { stage: "Design the target IA (e.g. capability-based)", doc: "/docs/for-docs/how-to-use-promptless/restructuring-your-docs", exists: false, note: "[GAP] one customer's capability-based 'v3.0' rebuild; another's template/IA refactor" }
+  - { stage: "Move, merge, and retitle pages into the new IA", doc: "/docs/for-docs/how-to-use-promptless/restructuring-your-docs#executing", exists: false, note: "[GAP]" }
+  - { stage: "Preserve URLs / redirects", doc: "/docs/for-docs/migrations/redirects", exists: false, note: "[GAP] shared with cuj-migrate-to-docs-as-code" }
+  - { stage: "Keep new content flowing into the new structure", doc: /docs/for-docs/configuring-promptless/doc-collections/how-promptless-learns-your-docs, exists: true }
 ---
 
 # CUJ: Restructure the information architecture of an existing doc set
