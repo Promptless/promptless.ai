@@ -37,3 +37,6 @@ migration plan:
 - [0006 — Adopt docmeta (frontmatter validation) from template v1.1.0](../docs/starport-migration/adrs/0006-adopt-docmeta.md) — accepted
 
 New, non-migration architecture decisions go here in `adrs/` using the MADR template above.
+
+- [0001 — Generate Open Graph images incrementally](0001-incremental-og-image-generation.md) — accepted
+- [0002 — Split documentation by product](0002-split-documentation-by-product.md) — accepted

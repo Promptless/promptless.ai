@@ -59,6 +59,7 @@ Current `action` values:
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
+| `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign
 it holds three buttons: Sign in (`sign_in`), Get a demo (`book_demo`), and

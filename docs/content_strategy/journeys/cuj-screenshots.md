@@ -4,13 +4,13 @@ type: cuj
 title: Set up automated screenshot capture and updates
 personas: [persona-scaleup-solo-writer, persona-enterprise-docs-lead, persona-eng-docs-owner, persona-oss-maintainer, persona-devrel-owner]
 trigger: "A UI/label change just invalidated dozens of screenshots and the team is recapturing them by hand."
-entry_point: /docs/how-to-use-promptless/using-promptless-capture
+entry_point: /docs/for-docs/how-to-use-promptless/using-promptless-capture
 success_criteria: "Screenshots in docs are captured and refreshed automatically on UI changes, including behind auth and on firewalled/test environments, with correct annotations."
 steps:
-  - { stage: "Understand Promptless Capture", doc: /docs/how-to-use-promptless/using-promptless-capture, exists: true }
-  - { stage: "Authenticate to the app being captured", doc: "/docs/how-to-use-promptless/using-promptless-capture#authentication", exists: partial, note: "Auth-to-target-app failures reported by one customer; firewalled instances blocked for another" }
-  - { stage: "Capture on test/staging environments", doc: "/docs/how-to-use-promptless/using-promptless-capture#environments", exists: partial }
-  - { stage: "Control annotations (color, callouts)", doc: "/docs/how-to-use-promptless/using-promptless-capture#annotations", exists: partial, note: "Annotation color gap raised by one customer" }
+  - { stage: "Understand Promptless Capture", doc: /docs/for-docs/how-to-use-promptless/using-promptless-capture, exists: true }
+  - { stage: "Authenticate to the app being captured", doc: "/docs/for-docs/how-to-use-promptless/using-promptless-capture#authentication", exists: partial, note: "Auth-to-target-app failures reported by one customer; firewalled instances blocked for another" }
+  - { stage: "Capture on test/staging environments", doc: "/docs/for-docs/how-to-use-promptless/using-promptless-capture#environments", exists: partial }
+  - { stage: "Control annotations (color, callouts)", doc: "/docs/for-docs/how-to-use-promptless/using-promptless-capture#annotations", exists: partial, note: "Annotation color gap raised by one customer" }
 ---
 
 # CUJ: Set up automated screenshot capture and updates

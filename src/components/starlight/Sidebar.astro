@@ -3,21 +3,50 @@ import MobileMenuFooter from './MobileMenuFooter.astro';
 import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
 import SidebarSublist from '@astrojs/starlight/components/SidebarSublist.astro';
 import PrimaryTabs from '@components/shared/PrimaryTabs.astro';
+import DocsProductSwitcher from '@components/shared/DocsProductSwitcher.astro';
+import { getActiveDocsProduct } from '@lib/docs-products';
 
 const { sidebar } = Astro.locals.starlightRoute;
+const showProductSidebar = Boolean(getActiveDocsProduct(Astro.url.pathname));
 ---
 
-<div class="pl-mobile-section-chips md:sl-hidden">
-  <PrimaryTabs class="pl-chip-tabs" />
-</div>
+{
+  showProductSidebar ? (
+    <>
+      <div class="pl-mobile-section-chips md:sl-hidden">
+        <PrimaryTabs class="pl-chip-tabs" trackingLocation="mobile_menu" />
+      </div>
 
-<SidebarPersister>
-	<SidebarSublist sublist={sidebar} />
-</SidebarPersister>
+      <DocsProductSwitcher />
 
-<div class="md:sl-hidden">
-	<MobileMenuFooter />
-</div>
+      <SidebarPersister>
+        <SidebarSublist sublist={sidebar} />
+      </SidebarPersister>
+
+      <div class="md:sl-hidden">
+        <MobileMenuFooter />
+      </div>
+    </>
+  ) : (
+    <style
+      is:inline
+      set:html={`
+        html {
+          --sl-content-inline-start: 0rem !important;
+          --sl-content-width: 67.5rem;
+        }
+        .page > .sidebar {
+          display: none !important;
+        }
+        @media (max-width: 49.999rem) {
+          .pl-mobile-nav {
+            display: inline-flex !important;
+          }
+        }
+      `}
+    />
+  )
+}
 
 <style>
   @layer starlight.core {
