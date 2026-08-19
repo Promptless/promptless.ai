@@ -5,7 +5,7 @@ slug: docs/reference/configuration-reference
 type: reference
 tags:
   - reference
-timestamp: "2026-07-10T17:59:48Z"
+timestamp: "2026-08-11T00:00:00Z"
 sidebar:
   hidden: false
   order: 61
@@ -341,6 +341,57 @@ triggers:
 </details>
 
 <details>
+  <summary>jira\_new\_issue</summary>
+
+  Triggers when an issue is created in a matching project.
+
+  **Match clause fields:**
+
+  | Field         | Description                                                        |
+  | ------------- | ------------------------------------------------------------------ |
+  | `project_key` | Required. Non-empty list of Jira project keys (for example `DOCS`) |
+
+  An optional top-level `instructions` field (a sibling of `match`) gives the trigger standing instructions passed to Promptless on each run; a present-but-blank value is rejected. The trigger is passive and creates no reply obligation—`jira_mention` is the built-in that owes a reply on the ticket.
+</details>
+
+<details>
+  <summary>jira\_label\_added</summary>
+
+  Triggers when a label is added to an issue.
+
+  **Match clause fields:**
+
+  | Field         | Description                                                                                   |
+  | ------------- | --------------------------------------------------------------------------------------------- |
+  | `new_label`   | Required. Labels whose addition activates the trigger; matches when any listed label is added |
+  | `project_key` | Optional. Restrict to these project keys                                                      |
+
+  A label whose first token is `promptless` is reserved for the built-in `jira_mention` path and never matches `new_label`; name the label something else.
+
+  Takes the same optional `instructions` field as `jira_new_issue`, and is likewise passive (no reply obligation).
+</details>
+
+<details>
+  <summary>jira\_status\_change</summary>
+
+  Triggers when an issue moves into a new status.
+
+  **Match clause fields:**
+
+  | Field         | Description                                                                                             |
+  | ------------- | ------------------------------------------------------------------------------------------------------- |
+  | `new_status`  | Status names the issue moved into                                                                       |
+  | `is_done`     | Only `true` is accepted; matches any status in Jira's done category, stable across projects and renames |
+  | `project_key` | Optional. Restrict to these project keys                                                                |
+
+  At least one of `new_status`, `is_done`, or `project_key` must be set in each clause.
+
+  Takes the same optional `instructions` field as `jira_new_issue`, and is likewise passive (no reply obligation).
+</details>
+
+A Jira trigger activates once per crossing and does not re-fire on later deliveries about an issue that still matches. Creating an issue crosses every edge at once, so a new issue that matches two Jira triggers dispatches once, tagged with both keys; and an issue moving between two done statuses activates an `is_done: true` trigger again. See [How a configured trigger activates](/docs/connect/triggers/jira#how-a-configured-trigger-activates) for the full explanation.
+
+<details>
   <summary>schedule</summary>
 
   Triggers when a scheduled time comes due and dispatches your standing instructions each time.
@@ -362,6 +413,7 @@ Some triggers are always active when their integration is connected and don't ap
 - **slack\_mention** — @Promptless mentions in Slack channels
 - **msteams\_mention** — @Promptless mentions in Microsoft Teams
 - **github\_mention** — @Promptless mentions in GitHub issues and PR comments
+- **jira\_mention** — Assigning a Jira issue to the Promptless account, @mentioning it in a comment, or adding a `promptless`-prefixed label
 - **web** — Requests submitted through the web dashboard
 - **api** — Requests from the HTTP API
 
@@ -528,7 +580,7 @@ context_sources:
     team_keys:
       - engineering
 
-# Built-in triggers (api, github_mention, msteams_mention, slack_mention, web)
+# Built-in triggers (api, github_mention, jira_mention, msteams_mention, slack_mention, web)
 # are always on for connected integrations and are not configured here;
 # their keys remain valid in policies rules.
 triggers:
