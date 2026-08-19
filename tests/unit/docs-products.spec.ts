@@ -25,7 +25,7 @@ test('documentation product metadata is complete and centrally badges the new pr
         id: 'agent_instructions',
         label: 'Promptless for Agent Instructions',
         href: '/docs/governance',
-        description: 'Govern and continuously improve your AI workforce’s instructions.',
+        description: 'Govern and improve your AI workforce.',
         icon: 'agent_instructions',
         badge: 'New',
       },

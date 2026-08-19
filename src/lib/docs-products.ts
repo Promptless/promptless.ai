@@ -27,7 +27,7 @@ export const DOCS_PRODUCTS: readonly DocsProduct[] = [
     label: 'Promptless for Agent Instructions',
     switcherLabel: 'for Agent Instructions',
     href: '/docs/governance',
-    description: 'Govern and continuously improve your AI workforce\u2019s instructions.',
+    description: 'Govern and improve your AI workforce.',
     icon: 'agent_instructions',
     badge: 'New',
     pathPrefix: '/docs/governance',
