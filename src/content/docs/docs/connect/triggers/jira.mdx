@@ -27,7 +27,7 @@ Four paths start a session from a ticket. Three are built in and active whenever
 
 Each of these three paths creates a reply obligation: Promptless owes an answer on the ticket and tracks it the way it tracks an unanswered Slack thread. All three are the built-in `jira_mention` trigger—active whenever Atlassian is connected, with no YAML configuration. Like other built-in triggers, these paths are always on when Atlassian is connected and cannot be disabled. (Internally they are the assignment, label, and mention subtypes, but they route through the single `jira_mention` key, so a policy rule targets `jira_mention` rather than a per-path key.)
 
-The fourth path is a configured Jira trigger—one that activates when an issue is created, when a label is added, or when an issue changes status. It is passive and creates no reply obligation—Promptless analyzes the ticket but does not owe an answer on it.
+The fourth path is a configured Jira trigger—one that activates when an issue is created, when a label is added, or when an issue changes status. Like the three built-in paths above, it creates a reply obligation: Promptless owes an answer on the ticket and tracks it the same way.
 
 ## Reply on the ticket
 
@@ -100,7 +100,7 @@ triggers:
         project_key: [DOCS]
 ```
 
-A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it—a docs suggestion and PR, plus the usual Slack or Teams notification. It creates no reply obligation, unlike `jira_mention`, so nothing obliges an answer on the ticket.
+A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it—a docs suggestion and PR, plus the usual Slack or Teams notification. Like the built-in `jira_mention` trigger, it also creates a reply obligation: Promptless comments on the ticket and flags it for follow-up if it goes unanswered (see [Reply on the ticket](#reply-on-the-ticket)). A blocker or escalation from the run also comments on the ticket and notifies any configured `escalation` channel.
 
 See the [Configuration Reference](/docs/reference/configuration-reference#triggers) for the full schema.
 
@@ -118,7 +118,7 @@ Attach the service account from the Atlassian integration card by entering its *
 
 ## Example
 
-A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. That label crossing activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected.
+A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. That label crossing activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected, then comments on the ticket with that scope—the same reply obligation the built-in paths carry, with no PR to link on this do-not-publish run.
 
 Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once, matching both `jira-new-docs-issue` and `jira-needs-docs-label`—Promptless dispatches once, tagged with both keys.
 
