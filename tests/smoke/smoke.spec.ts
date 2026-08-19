@@ -316,6 +316,13 @@ test('each documentation product gets only its own active topic and product meta
   const governanceResponse = await fetch(`${preview.baseUrl}/docs/governance`);
   assert.equal(governanceResponse.status, 200);
   const governanceHtml = await governanceResponse.text();
+  const governanceSwitcher = governanceHtml.match(
+    /<details class="pl-docs-product-switcher"[\s\S]*?<\/details>/i
+  )?.[0];
+
+  assert.ok(governanceSwitcher);
+  assert.match(governanceSwitcher, /pl-docs-product-switcher-eyebrow">Product<\/span>/i);
+  assert.doesNotMatch(governanceSwitcher, /Documentation product|pl-docs-product-badge/i);
 
   assert.match(
     governanceHtml,
