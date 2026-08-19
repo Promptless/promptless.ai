@@ -322,6 +322,14 @@ test('each documentation product gets only its own active topic and product meta
 
   assert.ok(governanceSwitcher);
   assert.match(governanceSwitcher, /pl-docs-product-switcher-eyebrow">Product<\/span>/i);
+  assert.match(
+    governanceSwitcher,
+    /pl-docs-product-switcher-label">\s*for Agent Instructions\s*<\/span>/i
+  );
+  assert.match(
+    governanceSwitcher,
+    /pl-docs-product-switcher-option active[\s\S]*?<span>Promptless for Agent Instructions<\/span>/i
+  );
   assert.doesNotMatch(governanceSwitcher, /Documentation product|pl-docs-product-badge/i);
 
   assert.match(

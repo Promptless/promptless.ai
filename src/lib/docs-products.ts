@@ -5,6 +5,7 @@ export type DocsProductIcon = 'docs' | 'agent_instructions';
 export interface DocsProduct {
   id: DocsProductId;
   label: string;
+  switcherLabel?: string;
   href: string;
   description: string;
   icon: DocsProductIcon;
@@ -24,6 +25,7 @@ export const DOCS_PRODUCTS: readonly DocsProduct[] = [
   {
     id: 'agent_instructions',
     label: 'Promptless for Agent Instructions',
+    switcherLabel: 'for Agent Instructions',
     href: '/docs/governance',
     description: 'Govern and continuously improve your AI workforce\u2019s instructions.',
     icon: 'agent_instructions',
