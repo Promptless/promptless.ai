@@ -1,22 +1,22 @@
 ---
 id: ia-gap-analysis
 type: information-architecture
-scope: Gaps between the CUJ-driven proposed Docs IA and current src/content/docs/docs/
+scope: Gaps between the CUJ-driven proposed Docs IA and current src/content/docs/docs/for-docs/
 covers_nav_tab: docs
 companion: proposed-ia.md
-current_source: src/content/docs/docs/
+current_source: src/content/docs/docs/for-docs/
 ---
 
 # IA Gap Analysis — Docs tab
 
 **Scope:** Compares the [CUJ-driven proposed IA](proposed-ia.md) against the **current** Docs-tab
-content in `src/content/docs/docs/`. Two outputs: (1) content the journeys require that **does
+content in `src/content/docs/docs/for-docs/`. Two outputs: (1) content the journeys require that **does
 not exist** (`[NEW]`), and (2) current pages that **map to no CUJ** (review for prune/keep).
 This gap list is the intended deliverable — it shows where docs must grow to serve real users.
 
 ## 1. Current → proposed mapping (existing pages keep a home)
 
-| Current page (under `/docs/`) | Proposed section |
+| Current page (under `/docs/for-docs/`) | Proposed section |
 |---|---|
 | getting-started/welcome | Start here → Welcome |
 | getting-started/core-concepts · core-concepts/* | Start here → How Promptless works |

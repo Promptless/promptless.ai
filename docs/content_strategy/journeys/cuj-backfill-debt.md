@@ -4,13 +4,13 @@ type: cuj
 title: Pay down existing docs debt with Deep Analysis
 personas: [persona-enterprise-docs-lead, persona-eng-docs-owner, persona-oss-maintainer, persona-scaleup-solo-writer, persona-devrel-owner, persona-brownfield-docs-lead]
 trigger: "Large mature areas are undocumented, stale, or scattered; go-forward drafting alone won't catch up."
-entry_point: /docs/how-to-use-promptless/deep-analysis
+entry_point: /docs/for-docs/how-to-use-promptless/deep-analysis
 success_criteria: "Targeted backfill of a mature/undocumented area produces a batch of accurate drafts that close known gaps, without flooding the normal queue."
 steps:
-  - { stage: "Understand Deep Analysis vs go-forward suggestions", doc: /docs/how-to-use-promptless/deep-analysis, exists: true }
-  - { stage: "Scope a one-off / per-section backfill task", doc: "/docs/how-to-use-promptless/deep-analysis#scoping-a-task", exists: partial }
-  - { stage: "Provide context for areas code can't explain", doc: /docs/configuring-promptless/context-sources, exists: true }
-  - { stage: "Review the batch without overwhelming the queue", doc: /docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
+  - { stage: "Understand Deep Analysis vs go-forward suggestions", doc: /docs/for-docs/how-to-use-promptless/deep-analysis, exists: true }
+  - { stage: "Scope a one-off / per-section backfill task", doc: "/docs/for-docs/how-to-use-promptless/deep-analysis#scoping-a-task", exists: partial }
+  - { stage: "Provide context for areas code can't explain", doc: /docs/for-docs/configuring-promptless/context-sources, exists: true }
+  - { stage: "Review the batch without overwhelming the queue", doc: /docs/for-docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
 ---
 
 # CUJ: Pay down existing docs debt with Deep Analysis
