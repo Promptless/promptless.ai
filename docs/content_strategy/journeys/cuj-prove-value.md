@@ -4,12 +4,12 @@ type: cuj
 title: Demonstrate docs-team value and ROI to leadership
 personas: [persona-scaleup-solo-writer, persona-enterprise-docs-lead, persona-devrel-owner, persona-eng-docs-owner, persona-brownfield-docs-lead]
 trigger: "The champion needs to show leadership that Promptless (and the docs function) delivers measurable leverage—to justify spend, headcount, or the role itself."
-entry_point: /docs/how-to-use-promptless/using-the-web-interface
+entry_point: /docs/for-docs/how-to-use-promptless/using-the-web-interface
 success_criteria: "The champion can report concrete outcomes—doc PRs merged, coverage/freshness gains, time saved—drawn from Promptless, in a form leadership accepts."
 steps:
-  - { stage: "See activity (PRs drafted/merged, coverage)", doc: /docs/how-to-use-promptless/using-the-web-interface, exists: partial, note: "Activity visible; reporting/metrics view unclear" }
-  - { stage: "Quantify impact (time saved, freshness, % of doc PRs)", doc: "/docs/how-to-use-promptless/reporting-and-roi", exists: false, note: "[GAP] one customer cited Promptless as ~40% of doc PRs—no built-in reporting page" }
-  - { stage: "Export / share results with leadership", doc: "/docs/how-to-use-promptless/reporting-and-roi#sharing", exists: false, note: "[GAP]" }
+  - { stage: "See activity (PRs drafted/merged, coverage)", doc: /docs/for-docs/how-to-use-promptless/using-the-web-interface, exists: partial, note: "Activity visible; reporting/metrics view unclear" }
+  - { stage: "Quantify impact (time saved, freshness, % of doc PRs)", doc: "/docs/for-docs/how-to-use-promptless/reporting-and-roi", exists: false, note: "[GAP] one customer cited Promptless as ~40% of doc PRs—no built-in reporting page" }
+  - { stage: "Export / share results with leadership", doc: "/docs/for-docs/how-to-use-promptless/reporting-and-roi#sharing", exists: false, note: "[GAP]" }
 ---
 
 # CUJ: Demonstrate docs-team value and ROI to leadership

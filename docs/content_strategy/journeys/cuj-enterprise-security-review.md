@@ -4,16 +4,16 @@ type: cuj
 title: Pass security, self-host, and SSO review
 personas: [persona-enterprise-docs-lead, persona-scaleup-solo-writer]
 trigger: "IT/security/procurement must approve Promptless before a pilot can proceed."
-entry_point: /docs/security-and-privacy/compliance-and-certifications
+entry_point: /docs/for-docs/security-and-privacy/compliance-and-certifications
 success_criteria: "Security/IT signs off — the champion can forward complete, standalone docs on data handling, deployment, SSO, and subprocessors, and self-hosting is available where required."
 steps:
-  - { stage: "Compliance & certifications", doc: /docs/security-and-privacy/compliance-and-certifications, exists: true }
-  - { stage: "Data handling & classification", doc: /docs/security-and-privacy/data-handling-and-classification, exists: true }
-  - { stage: "Network architecture", doc: /docs/security-and-privacy/network-architecture, exists: true }
-  - { stage: "Subprocessors & privacy", doc: /docs/security-and-privacy/promptless-subprocessors, exists: true }
-  - { stage: "Single sign-on setup", doc: /docs/security-and-privacy/single-sign-on-sso-setup, exists: true }
-  - { stage: "Self-hosting / on-prem deployment", doc: /docs/self-hosting, exists: true }
-  - { stage: "Repo access scope for security review", doc: "/docs/security-and-privacy/access-and-permissions", exists: false, note: "[GAP] read-only / least-privilege access posture not consolidated" }
+  - { stage: "Compliance & certifications", doc: /docs/for-docs/security-and-privacy/compliance-and-certifications, exists: true }
+  - { stage: "Data handling & classification", doc: /docs/for-docs/security-and-privacy/data-handling-and-classification, exists: true }
+  - { stage: "Network architecture", doc: /docs/for-docs/security-and-privacy/network-architecture, exists: true }
+  - { stage: "Subprocessors & privacy", doc: /docs/for-docs/security-and-privacy/promptless-subprocessors, exists: true }
+  - { stage: "Single sign-on setup", doc: /docs/for-docs/security-and-privacy/single-sign-on-sso-setup, exists: true }
+  - { stage: "Self-hosting / on-prem deployment", doc: /docs/for-docs/self-hosting, exists: true }
+  - { stage: "Repo access scope for security review", doc: "/docs/for-docs/security-and-privacy/access-and-permissions", exists: false, note: "[GAP] read-only / least-privilege access posture not consolidated" }
 ---
 
 # CUJ: Pass security, self-host, and SSO review

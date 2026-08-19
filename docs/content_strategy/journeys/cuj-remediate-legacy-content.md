@@ -4,14 +4,14 @@ type: cuj
 title: Audit and remediate legacy content at scale
 personas: [persona-brownfield-docs-lead, persona-enterprise-docs-lead]
 trigger: "A large existing corpus is full of stale, inconsistent, off-template, or contradictory pages that no one can audit by hand."
-entry_point: /docs/how-to-use-promptless/deep-analysis
+entry_point: /docs/for-docs/how-to-use-promptless/deep-analysis
 success_criteria: "Existing pages are audited, then updated/consolidated/restandardized in reviewable batches so corpus freshness and consistency measurably improve — without a manual rewrite or a noise flood."
 steps:
-  - { stage: "Audit the corpus for staleness/inconsistency", doc: "/docs/how-to-use-promptless/content-audit", exists: false, note: "[GAP] No way to surface stale/contradictory existing pages at scale (one enterprise's ~4k-page long tail; another's debt-as-noise)" }
-  - { stage: "Run Deep Analysis over an existing area", doc: /docs/how-to-use-promptless/deep-analysis, exists: true }
-  - { stage: "Update & consolidate stale/duplicate pages", doc: "/docs/how-to-use-promptless/remediating-existing-pages", exists: false, note: "[GAP] Remediation of EXISTING pages (vs backfilling gaps) not documented" }
-  - { stage: "Retrofit current standards & templates", doc: "/docs/how-to-use-promptless/standards-enforcement", exists: false, note: "[GAP] Off-style/off-template legacy content; unify divergent processes" }
-  - { stage: "Process the batch without flooding the live queue", doc: /docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
+  - { stage: "Audit the corpus for staleness/inconsistency", doc: "/docs/for-docs/how-to-use-promptless/content-audit", exists: false, note: "[GAP] No way to surface stale/contradictory existing pages at scale (one enterprise's ~4k-page long tail; another's debt-as-noise)" }
+  - { stage: "Run Deep Analysis over an existing area", doc: /docs/for-docs/how-to-use-promptless/deep-analysis, exists: true }
+  - { stage: "Update & consolidate stale/duplicate pages", doc: "/docs/for-docs/how-to-use-promptless/remediating-existing-pages", exists: false, note: "[GAP] Remediation of EXISTING pages (vs backfilling gaps) not documented" }
+  - { stage: "Retrofit current standards & templates", doc: "/docs/for-docs/how-to-use-promptless/standards-enforcement", exists: false, note: "[GAP] Off-style/off-template legacy content; unify divergent processes" }
+  - { stage: "Process the batch without flooding the live queue", doc: /docs/for-docs/how-to-use-promptless/interacting-with-promptless-p-rs, exists: true }
 ---
 
 # CUJ: Audit and remediate legacy content at scale
