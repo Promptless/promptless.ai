@@ -1,7 +1,7 @@
 ---
 id: proposed-ia
 type: information-architecture
-scope: Proposed Docs-tab IA (content under src/content/docs/docs/), designed CUJ-first
+scope: Proposed Docs-tab IA (content under src/content/docs/docs/for-docs/), designed CUJ-first
 covers_nav_tab: docs
 excludes: [website, pricing, blog, changelog, free_tools, jobs]
 derived_from: docs/content_strategy/journeys/
@@ -11,7 +11,7 @@ companion: ia-gap-analysis.md
 # Proposed Information Architecture — Docs tab
 
 **Scope:** A proposed structure for the **Docs tab only** (content under
-`src/content/docs/docs/`, served at `/docs`). It does not touch the website, pricing, blog,
+`src/content/docs/docs/for-docs/`, served at `/docs/for-docs`). It does not touch the website, pricing, blog,
 changelog, free-tools, or jobs sections of [site-navigation.ts](../../../src/lib/site-navigation.ts).
 
 **Method — CUJ-first, not content-first.** This IA is designed from the

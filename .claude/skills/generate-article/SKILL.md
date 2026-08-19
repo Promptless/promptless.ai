@@ -16,17 +16,37 @@ Automated content pipeline for the Promptless blog. This skill replaces the `gen
 
 ## Overview
 
-1. Pick a keyword (from user input or randomly from the keyword list)
+1. Pick a keyword and clear the pre-flight duplicate gate
 2. Research the topic thoroughly using web search
 3. Write a publication-ready MDX article
 4. Commit to a new branch, push, and open a GitHub PR
 5. Post the PR link to the `#gtm` Slack channel
 
-## Step 1: Pick a keyword
+## Step 1: Pick a keyword and clear the pre-flight gate
 
 If the user provides a keyword or topic, use it directly.
 
-Otherwise, read the keyword list at `scripts/edu_campaign/keywords.txt` (relative to repo root). Pick one at random. Lines starting with `#` are comments — skip them. Tell the user which keyword was selected.
+Otherwise, read the keyword list at `scripts/edu_campaign/keywords.txt` (relative to repo root). Lines starting with `#` are comments — skip them.
+
+Do NOT pick at random. Random selection has no memory, so it re-picks recently used keywords: it produced ten articles on "docs site search optimization" in four months. Instead, prefer the keyword with the least existing coverage. Work down the list from the top and pick the first keyword that clears the gate below.
+
+### The pre-flight gate is blocking
+
+Before doing any research, run:
+
+```bash
+scripts/edu_campaign/preflight-keyword.sh --keyword "<keyword>"
+```
+
+**If it exits non-zero, stop. Do not research, do not write, do not open a PR.** Either pick a different keyword and re-run, or report the blockage to the user and end the run. This gate is the one step that is allowed to halt the pipeline, and it must.
+
+The script checks two things the pipeline previously missed:
+- How many articles on this keyword are already **published** on `origin/main` (cap: 2)
+- Whether any **open or closed PR** already covers this keyword
+
+That second check is the important one. The old duplicate check ran late and looked only at merged content, so nine unmerged siblings were invisible to it and every run concluded it was the first on the keyword.
+
+Tell the user which keyword was selected and paste the gate's output.
 
 ## Step 2: Research
 
@@ -64,9 +84,18 @@ Output the plan to the user for review before writing.
 ## Step 4: Write the article
 
 Before writing, scan the existing articles in `src/content/blog/technical/` to:
-- Confirm your topic doesn't duplicate an existing article
 - Find posts to link to internally (read titles/descriptions of a few to understand voice)
 - Calibrate your tone to match the existing body of work
+
+Duplicate detection is NOT this step's job. It happens at Step 1, before the expensive research, and it is blocking. A check that runs here can only tell you that you have already wasted the research budget.
+
+If your research in Step 2 surfaced a related keyword and you decided in Step 3 to target that instead of the original, re-run the gate for the new keyword now:
+
+```bash
+scripts/edu_campaign/preflight-keyword.sh --keyword "<the keyword you actually chose>"
+```
+
+Retargeting mid-run is how a cleared keyword turns into a duplicate of something else.
 
 Then write a complete, publication-ready MDX article strictly following the plan and the style guide.
 
@@ -129,7 +158,21 @@ The article file goes at:
 src/content/blog/technical/{slug}.mdx
 ```
 
-Generate the slug from the article title: lowercase, remove special characters, replace spaces with hyphens, truncate to 60 characters.
+Generate the slug from the article **title**, not from the keyword: lowercase, remove special characters, replace spaces with hyphens, truncate to 60 characters.
+
+Derive it from the part of the title that is specific to THIS article. Seven PRs slugged themselves `docs-site-search-optimization` because they all shared that title prefix and the distinguishing half of each title was dropped. If two candidate titles would produce the same slug, the slug is wrong: use the specific angle instead (`developer-docs-search-three-channels`, not `docs-site-search-optimization`).
+
+### Slug uniqueness is a hard precondition
+
+Once the title is settled, and before creating the branch, re-run the gate with the slug:
+
+```bash
+scripts/edu_campaign/preflight-keyword.sh --keyword "<keyword>" --slug "<slug>"
+```
+
+**If it exits non-zero, stop and pick a different slug.** Do not create the branch.
+
+This checks the slug against `origin/main` AND against every open PR. Both matter: seven PRs collided with each other rather than with anything merged, so each one passed a main-only check and still produced a conflict. Two PRs adding the same path will always conflict, no matter how cleanly each merges against main today.
 
 ## Step 7: Create a branch and PR
 
@@ -192,5 +235,6 @@ agent-slack message send --workspace promptless "#gtm" "New blog article draft r
 ## Important notes
 
 - Always set `hidden: false` in the frontmatter.
-- If any step fails (e.g. git push, PR creation, Slack), report the error but continue with remaining steps.
+- **Continue-on-failure applies only to the delivery steps (Steps 7 and 8).** If `git push`, `gh pr create`, or the Slack notification fails, report the error and continue with the remaining steps: the article is already written and losing it is worse than a missing Slack ping.
+- **The pre-flight gates in Step 1, Step 4, and Step 6 are the exception. A non-zero exit from `preflight-keyword.sh` halts the run.** Do not "report the error but continue" past a blocked gate. The old blanket continue-on-failure rule is why nine duplicate articles reached the PR queue: nothing in the pipeline had the authority to stop.
 - The article should be genuinely useful content, not thinly-veiled marketing. Promptless connections should feel natural.

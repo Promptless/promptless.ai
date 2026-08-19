@@ -4,14 +4,14 @@ type: cuj
 title: Calibrate suggestion noise, volume, and release timing
 personas: [persona-scaleup-solo-writer, persona-eng-docs-owner, persona-enterprise-docs-lead, persona-devrel-owner, persona-brownfield-docs-lead]
 trigger: "First suggestions are too noisy, too early, or firing on the wrong changes; the champion needs to tune signal-to-noise before trust erodes."
-entry_point: /docs/how-to-use-promptless/providing-feedback
+entry_point: /docs/for-docs/how-to-use-promptless/providing-feedback
 success_criteria: "Suggestions arrive at the right time (after a feature actually ships), at a manageable volume, scoped to externally-relevant changes — and the team trusts the queue."
 steps:
-  - { stage: "Suppress internal-only / irrelevant changes", doc: "/docs/configuring-promptless/suggestion-filtering", exists: false, note: "[GAP] No dedicated noise/relevance-tuning page" }
-  - { stage: "Align drafting to release timing / feature flags", doc: /docs/integrations/launchdarkly-integration-beta, exists: partial, note: "LaunchDarkly exists; general release-timing/feature-flag model not documented" }
-  - { stage: "Map release stage to suggestion status", doc: "/docs/configuring-promptless/release-timing", exists: false, note: "[GAP] Recurring unsolved workflow across many accounts" }
-  - { stage: "Teach conventions via feedback", doc: /docs/how-to-use-promptless/providing-feedback, exists: true }
-  - { stage: "Tune notification volume/routing", doc: /docs/configuring-promptless/customizing-notifications, exists: true }
+  - { stage: "Suppress internal-only / irrelevant changes", doc: "/docs/for-docs/configuring-promptless/suggestion-filtering", exists: false, note: "[GAP] No dedicated noise/relevance-tuning page" }
+  - { stage: "Align drafting to release timing / feature flags", doc: /docs/for-docs/integrations/launchdarkly-integration-beta, exists: partial, note: "LaunchDarkly exists; general release-timing/feature-flag model not documented" }
+  - { stage: "Map release stage to suggestion status", doc: "/docs/for-docs/configuring-promptless/release-timing", exists: false, note: "[GAP] Recurring unsolved workflow across many accounts" }
+  - { stage: "Teach conventions via feedback", doc: /docs/for-docs/how-to-use-promptless/providing-feedback, exists: true }
+  - { stage: "Tune notification volume/routing", doc: /docs/for-docs/configuring-promptless/customizing-notifications, exists: true }
 ---
 
 # CUJ: Calibrate suggestion noise, volume, and release timing

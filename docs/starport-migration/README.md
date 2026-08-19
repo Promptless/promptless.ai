@@ -68,7 +68,7 @@ repo on 2026-07-08.
 | Changelog | `src/content/changelog/` (22 entries) + `src/pages/changelog/` | Feeds the `launch-post` automation |
 | Pricing / jobs / meet / demo / use-cases / free-tools | `src/pages/*.astro` | Standalone Astro routes |
 | Legal | `src/content/legal/` (privacy, terms) + `src/pages/privacy.astro`, `terms.astro` | |
-| Components | `src/components/` (54 files) | Includes **7 Starlight overrides** in `src/components/starlight/` (Header, Footer, Sidebar, SiteTitle, PageTitle, MobileMenuFooter, ThemeProviderLightOnly) |
+| Components | `src/components/` (54 files) | Includes **7 Starlight overrides** in `src/components/starlight/` (Header, Footer, Sidebar, SiteTitle, PageTitle, MobileMenuFooter, ThemeProviderDarkOnly) |
 | Agent/markdown endpoints | `src/pages/llms.txt.ts`, `llms-full.txt.ts`, `[...slug].md.ts`, `index.md.ts`, `pricing.md.ts`, `free-tools.md.ts` | Serve Markdown/plaintext variants |
 | Nav/redirect pipeline | `scripts/generate-manifest.ts` → `src/lib/generated/{sidebar,route-manifest,redirects}.json` | `sidebar.json` + `route-manifest.json` are generated; `redirects.json` is hand-maintained |
 | Redirects | `astro.config.mjs` (static) + `redirects.json` (hand-maintained) | Every historical URL must keep resolving |
