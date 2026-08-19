@@ -46,7 +46,7 @@ test('non-app links are left untouched', () => {
   for (const href of [
     'https://github.com/Promptless/promptless',
     'https://promptless.ai/pricing',
-    '/docs/connect/triggers',
+    '/docs/for-docs/connect/triggers',
     'https://gopromptless.ai',
     'https://notapp.gopromptless.ai.evil.com/',
     'mailto:support@gopromptless.ai',

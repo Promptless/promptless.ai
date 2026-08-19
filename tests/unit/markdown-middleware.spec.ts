@@ -9,7 +9,8 @@ test('markdown middleware rewrites website routes to their markdown variants', (
     ['/pricing', 'https://promptless.ai/pricing.md'],
     ['/free-tools', 'https://promptless.ai/free-tools.md'],
     ['/free-tools/broken-link-report', 'https://promptless.ai/free-tools/broken-link-report.md'],
-    ['/docs/getting-started/welcome', 'https://promptless.ai/docs/getting-started/welcome.md'],
+    ['/docs/for-docs/start-here/welcome', 'https://promptless.ai/docs/for-docs/start-here/welcome.md'],
+    ['/docs/governance', 'https://promptless.ai/docs/governance.md'],
   ] as const;
 
   for (const [pathname, rewriteTarget] of cases) {

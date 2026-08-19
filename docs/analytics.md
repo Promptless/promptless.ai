@@ -65,6 +65,7 @@ sends a parallel `gtag` event for Google Analytics.
 - `use_free_tool` -- free_tools
 - `view_commits` -- demo_social_proof
 - `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
+- `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
 
 ## Design Decisions
 
@@ -145,7 +146,7 @@ comparison clicks.
 ## Top Pages by Pageviews
 
 1. `/` (homepage)
-2. `/docs/getting-started/welcome`
+2. `/docs/for-docs/start-here/welcome`
 3. `/demo`
 4. `/pricing`
 5. `/jobs`
