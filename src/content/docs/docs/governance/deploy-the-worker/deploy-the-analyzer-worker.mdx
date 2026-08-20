@@ -11,7 +11,8 @@ tags:
 timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
-  order: 1
+  order: 2
+  label: Install with Helm
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
@@ -21,13 +22,18 @@ import { Aside, Steps } from '@astrojs/starlight/components';
   - Hosted Promptless creates a named deployment and returns the install token once.
   - The setup page supplies a pinned chart version, a non-secret values file, exact
     network requirements, and recommended resource requests.
-  - The chart is published to the Promptless Helm repository and accepts an existing Secret.
-  - The chart runs database migrations automatically and includes a Helm test hook.
+  - The chart accepts an existing Secret and runs database migrations automatically.
   - Hosted Promptless shows deployment status and the worker's last heartbeat.
+  Target/forthcoming — framed as such in the prose below, not as shipped guarantees:
+  - A hosted Promptless Helm repository for one-line `helm repo add`. Until it ships,
+    the chart source and pinned version come from the setup page; the image ships from
+    ghcr.io/promptless/instruction-hub-worker.
+  - A chart test hook so `helm test` verifies health, auth, schema, and S3 access.
+  - The hosted Settings deployment setup UI, including its exact navigation and labels.
   Keep this happy path current while the setup UI, chart distribution, and tests are built.
   */}
 
-The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
+The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/how-it-works).
 
 This guide installs the worker into an existing Kubernetes cluster and verifies every connection it needs. Once the infrastructure prerequisites are ready, the installation should take less than 15 minutes.
 
@@ -46,7 +52,7 @@ Hosted Promptless never receives raw trace content. Findings can contain model-a
 You need:
 
 - A Promptless organization with Agent Instructions enabled and permission to manage deployments.
-- An existing Kubernetes cluster running a version supported on the **Add deployment** page.
+- An existing Kubernetes cluster running a version supported on the deployment setup page.
 - Helm 3 and `kubectl` installed locally, with `kubectl` connected to the target cluster.
 - Permission to create a namespace, Deployment, Service, ServiceAccount, Secret, migration Job, and optional ingress resources.
 - A Postgres database you control for trace and host metadata.
@@ -66,7 +72,7 @@ The worker and installation machine need the following network paths:
 | Installation machine | Promptless chart repository   | 443  | Helm chart download                                        |
 | Cluster nodes        | Promptless container registry | 443  | Worker image pull                                          |
 
-The **Add deployment** page lists the exact Promptless hosts and the supported chart and image versions for your organization.
+The deployment setup page lists the exact Promptless hosts and the supported chart and image versions for your organization.
 
 Confirm the target cluster before continuing:
 
@@ -83,7 +89,7 @@ kubectl config current-context
 <Steps>
   1. **Create the worker deployment in Promptless.**
 
-     In hosted Promptless, open **Settings → Deployments** and select **Add deployment**. Choose **Kubernetes with Helm**, then enter a name that identifies the environment, such as `production-us-east-1`.
+     In hosted Promptless, open your deployment settings and add a deployment for this environment, choosing the Kubernetes with Helm installation option. Enter a name that identifies the environment, such as `production-us-east-1`.
 
      The setup page provides:
 
@@ -93,6 +99,10 @@ kubectl config current-context
      - Environment-specific network requirements and resource recommendations
 
      Download the values file and copy the install token to your secret manager. If you lose the token before installing, rotate it from the deployment's setup page.
+
+     <Aside type="note">
+       The hosted setup page for creating a deployment is being built. Its exact navigation and control labels may differ from the flow described here.
+     </Aside>
 
   2. **Create the Kubernetes Secret.**
 
@@ -109,8 +119,8 @@ kubectl config current-context
      printf "\n"
 
      kubectl --namespace instruction-hub create secret generic instruction-hub-worker-env \
-       --from-literal=INSTRUCTION_HUB_INSTALL_TOKEN="$INSTRUCTION_HUB_INSTALL_TOKEN" \
-       --from-literal=INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN="$INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN" \
+       --from-literal=install-token="$INSTRUCTION_HUB_INSTALL_TOKEN" \
+       --from-literal=customer-postgres-dsn="$INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN" \
        --dry-run=client -o yaml | kubectl apply -f -
 
      unset INSTRUCTION_HUB_INSTALL_TOKEN
@@ -125,7 +135,7 @@ kubectl config current-context
 
      ```yaml title="values.yaml"
      secrets:
-       existingSecret: instruction-hub-worker-env
+       existingSecretName: instruction-hub-worker-env
 
      serviceAccount:
        annotations:
@@ -133,9 +143,12 @@ kubectl config current-context
 
      gateway:
        enabled: true
-       host: traces.example.com
+       hosts:
+         - host: traces.example.com
        tls:
-         secretName: instruction-hub-worker-tls
+         - hosts:
+             - traces.example.com
+           secretName: instruction-hub-worker-tls
 
      resources:
        requests:
@@ -147,23 +160,23 @@ kubectl config current-context
 
      Replace the role ARN, hostname, and TLS Secret with values for your environment. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
 
-  4. **Add the Promptless chart repository.**
+  4. **Get the chart source and version.**
 
-     ```bash
-     helm repo add promptless https://charts.promptless.com
-     helm repo update
-     helm search repo promptless/instruction-hub-worker --versions
-     ```
+     The deployment setup page supplies the chart source and the pinned chart version to install. The worker image is published to `ghcr.io/promptless/instruction-hub-worker`.
 
-     Confirm that the chart version shown on the deployment setup page appears in the results.
+     Confirm that the chart version you install matches the one shown on the deployment setup page.
+
+     <Aside type="note">
+       A hosted Promptless Helm repository for a one-line `helm repo add` is being built. Until it ships, use the chart source and pinned version shown on the setup page.
+     </Aside>
 
   5. **Install the worker.**
 
-     Replace `<chart-version>` with the version shown in Promptless:
+     Replace `<chart-reference>` and `<chart-version>` with the chart source and version shown in Promptless:
 
      ```bash
      helm upgrade --install instruction-hub-worker \
-       promptless/instruction-hub-worker \
+       <chart-reference> \
        --namespace instruction-hub \
        --version <chart-version> \
        --values promptless-worker-values.yaml \
@@ -175,21 +188,19 @@ kubectl config current-context
 
      The chart runs its database migration Job before starting the worker. If a migration or readiness check fails, `--atomic` rolls back the release instead of leaving a partial installation.
 
-  6. **Test the worker from inside the cluster.**
-
-     Confirm the Deployment is available, then run the chart's test hook:
+  6. **Confirm the Deployment is available.**
 
      ```bash
      kubectl wait --namespace instruction-hub \
        --for=condition=available deployment/instruction-hub-worker \
        --timeout=5m
-
-     helm test instruction-hub-worker \
-       --namespace instruction-hub \
-       --logs
      ```
 
-     A passing Helm test verifies the worker's health endpoint, Runtime authentication, Postgres schema, and S3 read/write access.
+     The chart marks its mandatory values as `required`, so `helm upgrade --install` fails to render when one is missing or empty, and the pod fails to start when the referenced Secret or key is absent. There is no fail-closed preflight beyond these checks, so verify the worker's host-facing and hosted connections in the next steps.
+
+     <Aside type="note">
+       A chart test hook that verifies the worker's health endpoint, Runtime authentication, Postgres schema, and S3 read/write access in a single `helm test` run is being built. Until it ships, use the checks in the following steps.
+     </Aside>
 
   7. **Test the host-facing endpoint.**
 
@@ -204,10 +215,10 @@ kubectl config current-context
 
   8. **Confirm the deployment in Promptless.**
 
-     Return to **Settings → Deployments**. The deployment should show **Online** with a recent **Last heartbeat** time.
+     Return to your deployment settings in hosted Promptless. The deployment should report an online status with a recent heartbeat.
 </Steps>
 
-The worker is ready when the Helm test passes, its host-facing health endpoint responds, and hosted Promptless shows it as **Online**. Next, [enroll a host](/docs/governance/get-started/enroll-your-hosts) and confirm that its first new session appears.
+The worker is ready when its Deployment reports available, its host-facing health endpoint responds, and hosted Promptless reports it online with a recent heartbeat. Next, [enroll a host](/docs/governance/get-started/enroll-a-host) and confirm that its first new session appears.
 
 ## Enable trace analysis
 
@@ -218,7 +229,7 @@ Installation proves that trace ingestion and storage work. To run the Friction A
 - The Instruction Hub repository and repository-scoped token
 - The quiet window after which a session is eligible for analysis
 
-Keep API keys and repository tokens in the existing Kubernetes Secret. Put non-sensitive settings in `values.yaml`, then run the same `helm upgrade --install` command. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
+Keep API keys and repository tokens in the existing Kubernetes Secret. Put non-sensitive settings in `values.yaml`, then run the same `helm upgrade --install` command. See [Enable the Friction Analyzer](/docs/governance/deploy-the-worker/enable-the-friction-analyzer) for the full variable group, [Configure the worker](/docs/governance/deploy-the-worker/configure-the-worker) for how to apply configuration changes, and [Worker configuration and data](/docs/governance/reference/worker-configuration-and-data) for every setting.
 
 ## Manage the deployment with GitOps
 
@@ -232,7 +243,7 @@ For a GitOps-managed cluster:
 
 ## Troubleshoot installation
 
-### The migration Job fails
+### The migration job fails
 
 Review the migration logs and confirm the Postgres DSN, network path, database permissions, and supported Postgres version:
 
@@ -253,7 +264,7 @@ kubectl logs --namespace instruction-hub \
 
 If the install token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
 
-### The Helm test cannot access S3
+### The worker cannot access S3
 
 Confirm that the ServiceAccount has the intended workload identity annotation, the pod assumed that identity, and its policy allows reads and writes to the configured bucket.
 
@@ -265,15 +276,15 @@ Run the health check from a host network, then inspect the ingress or gateway ad
 kubectl get service,ingress --namespace instruction-hub
 ```
 
-### The pod is ready but Promptless shows Offline
+### The pod is ready but Promptless does not report the worker online
 
-Confirm outbound HTTPS access to the Runtime URL in `promptless-worker-values.yaml`, then rerun the Helm test.
+Confirm outbound HTTPS access to the Runtime URL in `promptless-worker-values.yaml`, then restart the Deployment and recheck the deployment status in Promptless.
 
-If the deployment still fails, send the Helm test output and worker logs to [help@gopromptless.ai](mailto\:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
+If the deployment still fails, send the worker logs and the output of the checks above to [help@gopromptless.ai](mailto\:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
 
 ## Remove the worker
 
-In hosted Promptless, open the deployment and select **Disable** so it stops accepting new hosts and work. Then uninstall the Helm release:
+In hosted Promptless, open the deployment and disable it so it stops accepting new hosts and work. Then uninstall the Helm release:
 
 ```bash
 helm uninstall instruction-hub-worker --namespace instruction-hub
