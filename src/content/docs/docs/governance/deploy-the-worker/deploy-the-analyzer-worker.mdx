@@ -1,12 +1,13 @@
 ---
-title: Deploy the analyzer worker
-description: Deploy the instruction-hub-worker into your own infrastructure with Docker and Helm, backed by your Postgres database and S3 bucket.
+title: Install the analyzer worker with Helm
+description: Register, install, and verify the instruction-hub-worker in your Kubernetes cluster.
 slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
 type: guide
 tags:
   - agent-instructions
   - governance
-  - guide
+  - kubernetes
+  - helm
 timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
@@ -15,54 +16,267 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-The worker is the `instruction-hub-worker` service (Python package `instruction_hub_worker`) that runs in your own infrastructure. It accepts trace uploads from your enrolled hosts, stores them in storage you own, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts). Its container image runs the `instruction-hub-worker serve` command and listens on port 8080.
+{/*
+  Docs-driven product contract:
+  - Hosted Promptless creates a named deployment and returns the install token once.
+  - The setup page supplies a pinned chart version, a non-secret values file, exact
+    network requirements, and recommended resource requests.
+  - The chart is published to the Promptless Helm repository and accepts an existing Secret.
+  - The chart runs database migrations automatically and includes a Helm test hook.
+  - Hosted Promptless shows deployment status and the worker's last heartbeat.
+  Keep this happy path current while the setup UI, chart distribution, and tests are built.
+  */}
 
-## Prerequisites
+The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
 
-Before you deploy, have the following ready:
+This guide installs the worker into an existing Kubernetes cluster and verifies every connection it needs. Once the infrastructure prerequisites are ready, the installation should take less than 15 minutes.
 
-- A Postgres database you control, for trace and host metadata.
-- An S3 bucket you control, for raw traces and canonical trace objects.
-- A worker install token (a `plih_` token) that authenticates your deployment to hosted Promptless.
+## What runs where
 
-## Deploy with Helm
+| Hosted Promptless                                                              | Your infrastructure                                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Deployment registration, configuration sync, and host credential introspection | The worker Deployment and its Kubernetes credentials                           |
+| Trace metadata, findings, and remediation workflow                             | Raw traces and canonical trace objects in your S3 bucket and Postgres database |
+| Deployment health and last-heartbeat status                                    | Trace analysis through the model provider and endpoint you configure           |
 
-The worker ships a Helm chart at `charts/instruction-hub-worker/`. The chart renders a deployment, a service, an optional gateway ingress, a database migration job, a secret, and a service account.
+Hosted Promptless never receives raw trace content. Findings can contain model-authored descriptions of a session. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for the complete boundary.
+
+## Before you begin
+
+You need:
+
+- A Promptless organization with Agent Instructions enabled and permission to manage deployments.
+- An existing Kubernetes cluster running a version supported on the **Add deployment** page.
+- Helm 3 and `kubectl` installed locally, with `kubectl` connected to the target cluster.
+- Permission to create a namespace, Deployment, Service, ServiceAccount, Secret, migration Job, and optional ingress resources.
+- A Postgres database you control for trace and host metadata.
+- An S3 bucket you control for raw traces and canonical trace objects.
+- An IAM role or equivalent workload identity that lets the worker read and write objects in that bucket.
+- A hostname and TLS certificate that enrolled hosts can reach. The endpoint can be private if all hosts are on the same private network.
+
+The worker and installation machine need the following network paths:
+
+| Source               | Destination                   | Port | Purpose                                                    |
+| -------------------- | ----------------------------- | ---- | ---------------------------------------------------------- |
+| Enrolled hosts       | Worker hostname               | 443  | Enrollment, check-ins, and trace uploads                   |
+| Worker               | Hosted Promptless Runtime     | 443  | Configuration sync, credential introspection, and findings |
+| Worker               | Postgres                      | 5432 | Trace and host metadata                                    |
+| Worker               | S3                            | 443  | Raw and canonical trace objects                            |
+| Worker               | Your model provider           | 443  | Trace analysis, once analysis is enabled                   |
+| Installation machine | Promptless chart repository   | 443  | Helm chart download                                        |
+| Cluster nodes        | Promptless container registry | 443  | Worker image pull                                          |
+
+The **Add deployment** page lists the exact Promptless hosts and the supported chart and image versions for your organization.
+
+Confirm the target cluster before continuing:
+
+```bash
+kubectl config current-context
+```
+
+<Aside type="caution">
+  The commands below change the cluster in your current `kubectl` context. Switch contexts first if this is not the cluster where the worker should run.
+</Aside>
+
+## Install the worker
 
 <Steps>
-  1. **Obtain the worker image.** The image is built from a two-stage `python:3.11-slim` base and exposes port 8080. Push it to a registry your cluster can pull from, or pull the published image directly.
+  1. **Create the worker deployment in Promptless.**
 
-  2. **Provide configuration as a secret.** Supply the required environment variables — including your install token and Postgres connection string — through the chart's secret. See [Required configuration](#required-configuration).
+     In hosted Promptless, open **Settings → Deployments** and select **Add deployment**. Choose **Kubernetes with Helm**, then enter a name that identifies the environment, such as `production-us-east-1`.
 
-  3. **Grant the worker access to your S3 bucket.** Set `serviceAccount.annotations` so the pod assumes an AWS IAM role through IRSA (IAM Roles for Service Accounts) and can write to your bucket.
+     The setup page provides:
 
-  4. **Install the chart.** Point Helm at your values file.
+     - A `plih_` install token, displayed once
+     - A generated `promptless-worker-values.yaml` file with the Runtime URL, deployment identifiers, S3 bucket, image, and non-secret configuration
+     - The supported Helm chart version
+     - Environment-specific network requirements and resource recommendations
+
+     Download the values file and copy the install token to your secret manager. If you lose the token before installing, rotate it from the deployment's setup page.
+
+  2. **Create the Kubernetes Secret.**
+
+     Create a dedicated namespace, then enter the install token and Postgres connection string when prompted:
+
+     ```bash
+     kubectl create namespace instruction-hub \
+       --dry-run=client -o yaml | kubectl apply -f -
+
+     printf "Worker install token: "
+     read -r -s INSTRUCTION_HUB_INSTALL_TOKEN
+     printf "\nPostgres DSN: "
+     read -r -s INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN
+     printf "\n"
+
+     kubectl --namespace instruction-hub create secret generic instruction-hub-worker-env \
+       --from-literal=INSTRUCTION_HUB_INSTALL_TOKEN="$INSTRUCTION_HUB_INSTALL_TOKEN" \
+       --from-literal=INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN="$INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN" \
+       --dry-run=client -o yaml | kubectl apply -f -
+
+     unset INSTRUCTION_HUB_INSTALL_TOKEN
+     unset INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN
+     ```
+
+     The secret remains in your cluster because the worker uses both values at runtime. Do not put either value in `promptless-worker-values.yaml` or commit it to source control.
+
+  3. **Add your infrastructure settings.**
+
+     Create a small `values.yaml` next to the generated file. This file contains only the settings specific to your cluster:
+
+     ```yaml title="values.yaml"
+     secrets:
+       existingSecret: instruction-hub-worker-env
+
+     serviceAccount:
+       annotations:
+         eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/instruction-hub-worker
+
+     gateway:
+       enabled: true
+       host: traces.example.com
+       tls:
+         secretName: instruction-hub-worker-tls
+
+     resources:
+       requests:
+         cpu: 500m
+         memory: 1Gi
+       limits:
+         memory: 2Gi
+     ```
+
+     Replace the role ARN, hostname, and TLS Secret with values for your environment. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
+
+  4. **Add the Promptless chart repository.**
+
+     ```bash
+     helm repo add promptless https://charts.promptless.com
+     helm repo update
+     helm search repo promptless/instruction-hub-worker --versions
+     ```
+
+     Confirm that the chart version shown on the deployment setup page appears in the results.
+
+  5. **Install the worker.**
+
+     Replace `<chart-version>` with the version shown in Promptless:
 
      ```bash
      helm upgrade --install instruction-hub-worker \
-       ./charts/instruction-hub-worker \
+       promptless/instruction-hub-worker \
        --namespace instruction-hub \
-       --create-namespace \
-       -f values.yaml
+       --version <chart-version> \
+       --values promptless-worker-values.yaml \
+       --values values.yaml \
+       --atomic \
+       --wait \
+       --timeout 10m
      ```
 
-  5. **Expose the service.** The service is `ClusterIP` by default. To reach it from your hosts through an ingress, set `gateway.enabled=true` to render one.
+     The chart runs its database migration Job before starting the worker. If a migration or readiness check fails, `--atomic` rolls back the release instead of leaving a partial installation.
+
+  6. **Test the worker from inside the cluster.**
+
+     Confirm the Deployment is available, then run the chart's test hook:
+
+     ```bash
+     kubectl wait --namespace instruction-hub \
+       --for=condition=available deployment/instruction-hub-worker \
+       --timeout=5m
+
+     helm test instruction-hub-worker \
+       --namespace instruction-hub \
+       --logs
+     ```
+
+     A passing Helm test verifies the worker's health endpoint, Runtime authentication, Postgres schema, and S3 read/write access.
+
+  7. **Test the host-facing endpoint.**
+
+     From a machine on the same network as your agent hosts, check the worker's health endpoint:
+
+     ```bash
+     curl --fail --silent --show-error \
+       https://traces.example.com/healthz
+     ```
+
+     Replace the example hostname with your worker hostname. This check confirms that DNS, TLS, and routing work from the network where hosts run.
+
+  8. **Confirm the deployment in Promptless.**
+
+     Return to **Settings → Deployments**. The deployment should show **Online** with a recent **Last heartbeat** time.
 </Steps>
 
-<Aside type="note">
-  You do not run the database migration as a separate step. The chart includes a migration Job hook that runs automatically during `helm upgrade --install` to create the worker's schema in your Postgres database before the service starts.
-</Aside>
+The worker is ready when the Helm test passes, its host-facing health endpoint responds, and hosted Promptless shows it as **Online**. Next, [enroll a host](/docs/governance/get-started/enroll-your-hosts) and confirm that its first new session appears.
 
-<Aside type="note">
-  Raw traces and canonical trace objects are written to the S3 bucket and Postgres database you configure. The worker is the trust boundary for that content — see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
-</Aside>
+## Enable trace analysis
 
-## Required configuration
+Installation proves that trace ingestion and storage work. To run the Friction Analyzer, add the `INSTRUCTION_HUB_ANALYSIS_*` settings for:
 
-The worker is configured entirely through environment variables. At a minimum, set:
+- The model provider and endpoint that may receive trace-derived analysis input
+- The analysis model and its credentials
+- The Instruction Hub repository and repository-scoped token
+- The quiet window after which a session is eligible for analysis
 
-- `INSTRUCTION_HUB_RUNTIME_BASE_URL` and `INSTRUCTION_HUB_INSTALL_TOKEN` — how the worker reaches and authenticates to hosted Promptless.
-- `INSTRUCTION_HUB_DEPLOYMENT_NAME`, `INSTRUCTION_HUB_DEPLOYMENT_INSTANCE_ID`, and `INSTRUCTION_HUB_CONFIG_HASH` — how the deployment identifies itself.
-- `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` and `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` — your database and bucket.
+Keep API keys and repository tokens in the existing Kubernetes Secret. Put non-sensitive settings in `values.yaml`, then run the same `helm upgrade --install` command. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
 
-To turn on analysis, you also set the `INSTRUCTION_HUB_ANALYSIS_*` variables, including the model provider the Friction Analyzer sends its analysis input to. For every variable and how the analysis knobs fit together, see [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference). For how the worker emits traces once it is running, see [Observability](/docs/governance/deploy-the-worker/observability).
+## Manage the deployment with GitOps
+
+For a GitOps-managed cluster:
+
+- Commit the generated `promptless-worker-values.yaml` and your non-sensitive `values.yaml`.
+- Pin the chart version rather than tracking the latest release.
+- Create `instruction-hub-worker-env` through your existing External Secrets, Sealed Secrets, or equivalent controller.
+- Preserve Postgres and S3 independently of the Helm release and back them up using your normal policies.
+- Test an upgrade in a staging deployment before applying it to production.
+
+## Troubleshoot installation
+
+### The migration Job fails
+
+Review the migration logs and confirm the Postgres DSN, network path, database permissions, and supported Postgres version:
+
+```bash
+kubectl logs --namespace instruction-hub \
+  --selector app.kubernetes.io/component=migration
+```
+
+### The worker cannot register
+
+Check worker logs for Runtime connectivity or token errors:
+
+```bash
+kubectl logs --namespace instruction-hub \
+  --selector app.kubernetes.io/name=instruction-hub-worker \
+  --since=15m
+```
+
+If the install token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
+
+### The Helm test cannot access S3
+
+Confirm that the ServiceAccount has the intended workload identity annotation, the pod assumed that identity, and its policy allows reads and writes to the configured bucket.
+
+### Hosts cannot reach the worker
+
+Run the health check from a host network, then inspect the ingress or gateway address and certificate:
+
+```bash
+kubectl get service,ingress --namespace instruction-hub
+```
+
+### The pod is ready but Promptless shows Offline
+
+Confirm outbound HTTPS access to the Runtime URL in `promptless-worker-values.yaml`, then rerun the Helm test.
+
+If the deployment still fails, send the Helm test output and worker logs to [help@gopromptless.ai](mailto\:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
+
+## Remove the worker
+
+In hosted Promptless, open the deployment and select **Disable** so it stops accepting new hosts and work. Then uninstall the Helm release:
+
+```bash
+helm uninstall instruction-hub-worker --namespace instruction-hub
+```
+
+The uninstall removes chart-managed Kubernetes resources. It does not delete your Postgres database, S3 objects, or hosted deployment history. Delete those separately only when your retention policy allows it.
