@@ -1,6 +1,6 @@
 ---
 title: Observability
-description: How the analyzer emits Datadog traces today and what worker-wide Datadog and Sentry configuration is coming.
+description: How the worker runs under Datadog tracing, emits structured JSON logs, and reports errors to Sentry.
 slug: docs/governance/deploy-the-worker/observability
 type: reference
 tags:
@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-Observability in the worker today is scoped to analysis. This page describes what ships now and what is coming.
+The worker can run under Datadog tracing, emit its logs as structured JSON, and report errors to Sentry. Structured logging is always on; Datadog tracing and Sentry reporting are both opt-in and off until you configure them. Analysis adds its own tracing on top of this worker-wide surface. This page describes each layer and points you to the environment variables that configure it.
 
 ## Analysis tracing
 
@@ -31,9 +31,35 @@ Each Friction Analyzer attempt runs in a child process launched under `ddtrace-r
 You set these alongside the worker's other environment variables when you [deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 <Aside type="note">
-  This tracing covers the analysis child process only. The worker process itself has no Datadog or Sentry startup configuration today.
+  This tracing covers the analysis child process only. The worker process itself is traced separately — see [Worker-wide Datadog tracing](#worker-wide-datadog-tracing) below.
 </Aside>
 
-## Forthcoming: worker-wide Datadog and Sentry
+## Worker-wide Datadog tracing
 
-First-class, worker-wide observability — starting the whole worker under Datadog tracing and reporting errors to Sentry — is in progress and not yet shipped. When it lands, this page documents the configuration it introduces. Until then, configure only the analysis tracing described above; there is no supported worker-wide Datadog or Sentry configuration to set yet.
+The whole worker process starts under `ddtrace-run`, the container entrypoint, so Datadog APM traces cover the worker's request handling — not only the analysis child process. Tracing is opt-in: it stays disabled until you set `DD_TRACE_ENABLED=true`, and the image ships with it off.
+
+Turn it on through the Helm chart's Datadog values (the `observability.datadog.enabled` value). Enabling it renders `DD_TRACE_ENABLED=true` and the `DD_*` connection variables for you — you configure the agent's site and URL through the chart's Datadog values rather than setting `DD_TRACE_AGENT_URL` and `DD_SITE` by hand — and applies Datadog Unified Service Tagging labels and log-collection annotations to both the worker Deployment and the migration Job. Those annotations also mean the worker's stdout JSON logs are collected by the Datadog agent, not only its traces. If you deploy without the chart, set these variables directly and run a reachable Datadog agent for the telemetry to land.
+
+The worker-wide tracer connects to the agent through `DD_TRACE_AGENT_URL`; the analysis child process connects through `DD_AGENT_HOST` (see [Analysis tracing](#analysis-tracing) above), and setting one does not configure the other.
+
+For each variable, see [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+
+## Structured logging
+
+The worker emits every log line as JSON to stdout, one object per line. This emission is always on and not tied to Datadog or Sentry, so any log pipeline can parse the output whether or not either is enabled. The logs go to stdout regardless; when you enable Datadog, its log-collection annotations forward that stdout to the Datadog agent.
+
+Each record carries a UTC ISO-8601 `timestamp`, the level as `status`, the `logger.name`, the `message`, any extra fields, and `error.stack` when an exception is present. Verbosity is controlled by `INSTRUCTION_HUB_LOG_LEVEL`, which defaults to `INFO`; see [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+
+When Datadog log injection is on (`DD_LOGS_INJECTION=true`), each record also gains the trace-correlation fields `dd.trace_id` and `dd.span_id` — opaque identifiers that link the logs back to their traces.
+
+## Sentry error reporting
+
+Sentry error reporting is opt-in: it stays off until you set a Sentry DSN (`SENTRY_DSN`).
+
+When enabled, the worker reports uncaught exceptions from its HTTP layer (FastAPI and Starlette) and turns ERROR-level log records into Sentry events; lower-level records are attached as breadcrumbs. Sentry performance tracing stays off; Datadog owns application tracing, so the worker never sends Sentry APM data. The worker initializes Sentry with personally identifiable information disabled, so it does not attach cookies, the client's IP address, or logged-in user identity (username, ID, email) to events. Events are tagged with the service and the deployment name, and carry the deployment instance as the event's server name, so you can tell which worker deployment produced them.
+
+Use a Sentry project dedicated to the worker, separate from your other alert streams. Keeping the worker's exception data in its own project means worker errors — and whoever can see them — stay separate from your runtime and eval alert streams. Supply the DSN as a secret through your deployment's secret store — with the Helm chart, provide it through the chart's Sentry values rather than as a plain value — so it is never committed in plaintext.
+
+<Aside type="note">
+  Promptless's own production deploy enforces this isolation. Before it upgrades the worker, the deploy verifies that the worker's secret actually holds the dedicated Sentry DSN and fails the deploy if that key is missing or empty. Your own `helm upgrade` does not run that workflow, but the same rule applies: keep the worker's DSN in its own secret.
+</Aside>

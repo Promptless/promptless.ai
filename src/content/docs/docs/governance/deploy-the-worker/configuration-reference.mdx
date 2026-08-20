@@ -1,6 +1,6 @@
 ---
 title: Configuration reference
-description: The environment variables that configure the instruction-hub-worker, including the required deployment values and the analysis knobs.
+description: The environment variables that configure the instruction-hub-worker, including the required deployment values, the analysis knobs, and the observability settings for Datadog, structured logging, and Sentry.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-The worker is configured entirely through environment variables. This page lists the required deployment values and the analysis knobs. For how to supply them during a deployment, see [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The worker is configured entirely through environment variables. This page lists the required deployment values, the analysis knobs, and the observability settings for Datadog tracing, Sentry, and log verbosity. Datadog and Sentry are optional to configure; structured JSON logging itself always runs. For how to supply these values during a deployment, see [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Required variables
 
@@ -56,4 +56,27 @@ The `INSTRUCTION_HUB_ANALYSIS_*` variables turn on and configure the [Friction A
 
 <Aside type="caution">
   `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` and `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` are credential material — the provider API key and the repository-scoped token the remediation flow uses. Supply them through your secret store rather than as plain values.
+</Aside>
+
+## Observability variables
+
+These variables are optional. They configure worker-wide Datadog tracing, structured logging, and Sentry error reporting. Datadog and Sentry are both off unless you turn them on. When you deploy with the Helm chart, its Datadog values render the `DD_*` variables and its Sentry values supply `SENTRY_DSN` and the related Sentry settings. For how each layer behaves, see [Observability](/docs/governance/deploy-the-worker/observability). The `DD_TRACE_AGENT_URL` here points the worker-wide tracer at your Datadog agent; the analysis child process connects through `DD_AGENT_HOST` and the other `DD_TRACE_*` variables shown in the [Analysis tracing](/docs/governance/deploy-the-worker/observability) section instead.
+
+| Variable                     | Description                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------- |
+| `DD_TRACE_ENABLED`           | Turns on Datadog tracing for the whole worker process. Tracing is off unless set to `true`.       |
+| `DD_SERVICE`                 | The Datadog service name for the worker's traces, logs, and metrics.                              |
+| `DD_ENV`                     | The environment tag applied to the worker's Datadog telemetry.                                    |
+| `DD_VERSION`                 | The version tag for Datadog telemetry; set to the worker image tag.                               |
+| `DD_SITE`                    | The Datadog site the agent reports to, for example `datadoghq.com`.                               |
+| `DD_TRACE_AGENT_URL`         | The URL of the Datadog agent that receives the worker's traces.                                   |
+| `DD_LOGS_INJECTION`          | Adds the trace-correlation fields `dd.trace_id` and `dd.span_id` to the JSON logs so logs link to traces. |
+| `DD_TRACE_ANALYTICS_ENABLED` | Enables Datadog trace analytics.                                                                  |
+| `INSTRUCTION_HUB_LOG_LEVEL`  | The minimum level the worker logs. Logs are always JSON; this sets verbosity. Defaults to `INFO`. |
+| `SENTRY_DSN`                 | The Sentry DSN for the worker's dedicated Sentry project. Sentry is off unless this is set.       |
+| `SENTRY_ENVIRONMENT`         | The environment tag on Sentry events. Falls back to the deployment environment, then `local`.     |
+| `SENTRY_RELEASE`             | The release tag on Sentry events; set to the worker image tag.                                    |
+
+<Aside type="caution">
+  Treat `SENTRY_DSN` as a secret and supply it through your secret store rather than a plain value. Use a Sentry project dedicated to the worker so its errors stay separate from your other alert streams.
 </Aside>
