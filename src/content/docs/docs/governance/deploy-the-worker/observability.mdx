@@ -1,39 +1,50 @@
 ---
 title: Observability
-description: How the analyzer emits Datadog traces today and what worker-wide Datadog and Sentry configuration is coming.
+description: The worker's structured logging, opt-in Datadog APM, and opt-in Sentry error reporting, and the Helm values that enable each one.
 slug: docs/governance/deploy-the-worker/observability
-type: reference
+type: guide
 tags:
-  - agent-instructions
   - governance
-  - reference
+  - deploy-the-worker
+  - guide
 timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
-  order: 3
+  order: 5
+  label: Observability
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-Observability in the worker today is scoped to analysis. This page describes what ships now and what is coming.
+The worker ships with observability built in. Structured logging runs with no action from you; Datadog APM and Sentry error reporting are opt-in and disabled by default in the chart. This page covers the Helm values and environment that control each one. See [Worker configuration and data](/docs/governance/reference/worker-configuration-and-data) for the full values table.
 
-## Analysis tracing
+## Always on
 
-Each Friction Analyzer attempt runs in a child process launched under `ddtrace-run`, so analysis emits Datadog APM and LLM Observability spans. The child honors the standard Datadog environment variables you set on the worker and enables LLM Observability. If you already run a Datadog agent, set these variables in your [worker configuration](/docs/governance/deploy-the-worker/configuration-reference) so analysis spans reach it:
+Two things run under the shipped image and chart with no configuration:
 
-| Variable        | Purpose                                                      |
-| --------------- | ------------------------------------------------------------ |
-| `DD_ENV`        | The environment tag applied to analysis spans.               |
-| `DD_SITE`       | The Datadog site the agent reports to.                       |
-| `DD_AGENT_HOST` | The host of the Datadog agent that receives the spans.       |
-| `DD_TRACE_*`    | The standard Datadog tracer settings, passed through as set. |
+- The worker container runs under `ddtrace-run`.
+- The worker service process writes structured JSON logging to stdout, and this is always on. Each record carries Datadog-oriented fields: a `timestamp`, `status` (the level), `logger.name`, `message`, any non-standard extras attached to the record, and `error.stack` when exception or stack information is present.
 
-You set these alongside the worker's other environment variables when you [deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The worker runs analysis in a child process, and the two use different log channels. The service process logs to stdout, as above. The analysis child process writes its logs to stderr, because its stdout is reserved as the machine-readable result channel the parent worker consumes. The structured JSON format described above is the service-level logging model.
+
+## Datadog tracing
+
+Datadog APM is opt-in and disabled by default: the image sets `DD_TRACE_ENABLED=false`, and tracing activates only when that value is `true`.
+
+Enable it with Helm by setting `observability.datadog.enabled=true` along with the `env`, `service`, `agentUrl`, and `site` values. That renders `DD_TRACE_ENABLED=true`, unified service tags, `DD_LOGS_INJECTION=true`, and log-discovery pod annotations. It auto-instruments FastAPI and outbound HTTP.
 
 <Aside type="note">
-  This tracing covers the analysis child process only. The worker process itself has no Datadog or Sentry startup configuration today.
+  Datadog APM assumes a Datadog Agent reachable at the `agentUrl` you set. The chart does not ship the Agent itself.
 </Aside>
 
-## Forthcoming: worker-wide Datadog and Sentry
+## Sentry error reporting
 
-First-class, worker-wide observability — starting the whole worker under Datadog tracing and reporting errors to Sentry — is in progress and not yet shipped. When it lands, this page documents the configuration it introduces. Until then, configure only the analysis tracing described above; there is no supported worker-wide Datadog or Sentry configuration to set yet.
+Sentry is opt-in and disabled by default in the chart. Sentry is initialized only in the worker service and migration processes. When enabled, the service reports uncaught FastAPI and Starlette exceptions and ERROR-level log records as events to a separate Sentry project you provision for the worker; INFO-and-above records become breadcrumbs. Performance tracing is intentionally off, since Datadog owns application performance monitoring, and `send_default_pii` is `False`.
+
+Analysis child processes emit their logs and traces to Datadog, not to Sentry. Sentry events therefore come from the service.
+
+Enable it with Helm by setting `observability.sentry.enabled=true` and pointing `existingSecretName` and `dsnKey` at a Kubernetes secret that holds a DSN for that separate Sentry project. The chart maps that DSN into the process's `SENTRY_DSN`.
+
+<Aside type="caution">
+  The chart's `required` guard fails chart rendering only when `observability.sentry.existingSecretName` is empty. It does not verify the secret's contents: if you point it at a secret that is missing or lacks the DSN key, the pod fails to start with a Kubernetes `CreateContainerConfigError` instead. Provision the secret with the DSN key before you enable Sentry.
+</Aside>

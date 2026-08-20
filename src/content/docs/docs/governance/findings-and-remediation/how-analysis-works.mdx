@@ -1,0 +1,39 @@
+---
+title: How analysis works
+description: How the Friction Analyzer turns one agent session into findings, why evidence is append-only, and how run leases keep analysis consistent.
+slug: docs/governance/findings-and-remediation/how-analysis-works
+type: guide
+tags:
+  - governance
+  - findings-and-remediation
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 1
+  label: How analysis works
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The Friction Analyzer runs inside the worker and turns collected sessions into findings. Understanding how it reads a session and accumulates evidence tells you why findings appear when they do and why they sharpen over time. For the finding object itself, see the [Findings reference](/docs/governance/findings-and-remediation/findings-reference).
+
+## One session per run
+
+Each run analyzes one parent session, reading the raw session the host uploaded. The analyzer dispatches several investigators that work concurrently, and each investigator reads only the ranges of the session it cites. A run either creates a new finding or refines an existing one.
+
+## Evidence is append-only
+
+Evidence never gets rewritten. When a run finds more support for an existing finding, it appends evidence rather than replacing what is there, and it can promote a finding's confidence from low to high on the strength of the new evidence. Because occurrences accumulate, a recurring instruction failure builds a stronger case across sessions instead of resetting each time.
+
+## Run leases and cancellation
+
+A run holds a lease of roughly 15 minutes and renews it while it works, so two runs never analyze the same generation at once:
+
+- On graceful shutdown, a run releases its claim back to `queued` so another worker can pick it up.
+- On an unexpected exit, the run stays `running` until its lease expires and a sweep reclaims it.
+- When a newer generation supersedes a queued run, the superseded run becomes a terminal `cancelled` row and writes no findings.
+
+<Aside type="note">
+  You act on analysis by reading the findings it produces and refining your instructions in response — not by tuning the run mechanics, which the worker manages on its own. When findings warrant a fix, see [Remediation pull requests](/docs/governance/findings-and-remediation/remediation-pull-requests).
+</Aside>

@@ -1,0 +1,52 @@
+---
+title: Plan your deployment
+description: What the instruction-hub-worker is, the infrastructure it needs, and the trust boundary it runs inside before you install it.
+slug: docs/governance/deploy-the-worker/plan-your-deployment
+type: guide
+tags:
+  - governance
+  - deploy-the-worker
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 1
+  label: Plan your deployment
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The worker ingests trace evidence from your fleet and, once you enable it, analyzes that evidence into findings. It runs in your own infrastructure so trace content never leaves a boundary you control. Plan its infrastructure and dependencies before you install the chart.
+
+## What the worker is
+
+The worker is the `instruction-hub-worker` service (Python package `instruction_hub_worker`). You run it with the `serve` command, which listens on port 8080. It runs entirely inside your infrastructure — it is the only component of Promptless for Agent Instructions that touches raw trace content.
+
+## What it needs
+
+Provision these before you deploy:
+
+- **An S3 bucket you own** for raw trace slices and canonical trace objects.
+- **A Postgres database you own** for session and finding state.
+- **Kubernetes** to run the worker, installed through its Helm chart.
+- **A model provider you own** for analysis. This is optional at first — you can deploy the worker for ingestion only and enable analysis later.
+
+## Ingest sources
+
+The worker accepts evidence from exactly three sources:
+
+- **Claude Code**
+- **Claude Desktop**
+- **Codex**
+
+Each enrolled host uploads only the new bytes past its local watermark. The worker stores the raw slices plus a canonical trace object per session in your S3 bucket and Postgres database. See [Worker configuration and data](/docs/governance/reference/worker-configuration-and-data) for the source table and trace-object schema.
+
+## Where it sits in the trust model
+
+The worker and its storage are the "your own infrastructure" zone: raw trace bytes and canonical trace objects live here and nowhere else. The worker sends the hosted control plane only a metadata projection that excludes trace content. Read [Trust and data model](/docs/governance/start-here/trust-and-data-model) before you deploy, so you can size storage and set retention against what actually lands in your infrastructure.
+
+## Next steps
+
+<Aside type="tip">
+  When the prerequisites are ready, continue to [Install with Helm](/docs/governance/deploy-the-worker/install-with-helm).
+</Aside>

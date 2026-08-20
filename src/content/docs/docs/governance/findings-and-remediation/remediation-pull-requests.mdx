@@ -1,0 +1,41 @@
+---
+title: Remediation pull requests
+description: How high-confidence findings become ready pull requests against your hub, and why human review is the only gate before a fix ships.
+slug: docs/governance/findings-and-remediation/remediation-pull-requests
+type: guide
+tags:
+  - governance
+  - findings-and-remediation
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 3
+  label: Remediation pull requests
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Remediation turns a finding into a proposed fix you review as a pull request. The interface for this page is the GitHub pull request against your Instruction Hub. For the finding that seeds a fix, see the [Findings reference](/docs/governance/findings-and-remediation/findings-reference).
+
+## What is eligible
+
+Only high-confidence findings are eligible for remediation — either created at high confidence or promoted there as evidence accumulated. Low-confidence findings stay as issues until the analyzer gathers enough evidence to promote them. For how the analyzer raises a finding and what its evidence means, see [How analysis works](/docs/governance/findings-and-remediation/how-analysis-works).
+
+## How a fix is drafted
+
+An isolated remediation agent runs inside the same worker as the analyzer, in its own workspace, holding only a repository-scoped GitHub token for a single repository. It checks out a fresh branch of your hub repository, drafts a fix, and opens a ready — non-draft — pull request against the hub's default branch.
+
+For a fix where the right change is not obvious, the agent may first ask a remediation-choice prompt in Slack and wait roughly 12 hours for a response before proceeding.
+
+## Human review is the gate
+
+<Aside type="caution">
+  Human pull request review is the only gate. Nothing merges automatically, and there is no automated evaluation gate — a fix ships only when a person reviews and merges the pull request.
+</Aside>
+
+Review a remediation pull request the way you review any change to your Instruction Hub: read the diff, check it against the finding it resolves, and merge when you are satisfied.
+
+## What merging does
+
+Merging a fix re-runs the publish workflow, so the change recompiles and redistributes to the fleet, closing the loop. Hosts pick up the new release on their next startup refresh, which is eventual rather than instantaneous. To confirm a specific host has the update, run `promptless-host-runtime status` on it — see [Enroll a host](/docs/governance/get-started/enroll-a-host).

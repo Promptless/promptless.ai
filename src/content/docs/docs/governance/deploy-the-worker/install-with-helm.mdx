@@ -1,0 +1,50 @@
+---
+title: Install with Helm
+description: Install the instruction-hub-worker Helm chart, grant S3 access through IRSA, expose the service, and verify the deployment.
+slug: docs/governance/deploy-the-worker/install-with-helm
+type: guide
+tags:
+  - governance
+  - deploy-the-worker
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+  label: Install with Helm
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+You install the worker from its Helm chart. The interface for this page is the chart and its values; the environment variables the worker reads are covered in [Configure the worker](/docs/governance/deploy-the-worker/configure-the-worker). For the `pig` and `promptless-host-runtime` commands that compile the hub and feed this worker, see the [Command-line reference](/docs/governance/reference/command-line-reference).
+
+## What the chart installs
+
+The chart lives at `charts/instruction-hub-worker/` and renders:
+
+- a deployment and a service,
+- an optional gateway ingress,
+- a database migration Job hook that runs automatically during `helm upgrade --install`,
+- a secret and a service account.
+
+The worker image is a two-stage `python:3.11-slim` build and listens on port 8080.
+
+## Grant S3 access
+
+Grant the worker access to your S3 bucket through IRSA (IAM Roles for Service Accounts) by annotating its service account. Set the role annotation under `serviceAccount.annotations` so the pod assumes a role scoped to the bucket you provisioned.
+
+## Expose the service
+
+The service is `ClusterIP` by default, which keeps the worker reachable only inside the cluster. To expose it through an ingress, set `gateway.enabled=true`.
+
+## Install the chart
+
+<Steps>
+  1. Set the required configuration values, including the S3 role annotation and the worker's environment. See [Configure the worker](/docs/governance/deploy-the-worker/configure-the-worker).
+  2. Run `helm upgrade --install` to deploy the chart. The migration Job hook runs automatically as part of this command.
+  3. Verify the worker is serving by requesting `GET /healthz`.
+</Steps>
+
+<Aside type="tip">
+  With the worker serving, set the environment variables it needs to start in [Configure the worker](/docs/governance/deploy-the-worker/configure-the-worker).
+</Aside>

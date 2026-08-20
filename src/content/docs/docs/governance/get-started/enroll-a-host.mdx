@@ -1,0 +1,43 @@
+---
+title: Enroll a host
+description: Connect fleet hosts with the promptless-host-runtime CLI so collection begins, and verify a host is enrolled and collecting.
+slug: docs/governance/get-started/enroll-a-host
+type: guide
+tags:
+  - governance
+  - get-started
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 3
+  label: Enroll a host
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Enrolling a host connects it to your worker so it starts collecting evidence. The interface for this stage is the `promptless-host-runtime` CLI, which the compiled Claude and Codex plugins install onto each host. See the [Command-line reference](/docs/governance/reference/command-line-reference) for every subcommand.
+
+<Aside type="note">
+  Enrollment requires a reachable, deployed worker. Deploy one first — see [Plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment).
+</Aside>
+
+## Enrollment steps
+
+<Steps>
+  1. Install the compiled plugin on the host, which places the `promptless-host-runtime` executable there.
+  2. Run `promptless-host-runtime enroll --host <claude|codex|claude-desktop>`, which opens a browser approval on a `127.0.0.1` loopback callback.
+  3. Approve the request as a signed-in org member. The runtime caches a one-time per-host credential once approval succeeds.
+</Steps>
+
+The browser approval is a one-time step per host; after it completes, the host holds its own credential and does not prompt again.
+
+## How collection runs after enrollment
+
+Once a host is enrolled, collection runs on its own through the lifecycle hooks the plugin generates. A `SessionStart` hook ensures the runtime is ready and collects; the terminal `Stop`, `SessionEnd`, and `SubagentStop` hooks collect at the end of work. Collection is detached and non-blocking, so it never slows an agent session.
+
+The source ledger starts recording at enrollment, so history from before you enrolled a host is never uploaded.
+
+## Verify a host
+
+Run `promptless-host-runtime status` on a host to confirm it is enrolled and collecting. Once hosts report cleanly, the worker begins ingesting sessions and you can [enable the Friction Analyzer](/docs/governance/deploy-the-worker/enable-the-friction-analyzer) to turn evidence into findings.

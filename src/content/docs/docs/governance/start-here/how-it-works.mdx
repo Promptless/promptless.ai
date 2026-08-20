@@ -1,76 +1,61 @@
 ---
 title: How it works
-description: The end-to-end loop that turns authored agent instructions into human-reviewed remediation pull requests, and what runs where.
+description: The six-stage governance loop for agent instructions — author, compile, install, ingest, analyze, and remediate.
 slug: docs/governance/start-here/how-it-works
 type: guide
 tags:
-  - agent-instructions
   - governance
+  - start-here
   - guide
 timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
+  label: How it works
 ---
 
-import { Aside, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
 
-Promptless for Agent Instructions closes a single loop across five components:
+Promptless for Agent Instructions runs as a loop with six stages. You author instructions and compile them into the plugins your fleet installs; the fleet's hosts collect evidence as agents work; a worker you deploy analyzes that evidence into findings; and a remediation agent turns high-confidence findings into pull requests you review. Each stage below names the one interface you touch and links to the page that covers it in depth.
 
-- **Instruction Hub** — the versioned Git repository where you author your agent instructions.
-- **pig** — the toolchain that validates that hub and compiles it into target-native plugin packages.
-- **worker** — the service in your own infrastructure that ingests agent traces and produces findings, with the **Friction Analyzer** inside it.
-- **promptless-host-runtime** — the executable that rides inside your Claude and Codex plugins to enroll each host and collect its traces.
-- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane that issues credentials, projects findings to GitHub, and coordinates remediation.
+## Author
 
-This page shows how those pieces connect.
+Humans author governed instructions in an **Instruction Hub** — a versioned Git repository you own. Instructions come in six asset kinds: `skill`, `rule`, `agent`, `command`, `hook`, and `mcp` (skills are `SKILL.md` directories; the others are referenced as `kind:id`). Portable Agent Skills and MCP configurations are the headline. The hub governs all six kinds; skills and MCP are two of them, not the whole set.
 
-## The end-to-end loop
+You group assets into **packages** and declare them in `hub.yaml`. Every hub ships a required `pig` package that carries the managed update skill and host runtime the toolchain injects at compile time.
 
-<Steps>
-  1. **Author instructions in your Instruction Hub.** Organize your skills, subagents, hooks, commands, rules, and MCP configs as versioned [assets and packages](/docs/governance/start-here/key-concepts) in a Git repository. See [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+The interface here is the config files in the repository. See [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
 
-  2. **Compile the hub to target-native plugins.** The `pig` toolchain validates the hub and compiles each package into a plugin for Claude, Codex, Cursor, and Gemini. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+## Compile
 
-  3. **Publish and install on your fleet.** A GitHub Action commits the compiled output to a release branch and rewrites your marketplace manifests, and your fleet installs the plugins and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+The `pig` command-line tool validates the hub and compiles each package into target-native plugins. There are exactly four compile targets: Claude, Codex, Cursor, and Gemini. `pig` runs in CI and never as a long-running service.
 
-  4. **Enroll each host.** The `promptless-host-runtime` injected into your Claude and Codex plugins enrolls each host with your worker through a browser approval. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+The interface here is the `pig` CLI in your pipeline. See [Compile and publish](/docs/governance/get-started/compile-and-publish).
 
-  5. **Ingest native session traces.** The host runtime uploads new byte ranges of each native session ledger to your worker, which stores them in your own S3 bucket and Postgres database. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+## Install and enroll
 
-  6. **Analyze sessions with the Friction Analyzer.** The Friction Analyzer studies one session at a time and records findings, each backed by append-only evidence. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+Publishing commits the compiled output to a release branch and rewrites the marketplace manifests your fleet installs from. Installing the compiled Claude and Codex plugins places the `promptless-host-runtime` executable on each host. You then enroll a host with `promptless-host-runtime enroll`, which opens a browser approval; a signed-in org member approves, and the runtime caches a one-time per-host credential. Collection then runs on its own through generated lifecycle hooks — detached and non-blocking, so it never slows an agent session.
 
-  7. **Project findings to GitHub issues.** The worker sends each finding to the hosted Promptless Runtime, which projects it to a GitHub issue you can triage. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+The interface here is the `promptless-host-runtime` CLI on each host. See [Enroll a host](/docs/governance/get-started/enroll-a-host).
 
-  8. **Open a remediation pull request.** For a high-confidence finding, an isolated remediation agent — running in your worker, in its own workspace with a repository-scoped token — branches your Instruction Hub repository and opens a pull request with a proposed fix. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+## Ingest
 
-  9. **Review and merge.** A human reviews and merges the pull request. This human review is the gate — no change lands in your hub without it. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+The **worker** is a service you deploy in your own infrastructure. It ingests evidence from exactly three sources: Claude Code, Claude Desktop, and Codex. Each host uploads only the new bytes past a local watermark; the worker stores the raw slices and a canonical trace object per session in the S3 bucket and Postgres database you own.
 
-  10. **Recompile and redistribute.** The merged change recompiles and republishes, your fleet picks it up on startup, and the loop closes. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
-</Steps>
+The interface here is the worker's deployment configuration. See [Plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment).
 
-## What runs where
+## Analyze
 
-The loop spans three trust zones: your Git repository, your own infrastructure, and hosted Promptless.
+The **Friction Analyzer** runs inside the same worker. It analyzes one parent session per run, dispatches concurrent investigators that each read only the ranges they cite, and produces findings backed by append-only evidence. Analysis is opt-in — you enable it once the worker is running.
 
-- **Instruction Hub** — a Git repository you own. It holds the source of your governed instructions and receives remediation pull requests.
-- **pig** — a toolchain that runs in your continuous-integration pipeline, invoked by a thin GitHub Action caller. It never runs as a service.
-- **worker** — a service you deploy into your own infrastructure. It stores raw traces and canonical trace objects in your S3 bucket and metadata in your Postgres database, and it runs both the Friction Analyzer and the isolated remediation agent locally.
-- **promptless-host-runtime** — a command-line executable that ships inside your Claude and Codex plugins and runs on each host through generated lifecycle hooks.
-- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane Promptless operates. It receives only a limited projection of trace metadata, never trace content.
+The interface here is the analysis environment-variable group. See [How analysis works](/docs/governance/findings-and-remediation/how-analysis-works).
 
-For exactly what crosses each boundary, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+## Remediate
 
-<Aside type="note">
-  The Friction Analyzer runs inside the worker in your own infrastructure, and hosted Promptless receives only a limited metadata projection — never raw traces, prompts, or tool activity. When the worker analyzes a session, it does send trace-derived analysis input to the model provider you configure. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary.
+Only high-confidence findings are eligible for remediation. An isolated agent in the worker checks out a fresh branch of your hub repository, drafts a fix, and opens a ready pull request against the hub's default branch.
+
+<Aside type="caution">
+  Human pull request review is the gate. Nothing merges automatically, and there is no automated evaluation gate in this loop. Merging a fix re-runs the publish workflow, so the change recompiles and redistributes to the fleet, which picks it up on the next startup refresh.
 </Aside>
 
-## Next steps
-
-<CardGrid>
-  <LinkCard title="Key concepts" href="/docs/governance/start-here/key-concepts" description="Learn the primitives each step above depends on." />
-
-  <LinkCard title="Set up your Instruction Hub" href="/docs/governance/get-started/set-up-your-instruction-hub" description="Scaffold your hub and import your existing instructions." />
-
-  <LinkCard title="Deploy the analyzer worker" href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" description="Stand up the worker that ingests traces and runs the Friction Analyzer." />
-</CardGrid>
+The interface here is the GitHub pull request. See [Remediation pull requests](/docs/governance/findings-and-remediation/remediation-pull-requests).

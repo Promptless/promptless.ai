@@ -1,0 +1,59 @@
+---
+title: Compile and publish
+description: Compile the Instruction Hub into target-native plugins with pig, then publish a release your fleet installs from.
+slug: docs/governance/get-started/compile-and-publish
+type: guide
+tags:
+  - governance
+  - get-started
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+  label: Compile and publish
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Compiling turns the assets in your Instruction Hub into plugins each target agent can install; publishing cuts a release the fleet installs from. Both run through the `pig` CLI in CI. This page covers the build commands and the two workflows that drive them; the [Command-line reference](/docs/governance/reference/command-line-reference) lists every subcommand and flag.
+
+## Build commands
+
+- `pig build` writes compiled output to `dist/<target>/<package>/` along with per-target marketplace manifests.
+- `pig verify` compiles into a temporary directory to confirm the hub builds cleanly without touching `dist/`.
+- `pig build --check` fails if the committed output is stale relative to the source, so CI catches a `dist/` you forgot to regenerate.
+
+## The four compile targets
+
+`pig` compiles each package for exactly four targets:
+
+| Target | Output                                                              |
+| ------ | ------------------------------------------------------------------- |
+| Claude | Plugin and marketplace manifest.                                    |
+| Codex  | Plugin and marketplace manifest.                                    |
+| Cursor | Plugin and marketplace manifest; skills and rules render to `.mdc`. |
+| Gemini | Extension only; no marketplace manifest.                            |
+
+## Publish through CI
+
+Two caller workflows drive the toolchain's reusable workflows so the compiler version stays centralized:
+
+- `pr-check.yml@main` runs on the GitHub pull request trigger and validates and compiles the hub without publishing.
+- `publish.yml@main` runs on merges to the default branch and cuts the release.
+
+Publishing commits the compiled `dist/` and manifests to an orphan `release/stable` branch, then rewrites the marketplace manifests on the source branch into pointers at that branch. Each release records a `hub.release.json` whose `release_id` is `<version>+<hash12>`.
+
+Your fleet installs from the marketplace manifests, and hosts refresh their installed plugins on startup.
+
+## Cut a release
+
+<Steps>
+  1. Open a pull request with your hub changes; `pr-check.yml@main` validates and compiles it.
+  2. Merge to the default branch after review; `publish.yml@main` publishes the release.
+  3. Confirm the release recorded a `hub.release.json` with the expected `release_id`.
+</Steps>
+
+<Aside type="tip">
+  With a release published, connect your fleet's hosts so collection begins. See [Enroll a host](/docs/governance/get-started/enroll-a-host).
+</Aside>

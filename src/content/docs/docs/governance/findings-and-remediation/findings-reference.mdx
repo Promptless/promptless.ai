@@ -1,0 +1,54 @@
+---
+title: Findings reference
+description: The finding object the Friction Analyzer produces, its fields, how it cites instructions, and how it renders as a GitHub issue.
+slug: docs/governance/findings-and-remediation/findings-reference
+type: reference
+tags:
+  - governance
+  - findings-and-remediation
+  - reference
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+  label: Findings reference
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A finding is the analyzer's report of one instruction failure. You read findings as GitHub issues in your hub repository, so this reference leads with that surface and the fields behind it. For how findings become fixes, see [Remediation pull requests](/docs/governance/findings-and-remediation/remediation-pull-requests).
+
+## Finding fields
+
+Each finding carries these authored fields:
+
+| Field                 | Description                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `title`               | Names the concrete implicated artifact, not a category.                                              |
+| `severity`            | One of `low`, `medium`, `high`, or `critical`.                                                       |
+| `confidence`          | Either `low` or `high` — those are the only two values.                                              |
+| `evidence`            | At least one occurrence, each with a `digest_range` and an `occurrence_summary`, over unique ranges. |
+| `summary`             | A short description of the failure.                                                                  |
+| `impact`              | What the failure costs the fleet.                                                                    |
+| `instruction_failure` | The specific instruction that failed, with citations.                                                |
+| `notes`               | Additional context the analyzer recorded.                                                            |
+
+On read-back, a finding also carries fields you do not author: `id`, `version` (used for optimistic concurrency), `evidence_count`, up to three `latest_evidence` entries, `github_status`, and an optional `github_issue_url`.
+
+<Aside type="note">
+  A finding has no `category` field and no `proposed_remediation` field. A `digest_range` points at a location within the analyzer's session digest — it is not the SHA-256 integrity digest used to verify uploads.
+</Aside>
+
+## How findings cite instructions
+
+Findings name the concrete artifact they implicate. A `title` reads like `bin/github_token` rather than a category label. The `instruction_failure` cites each asset by repo-relative path and line range, rendered as a GitHub permalink pinned to the `repository_sha`; when the repository full name is absent, it falls back to a backticked path and range.
+
+Because a citation pins a content SHA and a repo-relative path rather than a branch or a synthesized URL, it survives file renames and moves — the reference still resolves after the instruction is relocated.
+
+## How evidence renders
+
+Evidence rendering depends on how many occurrences a finding has: one to three occurrences render expanded, and four or more are wrapped in a collapsed GitHub `<details>` block labeled with the count, so a long-running failure stays readable.
+
+## The GitHub issue surface
+
+The worker never creates GitHub issues itself. It sends each finding to hosted Promptless, which projects the finding to a GitHub issue and applies the labels `agent-trace-finding`, `severity:<level>`, and `confidence:<level>`. Filter your issues on those labels to triage by severity or confidence.
