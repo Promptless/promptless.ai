@@ -1,0 +1,570 @@
+---
+// Full-content-width product switcher rendered at the top of the homepage,
+// above the hero layout. Two pills form an accessible tablist with optional
+// auto-advance support
+// that drives three pairs of per-track regions:
+//   - HeroV2's two left-column tabpanels (pl-hero-panel-docs /
+//     pl-hero-panel-agents) — the actual tabpanels;
+//   - the hero right-column asides (pl-hero-aside-docs, the testimonials /
+//     pl-hero-aside-agents, the 30-day improvement stats);
+//   - the two below-the-fold slots (pl-below-fold-docs, the demo video plus the
+//     social proof, how-it-works, why-Promptless and Ask-AI sections /
+//     pl-below-fold-agents, the flywheel).
+// The agents pill is now the default active tab (temporary for the launch
+// positioning).
+//
+// Only the hero left-column panels are tabpanels, deliberately: each pill's
+// `aria-controls` names exactly one element and the WAI tabs pattern expects one
+// tabpanel per tab. The asides and below-fold slots are supporting regions that
+// follow the active tab. The asides carry `role="group"` + `aria-labelledby`
+// pointing at their pill — the minimal role that takes an accessible name
+// without adding a landmark. Don't promote them to `role="tabpanel"` or repoint
+// a pill's `aria-controls` at them.
+//
+// The pills live in a separate component from HeroV2 and from home.mdx but
+// share the same page, so the script resolves every panel, aside, and slot from
+// `document` by id at runtime.
+---
+
+<div class="pl-product-switcher not-content">
+  <div class="pl-product-switcher-tablist" role="tablist" aria-label="Choose your Promptless experience">
+    <button
+      id="pl-product-switcher-tab-agents"
+      class="pl-product-switcher-pill is-active"
+      role="tab"
+      type="button"
+      aria-selected="true"
+      aria-controls="pl-hero-panel-agents"
+      tabindex="0"
+    >
+      <svg
+        class="pl-product-switcher-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 8V4H8" />
+        <rect width="16" height="12" x="4" y="8" rx="2" />
+        <path d="M2 14h2" />
+        <path d="M20 14h2" />
+        <path d="M15 13v2" />
+        <path d="M9 13v2" />
+      </svg>
+      <span class="pl-product-switcher-label">for agent instructions</span>
+      <span class="pl-product-switcher-underline" aria-hidden="true"></span>
+    </button>
+    <button
+      id="pl-product-switcher-tab-docs"
+      class="pl-product-switcher-pill"
+      role="tab"
+      type="button"
+      aria-selected="false"
+      aria-controls="pl-hero-panel-docs"
+      tabindex="-1"
+    >
+      <svg
+        class="pl-product-switcher-icon"
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      </svg>
+      <span class="pl-product-switcher-label">for customer-facing docs</span>
+      <span class="pl-product-switcher-underline" aria-hidden="true"></span>
+    </button>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const root = document.querySelector('.pl-product-switcher');
+    if (!(root instanceof HTMLElement)) return;
+
+    const tablist = root.querySelector<HTMLElement>('.pl-product-switcher-tablist');
+    const pills = Array.from(root.querySelectorAll<HTMLButtonElement>('.pl-product-switcher-pill'));
+    if (!tablist || pills.length === 0) return;
+
+    // Intentionally paused while the homepage leads with agent instructions.
+    // Keep the rotation implementation below intact: we may bring the automatic
+    // product preview back after the agent-governance launch window.
+    const AUTO_ROTATE_ENABLED = false;
+    const ROTATE_MS = 10000;
+    // Single source of truth for the rotate window: drive the CSS underline-fill
+    // animation duration from the JS constant so the two can't desync.
+    root.style.setProperty('--pl-switcher-rotate', ROTATE_MS + 'ms');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let activeIndex = pills.findIndex((pill) => pill.getAttribute('aria-selected') === 'true');
+    if (activeIndex < 0) activeIndex = 0;
+    let locked = false;
+    let intervalId: number | undefined;
+
+    const DOCS_TAB_ID = 'pl-product-switcher-tab-docs';
+    const AGENTS_TAB_ID = 'pl-product-switcher-tab-agents';
+
+    // Satellite regions that live outside HeroV2's tabpanel pair: the two
+    // below-the-fold slots and the two hero right-column asides. All four follow
+    // the active pill and nothing else — that symmetry is the rule, not a
+    // per-slot special case. A rotate preview of either track therefore always
+    // shows that track's full content.
+    //
+    // The docs below-fold slot used to additionally require `locked`, to keep
+    // the tall demo video from popping in and out every ROTATE_MS. That was the
+    // reported bug: rotating onto the docs pill showed a docs preview with no
+    // docs content at all (both below-fold slots hidden). Showing the docs slot
+    // during the rotate preview is now deliberate. The pop-in is acceptable
+    // because starting the demo video stops rotation outright (see the
+    // video-activation guard below), so nobody gets torn down mid-playback.
+    const belowFoldDocs = document.getElementById('pl-below-fold-docs');
+    const belowFoldAgents = document.getElementById('pl-below-fold-agents');
+    const heroAsideDocs = document.getElementById('pl-hero-aside-docs');
+    const heroAsideAgents = document.getElementById('pl-hero-aside-agents');
+
+    // One table drives all four, so the gate expression can't drift between
+    // them. Each entry is null-guarded at sync time because the switcher renders
+    // on pages that may not carry every slot. The docs below-fold slot is the
+    // only one that needs extra work on hide (a LiteYouTube teardown); the other
+    // three are static markup with nothing to tear down.
+    const tabSlots: Array<{ el: HTMLElement | null; tabId: string }> = [
+      { el: belowFoldAgents, tabId: AGENTS_TAB_ID },
+      { el: belowFoldDocs, tabId: DOCS_TAB_ID },
+      { el: heroAsideAgents, tabId: AGENTS_TAB_ID },
+      { el: heroAsideDocs, tabId: DOCS_TAB_ID },
+    ];
+
+    const syncTabSlots = () => {
+      tabSlots.forEach(({ el, tabId }) => {
+        if (!el) return;
+        const show = pills[activeIndex]?.id === tabId;
+        if (show) {
+          el.removeAttribute('hidden');
+          return;
+        }
+        if (el === belowFoldDocs && !el.hasAttribute('hidden')) {
+          // Tear any activated LiteYouTube embed back down to its facade before
+          // hiding so a playing video's audio doesn't keep running in a hidden
+          // container. LiteYouTube activates by injecting an <iframe> via
+          // replaceChildren() and marking the container [data-activated]; there
+          // is no separate teardown API. So we remove the injected <iframe> and
+          // clear data-activated, which stops playback (the player element is
+          // destroyed) and lets a later click re-inject a fresh iframe. We do
+          // NOT touch the iframe src (reloading it would re-autoplay while
+          // hidden).
+          el.querySelectorAll<HTMLElement>('.lite-youtube[data-activated]').forEach((embed) => {
+            embed.querySelector('iframe')?.remove();
+            delete embed.dataset.activated;
+          });
+        }
+        el.setAttribute('hidden', '');
+      });
+    };
+
+    const panelFor = (pill: HTMLButtonElement) => {
+      const id = pill.getAttribute('aria-controls');
+      return id ? document.getElementById(id) : null;
+    };
+
+    const stopRotation = () => {
+      if (intervalId !== undefined) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    };
+
+    // Start (or restart) the auto-rotate timer. No-op under reduced motion,
+    // while rotation is disabled, once locked, or if a timer is already running
+    // — so hover/focus resume can't accidentally spin up rotation in those modes.
+    const startRotation = () => {
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked || intervalId !== undefined) return;
+      intervalId = window.setInterval(() => {
+        if (locked) {
+          stopRotation();
+          return;
+        }
+        activate((activeIndex + 1) % pills.length);
+      }, ROTATE_MS);
+    };
+
+    // Freeze the active pill's underline in place so it stops counting down to
+    // a flip that won't fire while paused.
+    const pauseUnderline = () => {
+      const underline = pills[activeIndex]?.querySelector<HTMLElement>('.pl-product-switcher-underline');
+      if (underline) underline.style.animationPlayState = 'paused';
+    };
+
+    const restartUnderline = (pill: HTMLButtonElement) => {
+      const underline = pill.querySelector<HTMLElement>('.pl-product-switcher-underline');
+      if (!underline) return;
+      // Keep a static active indicator while rotation is disabled, reduced motion
+      // is requested, or the visitor has committed to a tab.
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked) {
+        underline.style.animation = 'none';
+        underline.style.transform = 'scaleX(1)';
+        return;
+      }
+      // Restart the fill animation from 0 by forcing a reflow. Also clear any
+      // paused play-state left behind by a hover/focus pause.
+      underline.style.animationPlayState = '';
+      underline.style.animation = 'none';
+      void underline.offsetWidth;
+      underline.style.animation = '';
+    };
+
+    const activate = (index: number, { focus = false } = {}) => {
+      pills.forEach((pill, i) => {
+        const isActive = i === index;
+        pill.classList.toggle('is-active', isActive);
+        pill.setAttribute('aria-selected', String(isActive));
+        pill.tabIndex = isActive ? 0 : -1;
+        const panel = panelFor(pill);
+        if (panel) {
+          if (isActive) {
+            panel.removeAttribute('hidden');
+          } else {
+            panel.setAttribute('hidden', '');
+          }
+        }
+      });
+      activeIndex = index;
+      if (focus) pills[index].focus();
+      restartUnderline(pills[index]);
+      syncTabSlots();
+    };
+
+    const lockSelection = (index: number) => {
+      locked = true;
+      stopRotation();
+      activate(index, { focus: true });
+    };
+
+    // Commit the currently previewed track without moving focus. This is used
+    // once somebody reaches below-the-fold content: allowing the carousel to
+    // keep rotating there would replace the story they are actively reading
+    // and could collapse the page underneath their scroll position.
+    const lockCurrentSelection = () => {
+      if (locked) return;
+      locked = true;
+      stopRotation();
+      restartUnderline(pills[activeIndex]);
+    };
+
+    // Move focus for the roving-tabindex tab pattern: exactly one pill is ever
+    // tabbable (tabIndex 0), the rest are -1. Focus moves without activating
+    // (manual activation) — only Enter/Space/click activate + lock a tab.
+    const moveFocus = (toIndex: number) => {
+      pills.forEach((pill, i) => {
+        pill.tabIndex = i === toIndex ? 0 : -1;
+      });
+      pills[toIndex].focus();
+    };
+
+    // Deep-link support: promptless.ai/#agents pins the agent-instructions tab
+    // and promptless.ai/#docs pins the customer-facing-docs tab, so a shared link
+    // lands prospects on the intended track. No element on the homepage carries
+    // an `agents`/`docs` id, so repurposing the hash as a tab control collides
+    // with no scroll anchor. Landing on a hashed tab counts as committing to it:
+    // we lock (rotation off) exactly as a click does, but without moving focus,
+    // so first paint doesn't yank scroll to the tablist.
+    const HASH_TO_TAB_ID: Record<string, string> = {
+      '#agents': AGENTS_TAB_ID,
+      '#docs': DOCS_TAB_ID,
+    };
+
+    const applyHashSelection = () => {
+      const tabId = HASH_TO_TAB_ID[window.location.hash];
+      if (!tabId) return;
+      const index = pills.findIndex((pill) => pill.id === tabId);
+      if (index < 0) return;
+      locked = true;
+      stopRotation();
+      activate(index);
+    };
+
+    // Pin the hashed tab on load, then keep following the hash so an in-page
+    // link between #agents and #docs re-pins without a reload.
+    applyHashSelection();
+    window.addEventListener('hashchange', applyHashSelection);
+
+    // Auto-rotate: flip to the other pill every ROTATE_MS when the feature flag
+    // above is enabled. This call deliberately stays in place so restoring the
+    // preview only requires changing AUTO_ROTATE_ENABLED.
+    startRotation();
+
+    // Guard introduced alongside the fix that lets the docs below-fold slot show
+    // during a rotate preview: starting the demo video now counts as committing
+    // to the docs track. Without this, the next rotate would tear the video embed
+    // down mid-playback for a visitor who hit play during a preview. We don't
+    // reimplement LiteYouTube's activation — we just listen for the click that
+    // activates its facade and pin the docs tab (rotation off, `locked`) until
+    // the user clicks a pill.
+    belowFoldDocs?.querySelectorAll<HTMLElement>('.lite-youtube').forEach((embed) => {
+      embed.addEventListener('click', () => {
+        lockCurrentSelection();
+      });
+    });
+
+    // If auto-rotation returns, it must stop as soon as either product's long-form
+    // story enters the viewport. Observe both slots because the active one can
+    // change before the visitor scrolls down; hidden slots cannot intersect, so
+    // only the visible story pins its track.
+    if ('IntersectionObserver' in window) {
+      const belowFoldObserver = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          lockCurrentSelection();
+          belowFoldObserver.disconnect();
+        },
+        { threshold: 0.01 }
+      );
+      [belowFoldAgents, belowFoldDocs].forEach((slot) => {
+        if (slot) belowFoldObserver.observe(slot);
+      });
+    }
+
+    // Pause on hover / keyboard focus and resume on leave — the common,
+    // unintrusive carousel behavior. Pausing suspends both the flip timer and
+    // the underline countdown; resuming restarts from a fresh 10s window.
+    // Guarded so it stays a no-op under reduced motion or once locked (a lock
+    // is permanent and takes precedence).
+    const pause = () => {
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked) return;
+      stopRotation();
+      pauseUnderline();
+    };
+    const resume = () => {
+      if (!AUTO_ROTATE_ENABLED || reduceMotion || locked || intervalId !== undefined) return;
+      restartUnderline(pills[activeIndex]);
+      startRotation();
+    };
+
+    // At minimum cover the tablist container; also cover the hero panels region
+    // if it's reachable via the shared document so hovering the panels pauses too.
+    const pauseTargets: HTMLElement[] = [tablist];
+    const panelsRegion =
+      document.querySelector<HTMLElement>('.pl-hero-v2-panels') ??
+      document.getElementById('overview');
+    if (panelsRegion) pauseTargets.push(panelsRegion);
+
+    pauseTargets.forEach((target) => {
+      target.addEventListener('mouseenter', pause);
+      target.addEventListener('mouseleave', resume);
+      target.addEventListener('focusin', pause);
+      target.addEventListener('focusout', (event) => {
+        // Only resume when focus actually leaves the region, not when moving
+        // between children (e.g. arrow-key focus between pills).
+        const next = event.relatedTarget;
+        if (next instanceof Node && target.contains(next)) return;
+        resume();
+      });
+    });
+
+    pills.forEach((pill, index) => {
+      pill.addEventListener('click', () => lockSelection(index));
+
+      pill.addEventListener('keydown', (event) => {
+        switch (event.key) {
+          case 'ArrowRight':
+          case 'ArrowDown': {
+            event.preventDefault();
+            moveFocus((index + 1) % pills.length);
+            break;
+          }
+          case 'ArrowLeft':
+          case 'ArrowUp': {
+            event.preventDefault();
+            moveFocus((index - 1 + pills.length) % pills.length);
+            break;
+          }
+          case 'Home': {
+            event.preventDefault();
+            moveFocus(0);
+            break;
+          }
+          case 'End': {
+            event.preventDefault();
+            moveFocus(pills.length - 1);
+            break;
+          }
+          case 'Enter':
+          case ' ':
+          case 'Spacebar': {
+            event.preventDefault();
+            lockSelection(index);
+            break;
+          }
+          default:
+            break;
+        }
+      });
+    });
+
+    // Initialize the active indicator. It stays filled while rotation is disabled.
+    restartUnderline(pills[activeIndex]);
+  })();
+</script>
+
+<style>
+  .pl-product-switcher {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 0;
+    margin: 0 0 0.75rem;
+    background: transparent;
+  }
+
+  .pl-product-switcher-tablist {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0.2rem;
+    border: 1px solid var(--pl-color-border);
+    background: rgba(17, 19, 25, 0.78);
+    border-radius: 999px;
+    padding: 0.3rem;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--pl-shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  }
+
+  .pl-product-switcher-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.55rem 1.15rem;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--pl-color-text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    overflow: hidden;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .pl-product-switcher-pill:hover {
+    color: var(--pl-color-text-strong);
+  }
+
+  .pl-product-switcher-pill.is-active {
+    background: linear-gradient(135deg, rgba(110, 124, 250, 0.16), rgba(255, 255, 255, 0.045));
+    color: var(--pl-color-text-strong);
+    box-shadow: inset 0 0 0 1px rgba(151, 162, 255, 0.13), 0 8px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  /* The docs pill carries the steel-blue of the ambient wash that selecting it
+     applies to the page (see .main-frame:has(.pl-site-page-home) in custom.css).
+     The agents pill keeps the brand indigo from the shared .is-active rule
+     above. Pill and page must stay the same hue — the pill previewing where
+     you're about to land is what makes the switch read as two products rather
+     than a recolor. Hues come from the --pl-track-docs-* vars so both live in
+     one place. */
+  #pl-product-switcher-tab-docs.is-active {
+    background: linear-gradient(135deg, var(--pl-track-docs-tint), rgba(255, 255, 255, 0.045));
+    box-shadow: inset 0 0 0 1px var(--pl-track-docs-ring), 0 8px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .pl-product-switcher-pill:focus-visible {
+    outline: 2px solid var(--pl-color-accent);
+    outline-offset: 2px;
+  }
+
+  .pl-product-switcher-icon {
+    flex-shrink: 0;
+  }
+
+  .pl-product-switcher-label {
+    display: inline-block;
+  }
+
+  /* Optional progress underline: fills left-to-right over the 10s auto-rotate
+     window when rotation is enabled. The script keeps it statically filled while
+     the homepage is pinned to agent instructions. */
+  .pl-product-switcher-underline {
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 0.28rem;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #7887ff, #b39bff);
+    box-shadow: 0 0 12px rgba(120, 135, 255, 0.55);
+    transform: scaleX(0);
+    transform-origin: left center;
+    opacity: 0;
+  }
+
+  .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+    opacity: 1;
+    animation: pl-product-switcher-fill var(--pl-switcher-rotate, 10s) linear forwards;
+  }
+
+  #pl-product-switcher-tab-docs .pl-product-switcher-underline {
+    background: linear-gradient(90deg, var(--pl-track-docs-accent), var(--pl-track-docs-accent-bright));
+    box-shadow: 0 0 12px rgba(70, 160, 230, 0.55);
+  }
+
+  @keyframes pl-product-switcher-fill {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .pl-product-switcher {
+      position: static;
+      background: transparent;
+    }
+
+    .pl-product-switcher-tablist {
+      width: 100%;
+      flex-direction: column;
+      border-radius: 1rem;
+      gap: 0.35rem;
+    }
+
+    .pl-product-switcher-pill {
+      justify-content: center;
+      border-radius: 0.75rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pl-product-switcher-pill,
+    .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+      transition: none;
+      animation: none;
+    }
+
+    /* No motion under reduced-motion: the underline stays static (filled) on the
+       active pill rather than progressing. */
+    .pl-product-switcher-pill.is-active .pl-product-switcher-underline {
+      transform: scaleX(1);
+    }
+  }
+</style>
