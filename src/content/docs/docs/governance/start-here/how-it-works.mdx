@@ -1,0 +1,76 @@
+---
+title: How it works
+description: The end-to-end loop that turns authored agent instructions into human-reviewed remediation pull requests, and what runs where.
+slug: docs/governance/start-here/how-it-works
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 1
+---
+
+import { Aside, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
+
+Promptless for Agent Instructions closes a single loop across five components:
+
+- **Instruction Hub** — the versioned Git repository where you author your agent instructions.
+- **pig** — the toolchain that validates that hub and compiles it into target-native plugin packages.
+- **worker** — the service in your own infrastructure that ingests agent traces and produces findings, with the **Friction Analyzer** inside it.
+- **promptless-host-runtime** — the executable that rides inside your Claude and Codex plugins to enroll each host and collect its traces.
+- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane that issues credentials, projects findings to GitHub, and coordinates remediation.
+
+This page shows how those pieces connect.
+
+## The end-to-end loop
+
+<Steps>
+  1. **Author instructions in your Instruction Hub.** Organize your skills, subagents, hooks, commands, rules, and MCP configs as versioned [assets and packages](/docs/governance/start-here/key-concepts) in a Git repository. See [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+
+  2. **Compile the hub to target-native plugins.** The `pig` toolchain validates the hub and compiles each package into a plugin for Claude, Codex, Cursor, and Gemini. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+
+  3. **Publish and install on your fleet.** A GitHub Action commits the compiled output to a release branch and rewrites your marketplace manifests, and your fleet installs the plugins and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+
+  4. **Enroll each host.** The `promptless-host-runtime` injected into your Claude and Codex plugins enrolls each host with your worker through a browser approval. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+
+  5. **Ingest native session traces.** The host runtime uploads new byte ranges of each native session ledger to your worker, which stores them in your own S3 bucket and Postgres database. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+
+  6. **Analyze sessions with the Friction Analyzer.** The Friction Analyzer studies one session at a time and records findings, each backed by append-only evidence. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+
+  7. **Project findings to GitHub issues.** The worker sends each finding to the hosted Promptless Runtime, which projects it to a GitHub issue you can triage. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+
+  8. **Open a remediation pull request.** For a high-confidence finding, an isolated remediation agent — running in your worker, in its own workspace with a repository-scoped token — branches your Instruction Hub repository and opens a pull request with a proposed fix. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+
+  9. **Review and merge.** A human reviews and merges the pull request. This human review is the gate — no change lands in your hub without it. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+
+  10. **Recompile and redistribute.** The merged change recompiles and republishes, your fleet picks it up on startup, and the loop closes. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+</Steps>
+
+## What runs where
+
+The loop spans three trust zones: your Git repository, your own infrastructure, and hosted Promptless.
+
+- **Instruction Hub** — a Git repository you own. It holds the source of your governed instructions and receives remediation pull requests.
+- **pig** — a toolchain that runs in your continuous-integration pipeline, invoked by a thin GitHub Action caller. It never runs as a service.
+- **worker** — a service you deploy into your own infrastructure. It stores raw traces and canonical trace objects in your S3 bucket and metadata in your Postgres database, and it runs both the Friction Analyzer and the isolated remediation agent locally.
+- **promptless-host-runtime** — a command-line executable that ships inside your Claude and Codex plugins and runs on each host through generated lifecycle hooks.
+- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane Promptless operates. It receives only a limited projection of trace metadata, never trace content.
+
+For exactly what crosses each boundary, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+<Aside type="note">
+  The Friction Analyzer runs inside the worker in your own infrastructure, and hosted Promptless receives only a limited metadata projection — never raw traces, prompts, or tool activity. When the worker analyzes a session, it does send trace-derived analysis input to the model provider you configure. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary.
+</Aside>
+
+## Next steps
+
+<CardGrid>
+  <LinkCard title="Key concepts" href="/docs/governance/start-here/key-concepts" description="Learn the primitives each step above depends on." />
+
+  <LinkCard title="Set up your Instruction Hub" href="/docs/governance/get-started/set-up-your-instruction-hub" description="Scaffold your hub and import your existing instructions." />
+
+  <LinkCard title="Deploy the analyzer worker" href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" description="Stand up the worker that ingests traces and runs the Friction Analyzer." />
+</CardGrid>

@@ -1,0 +1,76 @@
+---
+title: Publish and install plugins
+description: Compile a hub to target-native plugins with pig build, publish through the GitHub Action, and install the plugins on your fleet.
+slug: docs/governance/get-started/publish-and-install-plugins
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Once your [Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub) validates, you compile it to plugins, publish those plugins, and install them on your fleet. The `pig` toolchain does the compiling; a thin GitHub Action does the publishing.
+
+## Compile targets
+
+`pig build` compiles each package in `stable_packages` for every configured target and writes the result to `dist/<target>/<package>/`, alongside the marketplace manifests. It compiles for four targets:
+
+- **Claude** and **Codex** get a plugin package and a marketplace manifest.
+- **Cursor** gets a plugin package and a marketplace manifest; skills and rules render to `.mdc` rule files.
+- **Gemini** gets an extension package with no marketplace.
+
+To confirm the committed output is current without rewriting it, run `pig build --check`, which fails if the generated artifacts are stale. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+
+## Publish with the GitHub Action
+
+You add two thin caller workflows under `.github/workflows/` that call the toolchain's reusable workflows — `pr-check.yml@main` on pull requests and `publish.yml@main` on merges to your default branch — so the compiler version stays centralized in the toolchain. At their most minimal, each caller references the toolchain workflow with `uses:`:
+
+```yaml
+# .github/workflows/instruction-hub-pr.yml
+on: pull_request
+jobs:
+  pr-check:
+    uses: Promptless/instruction-hub-toolchain/.github/workflows/pr-check.yml@main
+```
+
+```yaml
+# .github/workflows/instruction-hub-publish.yml
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  publish:
+    uses: Promptless/instruction-hub-toolchain/.github/workflows/publish.yml@main
+```
+
+The publish caller needs `permissions: contents: write` so the action can push the compiled output to the release branch. For any inputs or secrets these reusable workflows require beyond your repository's own token, see the toolchain's workflow reference.
+
+On publish, the action:
+
+<Steps>
+  1. Validates the hub.
+  2. Resolves the next plugin version against the previous release on the release branch.
+  3. Runs `pig build` at the resolved version.
+  4. Commits the compiled `dist/` and manifests to the `release/stable` branch, an orphan branch that holds only generated output.
+  5. Rewrites the marketplace manifests on your source branch into pointers at that release branch.
+</Steps>
+
+Each release records a `hub.release.json` manifest whose `release_id` combines the version and a content hash, in the form `<version>+<hash12>`.
+
+<Aside type="note">
+  Compiled plugins live on the `release/stable` branch, not your default branch. On your default branch, the marketplace manifests are pointers into that release branch.
+</Aside>
+
+## Install on your fleet
+
+Your fleet installs the plugins from the marketplace manifests, and each host refreshes its installed plugins on startup, so a new release reaches hosts without manual reinstalls.
+
+The required `pig` package is where the host runtime rides: at compile time the toolchain injects `promptless-host-runtime` into the Claude and Codex plugins. Installing those plugins therefore puts the runtime on each host, ready to enroll. Continue to [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
