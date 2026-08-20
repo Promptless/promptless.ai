@@ -1,0 +1,39 @@
+---
+title: Observability
+description: How the analyzer emits Datadog traces today and what worker-wide Datadog and Sentry configuration is coming.
+slug: docs/governance/deploy-the-worker/observability
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - reference
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Observability in the worker today is scoped to analysis. This page describes what ships now and what is coming.
+
+## Analysis tracing
+
+Each Friction Analyzer attempt runs in a child process launched under `ddtrace-run`, so analysis emits Datadog APM and LLM Observability spans. The child honors the standard Datadog environment variables you set on the worker and enables LLM Observability. If you already run a Datadog agent, set these variables in your [worker configuration](/docs/governance/deploy-the-worker/configuration-reference) so analysis spans reach it:
+
+| Variable        | Purpose                                                      |
+| --------------- | ------------------------------------------------------------ |
+| `DD_ENV`        | The environment tag applied to analysis spans.               |
+| `DD_SITE`       | The Datadog site the agent reports to.                       |
+| `DD_AGENT_HOST` | The host of the Datadog agent that receives the spans.       |
+| `DD_TRACE_*`    | The standard Datadog tracer settings, passed through as set. |
+
+You set these alongside the worker's other environment variables when you [deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+
+<Aside type="note">
+  This tracing covers the analysis child process only. The worker process itself has no Datadog or Sentry startup configuration today.
+</Aside>
+
+## Forthcoming: worker-wide Datadog and Sentry
+
+First-class, worker-wide observability — starting the whole worker under Datadog tracing and reporting errors to Sentry — is in progress and not yet shipped. When it lands, this page documents the configuration it introduces. Until then, configure only the analysis tracing described above; there is no supported worker-wide Datadog or Sentry configuration to set yet.

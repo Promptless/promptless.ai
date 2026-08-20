@@ -1,0 +1,68 @@
+---
+title: Deploy the analyzer worker
+description: Deploy the instruction-hub-worker into your own infrastructure with Docker and Helm, backed by your Postgres database and S3 bucket.
+slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 1
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+The worker is the `instruction-hub-worker` service (Python package `instruction_hub_worker`) that runs in your own infrastructure. It accepts trace uploads from your enrolled hosts, stores them in storage you own, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts). Its container image runs the `instruction-hub-worker serve` command and listens on port 8080.
+
+## Prerequisites
+
+Before you deploy, have the following ready:
+
+- A Postgres database you control, for trace and host metadata.
+- An S3 bucket you control, for raw traces and canonical trace objects.
+- A worker install token (a `plih_` token) that authenticates your deployment to hosted Promptless.
+
+## Deploy with Helm
+
+The worker ships a Helm chart at `charts/instruction-hub-worker/`. The chart renders a deployment, a service, an optional gateway ingress, a database migration job, a secret, and a service account.
+
+<Steps>
+  1. **Obtain the worker image.** The image is built from a two-stage `python:3.11-slim` base and exposes port 8080. Push it to a registry your cluster can pull from, or pull the published image directly.
+
+  2. **Provide configuration as a secret.** Supply the required environment variables — including your install token and Postgres connection string — through the chart's secret. See [Required configuration](#required-configuration).
+
+  3. **Grant the worker access to your S3 bucket.** Set `serviceAccount.annotations` so the pod assumes an AWS IAM role through IRSA (IAM Roles for Service Accounts) and can write to your bucket.
+
+  4. **Install the chart.** Point Helm at your values file.
+
+     ```bash
+     helm upgrade --install instruction-hub-worker \
+       ./charts/instruction-hub-worker \
+       --namespace instruction-hub \
+       --create-namespace \
+       -f values.yaml
+     ```
+
+  5. **Expose the service.** The service is `ClusterIP` by default. To reach it from your hosts through an ingress, set `gateway.enabled=true` to render one.
+</Steps>
+
+<Aside type="note">
+  You do not run the database migration as a separate step. The chart includes a migration Job hook that runs automatically during `helm upgrade --install` to create the worker's schema in your Postgres database before the service starts.
+</Aside>
+
+<Aside type="note">
+  Raw traces and canonical trace objects are written to the S3 bucket and Postgres database you configure. The worker is the trust boundary for that content — see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+</Aside>
+
+## Required configuration
+
+The worker is configured entirely through environment variables. At a minimum, set:
+
+- `INSTRUCTION_HUB_RUNTIME_BASE_URL` and `INSTRUCTION_HUB_INSTALL_TOKEN` — how the worker reaches and authenticates to hosted Promptless.
+- `INSTRUCTION_HUB_DEPLOYMENT_NAME`, `INSTRUCTION_HUB_DEPLOYMENT_INSTANCE_ID`, and `INSTRUCTION_HUB_CONFIG_HASH` — how the deployment identifies itself.
+- `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` and `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` — your database and bucket.
+
+To turn on analysis, you also set the `INSTRUCTION_HUB_ANALYSIS_*` variables, including the model provider the Friction Analyzer sends its analysis input to. For every variable and how the analysis knobs fit together, see [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference). For how the worker emits traces once it is running, see [Observability](/docs/governance/deploy-the-worker/observability).

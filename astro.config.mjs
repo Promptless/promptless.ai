@@ -234,9 +234,17 @@ export default defineConfig({
                 : {}),
               items: [
                 {
-                  label: 'Start Here',
-                  items: [{ label: 'Overview', slug: 'docs/governance' }],
+                  label: 'Start here',
+                  collapsed: true,
+                  items: [
+                    { label: 'Overview', slug: 'docs/governance' },
+                    { autogenerate: { directory: 'docs/governance/start-here', collapsed: true } },
+                  ],
                 },
+                { label: 'Get started', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/get-started', collapsed: true } }] },
+                { label: 'Deploy the worker', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/deploy-the-worker', collapsed: true } }] },
+                { label: 'Findings & remediation', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/findings-and-remediation', collapsed: true } }] },
+                { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/reference', collapsed: true } }] },
               ],
             },
           ],
