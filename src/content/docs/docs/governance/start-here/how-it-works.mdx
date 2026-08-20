@@ -34,13 +34,13 @@ The interface here is the `pig` CLI in your pipeline. See [Compile and publish](
 
 ## Install and enroll
 
-Publishing commits the compiled output to a release branch and rewrites the marketplace manifests your fleet installs from. Installing the compiled Claude and Codex plugins places the `promptless-host-runtime` executable on each host. You then enroll a host with `promptless-host-runtime enroll`, which opens a browser approval; a signed-in org member approves, and the runtime caches a one-time per-host credential. Collection then runs on its own through generated lifecycle hooks — detached and non-blocking, so it never slows an agent session.
+Publishing commits the compiled output to a release branch and rewrites the marketplace manifests your fleet installs from. Installing the compiled Claude and Codex plugins places the `promptless-host-runtime` executable on each host — the host runtime, a host-side CLI, distinct from the hosted Promptless Runtime that is the control plane. Enrollment points a host at a worker you have already deployed, so stand up the worker (see the Ingest stage below) before you enroll hosts. You then enroll a host with `promptless-host-runtime enroll`, which opens a browser approval; a signed-in org member approves, and the host runtime caches a one-time per-host credential. Collection then runs on its own through generated lifecycle hooks — detached and non-blocking, so it never slows an agent session.
 
 The interface here is the `promptless-host-runtime` CLI on each host. See [Enroll a host](/docs/governance/get-started/enroll-a-host).
 
 ## Ingest
 
-The **worker** is a service you deploy in your own infrastructure. It ingests evidence from exactly three sources: Claude Code, Claude Desktop, and Codex. Each host uploads only the new bytes past a local watermark; the worker stores the raw slices and a canonical trace object per session in the S3 bucket and Postgres database you own.
+The **worker** is a service you deploy in your own infrastructure. It ingests evidence from exactly three sources: Claude Code, Claude Desktop, and Codex. Each host uploads only the new bytes past a local watermark; the worker stores the raw slices and a canonical trace object per session in the S3 bucket and Postgres database you own. For what leaves each host, what stays local, and what hosted Promptless ever receives, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
 
 The interface here is the worker's deployment configuration. See [Plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment).
 
@@ -52,7 +52,7 @@ The interface here is the analysis environment-variable group. See [How analysis
 
 ## Remediate
 
-Only high-confidence findings are eligible for remediation. An isolated agent in the worker checks out a fresh branch of your hub repository, drafts a fix, and opens a ready pull request against the hub's default branch.
+Only high-confidence findings are eligible for remediation. A finding's confidence is either low or high, and it rises to high as more session evidence points to the same failure; see the [Findings reference](/docs/governance/findings-and-remediation/findings-reference) for the field. An isolated agent in the worker checks out a fresh branch of your hub repository, drafts a fix, and opens a ready pull request against the hub's default branch.
 
 <Aside type="caution">
   Human pull request review is the gate. Nothing merges automatically, and there is no automated evaluation gate in this loop. Merging a fix re-runs the publish workflow, so the change recompiles and redistributes to the fleet, which picks it up on the next startup refresh.

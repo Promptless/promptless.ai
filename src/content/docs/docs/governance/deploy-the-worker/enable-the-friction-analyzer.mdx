@@ -48,3 +48,11 @@ To produce findings, the analyzer sends trace-derived input — a session digest
 ## What enabling produces
 
 Once analysis is active, the Friction Analyzer reads quiet sessions and produces findings. The worker sends each finding to hosted Promptless, which projects it to a GitHub issue in the hub repository. For how a session becomes findings, see [How analysis works](/docs/governance/findings-and-remediation/how-analysis-works); for the finding object and its GitHub surface, see the [Findings reference](/docs/governance/findings-and-remediation/findings-reference).
+
+## Troubleshoot analysis
+
+If analysis is enabled but no findings appear, start with the analysis child process. The worker runs analysis in a separate child process that writes its logs — including any error the model-provider call raises — to stderr as structured JSON, so they surface in Datadog alongside the rest of the worker's logs. See [Observability](/docs/governance/deploy-the-worker/observability) for where those logs go.
+
+Confirm the model connection first. Check that `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`, `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`, and `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` point at a provider the analyzer can reach and authenticate to.
+
+A finding may also be absent because a run is still in flight. A run holds a lease and moves through `queued` and `running`, and a run that a newer generation supersedes ends `cancelled` without writing findings. See [How analysis works](/docs/governance/findings-and-remediation/how-analysis-works) for the run lifecycle.
