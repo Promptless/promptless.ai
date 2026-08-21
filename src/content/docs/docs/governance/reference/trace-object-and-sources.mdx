@@ -1,6 +1,6 @@
 ---
 title: Trace object and sources
-description: The native session sources the host runtime ingests and the canonical trace object the worker stores for each session.
+description: The three native session sources the host runtime reads and the canonical trace object the worker builds for each session.
 slug: docs/governance/reference/trace-object-and-sources
 type: reference
 tags:
@@ -25,22 +25,24 @@ There are exactly three ingest sources, each discovered with a capture glob:
 | Codex          | `codex`          | `${CODEX_HOME:-~/.codex}/**/*.jsonl` |
 | Claude Desktop | `claude-desktop` | `**/audit.jsonl`                     |
 
-A local source ledger records the byte offset already read from each file. On each collection pass, the runtime reads only the new byte ranges past that watermark, chunks them, gzip-compresses and base64-encodes each chunk, and uploads them with `POST /v0/traces/batches?target=<host>`. Byte ranges are contiguous and non-overlapping per source.
+A local source ledger records the byte offset already read from each file. On each collection pass, the runtime reads only the new byte ranges past that watermark, chunks them, gzip-compresses and base64-encodes each chunk, and uploads them with `POST /v0/traces/batches?target=<host>`. Byte ranges are contiguous and non-overlapping per source, and uploads are forward-only.
+
+For how a host starts sending these traces, see [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
 
 ## The canonical trace object
 
 The worker stores one self-contained JSON document per session, at schema version 1. Its top-level fields are:
 
-| Field               | Description                                                                    |
-| ------------------- | ------------------------------------------------------------------------------ |
-| `session`           | Session identity: source, session id, harness, models, and more.               |
-| `lifecycle`         | Status and timestamps, keeping native event time separate from ingestion time. |
-| `sources`           | Per native file: offsets, byte and record counts, and skip counts.             |
-| `rollups`           | Session-level rollups such as token usage.                                     |
-| `context_artifacts` | Analysis-context artifacts captured for the session.                           |
-| `preamble`          | Events before the first turn.                                                  |
-| `pending`           | Events not yet attached to a turn.                                             |
-| `turns`             | The session's turns, the only containment grouping.                            |
+| Field               | Description                                                                                                                                                                                                                                                                     |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session`           | Session identity: source, session id, harness, models, and more.                                                                                                                                                                                                                |
+| `lifecycle`         | Status and timestamps, keeping native event time separate from ingestion time.                                                                                                                                                                                                  |
+| `sources`           | Per native file: offsets, byte and record counts, and skip counts.                                                                                                                                                                                                              |
+| `rollups`           | Session-level rollups such as token usage.                                                                                                                                                                                                                                      |
+| `context_artifacts` | Trace-derived observations of governable artifacts the session used, such as Skill invocations and CLAUDE.md/AGENTS.md references — distinct from the separate analysis-context snapshot described in [Trust and data model](/docs/governance/start-here/trust-and-data-model). |
+| `preamble`          | Events before the first turn.                                                                                                                                                                                                                                                   |
+| `pending`           | Events not yet attached to a turn.                                                                                                                                                                                                                                              |
+| `turns`             | The session's turns, the only containment grouping.                                                                                                                                                                                                                             |
 
 Each event is a discriminated union with a global, monotonic `seq` that is never renumbered. The event kinds are:
 

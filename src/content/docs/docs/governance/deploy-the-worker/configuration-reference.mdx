@@ -1,6 +1,6 @@
 ---
 title: Configuration reference
-description: The environment variables that configure the instruction-hub-worker, including the required deployment values and the analysis knobs.
+description: Every environment variable that configures the instruction-hub-worker — the required deployment values and the analysis settings that turn on the Friction Analyzer.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
@@ -15,11 +15,11 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-The worker is configured entirely through environment variables. This page lists the required deployment values and the analysis knobs. For how to supply them during a deployment, see [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The worker is configured entirely through environment variables. This page lists the required deployment values and the analysis settings. For how to supply them during a deployment, see [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Required variables
 
-Set all seven of these for the worker to start and serve.
+Set all seven of these for the worker to start and serve. A missing or malformed value raises at boot and crashes the worker, so the pod fails to start.
 
 | Variable                                 | Description                                                                           |
 | ---------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -32,28 +32,32 @@ Set all seven of these for the worker to start and serve.
 | `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` | The S3 bucket you own, for raw traces and canonical trace objects.                    |
 
 <Aside type="caution">
-  Treat `INSTRUCTION_HUB_INSTALL_TOKEN` and `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` as secrets. Supply them through your secret store rather than plain values.
+  Treat `INSTRUCTION_HUB_INSTALL_TOKEN` and `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` as secrets. Supply them through your secret store rather than as plain values.
 </Aside>
 
 ## Analysis variables
 
-The `INSTRUCTION_HUB_ANALYSIS_*` variables turn on and configure the [Friction Analyzer](/docs/governance/findings-and-remediation/understand-findings). They are set together — the analyzer needs its model and repository configured to run.
+The `INSTRUCTION_HUB_ANALYSIS_*` variables turn on and configure the [Friction Analyzer](/docs/governance/start-here/key-concepts). Set them together — the analyzer needs its model and repository configured before it runs.
 
-| Variable                                        | Description                                                                           |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `INSTRUCTION_HUB_ANALYSIS_ACTIVATION_AT`        | When analysis becomes active for this deployment.                                     |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | The model provider: `openai`, `azure_openai`, or `aws_bedrock`.                       |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | How the worker authenticates to the provider.                                         |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | The provider's base URL.                                                              |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | The analysis model to use. Defaults to `gpt-5.6-sol`.                                 |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`        | The API key, when the provider uses API-key authentication.                           |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_URL`       | The Instruction Hub repository the analyzer reads and remediates against.             |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_ID`        | The repository identifier.                                                            |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_FULL_NAME` | The repository's full `owner/name`.                                                   |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN`     | A repository-scoped token the remediation flow uses to open pull requests.            |
-| `INSTRUCTION_HUB_ANALYSIS_QUIET_WINDOW_HOURS`   | How long a session stays quiet before it is eligible for analysis. Defaults to `0.5`. |
-| `INSTRUCTION_HUB_ANALYSIS_MIRROR_ROOT`          | Local root for the analyzer's repository mirror.                                      |
+| Variable                                        | Description                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INSTRUCTION_HUB_ANALYSIS_ACTIVATION_AT`        | When analysis becomes active for this deployment. An ISO-8601, timezone-aware timestamp — for example, `2026-07-29T00:00:00Z`.                                                                                                                                                         |
+| `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | The model provider: `openai`, `azure_openai`, or `aws_bedrock`.                                                                                                                                                                                                                        |
+| `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | How the worker authenticates to the provider: `api_key` or `aws_sigv4`. `api_key` works with any provider; `aws_sigv4` requires the `aws_bedrock` provider and uses ambient AWS credentials, so it needs no API key.                                                                   |
+| `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | The provider's base URL.                                                                                                                                                                                                                                                               |
+| `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | The analysis model to use. Defaults to `gpt-5.6-sol`.                                                                                                                                                                                                                                  |
+| `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`        | The API key, when the provider uses API-key authentication.                                                                                                                                                                                                                            |
+| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_URL`       | The Instruction Hub repository the analyzer reads and remediates against.                                                                                                                                                                                                              |
+| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_ID`        | The repository identifier.                                                                                                                                                                                                                                                             |
+| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_FULL_NAME` | The repository's full `owner/name`.                                                                                                                                                                                                                                                    |
+| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN`     | A repository-scoped token the remediation flow uses to open pull requests, and that the analyzer uses to clone and read your Instruction Hub for its local mirror. Optional for public repositories.                                                                                   |
+| `INSTRUCTION_HUB_ANALYSIS_QUIET_WINDOW_HOURS`   | How long a session stays quiet before it is eligible for analysis. Defaults to `0.5`.                                                                                                                                                                                                  |
+| `INSTRUCTION_HUB_ANALYSIS_MIRROR_ROOT`          | Local root for the analyzer's repository mirror. Defaults to `/var/lib/instruction-hub/analysis-mirrors`. The chart backs it with ephemeral pod-local storage (an `emptyDir`), not a persistent volume, so the mirror is re-cloned on pod restart and no PersistentVolume is required. |
 
 <Aside type="caution">
   `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` and `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` are credential material — the provider API key and the repository-scoped token the remediation flow uses. Supply them through your secret store rather than as plain values.
 </Aside>
+
+## Observability variables
+
+The worker also honors Datadog and Sentry environment variables to emit traces, logs, and errors. Those settings — the `DD_*` variables and `SENTRY_DSN` — are documented separately in [Observability](/docs/governance/deploy-the-worker/observability).
