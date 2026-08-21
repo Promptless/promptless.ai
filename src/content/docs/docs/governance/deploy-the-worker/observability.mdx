@@ -1,0 +1,52 @@
+---
+title: Observability
+description: How the worker emits structured logs to stdout and, when you opt in, Datadog APM traces and Sentry error events across the whole process.
+slug: docs/governance/deploy-the-worker/observability
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - reference
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Observability spans the whole worker, not just analysis. Structured logging is always on; Datadog APM and Sentry are opt-in. You set these variables alongside the worker's other configuration when you [deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+
+## Structured logging
+
+The worker emits structured JSON logs — one JSON object per line — from both the service process and the analysis child, always on and with no configuration required. Those logs reach Datadog on the container's stdout, classified with the correct severity.
+
+The analysis child runs as its own process, and its own stdout pipe stays reserved as the machine-readable result channel back to the parent service. Its structured logs still reach the container's stdout alongside the service's, so both processes are observable in one stream without disturbing that result channel.
+
+## Datadog tracing
+
+The worker's container entrypoint is `ddtrace-run instruction-hub-worker`, so the whole process starts under the Datadog tracer. APM tracing is off by default and opt-in: set `DD_TRACE_ENABLED="true"` to enable it. When tracing is on, the worker honors the standard Datadog environment variables you set, and analysis runs with LLM Observability enabled.
+
+| Variable           | Purpose                                                      |
+| ------------------ | ------------------------------------------------------------ |
+| `DD_TRACE_ENABLED` | Set to `"true"` to enable Datadog APM. Off by default.       |
+| `DD_ENV`           | The environment tag applied to worker spans.                 |
+| `DD_SITE`          | The Datadog site the agent reports to.                       |
+| `DD_AGENT_HOST`    | The host of the Datadog agent that receives the spans.       |
+| `DD_TRACE_*`       | The standard Datadog tracer settings, passed through as set. |
+
+If you already run a Datadog agent, set these variables in your [worker configuration](/docs/governance/deploy-the-worker/configuration-reference) so worker and analysis spans reach it.
+
+## Sentry
+
+The worker reports errors to Sentry when you set a DSN. Sentry is gated on the DSN being present, sends each `ERROR`-level event as a Sentry event, and does not enable performance tracing.
+
+| Variable             | Purpose                                                 |
+| -------------------- | ------------------------------------------------------- |
+| `SENTRY_DSN`         | The Sentry DSN to report to. Setting it enables Sentry. |
+| `SENTRY_ENVIRONMENT` | The environment tag applied to events.                  |
+| `SENTRY_RELEASE`     | The release identifier applied to events.               |
+
+<Aside type="note">
+  `SENTRY_DSN` is the variable a self-hosting operator sets on the worker. Set it through your secret store, since a DSN is credential material.
+</Aside>

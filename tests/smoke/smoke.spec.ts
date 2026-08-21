@@ -344,9 +344,9 @@ test('each documentation product gets only its own active topic and product meta
   assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
   assert.match(
     governanceHtml,
-    /uses evidence from agent sessions to help teams improve and govern skills, subagents, hooks, and other agent instructions\./i
+    /collects evidence from real agent sessions, finds where those instructions fail, and opens reviewed pull requests that fix them\./i
   );
-  assert.match(governanceHtml, /Detailed documentation is coming soon\./i);
+  assert.match(governanceHtml, /href="\/docs\/governance\/start-here\/how-it-works"/i);
 
   for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
     assert.match(
