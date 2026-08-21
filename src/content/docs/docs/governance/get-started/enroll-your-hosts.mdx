@@ -1,13 +1,13 @@
 ---
 title: Enroll your hosts
-description: Enroll each host with the worker using promptless-host-runtime and start collecting native session traces.
+description: Enroll each host with a worker deployment using promptless-host-runtime and start collecting native session traces.
 slug: docs/governance/get-started/enroll-your-hosts
 type: guide
 tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-08-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 3
@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Once a host installs your Claude or Codex plugins, the injected [host runtime](/docs/governance/start-here/key-concepts) (`promptless-host-runtime`, version 0.2.7) is present and ready to enroll with your worker and collect that host's session traces.
+Once a host installs your Claude or Codex plugins, the injected [host runtime](/docs/governance/start-here/key-concepts) (`promptless-host-runtime`, version 0.2.7) is ready to enroll with your worker deployment and collect that host's session traces.
 
 ## Enroll a host
 
@@ -32,7 +32,7 @@ Enrollment uses a browser approval so a signed-in member of your organization au
 
   2. **Approve in the browser.** The runtime opens the enrollment page and listens on a `127.0.0.1` loopback callback. A signed-in organization member approves the host there.
 
-  3. **Let the runtime cache the credential.** After approval, the runtime polls for the one-time per-host credential (a `plihost_` token) and caches it locally.
+  3. **Let the runtime cache the deployment details.** After approval, the runtime polls for its one-time per-host credential (a `plihost_` token), the worker deployment identifier, and the deployment public key. It caches them locally.
 </Steps>
 
 <Aside type="note">
@@ -46,7 +46,7 @@ After enrollment, collection runs on its own through generated lifecycle hooks �
 - On **`SessionStart`**, the Codex and Claude Code hooks ensure the host configuration and run a quiet collection pass. The Claude Code hook also runs a best-effort pass for `--host claude-desktop`.
 - On **terminal events** — `Stop`, `SessionEnd`, and `SubagentStop` where supported — the hooks run collection only.
 
-Every collection pass runs detached and non-blocking, so a worker, policy, or upload problem never interrupts the agent session. Collection uploads only new byte ranges past the local ledger watermark. For what those uploads contain and how sessions are reconstructed, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+Every collection pass runs detached and non-blocking, so a worker, policy, or upload problem never interrupts the agent session. The runtime encrypts new byte ranges to the deployment key and sends them through the outbound Promptless relay. Your worker retrieves and decrypts the batches inside your infrastructure. For what those uploads contain and how sessions are reconstructed, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
 
 ## Check status or reset
 

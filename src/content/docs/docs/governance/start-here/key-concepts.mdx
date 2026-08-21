@@ -7,7 +7,7 @@ tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-08-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 2
@@ -49,19 +49,19 @@ A plugin is the compiled, target-native form of a package. `pig` writes each one
 
 ## The host runtime
 
-`promptless-host-runtime` is a command-line executable the toolchain injects into your Claude and Codex plugins at compile time. It enrolls each host with your worker and collects that host's native session traces. It runs through generated lifecycle hooks rather than as a daemon. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+`promptless-host-runtime` is a command-line executable the toolchain injects into your Claude and Codex plugins at compile time. It enrolls each host with your worker deployment and collects that host's native session traces. It runs through generated lifecycle hooks rather than as a daemon. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
 
 ## Enrollment
 
-Enrollment is how a host proves its identity to your worker. The host runtime opens a browser approval page; a signed-in member of your organization approves the host, and the runtime caches a one-time per-host credential (a `plihost_` token) locally. The worker holds no shared secret — it verifies each credential through hosted introspection. See [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+Enrollment is how a host joins your worker deployment. The host runtime opens a browser approval page; a signed-in member of your organization approves the host, and the runtime caches a one-time per-host credential (a `plihost_` token) and the deployment public key locally. See [Trust and data model](/docs/governance/start-here/trust-and-data-model).
 
 ## Traces and sessions
 
-A trace is one agent session, reconstructed from the native session ledgers the agent CLI writes locally. The host runtime ingests from exactly three sources (Claude Code, Claude Desktop, and Codex) and uploads new byte ranges to your worker, which stores a canonical trace object per session. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+A trace is one agent session, reconstructed from the native session ledgers the agent CLI writes locally. The host runtime ingests from exactly three sources (Claude Code, Claude Desktop, and Codex). It encrypts new byte ranges to the deployment key and sends them through the Promptless relay. Your worker decrypts them and stores a canonical trace object per session. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
 
 ## The worker and Friction Analyzer
 
-The worker is the `instruction-hub-worker` service you deploy into your own infrastructure. It accepts trace uploads, stores them in your S3 bucket and Postgres database, and runs the Friction Analyzer. The Friction Analyzer is the analysis component inside the worker: it studies one session at a time and produces findings. See [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The worker is the `instruction-hub-worker` service you deploy into your own infrastructure. It retrieves encrypted trace batches over an outbound connection, decrypts them, stores them in your object store and Postgres database, and runs the Friction Analyzer. The Friction Analyzer studies one session at a time and produces findings. See [Install the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Findings and evidence
 
