@@ -274,21 +274,24 @@
       pills[toIndex].focus();
     };
 
-    // Deep-link support: promptless.ai/#agents pins the agent-instructions tab
-    // and promptless.ai/#docs pins the customer-facing-docs tab, so a shared link
-    // lands prospects on the intended track. No element on the homepage carries
-    // an `agents`/`docs` id, so repurposing the hash as a tab control collides
-    // with no scroll anchor. Landing on a hashed tab counts as committing to it:
-    // we lock (rotation off) exactly as a click does, but without moving focus,
-    // so first paint doesn't yank scroll to the tablist.
-    const HASH_TO_TAB_ID: Record<string, string> = {
-      '#agents': AGENTS_TAB_ID,
-      '#docs': DOCS_TAB_ID,
+    // Deep-link support: a shared link can land prospects on the intended track
+    // via either the URL hash (promptless.ai/#docs) or a `product` query param
+    // (promptless.ai/?product=docs). Both accept the same two track tokens —
+    // `agents` and `docs` — so there is one vocabulary to remember. The query
+    // param exists for contexts where a bare hash is awkward to share or gets
+    // stripped (e.g. newsletter links): ?product=docs drops a visitor straight
+    // onto the customer-facing-docs version of the landing page. No element on
+    // the homepage carries an `agents`/`docs` id, so repurposing the hash as a
+    // tab control collides with no scroll anchor. Landing on a pinned track
+    // counts as committing to it: we lock (rotation off) exactly as a click
+    // does, but without moving focus, so first paint doesn't yank scroll to the
+    // tablist.
+    const TRACK_TOKEN_TO_TAB_ID: Record<string, string> = {
+      agents: AGENTS_TAB_ID,
+      docs: DOCS_TAB_ID,
     };
 
-    const applyHashSelection = () => {
-      const tabId = HASH_TO_TAB_ID[window.location.hash];
-      if (!tabId) return;
+    const pinTab = (tabId: string) => {
       const index = pills.findIndex((pill) => pill.id === tabId);
       if (index < 0) return;
       locked = true;
@@ -296,8 +299,26 @@
       activate(index);
     };
 
-    // Pin the hashed tab on load, then keep following the hash so an in-page
-    // link between #agents and #docs re-pins without a reload.
+    const applyHashSelection = () => {
+      const tabId = TRACK_TOKEN_TO_TAB_ID[window.location.hash.replace(/^#/, '')];
+      if (tabId) pinTab(tabId);
+    };
+
+    // Read the `product` query param once on load. Unlike the hash it can't
+    // change without a navigation, so there's no paired listener; case is
+    // normalized so ?product=Docs behaves like ?product=docs.
+    const applyQuerySelection = () => {
+      const token = new URLSearchParams(window.location.search).get('product');
+      if (!token) return;
+      const tabId = TRACK_TOKEN_TO_TAB_ID[token.trim().toLowerCase()];
+      if (tabId) pinTab(tabId);
+    };
+
+    // Pin the requested track on load. The hash is applied last so an explicit
+    // #agents/#docs anchor wins if both are somehow present, then we keep
+    // following the hash so an in-page link between the two re-pins without a
+    // reload.
+    applyQuerySelection();
     applyHashSelection();
     window.addEventListener('hashchange', applyHashSelection);
 
