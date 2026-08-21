@@ -1,6 +1,6 @@
 ---
-title: Install the analyzer worker with Helm
-description: Register, install, and verify the instruction-hub-worker in your Kubernetes cluster.
+title: Install the analyzer worker
+description: Deploy the instruction-hub-worker to an existing Kubernetes cluster with Promptless Terraform modules and Helm.
 slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
 type: guide
 tags:
@@ -8,275 +8,444 @@ tags:
   - governance
   - kubernetes
   - helm
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-08-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside, Steps, TabItem, Tabs } from '@astrojs/starlight/components';
 
 {/*
   Docs-driven product contract:
-  - Hosted Promptless creates a named deployment and returns the install token once.
-  - The setup page supplies a pinned chart version, a non-secret values file, exact
-    network requirements, and recommended resource requests.
-  - The chart is published to the Promptless Helm repository and accepts an existing Secret.
-  - The chart runs database migrations automatically and includes a Helm test hook.
-  - Hosted Promptless shows deployment status and the worker's last heartbeat.
-  Keep this happy path current while the setup UI, chart distribution, and tests are built.
-  */}
+  - This page must be sufficient input for a coding agent. Installation must not
+    depend on an unpublished runbook, a support call, or hand-written Helm values.
+  - The only infrastructure prerequisite is an existing Kubernetes cluster.
+  - Promptless publishes one Terraform module repository with AWS, GCP, and Azure
+    implementations that share the same workflow and output the same Helm values schema.
+  - The default modules create dedicated, production-safe managed Postgres and object
+    storage, cloud-native secret storage, and workload identity. Existing resources
+    remain supported through explicit module inputs.
+  - The chart uses a one-time bootstrap token from hosted Promptless, stores the
+    resulting deployment credential in Kubernetes, and invalidates the token.
+  - The bootstrap token never appears in a values file, Terraform plan, Terraform
+    state, source control, or the coding-agent conversation.
+  - Hosts and the worker use an outbound-only, end-to-end encrypted relay. Customers
+    do not configure a public worker endpoint, DNS, TLS, ingress, or inbound firewall rules.
+  - Terraform and chart versions are pinned. The same declarative files support a
+    reviewed direct apply or a PR applied by the customer's existing automation.
+  - The chart runs migrations automatically, includes a Helm test, and reports
+    step-level readiness and failure details to hosted Promptless.
+*/}
 
-The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
+The analyzer worker is the `instruction-hub-worker` service that runs in your Kubernetes cluster. It accepts encrypted session traces from enrolled hosts, stores the decrypted data in infrastructure you own, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
 
-This guide installs the worker into an existing Kubernetes cluster and verifies every connection it needs. Once the infrastructure prerequisites are ready, the installation should take less than 15 minutes.
+This guide starts with an existing Kubernetes cluster. Promptless Terraform modules provision the worker's cloud dependencies, then a pinned Helm chart installs the worker. You do not need to create a public endpoint, configure DNS or TLS, or write a Helm values file by hand.
 
-## What runs where
+## Give this page to a coding agent
 
-| Hosted Promptless                                                              | Your infrastructure                                                            |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Deployment registration, configuration sync, and host credential introspection | The worker Deployment and its Kubernetes credentials                           |
-| Trace metadata, findings, and remediation workflow                             | Raw traces and canonical trace objects in your S3 bucket and Postgres database |
-| Deployment health and last-heartbeat status                                    | Trace analysis through the model provider and endpoint you configure           |
+Codex, Claude Code, or another coding agent can prepare the installation in your infrastructure repository. Start a task with this prompt:
 
-Hosted Promptless never receives raw trace content. Findings can contain model-authored descriptions of a session. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for the complete boundary.
+```text
+Install the Promptless analyzer worker by following this guide:
+https://promptless.ai/docs/governance/deploy-the-worker/deploy-the-analyzer-worker
+
+Use the existing Kubernetes cluster and the infrastructure conventions in this
+repository. Inspect first. Add only the Promptless Terraform and Helm configuration.
+Run validation and show me the Terraform plan before applying anything. Never ask me
+to paste a Promptless token or another secret into chat. If this repository uses a
+pull-request deployment workflow, open a PR instead of applying the changes locally.
+```
+
+Tell the agent which cluster and cloud account, project, or subscription to use. It should discover the remaining non-secret values from the existing environment.
+
+<Aside type="caution">
+  Review the agent's resolved cloud identity, Kubernetes context, Terraform plan, and chart version before allowing an apply. A coding agent should never approve its own infrastructure plan.
+</Aside>
+
+## What the installation creates
+
+| Location | Resources |
+| --- | --- |
+| Hosted Promptless | Deployment registration, configuration, health status, trace metadata, findings, and remediation workflow |
+| Your Kubernetes cluster | Worker Deployment, bootstrap Job, ServiceAccount, internal Service, migration Job, and Kubernetes credentials |
+| Your cloud account | Managed Postgres, object storage, a secret for the database connection, and least-privilege workload identity |
+
+The default Terraform modules create dedicated data services with encryption, private networking, automated backups, deletion protection, and public access disabled. You can point the modules at compatible existing services instead.
+
+### Outbound-only trace delivery
+
+The worker does not need an ingress. During bootstrap, it creates a deployment key pair inside your cluster and registers the public key with Promptless. Host runtimes encrypt trace batches to that key and send the ciphertext through the Promptless relay. The worker retrieves and decrypts each batch over an outbound HTTPS connection.
+
+Hosted Promptless can route the encrypted payload but cannot decrypt its contents. Plaintext raw traces and canonical trace objects exist only in your worker, database, object store, and configured model provider. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for the complete boundary.
+
+Allow these outbound connections:
+
+| Source | Destination | Port | Purpose |
+| --- | --- | --- | --- |
+| Worker | `control.gopromptless.ai` | 443 | Bootstrap, configuration, heartbeats, and findings |
+| Worker | `relay.gopromptless.ai` | 443 | Retrieve encrypted trace batches and send acknowledgements |
+| Host runtimes | `relay.gopromptless.ai` | 443 | Send end-to-end encrypted trace batches |
+| Worker | Your Postgres private endpoint | 5432 | Store trace metadata and coordination state |
+| Worker | Your object storage private endpoint | 443 | Store raw and canonical trace objects |
+| Worker | Your model provider | 443 | Analyze traces after you enable analysis |
+| Cluster nodes | `ghcr.io` | 443 | Pull the worker image and Helm chart |
+
+No Promptless-owned service needs an inbound route to your cluster or cloud account.
 
 ## Before you begin
 
 You need:
 
-- A Promptless organization with Agent Instructions enabled and permission to manage deployments.
-- An existing Kubernetes cluster running a version supported on the **Add deployment** page.
-- Helm 3 and `kubectl` installed locally, with `kubectl` connected to the target cluster.
-- Permission to create a namespace, Deployment, Service, ServiceAccount, Secret, migration Job, and optional ingress resources.
-- A Postgres database you control for trace and host metadata.
-- An S3 bucket you control for raw traces and canonical trace objects.
-- An IAM role or equivalent workload identity that lets the worker read and write objects in that bucket.
-- A hostname and TLS certificate that enrolled hosts can reach. The endpoint can be private if all hosts are on the same private network.
+- A Promptless organization with Agent Instructions enabled and permission to create deployments.
+- An existing Kubernetes cluster on AWS, GCP, or Azure.
+- Permission to create cloud data services and workload identity for that cluster.
+- Terraform 1.11 or later, Helm 3, `kubectl`, and your cloud CLI.
+- A remote, encrypted Terraform backend if this is a production installation.
+- A repository for the Terraform and pinned Helm configuration if your team deploys through pull requests.
 
-The worker and installation machine need the following network paths:
-
-| Source               | Destination                   | Port | Purpose                                                    |
-| -------------------- | ----------------------------- | ---- | ---------------------------------------------------------- |
-| Enrolled hosts       | Worker hostname               | 443  | Enrollment, check-ins, and trace uploads                   |
-| Worker               | Hosted Promptless Runtime     | 443  | Configuration sync, credential introspection, and findings |
-| Worker               | Postgres                      | 5432 | Trace and host metadata                                    |
-| Worker               | S3                            | 443  | Raw and canonical trace objects                            |
-| Worker               | Your model provider           | 443  | Trace analysis, once analysis is enabled                   |
-| Installation machine | Promptless chart repository   | 443  | Helm chart download                                        |
-| Cluster nodes        | Promptless container registry | 443  | Worker image pull                                          |
-
-The **Add deployment** page lists the exact Promptless hosts and the supported chart and image versions for your organization.
-
-Confirm the target cluster before continuing:
-
-```bash
-kubectl config current-context
-```
-
-<Aside type="caution">
-  The commands below change the cluster in your current `kubectl` context. Switch contexts first if this is not the cluster where the worker should run.
-</Aside>
+The installation machine or CI runner must already be authenticated to the target cloud and Kubernetes cluster. Promptless does not request cloud administrator credentials.
 
 ## Install the worker
 
 <Steps>
-  1. **Create the worker deployment in Promptless.**
+  1. **Create a deployment in Promptless.**
 
-     In hosted Promptless, open **Settings → Deployments** and select **Add deployment**. Choose **Kubernetes with Helm**, then enter a name that identifies the environment, such as `production-us-east-1`.
+     In hosted Promptless, open **Settings → Deployments**, select **Add deployment**, and choose **Existing Kubernetes cluster**. Enter a name that identifies the environment, such as `production-us-east-1`.
 
-     The setup page provides:
+     Keep the setup page open. It provides:
 
-     - A `plih_` install token, displayed once
-     - A generated `promptless-worker-values.yaml` file with the Runtime URL, deployment identifiers, S3 bucket, image, and non-secret configuration
-     - The supported Helm chart version
-     - Environment-specific network requirements and resource recommendations
+     - A one-time `plih_` bootstrap token, shown once and valid until the first successful installation
+     - The supported Terraform module and Helm chart versions
+     - The deployment's live installation checks
+     - The exact outbound destinations for your organization
 
-     Download the values file and copy the install token to your secret manager. If you lose the token before installing, rotate it from the deployment's setup page.
+     If the token is lost or exposed, rotate it before continuing. Do not give it to a coding agent in chat or store it in a Terraform variable.
 
-  2. **Create the Kubernetes Secret.**
+  2. **Confirm the target environment.**
 
-     Create a dedicated namespace, then enter the install token and Postgres connection string when prompted:
+     Run the checks for your cloud, then confirm the Kubernetes context and required permissions.
+
+     <Tabs syncKey="worker-cloud">
+       <TabItem label="AWS">
+         ```bash
+         aws sts get-caller-identity
+         aws configure get region
+         aws eks describe-cluster --name <cluster-name> \
+           --query 'cluster.{name:name,status:status,version:version}'
+         ```
+       </TabItem>
+       <TabItem label="GCP">
+         ```bash
+         gcloud auth list --filter=status:ACTIVE
+         gcloud config get-value project
+         gcloud container clusters describe <cluster-name> \
+           --location <cluster-location> \
+           --format='yaml(name,status,currentMasterVersion)'
+         ```
+       </TabItem>
+       <TabItem label="Azure">
+         ```bash
+         az account show --query '{name:name,id:id,tenantId:tenantId}'
+         az aks show \
+           --resource-group <resource-group> \
+           --name <cluster-name> \
+           --query '{name:name,powerState:powerState.code,version:kubernetesVersion}'
+         ```
+       </TabItem>
+     </Tabs>
 
      ```bash
-     kubectl create namespace instruction-hub \
+     kubectl config current-context
+     kubectl cluster-info
+     kubectl auth can-i create namespaces
+     kubectl auth can-i create deployments --namespace promptless
+     ```
+
+     Stop if any command resolves to the wrong account or cluster. The last two checks must print `yes`.
+
+  3. **Add the Promptless infrastructure module.**
+
+     Create an `infrastructure/promptless` directory in your infrastructure repository. Add the example for your cloud as `main.tf`, replacing only the values marked with angle brackets.
+
+     <Tabs syncKey="worker-cloud">
+       <TabItem label="AWS">
+         ```hcl title="infrastructure/promptless/main.tf"
+         terraform {
+           required_version = ">= 1.11.0, < 2.0.0"
+
+           required_providers {
+             aws = {
+               source  = "hashicorp/aws"
+               version = "~> 6.0"
+             }
+           }
+         }
+
+         provider "aws" {
+           region = "<aws-region>"
+         }
+
+         module "promptless_worker" {
+           source = "github.com/Promptless/terraform-worker-deployment//modules/aws?ref=v1.0.0"
+
+           deployment_name         = "<deployment-name>"
+           kubernetes_cluster_name = "<cluster-name>"
+           kubernetes_namespace    = "promptless"
+           storage_mode            = "create"
+         }
+
+         output "promptless_worker_helm_values" {
+           value = module.promptless_worker.helm_values_yaml
+         }
+         ```
+       </TabItem>
+       <TabItem label="GCP">
+         ```hcl title="infrastructure/promptless/main.tf"
+         terraform {
+           required_version = ">= 1.11.0, < 2.0.0"
+
+           required_providers {
+             google = {
+               source  = "hashicorp/google"
+               version = "~> 7.0"
+             }
+           }
+         }
+
+         provider "google" {
+           project = "<gcp-project-id>"
+           region  = "<gcp-region>"
+         }
+
+         module "promptless_worker" {
+           source = "github.com/Promptless/terraform-worker-deployment//modules/gcp?ref=v1.0.0"
+
+           deployment_name             = "<deployment-name>"
+           project_id                  = "<gcp-project-id>"
+           kubernetes_cluster_name     = "<cluster-name>"
+           kubernetes_cluster_location = "<cluster-location>"
+           kubernetes_namespace        = "promptless"
+           storage_mode                = "create"
+         }
+
+         output "promptless_worker_helm_values" {
+           value = module.promptless_worker.helm_values_yaml
+         }
+         ```
+       </TabItem>
+       <TabItem label="Azure">
+         ```hcl title="infrastructure/promptless/main.tf"
+         terraform {
+           required_version = ">= 1.11.0, < 2.0.0"
+
+           required_providers {
+             azurerm = {
+               source  = "hashicorp/azurerm"
+               version = "~> 4.0"
+             }
+           }
+         }
+
+         provider "azurerm" {
+           subscription_id = "<azure-subscription-id>"
+           features {}
+         }
+
+         module "promptless_worker" {
+           source = "github.com/Promptless/terraform-worker-deployment//modules/azure?ref=v1.0.0"
+
+           deployment_name        = "<deployment-name>"
+           resource_group_name     = "<resource-group>"
+           kubernetes_cluster_name = "<cluster-name>"
+           kubernetes_namespace   = "promptless"
+           storage_mode           = "create"
+         }
+
+         output "promptless_worker_helm_values" {
+           value = module.promptless_worker.helm_values_yaml
+         }
+         ```
+       </TabItem>
+     </Tabs>
+
+     `storage_mode = "create"` provisions a dedicated managed Postgres instance and object store, places the database connection in the cloud's native secret manager, and grants the worker access through workload identity. The generated Helm values contain resource identifiers and Secret references, never credentials.
+
+  4. **Review and provision the cloud resources.**
+
+     The direct and pull-request paths use the same Terraform files.
+
+     <Tabs>
+       <TabItem label="Apply directly">
+         ```bash
+         terraform -chdir=infrastructure/promptless fmt
+         terraform -chdir=infrastructure/promptless init
+         terraform -chdir=infrastructure/promptless validate
+         terraform -chdir=infrastructure/promptless plan \
+           -out=promptless.tfplan
+         ```
+
+         Review the plan before continuing. It should create one managed Postgres instance, one object store, one cloud secret, and one workload identity. It must not create or replace the Kubernetes cluster, VPC, virtual network, or existing workloads.
+
+         ```bash
+         terraform -chdir=infrastructure/promptless apply promptless.tfplan
+         terraform -chdir=infrastructure/promptless output \
+           -raw promptless_worker_helm_values \
+           > infrastructure/promptless/promptless-worker-values.yaml
+         ```
+       </TabItem>
+       <TabItem label="Open a pull request">
+         Add the Terraform module to the repository's existing infrastructure workflow. The agent should open a PR containing the module, its version pin, and any non-secret environment inputs.
+
+         Configure the deployment job to run these stages in order after approval:
+
+         ```bash
+         terraform apply <reviewed-plan>
+         terraform output -raw promptless_worker_helm_values \
+           > "$RUNNER_TEMP/promptless-worker-values.yaml"
+         ```
+
+         Pass the generated values file to the existing Helm or GitOps deployment stage as an ephemeral build artifact. Do not commit generated credentials or a Terraform state file.
+       </TabItem>
+     </Tabs>
+
+     Inspect `promptless-worker-values.yaml`. It is safe to commit if your workflow requires a checked-in values file: it contains only cloud resource identifiers, workload identity, and non-secret worker settings.
+
+  5. **Supply the bootstrap token outside source control.**
+
+     Create a short-lived Kubernetes Secret from a terminal, not from the coding-agent conversation. Paste the one-time token when prompted:
+
+     ```bash
+     kubectl create namespace promptless \
        --dry-run=client -o yaml | kubectl apply -f -
 
-     printf "Worker install token: "
-     read -r -s INSTRUCTION_HUB_INSTALL_TOKEN
-     printf "\nPostgres DSN: "
-     read -r -s INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN
+     read -r -s -p "Promptless bootstrap token: " PROMPTLESS_BOOTSTRAP_TOKEN
      printf "\n"
 
-     kubectl --namespace instruction-hub create secret generic instruction-hub-worker-env \
-       --from-literal=INSTRUCTION_HUB_INSTALL_TOKEN="$INSTRUCTION_HUB_INSTALL_TOKEN" \
-       --from-literal=INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN="$INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN" \
+     kubectl --namespace promptless create secret generic promptless-worker-bootstrap \
+       --from-literal=token="$PROMPTLESS_BOOTSTRAP_TOKEN" \
        --dry-run=client -o yaml | kubectl apply -f -
 
-     unset INSTRUCTION_HUB_INSTALL_TOKEN
-     unset INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN
+     unset PROMPTLESS_BOOTSTRAP_TOKEN
      ```
 
-     The secret remains in your cluster because the worker uses both values at runtime. Do not put either value in `promptless-worker-values.yaml` or commit it to source control.
+     For a pull-request deployment, create the same one-time Secret through the CI system's protected secret store immediately before the first Helm install. Remove the CI secret after Promptless shows the worker as Online. Do not add it to a GitOps repository.
 
-  3. **Add your infrastructure settings.**
+  6. **Install the pinned chart.**
 
-     Create a small `values.yaml` next to the generated file. This file contains only the settings specific to your cluster:
-
-     ```yaml title="values.yaml"
-     secrets:
-       existingSecret: instruction-hub-worker-env
-
-     serviceAccount:
-       annotations:
-         eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/instruction-hub-worker
-
-     gateway:
-       enabled: true
-       host: traces.example.com
-       tls:
-         secretName: instruction-hub-worker-tls
-
-     resources:
-       requests:
-         cpu: 500m
-         memory: 1Gi
-       limits:
-         memory: 2Gi
-     ```
-
-     Replace the role ARN, hostname, and TLS Secret with values for your environment. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
-
-  4. **Add the Promptless chart repository.**
+     Use the chart version shown on the Promptless setup page. The chart is distributed as an OCI artifact, so there is no Helm repository to add.
 
      ```bash
-     helm repo add promptless https://charts.promptless.com
-     helm repo update
-     helm search repo promptless/instruction-hub-worker --versions
-     ```
-
-     Confirm that the chart version shown on the deployment setup page appears in the results.
-
-  5. **Install the worker.**
-
-     Replace `<chart-version>` with the version shown in Promptless:
-
-     ```bash
-     helm upgrade --install instruction-hub-worker \
-       promptless/instruction-hub-worker \
-       --namespace instruction-hub \
+     helm upgrade --install promptless-worker \
+       oci://ghcr.io/promptless/charts/instruction-hub-worker \
+       --namespace promptless \
        --version <chart-version> \
-       --values promptless-worker-values.yaml \
-       --values values.yaml \
+       --values <path-to-promptless-worker-values.yaml> \
+       --set-string bootstrap.existingSecret=promptless-worker-bootstrap \
        --atomic \
        --wait \
-       --timeout 10m
+       --timeout 15m
      ```
 
-     The chart runs its database migration Job before starting the worker. If a migration or readiness check fails, `--atomic` rolls back the release instead of leaving a partial installation.
+     The chart exchanges the bootstrap token for a deployment credential, stores that credential in `promptless-worker-identity`, and invalidates the bootstrap token. It then runs database migrations and starts the worker and outbound relay connector.
 
-  6. **Test the worker from inside the cluster.**
+  7. **Verify every dependency.**
 
-     Confirm the Deployment is available, then run the chart's test hook:
+     Run the chart's test and include its logs if a check fails:
 
      ```bash
-     kubectl wait --namespace instruction-hub \
-       --for=condition=available deployment/instruction-hub-worker \
-       --timeout=5m
-
-     helm test instruction-hub-worker \
-       --namespace instruction-hub \
-       --logs
+     helm test promptless-worker --namespace promptless --logs
      ```
 
-     A passing Helm test verifies the worker's health endpoint, Runtime authentication, Postgres schema, and S3 read/write access.
+     A passing test verifies:
 
-  7. **Test the host-facing endpoint.**
+     - The worker Deployment is available.
+     - The deployment credential authenticates with hosted Promptless.
+     - The outbound relay connection is active.
+     - The Postgres schema is current.
+     - An object can be written, read, and deleted through workload identity.
 
-     From a machine on the same network as your agent hosts, check the worker's health endpoint:
+     Return to the deployment setup page. The same checks should be green and the deployment should show **Online** with a recent heartbeat.
+
+  8. **Remove the one-time Secret.**
+
+     After the deployment is Online, delete the consumed bootstrap Secret:
 
      ```bash
-     curl --fail --silent --show-error \
-       https://traces.example.com/healthz
+     kubectl delete secret promptless-worker-bootstrap --namespace promptless
      ```
 
-     Replace the example hostname with your worker hostname. This check confirms that DNS, TLS, and routing work from the network where hosts run.
-
-  8. **Confirm the deployment in Promptless.**
-
-     Return to **Settings → Deployments**. The deployment should show **Online** with a recent **Last heartbeat** time.
+     Keep `promptless-worker-identity`. The worker uses that chart-managed Secret for subsequent starts and upgrades.
 </Steps>
 
-The worker is ready when the Helm test passes, its host-facing health endpoint responds, and hosted Promptless shows it as **Online**. Next, [enroll a host](/docs/governance/get-started/enroll-your-hosts) and confirm that its first new session appears.
+The infrastructure installation is complete when the Terraform apply succeeds, the Helm test passes, and hosted Promptless shows the deployment as **Online**. Next, [enroll a host](/docs/governance/get-started/enroll-your-hosts) and enable trace analysis.
+
+## Use existing data services
+
+The default is deliberately opinionated, but the Terraform modules can reuse compatible Postgres and object storage. Set `storage_mode = "existing"` and provide the cloud resource identifiers through the module's `existing_storage` input.
+
+The module validates engine version, encryption, private connectivity, required bucket or container controls, and workload-identity permissions during `terraform plan`. It returns an actionable error instead of allowing Helm to install against an incompatible data layer. Credentials remain in the cloud's native secret manager.
 
 ## Enable trace analysis
 
-Installation proves that trace ingestion and storage work. To run the Friction Analyzer, add the `INSTRUCTION_HUB_ANALYSIS_*` settings for:
+Bring the worker Online before adding model and repository access. In hosted Promptless, open the deployment and select **Configure analysis**. Choose the model provider, model, Instruction Hub repository, and quiet window.
 
-- The model provider and endpoint that may receive trace-derived analysis input
-- The analysis model and its credentials
-- The Instruction Hub repository and repository-scoped token
-- The quiet window after which a session is eligible for analysis
+Use workload identity for AWS Bedrock or another provider that supports it. Store API keys and repository credentials in your cloud's native secret manager, then give the worker identity access to only those Secret versions. Hosted Promptless syncs non-secret analysis configuration; it never stores or returns the credentials.
 
-Keep API keys and repository tokens in the existing Kubernetes Secret. Put non-sensitive settings in `values.yaml`, then run the same `helm upgrade --install` command. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
+See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for the underlying settings.
 
-## Manage the deployment with GitOps
+## Keep the installation in source control
 
-For a GitOps-managed cluster:
+Treat the Terraform module version, Helm chart version, non-secret overrides, and deployment name as the installation's source of truth. Upgrades should produce a reviewed plan or pull request that changes explicit version pins.
 
-- Commit the generated `promptless-worker-values.yaml` and your non-sensitive `values.yaml`.
-- Pin the chart version rather than tracking the latest release.
-- Create `instruction-hub-worker-env` through your existing External Secrets, Sealed Secrets, or equivalent controller.
-- Preserve Postgres and S3 independently of the Helm release and back them up using your normal policies.
-- Test an upgrade in a staging deployment before applying it to production.
+The bootstrap token and the generated `promptless-worker-identity` Secret are installation state, not configuration. Never commit either one. Back up Postgres and object storage through your normal cloud policies; do not rely on Kubernetes backups for the worker's durable data.
 
 ## Troubleshoot installation
 
-### The migration Job fails
+### Terraform cannot connect the data services to the cluster
 
-Review the migration logs and confirm the Postgres DSN, network path, database permissions, and supported Postgres version:
+Confirm that the cluster and data services share private network connectivity and that the cloud identity running Terraform can inspect the cluster network. Re-run `terraform plan`; the module reports the failed network or IAM preflight before it changes infrastructure.
+
+### The bootstrap Job fails
 
 ```bash
-kubectl logs --namespace instruction-hub \
+kubectl logs --namespace promptless \
+  job/promptless-worker-bootstrap
+```
+
+Rotate the bootstrap token in Promptless if it expired, was already consumed, or belongs to another deployment. Recreate `promptless-worker-bootstrap`, then retry the Helm installation.
+
+### The migration Job fails
+
+```bash
+kubectl logs --namespace promptless \
   --selector app.kubernetes.io/component=migration
 ```
 
-### The worker cannot register
+Check private network connectivity, the database Secret reference, database permissions, and the supported Postgres version.
 
-Check worker logs for Runtime connectivity or token errors:
+### The relay check fails
+
+Confirm outbound HTTPS access to `control.gopromptless.ai` and `relay.gopromptless.ai`. No ingress, load balancer, public DNS record, or inbound firewall rule is required.
+
+### The worker is ready but Promptless shows Offline
 
 ```bash
-kubectl logs --namespace instruction-hub \
+kubectl logs --namespace promptless \
   --selector app.kubernetes.io/name=instruction-hub-worker \
   --since=15m
 ```
 
-If the install token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
+Check the deployment credential and control-plane connection, then rerun `helm test`.
 
-### The Helm test cannot access S3
-
-Confirm that the ServiceAccount has the intended workload identity annotation, the pod assumed that identity, and its policy allows reads and writes to the configured bucket.
-
-### Hosts cannot reach the worker
-
-Run the health check from a host network, then inspect the ingress or gateway address and certificate:
-
-```bash
-kubectl get service,ingress --namespace instruction-hub
-```
-
-### The pod is ready but Promptless shows Offline
-
-Confirm outbound HTTPS access to the Runtime URL in `promptless-worker-values.yaml`, then rerun the Helm test.
-
-If the deployment still fails, send the Helm test output and worker logs to [help@gopromptless.ai](mailto\:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
+If the deployment still fails, send the Terraform error, Helm test output, and worker logs to [help@gopromptless.ai](mailto:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
 
 ## Remove the worker
 
 In hosted Promptless, open the deployment and select **Disable** so it stops accepting new hosts and work. Then uninstall the Helm release:
 
 ```bash
-helm uninstall instruction-hub-worker --namespace instruction-hub
+helm uninstall promptless-worker --namespace promptless
 ```
 
-The uninstall removes chart-managed Kubernetes resources. It does not delete your Postgres database, S3 objects, or hosted deployment history. Delete those separately only when your retention policy allows it.
+The uninstall removes chart-managed Kubernetes resources and revokes the deployment credential. It does not delete Postgres or object storage. The Terraform modules block destructive data removal by default; deleting retained data requires an explicit opt-in and creates a final database snapshot first.

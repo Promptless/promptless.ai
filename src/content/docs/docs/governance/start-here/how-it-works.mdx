@@ -7,7 +7,7 @@ tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-08-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
@@ -34,9 +34,9 @@ This page shows how those pieces connect.
 
   3. **Publish and install on your fleet.** A GitHub Action commits the compiled output to a release branch and rewrites your marketplace manifests, and your fleet installs the plugins and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
 
-  4. **Enroll each host.** The `promptless-host-runtime` injected into your Claude and Codex plugins enrolls each host with your worker through a browser approval. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+  4. **Enroll each host.** The `promptless-host-runtime` injected into your Claude and Codex plugins uses a browser approval to enroll each host with your worker deployment. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
 
-  5. **Ingest native session traces.** The host runtime uploads new byte ranges of each native session ledger to your worker, which stores them in your own S3 bucket and Postgres database. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+  5. **Ingest native session traces.** The host runtime encrypts new byte ranges to your deployment key and sends them through the outbound Promptless relay. Your worker retrieves and decrypts the batches, then stores them in your own object store and Postgres database. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
 
   6. **Analyze sessions with the Friction Analyzer.** The Friction Analyzer studies one session at a time and records findings, each backed by append-only evidence. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
 
@@ -55,14 +55,14 @@ The loop spans three trust zones: your Git repository, your own infrastructure, 
 
 - **Instruction Hub** — a Git repository you own. It holds the source of your governed instructions and receives remediation pull requests.
 - **pig** — a toolchain that runs in your continuous-integration pipeline, invoked by a thin GitHub Action caller. It never runs as a service.
-- **worker** — a service you deploy into your own infrastructure. It stores raw traces and canonical trace objects in your S3 bucket and metadata in your Postgres database, and it runs both the Friction Analyzer and the isolated remediation agent locally.
+- **worker** — a service you deploy into your own infrastructure. It stores raw traces and canonical trace objects in your object store and metadata in your Postgres database, and it runs both the Friction Analyzer and the isolated remediation agent locally.
 - **promptless-host-runtime** — a command-line executable that ships inside your Claude and Codex plugins and runs on each host through generated lifecycle hooks.
-- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane Promptless operates. It receives only a limited projection of trace metadata, never trace content.
+- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)** — the control plane and encrypted relay Promptless operates. It receives a limited projection of trace metadata and relays end-to-end encrypted trace batches, but it cannot decrypt trace content.
 
 For exactly what crosses each boundary, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
 
 <Aside type="note">
-  The Friction Analyzer runs inside the worker in your own infrastructure, and hosted Promptless receives only a limited metadata projection — never raw traces, prompts, or tool activity. When the worker analyzes a session, it does send trace-derived analysis input to the model provider you configure. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary.
+  The Friction Analyzer runs inside the worker in your own infrastructure. Hosted Promptless receives a limited metadata projection and relays only encrypted trace batches — never plaintext raw traces, prompts, or tool activity. When the worker analyzes a session, it sends trace-derived analysis input to the model provider you configure. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary.
 </Aside>
 
 ## Next steps

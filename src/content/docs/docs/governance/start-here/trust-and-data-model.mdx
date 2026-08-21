@@ -8,7 +8,7 @@ tags:
   - governance
   - security
   - reference
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-08-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 3
@@ -16,17 +16,18 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-Promptless for Agent Instructions is built for data minimization. Trace content (prompts, tool activity, reasoning, and the rest of a session) flows from each host to the worker you run in your own infrastructure, and the worker sends trace-derived analysis input to the model provider you configure when it analyzes a session. The [hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime) receives a limited metadata projection and never the content itself. This page states exactly what crosses each boundary.
+Promptless for Agent Instructions is built for data minimization. Each host encrypts trace content to your worker's deployment key, and hosted Promptless relays only the ciphertext. Your worker decrypts the trace inside your infrastructure and sends trace-derived analysis input to the model provider you configure. The [hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime) cannot decrypt trace content. This page states exactly what crosses each boundary.
 
-| Data                                | Where it lives                                          | What it contains                                                                  |
-| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Native session traces               | Your worker, your S3 bucket, and your Postgres database | Verbatim transcript content: prompts, tool calls and outputs, reasoning summaries |
-| Source ledger and cached credential | The host, owner-only                                    | Byte offsets already read, and the per-host credential                            |
-| Metadata projection                 | Hosted Promptless                                       | Identifiers, counts, and lifecycle, ingestion, and analysis status only           |
+| Data | Where it lives | What it contains |
+| --- | --- | --- |
+| Native session traces | The host, your worker, your object store, and your Postgres database | Verbatim transcript content: prompts, tool calls and outputs, and reasoning summaries |
+| Encrypted trace batches | Promptless relay, until your worker acknowledges them | End-to-end encrypted trace bytes and routing metadata |
+| Source ledger and cached credential | The host, owner-only | Byte offsets already read and the per-host credential |
+| Metadata projection | Hosted Promptless | Identifiers, counts, and lifecycle, ingestion, and analysis status only |
 
 ## What the host sends the worker
 
-The host runtime uploads to the worker you control:
+The host runtime encrypts and uploads the following data for the worker you control:
 
 - **Verbatim native trace bytes** — new byte ranges of each native session ledger, gzip-compressed and base64-encoded, with a SHA-256 digest the worker verifies. This is the transcript content the agent CLI wrote locally.
 - **Batch metadata** — a batch identifier, the source and host, session identity when present, and plugin, policy, and collector versions.
@@ -41,26 +42,36 @@ Two things never leave the host and are stored with owner-only permissions:
 - **The source ledger**, which records the byte offsets already read from each native ledger so only new ranges are uploaded.
 - **The cached per-host credential** minted at enrollment.
 
-The source ledger only starts recording once a host enrolls; history from before enrollment is never uploaded, because the first collection pass records those byte offsets as already read rather than sending them.
+The source ledger only starts recording once a host enrolls. The first collection pass records existing byte offsets as already read, so it never uploads history from before enrollment.
+
+## What passes through the Promptless relay
+
+The relay authenticates the host, accepts a batch encrypted to the deployment public key, and holds the ciphertext until your worker acknowledges it. The worker maintains an outbound HTTPS connection to retrieve batches, decrypts them inside your infrastructure, and writes them to your data services.
+
+Promptless does not hold the private deployment key and cannot decrypt a batch. The relay sees the deployment identifier, host identifier, batch size, timestamps, and delivery status needed to route and retry it. It deletes the encrypted payload after the worker acknowledges it or its retention window expires.
 
 ## What the worker sends hosted Promptless
 
-The worker sends hosted Promptless only a limited metadata projection of each trace: worker and session identifiers, lineage identifiers, the host instance identifier and label, lifecycle, ingestion, and analysis status, timestamps, and event and turn counts. The projection deliberately excludes all trace content — prompts, tool activity, working directories, git metadata, models, and source fingerprints. Findings authored locally by the Friction Analyzer are also written to hosted Promptless, with provenance recorded server-side. A finding's text — its summary, impact, `instruction_failure`, notes, and each evidence occurrence summary — is model-authored prose that describes what happened in the session, so it can reference session detail even though it is not the verbatim trace content the projection excludes.
+The worker sends hosted Promptless a limited metadata projection of each trace: worker and session identifiers, lineage identifiers, the host instance identifier and label, lifecycle, ingestion, and analysis status, timestamps, and event and turn counts. The projection excludes prompts, tool activity, working directories, git metadata, models, and source fingerprints.
+
+The Friction Analyzer also writes findings to hosted Promptless, with provenance recorded server-side. A finding's summary, impact, `instruction_failure`, notes, and evidence summaries are model-authored descriptions of the session. They can reference session details even though hosted Promptless does not receive the verbatim trace.
 
 ## What the worker sends your model provider
 
-To produce findings, the Friction Analyzer sends trace-derived analysis input — the session digest and trace it builds from the raw session — to the external model provider you configure. You control which provider and endpoint receive it through `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER` (`openai`, `azure_openai`, or `aws_bedrock`), `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`, and `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`. This is analysis input drawn from the session, sent to whichever provider endpoint you point the worker at — distinct from the limited metadata the worker sends hosted Promptless. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+To produce findings, the Friction Analyzer sends trace-derived analysis input — the session digest and trace it builds from the raw session — to the external model provider you configure. You control which provider and endpoint receive it through `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER` (`openai`, `azure_openai`, or `aws_bedrock`), `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`, and the Kubernetes Secret named by `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY_SECRET_REF`. This is analysis input drawn from the session, sent to whichever provider endpoint you point the worker at — distinct from the limited metadata the worker sends hosted Promptless. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
 
 ## Credential model
 
-Four credentials separate the boundaries:
+Six credentials and keys separate the boundaries:
 
-- **`plih_` install token** — authenticates your worker deployment to hosted Promptless. Set it as `INSTRUCTION_HUB_INSTALL_TOKEN`.
-- **`plihost_` per-host credential** — a host uses this to talk to your worker.
+- **`plih_` bootstrap token** — authorizes the first worker installation. The chart exchanges it once and invalidates it.
+- **Deployment credential** — authenticates your worker's outbound control-plane and relay connections. The chart stores it in your cluster.
+- **Deployment key pair** — lets hosts encrypt trace batches that only your worker can decrypt. The private key stays in your cluster.
+- **`plihost_` per-host credential** — authenticates a host to the Promptless relay.
 - **`plihenroll_` codes** — opaque browser-approval and polling codes used during enrollment.
 - **Repository-scoped GitHub token** — held only by the isolated remediation agent to open a pull request against your Instruction Hub. It is scoped to that one repository and is not used by the worker for anything else.
 
-Hosted Promptless stores only the SHA-256 hash of each `plih` credential and returns the plaintext exactly once, to the approved poller. Your worker holds no shared plugin secret: it verifies every incoming host credential through hosted introspection, keyed on the deployment instance identifier, the credential hash, and the target. Introspection is target-scoped, so a credential minted for one host family or deployment cannot authenticate as another. Hosted Promptless projects findings to GitHub issues on its own side, so the worker's ingestion and analysis paths never handle GitHub credentials; the repository-scoped token above is the only GitHub credential in the loop.
+Hosted Promptless stores only the SHA-256 hash of each bearer credential and returns plaintext credentials once. Host credentials are target- and deployment-scoped, so a credential minted for one host family or deployment cannot authenticate as another. Hosted Promptless projects findings to GitHub issues on its own side, so the worker's ingestion path never handles GitHub App credentials. The repository-scoped token above is the only GitHub credential available to the local remediation agent.
 
 ## Known limitation
 
