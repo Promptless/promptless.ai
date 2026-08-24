@@ -1,0 +1,71 @@
+---
+title: 'Keep Docs Current as a Pull Request Evolves'
+subtitle: Published August 2026
+description: >-
+  A new opt-in trigger mode re-reviews an open GitHub PR on every push, so documentation suggestions stay current as code changes during review, not just at open or merge.
+date: '2026-08-24T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A `github_pr` trigger now supports `trigger_on: [updated]`, which re-runs Promptless on an open pull request each time new commits are pushed. The documentation suggestion stays current as the code changes, not just at the moment the PR opens.
+
+## The problem
+
+The existing trigger modes each fire once. Open the PR, get a suggestion. First approval arrives, get a suggestion. Merge, get a suggestion.
+
+That single-pass model works well when a PR is largely final before it's opened. It works less well when code changes substantially during review. A reviewer requests a behavior change. The author pushes two or three commits addressing the feedback. The documentation suggestion is now based on code that no longer matches what will ship.
+
+The alternatives have friction. You can manually request a re-review by mentioning `@promptless` in a comment, but that requires someone to remember to do it. You can wait for the final merge-mode pass, but by then the PR is closed and the documentation reflects the final code, not the review conversation.
+
+## What it does now
+
+Add `updated` to a trigger clause's `trigger_on` list. Each push to an open PR fires a fresh review pass.
+
+```yaml
+triggers:
+  docs-review-bot:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/frontend
+        trigger_on:
+          - updated
+```
+
+A few constraints to know before enabling it:
+
+- **An explicit `repos` list is required.** The `updated` mode can't use `repos: all`. A push-on-every-PR to every repo would generate disproportionate volume, so the mode requires naming repos explicitly.
+- **Draft PRs are skipped**, same as the other modes.
+- **Only GitHub is supported.** GitLab and Bitbucket don't have an equivalent.
+- **Each push produces a full re-review pass.** A PR with 20 incremental commits yields 20 passes. Scope it with `trigger_directories` if you want to limit which pushes actually trigger a run.
+
+`updated` can run alongside the other modes in the same clause. A PR that's reviewed on open, re-reviewed on every push, and reviewed again at merge is a reasonable configuration for repos where you want documentation to track the PR throughout its lifecycle.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Teams with a heavy review process where code changes significantly between PR open and merge. If your PRs typically go through two or three rounds of substantive feedback, the initial documentation suggestion can drift far from the final code before it merges.
+
+Also useful as a standalone review-bot configuration: use `updated` without `opened` or `merge` if you want a suggestion only when a PR is in active development, not at the moment it opens.
+
+For teams where PRs are clean before they open and merge without major rework, the single-pass modes are enough.
+
+## How to use it
+
+Add `updated` to the `trigger_on` list of an existing trigger clause. The clause must list specific repos:
+
+```yaml
+trigger_on:
+  - updated
+```
+
+The mode is off by default. Existing triggers are unaffected.
+
+<BlogRequestDemo />
