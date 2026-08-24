@@ -118,6 +118,8 @@ export default defineConfig({
           projectName: 'Promptless',
           description:
             'Promptless continuously improves customer-facing documentation and agent instructions.',
+          details:
+            'Promptless also runs the Promptless MCP server, so an MCP-capable editor (Claude Code, Cursor, or another) can connect to Promptless directly. Connect over Streamable HTTP at `https://api.gopromptless.ai/mcp` and authorize in the browser—there is no API key to create or store. In Claude Code: `claude mcp add --transport http promptless https://api.gopromptless.ai/mcp`. Setup for other editors: https://promptless.ai/docs/for-docs/connect/triggers/mcp',
           optionalLinks: [
             { label: 'Blog', url: 'https://promptless.ai/blog', description: 'Product updates, technical writing, and customer stories' },
             { label: 'Changelog', url: 'https://promptless.ai/changelog', description: 'Monthly summaries of user-visible changes' },
