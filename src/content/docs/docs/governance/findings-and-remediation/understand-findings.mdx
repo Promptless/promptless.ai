@@ -1,0 +1,51 @@
+---
+title: Understand findings
+description: How the Friction Analyzer produces findings, the fields a finding object carries, and how a finding becomes a GitHub issue.
+slug: docs/governance/findings-and-remediation/understand-findings
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - reference
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 1
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+A finding is the unit of output the [Friction Analyzer](/docs/governance/start-here/key-concepts) produces: a specific instruction failure, backed by evidence from real sessions. This page covers how findings are produced and what a finding object contains.
+
+## How findings are produced
+
+The Friction Analyzer (identifier `friction_analyzer`, version 0.0.25) analyzes one parent session per run, reading the raw session rather than a summary. It dispatches investigators across the session; each investigator reads only the ranges it cites and either creates a new finding or refines an existing one. Evidence is append-only: when new evidence establishes negative impact, an investigator promotes a finding from low to high confidence rather than rewriting its history. Findings accumulate across runs, so a recurring failure gathers more evidence over time.
+
+## The finding object
+
+An investigator authors these fields on a finding:
+
+| Field                 | Type                                | Description                                                                                   |
+| --------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
+| `title`               | string                              | A short statement of the instruction failure.                                                 |
+| `severity`            | `low`, `medium`, `high`, `critical` | How serious the failure is.                                                                   |
+| `confidence`          | `low` or `high`                     | How well the evidence supports the finding. There are only these two levels.                  |
+| `evidence`            | list (at least one)                 | Supporting occurrences, each a `digest_range` and an `occurrence_summary`. Ranges are unique. |
+| `summary`             | string                              | What the finding is.                                                                          |
+| `impact`              | string                              | Why it matters.                                                                               |
+| `instruction_failure` | string                              | The underlying instruction failure the evidence points to.                                    |
+| `notes`               | string                              | Additional context.                                                                           |
+
+When a finding is read back for reconciliation, it also carries an `id`, a `version` for optimistic concurrency, an `evidence_count`, up to three `latest_evidence` summaries, and a `github_status` with an optional `github_issue_url`.
+
+A `digest_range` cites a range of the session digest the analyzer built for the run — a location within that digest, not the SHA-256 digest used to verify trace integrity elsewhere.
+
+<Aside type="note">
+  A finding has no `category` field and no `proposed_remediation` field. Severity, confidence, evidence, and the `instruction_failure` narrative are what a finding carries; remediation is a separate flow.
+</Aside>
+
+## From finding to GitHub issue
+
+The worker never creates GitHub issues itself. It sends each finding as a mutation to the hosted Promptless Runtime, which projects the finding to a GitHub issue on the Runtime side, in your Instruction Hub repository, with managed labels for the finding, its severity, and its confidence. The projected issue reflects the finding — its title, summary, impact, `instruction_failure`, and cited evidence.
+
+In the issue body, evidence stays expanded through three occurrences and collapses into a details block once a finding gathers four or more. The finding's `github_status` and `github_issue_url` track that projection, so you can tell whether an issue exists and open it. From there, high-confidence findings can move into remediation — see [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).

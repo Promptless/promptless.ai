@@ -1,3 +1,5 @@
+import { DOCS_PRODUCTS, type DocsProduct } from './docs-products';
+
 export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'none';
 export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs';
 
@@ -12,12 +14,20 @@ export interface TopNavLinkItem extends TopNavBaseItem {
   external?: boolean;
 }
 
-export type TopNavItem = TopNavLinkItem;
+export interface TopNavMenuItem extends TopNavBaseItem {
+  children: readonly DocsProduct[];
+}
+
+export type TopNavItem = TopNavLinkItem | TopNavMenuItem;
+
+export function isTopNavLinkItem(item: TopNavItem): item is TopNavLinkItem {
+  return 'href' in item;
+}
 
 export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'website', href: '/', label: 'Home', icon: 'website' },
   { section: 'pricing', href: '/pricing', label: 'Pricing', icon: 'pricing' },
-  { section: 'docs', href: '/docs', label: 'Docs', icon: 'docs' },
+  { section: 'docs', label: 'Docs', icon: 'docs', children: DOCS_PRODUCTS },
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
   { section: 'free_tools', href: '/free-tools', label: 'Free tools', icon: 'free_tools' },

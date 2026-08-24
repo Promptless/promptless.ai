@@ -50,14 +50,16 @@ Current `action` values:
 
 | action | locations |
 |--------|-----------|
-| `book_demo` | `hero`, `nav`, `mobile_menu`, `pricing_growth`, `pricing_enterprise`, `docs_welcome` |
+| `book_demo` | `hero`, `nav`, `mobile_menu`, `pricing_growth`, `pricing_enterprise`, `docs_welcome`, `agent_governance_footer` |
 | `sign_up` | `nav`, `mobile_menu`, `pricing_startup` |
 | `sign_in` | `nav`, `mobile_menu` |
 | `watch_demo` | `jobs_page` |
 | `use_free_tool` | `free_tools` |
 | `view_commits` | `demo_social_proof` |
+| `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
+| `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign
 it holds three buttons: Sign in (`sign_in`), Get a demo (`book_demo`), and
@@ -74,7 +76,7 @@ section per page load.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities` |
+| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `agent-differentiation`, `agent-impact-examples`, `agent-mid-cta`, `agent-learning-loop`, `agent-governance`, `agent-faq`, or `agent-final-cta` |
 | `page` | string | Pathname (always `/` for homepage) |
 
 **Component**: Inline IntersectionObserver in `posthog.astro`. Elements opt in
