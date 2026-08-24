@@ -1,0 +1,72 @@
+---
+title: 'Trigger Documentation from Jira Tickets'
+subtitle: Published August 2026
+description: >-
+  A Jira ticket can now start a Promptless documentation session. Assign the ticket, add a label, @mention Promptless, or configure a trigger on project, label, or status changes.
+date: '2026-08-24T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A Jira ticket can now start a Promptless documentation session. When the work is done, Promptless replies on the ticket and attaches the documentation PR as a linked reference.
+
+## The problem
+
+For many engineering teams, work starts and ends in Jira. A feature is planned in a ticket, reviewed there, and closed there. The decision to document something often happens there too.
+
+Until now, that decision had nowhere to go in Promptless. A product manager adding a `needs-docs` label to a ticket did nothing. An engineer assigning the ticket to the documentation team didn't trigger a session. Acting on a Jira ticket meant going to the Promptless dashboard separately, creating a task manually, and copying context from the ticket.
+
+## What it does now
+
+Three built-in paths start a session the moment Atlassian is connected, with no YAML to configure:
+
+- **Assign the ticket** to the account Promptless acts as.
+- **Add a `promptless`-prefixed label** (`promptless`, `promptless-urgent`, or any label starting with `promptless`).
+- **@mention the Promptless account** in a comment.
+
+Each of these replies on the ticket when the session completes, attaching the documentation PR as a linked Jira reference.
+
+For teams who want finer control, a configured Jira trigger activates on specific events. The three types are:
+
+```yaml
+triggers:
+  jira-new-docs-issue:
+    trigger_type: jira_new_issue
+    match:
+      - project_key: [DOCS]
+  jira-needs-docs-label:
+    trigger_type: jira_label_added
+    match:
+      - new_label: [needs-docs]
+  jira-ready-for-docs:
+    trigger_type: jira_status_change
+    match:
+      - is_done: true
+      - new_status: ["In Review", "Pull Request"]
+```
+
+`jira_new_issue` requires a `project_key` to avoid activating on every new issue across the whole site. `jira_status_change` accepts `is_done: true` to match Jira's done category across all status names, which is more stable than listing status names that vary by project and can be renamed.
+
+Each trigger type activates once, on the edge it names. A `jira_label_added` trigger fires when the label is added, not on every subsequent comment or edit. A new issue filed with a label already on it crosses both the new-issue and label edges at once, and Promptless dispatches a single session tagged with both trigger keys.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Teams that use Jira as their central coordination layer, where documentation work gets flagged in tickets before it reaches a PR. Product managers who apply labels to flag documentation scope, engineers who assign tickets to signal readiness, and writers who monitor a queue of issues by label or status.
+
+For teams already using GitHub PR triggers, Jira triggers are complementary. A PR trigger catches code that merges without a ticket. A Jira trigger catches work that's flagged before a PR is opened, or that proceeds entirely outside GitHub.
+
+## How to use it
+
+The three built-in paths are active as soon as Atlassian is connected. No `promptless.yaml` changes needed.
+
+To configure project, label, or status-based triggers, add a `triggers` section to your configuration on the Configuration page.
+
+One setup decision worth making: attach a dedicated Atlassian service account. Without one, Promptless acts as and posts as the account that connected Atlassian. That means a colleague who assigns or mentions that person in ordinary Jira activity will start a Promptless session unintentionally. A dedicated service account gives Promptless its own Jira identity and avoids that confusion. Setup instructions are on the Atlassian integration page.
+
+<BlogRequestDemo />
