@@ -1,0 +1,84 @@
+---
+title: '6 months ago, we rebuilt our codebase from scratch to work better with Codex/Claude. Was it worth it?'
+subtitle: Published August 2026
+description: >-
+  Output per engineer went up 3-5x and we stopped requiring human PR review,
+  without spending more time on bugs. Here's the honest version, including the
+  agent swarm that opened 106 pull requests in a day and had all of them thrown
+  away.
+author: Prithvi
+tag: Technical
+section: Featured
+date: '2026-08-23T00:00:00.000Z'
+hidden: false
+---
+import Frame from '@components/fern/Frame.astro';
+
+**tl;dr: yes.** Output per engineer went up 3-5x, and we did it without spending any more of our time cleaning up bugs and slop. But we made a lot of mistakes along the way, and there were some unexpected steps needed for the payoff to actually show up. After seeing some Bookface posts about improving agent friendliness of codebases, I wanted to share our pretty-dramatic effort to achieve this exact purpose.
+
+<Frame caption="Output per engineer, indexed to January 2026. Excludes the pull requests that built the rewrite itself.">
+  <img src="/assets/rewrite-output-per-engineer.png" alt="Line chart showing output per engineer and PRs merged as multiples of January 2026. Both stay flat through March, then diverge upward, reaching 4.97x and 2.10x by August." />
+</Frame>
+
+## Why we did it
+
+In February, a few struggles came to a head:
+
+- **On-call was brutal.** >30% of our engineering time was spent on on-call triage and remediation, and when we were debugging, it often felt like the codebase was getting in our own way.
+- **Our agent evals were always breaking.** One of our engineers described it as "a fragile paper mache of monkey-patched code and thorns". Evals were inherently a challenge because we had to mimic arbitrary third-party state for every integration Promptless supports, but any substantial change to our agent broke our evals, and it was intractable to Codex/Claude.
+- **When we looked, the metrics on code churn were terrible.** In February, 59% of the code we wrote was code we rewrote shortly after writing it. :(
+- **Our newest engineer asked a provocative question:** *If a new YC company was going to provide the same value to users and lap us in a week, how would they build Promptless?* Two engineers and I independently wrote docs in Notion about our perspectives on it, and discussed the next day.
+
+What's funny: our product *is* an agent, and we had built a habit of rearchitecting our agent every 3-6 months, recognizing that as the substrate gets more intelligent, we had to shift to an Agent Experience with fewer training wheels and more flexibility to unleash the headroom. But we hadn't applied the same exercise to our development process and software design principles. From one of our engineers' docs:
+
+> *As models get more capable, we'll need to deliberately architect our codebase and development processes to reduce agent friction. Form factors optimal for human development aren't strictly optimal for agent development.*
+
+## How it happened
+
+We decided one engineer (who formed the most detailed opinion on the new design) should drop everything else and own the rewrite full-time. The bet was that centralizing all the context in one head would make the design decisions faster and more coherent than splitting them across the team.
+
+He'd be the first to admit we still dramatically underestimated the scope. We thought we'd spend a couple of days getting agents to enumerate every requirement and user journey as Linear issues, set some architectural principles (more on those later), interrogate a plan until it was airtight, point a swarm of coding agents at it and let them run over a weekend, and have something to test and cut over within a week. (The frontier models at the time were Opus 4.6 and GPT-5.3-Codex, but we're not convinced it'd have gone much better with the current models.)
+
+It did not go down like that 😂. Here's what happened, with some lovely quotes from the post-mortem.
+
+1. **The swarm face-planted.** Post-mortem: *"There was too much variance in individual dev-agent output >> breaking changes and uncoordinated implementations. Reminds me of a friend's situation in a super dysfunctional (human) eng org: multiple teams shipping rapidly into a shared codebase with no concern for cohesion or shared patterns."*
+
+2. **What actually worked was much more deliberate.** One dev agent driving, with a pool of about five review agents in fresh contexts poking holes in its work. The agent wouldn't find flaws in the code it just wrote, and we needed to catch bad design and principle violations early. From the post-mortem, *"in the same way humans grow to love devices of their own creation, so too do agents."*
+
+3. **We set up a cut-over plan that allowed us to migrate each customer to the new codebase independently.** There was no way we could review every line of code, every method, or even every file, so dogfooding was critical. I'd like to pretend we caught every gap before cutting over real customers, but of course we weren't that lucky.
+
+4. **We cut over ourselves and then ramped up.** We started dogfooding the new runtime on 3/14 (two weeks after starting work), and cut over the final customers on 3/31. We deleted the legacy codebase on 4/10 (I still remember looking at that PR).
+
+## The aftermath, and the road to the payoff
+
+For about a month after launch, we honestly weren't sure it had been worth it.
+
+- **It was like the whole team was onboarding to a new codebase at once** (because we were). We were overly optimistic that the new architecture would be so clean it would explain itself. It wasn't, and that's reflected in the dip in productivity in the month after the cutover. In reality, we needed to do a lot more work socializing and getting common understanding of the new architecture with the team.
+- **The agents kept forgetting the design principles.** Coding agents had surprisingly bad instincts in the new codebase by default, and would happily reintroduce exactly the patterns we'd torn out. We added a `PRINCIPLES.md` file, referenced in our `AGENTS.md` and our pr-review subagent workflow, as a design north star. It explained our opinions around dependency injection rather than branching at code edges, when to create new contexts rather than expand existing ones, how we think about module boundaries, and the antipatterns (happy to share our full `PRINCIPLES.md`, but there's a decent amount of stuff that's specific to us). Honestly, it should have been there on day one.
+- **We spent a lot of that month teaching the models to stay on the rails** — writing skills for our common workflows, subagent definitions, the kind of scaffolding that keeps an agent from wandering. This turned out to matter enough that it became part of what we build now, and I'll come back to it.
+
+During that difficult month after the release, it was honestly a toss-up whether we'd end up regretting this big cutover (did we just get seduced by the fantasy of being able to rebuild from scratch?), but fortunately it ended up paying off in a big way.
+
+<Frame caption="Human review coverage against the share of engineering effort going into feature work.">
+  <img src="/assets/rewrite-review-vs-features.png" alt="Line chart showing the share of merged PRs with a human review falling from 74% to 13%, while the share of engineering effort spent on features rises from 39% to 57%." />
+</Frame>
+
+- **Output per engineer went up 3-5x.** Percentile according to Weave also went up, from being pretty average to in the 90th percentile, so it wasn't just model improvements.
+- **On-call went from a full-time burden to a fraction of one engineer's attention.** Those anxiety-inducing on-call hand-offs suddenly started being very easy.
+- **We made PR review optional.** Coding agents could follow better patterns, our abstractions became much more testable, and review bots became much more capable, so we elected to make human review of PRs completely optional. Engineers still requested review on 10-15% of PRs, but the shift was dramatic.
+- **I thought I should expect more bugs because of that, but it was the opposite.** In spite of eliminating human PR reviews, the proportion of time spent on bugs and maintenance work actually *went down*. Sure, we occasionally see a bug or design issue that would have been caught with a human review, but we broke the pattern of reduced controls with AI adoption increasing incidents.
+- **We got comfortable biting off more ambitious work.** Interestingly, the number of PRs we merged only went up about 2x, but the engineering effort per PR *went up on average*, meaning that with the new architecture, we could make bigger changes safely.
+
+I'm sure some of that last part is just stronger models arriving over the same window. But here's the detail that makes me think the rewrite is doing real work: our output was basically **flat from January through March**, and that was the period with the most relentless model cadence of the whole year. GPT-5.2-Codex in mid-January, GPT-5.3-Codex in February, GPT-5.4 in early March, Claude's Opus stepping from 4.5 to 4.6 to a 1M-context build across the same weeks. All of that, landing on the old codebase, moved almost nothing. The takeoff only started once we were standing on something built for them.
+
+## If you're thinking about doing this yourself
+
+- **The scarce work is no longer typing the code.** The models can carry the implementation. What they can't carry is "should this be a new module?" or "is this the right boundary?" — and getting those wrong is expensive, because models tend to faithfully amplify whatever design you hand them rather than fix it. Spend your time up front, on spec and structure. That's where the leverage moved.
+- **Push back on the first answer.** More often than not, mildly challenging a model's proposed design flips its recommendation — which tells you how thinly grounded the original was.
+- **Clean is a system, not a state.** A pristine codebase rots the moment you start shipping into it at speed. The guardrails — enforced boundaries, structural tests, a written set of principles the agents read — are the actual deliverable, not a nice-to-have.
+- **Budget for the artifacts, and for keeping them current.** The skills, the `PRINCIPLES.md`, the workflow instructions — this is real surface area that goes stale exactly like documentation does, and a stale instruction quietly steers every agent that reads it wrong. Keeping it accurate as the code moves underneath it turned out to be enough of a problem that it's now part of what we build Promptless to do. It genuinely helped this project. It also wasn't the main thing that made the rewrite succeed, and I'd be lying if I said otherwise.
+- **Bring your team in early.** Do not assume a clean system documents itself. It doesn't.
+
+The line from the post-mortem I keep coming back to:
+
+> *The rewrite isn't really about code. It's about building a shape of system that you and a swarm of agents can both think clearly inside.*
