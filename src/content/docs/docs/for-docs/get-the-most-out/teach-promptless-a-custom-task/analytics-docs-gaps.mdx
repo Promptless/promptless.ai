@@ -21,29 +21,15 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 This example teaches Promptless to turn your documentation-site analytics into prioritized doc-gap suggestions once a week. It's an example of the general process described in [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task) — pairing a written workflow with a trigger. The [review inbound documentation PRs](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs) example pairs that workflow with a GitHub PR trigger; this one pairs it with a schedule trigger, which runs on a repeating clock with no triggering event. The steps below write the workflow, configure the trigger, then save the workflow, hook, and trigger.
 
-## Choose an analytics source
+## The two analytics signals
 
-The workflow reads the same two signals from whichever analytics source you have: a reader looking for a page that is missing or underperforms, and an existing page readers reach but that underserves them. Only the source and how you read those signals from it differ — the rest of the workflow (the two signals, the per-run cap, the redaction rule, and the weekly schedule) is identical either way.
-
-| Source                    | What it measures                                                                                                                                                                          | How it supplies the two signals                                                                                                                                          |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **PostHog**               | Reader behavior on your docs site: page traffic, exit rate, and site-search queries.                                                                                                      | Signal 1 from recurring site-search queries that return zero results; signal 2 from page traffic combined with exit rate.                                                |
-| **Google Search Console** | External Google Search behavior: the queries people type into Google, and how your docs pages perform in Google's results: impressions, clicks, click-through rate, and average position. | Signal 1 from recurring Google queries where your docs earn impressions but few clicks or rank poorly; signal 2 from per-page impressions, clicks, and average position. |
-
-This example uses PostHog as its concrete, implemented path, so the env-var illustration below references PostHog keys — the project API key, project ID, and host, all found in your PostHog project settings. Google Search Console is the alternative; follow the setup guidance below to configure it. Pick the source you already have, or use both.
-
-To drive the workflow from Google Search Console, query the Search Console API's `searchanalytics.query` method. Scope it to your docs by filtering the `page` dimension with the `contains` operator on your docs URL prefix (for example, `/docs/`). This is the Search Console equivalent of the workflow's rule to scope every query to docs paths only. Authenticate with a Google Cloud service account added directly to the verified property as a read-only user at the **Restricted** permission level, using the `https://www.googleapis.com/auth/webmasters.readonly` scope, with no domain-wide delegation and no OAuth refresh-token rotation.
-
-To set it up: enable the [Google Search Console API](https://console.cloud.google.com/apis/library/searchconsole.googleapis.com) in a Google Cloud project, create a service account, create and download its JSON key, then add the service-account email as a **Restricted** user on your verified Search Console property. Store the key and site URL as the environment variables Promptless reads, the same mechanism as PostHog. See the contract in [Prerequisites](#prerequisites).
+PostHog measures reader behavior on your docs site — page traffic, exit rate, and site-search queries. The workflow reads two signals from that data: recurring site-search queries that return zero results, which mean a reader is looking for a page that's missing or doesn't surface (signal 1); and high traffic combined with a high exit rate on an existing page, which means readers reach it but leave underserved (signal 2).
 
 ## Prerequisites
 
 Before you set up this task, make sure you have:
 
-- **Access to a documentation-site analytics source**, with its credentials stored as [environment variables](/docs/for-docs/scale/environment-variables) Promptless can read. Use PostHog for on-site reader behavior or Google Search Console for external Google Search behavior — see [Choose an analytics source](#choose-an-analytics-source). The PostHog variable names are yours to choose; this example references `POSTHOG_PROJECT_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`. For Google Search Console, use these three exact names so Promptless reads them:
-  - `GSC_SERVICE_ACCOUNT_KEY` — required; the service-account JSON key contents, base64-encoded (for example, `openssl base64 -A -in key.json`).
-  - `GSC_SITE_URL` — required; the exact Search Console `siteUrl`, either a URL-prefix property like `https://yourcompany.com/` or a domain property like `sc-domain:yourcompany.com`.
-  - `GSC_DOCS_PATH_PREFIX` — optional; defaults to `/docs/`.
+- **Access to PostHog**, with its credentials stored as [environment variables](/docs/for-docs/scale/environment-variables) Promptless can read. The variable names are yours to choose; this example references `POSTHOG_PROJECT_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`, all found in your PostHog project settings.
 - **At least one active doc collection and a saved configuration**, since a scheduled run is dropped when neither is in place. See [Schedule triggers](/docs/for-docs/connect/triggers/schedule).
 - **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
 
@@ -58,31 +44,24 @@ Set up the task in three steps: write the workflow, configure the trigger, then 
      When the weekly analytics doc-gaps schedule runs:
 
      1. Scope every query to your documentation paths only — on-site analytics
-        filtered to your docs URL prefix (for example, `promptless.ai/docs`), or
-        Google Search Console filtered on the `page` dimension to that same
-        prefix. Never pull product analytics.
+        filtered to your docs URL prefix (for example, `promptless.ai/docs`).
+        Never pull product analytics.
 
      2. Read two signals from the last 7 days:
 
-        - **Recurring reader searches with no good answer** (on-site site-search
-          queries that return zero results, or external Google queries where
-          your docs earn impressions but few clicks or rank poorly). Each
-          recurring instance is a reader asking for a page that does not exist
-          or does not surface. A one-off search is noise, not a signal.
+        - **Recurring reader searches with no good answer** (site-search
+          queries that return zero results). Each recurring instance is a reader
+          asking for a page that does not exist or does not surface. A one-off
+          search is noise, not a signal.
         - **Page-level performance** for existing docs pages: traffic and exit
-          rate from on-site analytics, or impressions, clicks, and average
-          position from Google Search Console. High traffic (or high
-          impressions) combined with a high exit rate (or low click-through)
-          points to a page readers reach but leave without their answer. A page
-          that ranks in a low average position for a query it should win is
-          another signal-2 candidate.
+          rate. High traffic combined with a high exit rate points to a page
+          readers reach but leave without their answer.
 
      3. Prioritize what to act on:
 
         - Propose **new content** for recurring signal-1 hits — a reader is
-          telling you a page is missing or isn't surfacing, whether that shows
-          up as a zero-result on-site search or a low-click, low-ranking Google
-          query.
+          telling you a page is missing or isn't surfacing, which shows up as a
+          zero-result on-site search.
         - For **existing pages**, prioritize by traffic volume combined with how
           recently the underlying feature changed, not by page age. A stable,
           correct old page needs no work.
@@ -131,8 +110,8 @@ Set up the task in three steps: write the workflow, configure the trigger, then 
 
 When the weekly schedule runs, Promptless:
 
-1. Pulls the last 7 days of documentation-site analytics from your configured source, scoped to your docs paths.
-2. Applies both signals — the recurring reader searches with no good answer and the page-level performance signal — along with the workflow's prioritization.
+1. Pulls the last 7 days of documentation-site analytics from PostHog, scoped to your docs paths.
+2. Applies both signals — recurring reader searches with no good answer, and page traffic combined with exit rate — along with the workflow's prioritization.
 3. Opens at most 3 prioritized suggestions, skipping gaps that already have an open or previously declined suggestion. It describes each gap in its own words rather than pasting raw queries or URL parameters.
 4. Finishes quietly when it finds nothing worth changing.
 
