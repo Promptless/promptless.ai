@@ -1,0 +1,129 @@
+---
+title: "Example: Turn docs analytics into doc-gap suggestions"
+description: Teach Promptless a weekly schedule trigger that turns documentation-site analytics into prioritized doc-gap suggestions.
+slug: docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-08-21T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 36
+  label: "Example: Weekly analytics doc-gaps"
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  You can set this up by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add a weekly schedule trigger that turns our docs analytics into doc-gap suggestions." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+This example teaches Promptless to turn your documentation-site analytics into prioritized doc-gap suggestions once a week. It's an example of pairing a written workflow with a trigger as described in [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task). The [review inbound documentation PRs](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs) example pairs that workflow with a GitHub PR trigger, while this one pairs it with a schedule trigger, which runs on a repeating clock with no triggering event. The steps below write the workflow, configure the trigger, then save the workflow, hook, and trigger.
+
+<Aside type="note">
+  This example uses PostHog as an analytics source, but the workflow can be generalized to support whichever tool or platform you use to store your analytics.
+</Aside>
+
+## The two analytics signals
+
+PostHog measures reader behavior on your docs site, including page traffic, exit rate, and site-search queries. This workflow reads two signals from that data:
+
+- Recurring site-search queries that return zero results, which mean a reader is looking for a page that's missing or doesn't surface.
+- High traffic combined with a high exit rate on an existing page, which means readers reach it but leave underserved.
+
+Customize your workflows to the signals that matter most to your team.
+
+## Prerequisites
+
+Before you set up this task, make sure you have:
+
+- **Access to PostHog**, with its credentials stored as [environment variables](/docs/for-docs/scale/environment-variables) Promptless can read. The variable names are yours to choose, but this example references `POSTHOG_PROJECT_API_KEY`, `POSTHOG_PROJECT_ID`, and `POSTHOG_HOST`, all found in your PostHog project settings.
+- **At least one active doc collection**.
+- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
+
+## Set up the task
+
+Set up the task in three steps: write the workflow, configure the trigger, then save the workflow, hook, and trigger.
+
+<Steps>
+  1. **Write the workflow.** The workflow captures *how* to read analytics and act on what it shows, like what to query, which signals matter, how to prioritize, and how much to open. Write the workflow *body* as a markdown file under `doc_workflows/` in your Knowledge Base. For example, `doc_workflows/analytics-docs-gaps.md`. The following is an example body to adapt to your own analytics tool and docs:
+
+     ```markdown
+     # Analytics-derived documentation gaps
+
+     When the weekly analytics doc-gaps schedule runs:
+
+     1. Scope every query to your documentation paths only — on-site analytics
+        filtered to your docs URL prefix (for example, `promptless.ai/docs`).
+        Never pull product analytics.
+
+     2. Read two signals from the last 7 days:
+
+        - **Recurring reader searches with no good answer** (site-search
+          queries that return zero results). Each recurring instance is a reader
+          asking for a page that does not exist or does not surface. A one-off
+          search is noise, not a signal.
+        - **Page-level performance** for existing docs pages: traffic and exit
+          rate. High traffic combined with a high exit rate points to a page
+          readers reach but leave without their answer.
+
+     3. Prioritize what to act on:
+
+        - Propose **new content** for recurring missing results. A reader is
+          telling you a page is missing or isn't surfacing, which shows up as a
+          zero-result on-site search.
+        - For **existing pages**, prioritize by traffic volume combined with how
+          recently the underlying feature changed, not by page age. A stable,
+          correct old page needs no work.
+
+     4. Redact before publishing. Never paste a raw search-query string or raw
+        URL parameters into a suggestion title, description, or PR body — they
+        can carry customer names, internal identifiers, or tokens. Describe the
+        gap in your own words.
+     ```
+
+     Then add an explicit "If, then" hook in `PROMPTLESS.md` that points to this workflow, so it activates reliably (`PROMPTLESS.md` is always loaded into the agent's instructions, whereas the workflow file is loaded on demand):
+
+     ```text
+     If the weekly analytics doc-gaps schedule runs, then follow the workflow in `doc_workflows/analytics-docs-gaps.md`.
+     ```
+
+     Alternatively, define the workflow as an Agent Skill living in a doc collection, like under `.claude/skills/analytics-docs-gaps/SKILL.md` in `acme/docs`. In that case the `PROMPTLESS.md` hook must name that doc collection and skill:
+
+     ```text
+     If the weekly analytics doc-gaps schedule runs, then use the `analytics-docs-gaps` skill from `acme/docs`.
+     ```
+
+  2. **Configure the trigger.** Add a schedule trigger so the workflow runs on a repeating clock. Create it in the dashboard: in the left sidebar, open **Settings** and select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. Choose the **"On a schedule"** group and its recurring-schedule catalog entry (see [Schedule triggers](/docs/for-docs/connect/triggers/schedule) for the full path), then set the schedule and timezone and write the instructions. Build the trigger in the **Form** view (the default). The **YAML** view shows the underlying `promptless.yaml`, which looks like this:
+
+     ```yaml
+     triggers:
+       analytics-docs-gaps:
+         trigger_type: schedule
+         match:
+           - cron: "0 0 * * 1"
+             timezone: America/Los_Angeles   # optional; defaults to UTC
+         instructions: |
+           Follow the weekly analytics doc-gaps workflow in
+           doc_workflows/analytics-docs-gaps.md.
+     ```
+
+     The cron `0 0 * * 1` with its timezone runs the workflow once a week, at midnight on Mondays. Keep `instructions` a short pointer to the workflow file. What you type into the dashboard's instructions field is that same short pointer sentence, matching the YAML `instructions`. That differs from a schedule trigger whose standing instructions carry the whole job: here, they only point to the workflow file where the full judgment lives. You can pause or adjust the trigger later from the same **Configuration** > **Triggers** page.
+
+  3. **Save the workflow, hook, and trigger.** The trigger is saved from the Configuration page in Step 2. Save the workflow file (`doc_workflows/analytics-docs-gaps.md` or the Agent Skill) and the "If, then" hook in `PROMPTLESS.md` from the Agent Knowledge Base. There are two ways to do this:
+
+     - An organization admin edits the files directly in the [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) (in the left sidebar, open **Settings** and select **Agent Knowledge Base**).
+     - You can ask Promptless to make these changes for you. It edits `PROMPTLESS.md`, the workflow file, and `promptless.yaml` then commits the change.
+</Steps>
+
+## What Promptless does on each weekly run
+
+When the weekly schedule runs, Promptless:
+
+1. Pulls the last 7 days of documentation-site analytics from PostHog, scoped to your docs paths.
+2. Applies both signals, recurring reader searches with no good answer and page traffic combined with exit rate, along with the workflow's prioritization.
+3. Opens suggestions, describing each gap in its own words rather than pasting raw queries or URL parameters.
+4. Finishes quietly when it finds nothing worth changing.
+
+Set a notification channel to see what each run produced because a scheduled run's only outward signals are the suggestions it opens and the notifications your policy sends. A quiet week means the run found nothing worth changing, not that it failed. A credential or access problem surfaces as an *escalation* notification rather than a suggestion notification, so specify an escalation channel to catch a broken integration. See [Notifications](/docs/for-docs/tune/notifications) and its [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) section to route problem and failure alerts separately from suggestion alerts. See [Noise and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering) to tune what counts as a suggestion.
