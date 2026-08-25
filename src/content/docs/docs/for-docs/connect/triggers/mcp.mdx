@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless, then start a documentation task, get its outcome and docs pull request link back, and ask Promptless to revise a suggestion it already made—or set its labels and assignees and open its pull request yourself—all by asking in the editor you already have open. There's no API key to create, store, or rotate: you authorize once in a browser instead.
+Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless, then start a documentation task, get its outcome and docs pull request link back, and ask Promptless to revise a suggestion it already made—all by asking in the editor you already have open. You can also set a suggestion's labels, assignees, and title, open its pull request, or close it yourself. There's no API key to create, store, or rotate: you authorize once in a browser instead.
 
 [MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools; any editor with an "MCP servers" setting can connect to Promptless. It's a built-in surface that's always available—it needs no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
 
@@ -116,14 +116,25 @@ Your editor handles authorization automatically over OAuth; you approve the conn
 </Steps>
 
 <Aside type="note">
-  There's no permission picker: an approved client acts with the same access its approver has. An approved connection can start tasks, list your collections, read the status of any task in your organization (including tasks started from Slack, a GitHub pull request, the dashboard, and the API), revise a suggestion Promptless already produced, edit a suggestion's labels and assignees and open its docs pull request, list your recent tasks, and search suggestions. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
+  There's no permission picker: an approved client acts with the same access its approver has. An approved connection can:
+
+  - start tasks;
+  - list your collections;
+  - read the status of any task in your organization (including tasks started from Slack, a GitHub pull request, the dashboard, and the API);
+  - revise a suggestion Promptless already produced;
+  - update a suggestion's labels, assignees, and title and open its docs pull request;
+  - close a suggestion (which also closes its docs pull request);
+  - list your recent tasks;
+  - search suggestions.
+
+  Like the read tools, the write actions—revise, update, and close—act on any suggestion in your organization, not only ones you created. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
 A token is tied to one organization. To connect a second organization, authorize again and pick that organization at consent—your editor can hold one Promptless connection per organization.
 
 ## Available tools
 
-Your editor surfaces these seven tools by name and calls them for you. The four read-only tools—`list_doc_collections`, `get_task_status`, `list_recent_tasks`, and `search_suggestions`—can be auto-approved by your editor, so routine status checks stop prompting you each time. The three that queue or change work—`submit_documentation_task`, `request_changes`, and `edit_suggestion`—still ask before they run.
+Your editor surfaces these eight tools by name and calls them for you. The four read-only tools—`list_doc_collections`, `get_task_status`, `list_recent_tasks`, and `search_suggestions`—can be auto-approved by your editor, so routine status checks stop prompting you each time. The four that queue or change work—`submit_documentation_task`, `request_changes`, `update_suggestion`, and `close_suggestion`—still ask before they run.
 
 ### `submit_documentation_task`
 
@@ -152,7 +163,7 @@ It also returns the suggestions the task produced, each with its docs pull reque
 
 ### `request_changes`
 
-Use `request_changes` when you want Promptless to make the change for you; use `edit_suggestion` when you want to set the suggestion's labels or assignees or open its pull request and edit that pull request yourself.
+Use `request_changes` when you want Promptless to make the change for you; use `update_suggestion` when you want to set the suggestion's labels, assignees, or title, or open its pull request yourself; use `close_suggestion` to end a review without shipping it.
 
 Asks Promptless to revise a suggestion it already produced—the revision loop.
 
@@ -163,22 +174,44 @@ Asks Promptless to revise a suggestion it already produced—the revision loop.
 
 Promptless updates that suggestion's existing docs pull request instead of opening a second one, and returns a task ID you check with `get_task_status`. If the suggestion's pull request is no longer one Promptless can revise, the tool reports that back; start a new task with `submit_documentation_task` instead.
 
-### `edit_suggestion`
+### `update_suggestion`
 
-Edits a suggestion's metadata yourself and, optionally, opens its docs pull request—the path where you make the change, as opposed to `request_changes`, where Promptless makes it. Pass the suggestion's ID (from `search_suggestions` or `get_task_status`).
+Sets a suggestion's metadata—its labels, assignees, and title—yourself and, optionally, opens its docs pull request—the path where you make the change, as opposed to `request_changes`, where Promptless makes it, or `close_suggestion`, which ends a review without shipping it. Pass the suggestion's ID (from `search_suggestions` or `get_task_status`).
 
 | Argument            | Required | Description                                                                                                                          |
 | ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `suggestion_id`     | Yes      | The suggestion to edit.                                                                                                              |
+| `suggestion_id`     | Yes      | The suggestion to update.                                                                                                            |
 | `labels`            | No       | Replaces the suggestion's stored labels. Omit to leave them alone; pass an empty list to clear them.                                 |
 | `assignees`         | No       | Replaces the suggestion's stored assignees. Omit to leave them alone; pass an empty list to clear them.                              |
+| `title`             | No       | Sets the suggestion's title.                                                                                                         |
 | `open_pull_request` | No       | Pass `true` to open the suggestion's docs pull request in this call. Any `labels` or `assignees` edits in the same call apply first. |
 
-A suggestion's title and description aren't editable here. The call is idempotent, so repeating it with the same arguments leaves the suggestion unchanged. It returns the updated `labels` and `assignees`, the docs pull request URL (`docs_pr_url`, which is null when the suggestion has no open pull request), and whether this call opened the pull request (`pull_request_opened`).
+The title can be set here, but a suggestion's description can't. Labels and assignees are applied before the title. The title edit is pushed to the host GitHub or GitLab pull request before it's stored—while a suggestion's pull request is open the host owns its title, so a title edit has to reach the pull request to stick. If the suggestion has no open pull request yet, the title is stored directly—there's no pull request to push to. If the host rejects the push, the call fails and the stored title is left unchanged, while any labels or assignees applied in the same call stay applied. The call is idempotent, so repeating it with the same arguments leaves the suggestion unchanged.
+
+It returns the updated `labels`, `assignees`, and `title`, the docs pull request URL (`docs_pr_url`, which is null when the suggestion has no open pull request), and whether this call opened the pull request (`pull_request_opened`).
 
 Because `labels` and `assignees` each replace the stored list, adding one without dropping the others means sending the full desired list—read the current values first with `search_suggestions`, which returns each suggestion's `labels` and `assignees`. Setting them tags this one suggestion; it isn't a standing rule that auto-assigns or auto-labels future suggestions.
 
 Opening the pull request is idempotent too: if the suggestion's docs pull request is already open, setting `open_pull_request` to `true` returns the existing pull request and reports `pull_request_opened` as false rather than opening a second one.
+
+### `close_suggestion`
+
+Ends a review without shipping it—the close path, as opposed to revising the suggestion with `request_changes` or opening its pull request yourself with `update_suggestion`.
+
+| Argument        | Required | Description                            |
+| --------------- | -------- | -------------------------------------- |
+| `suggestion_id` | Yes      | The suggestion to close.               |
+| `reason`        | No       | An optional note saved with the close. |
+
+Closing the suggestion closes its docs pull request on the host first. If the host refuses to close the pull request, the suggestion stays open and the call reports why. A pull request that merged in the meantime can't be closed—you can't close one that already shipped. If there's no open pull request to close, the close still succeeds—there's simply nothing to close on the host, and the suggestion closes normally.
+
+Closing can't be undone from your editor: no MCP tool reopens a closed suggestion, so to pursue the change again you start a new task with `submit_documentation_task`.
+
+The close is attributed to your MCP client, so it's distinguishable from a close done in the dashboard, and it records who closed it: you, plus your editor's registered client name. Any `reason` you pass is saved with the close.
+
+Closing over MCP never checks the dashboard's **Remember this feedback for future suggestions** option; the close dialog offers that opt-in, but this tool exposes none, so don't expect a follow-up task from a close.
+
+The call returns the `suggestion_id`, the resulting `status`, and a `message`. Like the other work-changing tools it prompts before it runs—it's destructive and can't be auto-approved.
 
 ### `list_recent_tasks`
 
@@ -194,7 +227,7 @@ Searches your existing suggestions by keyword and status, so you can check wheth
 | `status` | No       | Restricts results to one of `draft`, `open`, `merged`, or `closed`. |
 | `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100. |
 
-When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, so you can pick out the suggestion to hand to `edit_suggestion` or `request_changes`.
+When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, so you can pick out the suggestion to hand to `update_suggestion` or `request_changes`.
 
 ## Ask your editor
 
@@ -206,7 +239,9 @@ To check on a task you already started, ask by its ID: "What's the status of Pro
 
 To change a suggestion Promptless already made, ask for a revision: "Revise Promptless suggestion `<id>` to also cover single sign-on." Your editor calls `request_changes`, and Promptless updates that suggestion's existing pull request instead of opening a new one.
 
-To set a suggestion's labels or assignees, or open its docs pull request yourself, ask for that: "Assign Promptless suggestion `<id>` to @alex and open its docs PR." Your editor calls `edit_suggestion`, which applies the change and opens the pull request in the same step.
+To set a suggestion's labels, assignees, or title, or open its docs pull request yourself, ask for that: "Assign Promptless suggestion `<id>` to @alex, retitle it 'SSO setup,' and open its docs PR." Your editor calls `update_suggestion`, which applies the change and opens the pull request in the same step. To just retitle it without opening a pull request, leave that part out: "Retitle Promptless suggestion `<id>` to 'SSO setup.'"
+
+To close a suggestion you won't ship, ask for that: "Close Promptless suggestion `<id>`—we decided not to document this." Your editor calls `close_suggestion` and saves your reason with the close; closing also closes the suggestion's docs pull request.
 
 If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
 
@@ -234,7 +269,8 @@ Tool failures come back as errors your editor's model sees. Common ones:
 - **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask a member with admin access to finish it.
 - **A requested collection isn't configured**: the tool returns "The requested doc collection is not configured." Call `list_doc_collections` for a valid `id`, or configure the collection first.
 - **A suggestion that can no longer be revised**: `request_changes` reports that the suggestion is no longer one Promptless can revise—its pull request has moved beyond where a revision applies. Start a new task with `submit_documentation_task` instead.
-- **An `edit_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error—call `search_suggestions` for a valid ID. A closed or merged suggestion can't be edited, and the tool reports why. No MCP tool retracts an opened pull request; if you opened one by mistake, close it on the host (GitHub or GitLab) directly.
+- **An `update_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error—call `search_suggestions` for a valid ID. Setting a suggestion's labels, assignees, or title still succeeds even on a closed or merged suggestion; only opening a pull request is refused for a closed suggestion that hasn't merged, and the tool reports why. If the host rejects the title push, the call fails and the stored title is left unchanged, while any labels or assignees from the same call stay applied. No MCP tool retracts a pull request while keeping the suggestion open for further editing—closing over MCP with `close_suggestion` closes the suggestion and its pull request together. If you opened a pull request by mistake and want to keep working the suggestion, close the pull request on the host (GitHub or GitLab) directly.
+- **A `close_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error—call `search_suggestions` for a valid ID. If the host refuses to close the pull request, the suggestion stays open and the tool reports why; a pull request that already merged can't be closed. A suggestion that's already closed can't be closed again, and the tool reports so.
 - **Denied, canceled, or expired consent**: re-run the authorize step—in Claude Code, run `/mcp` and pick **promptless** again; in Cursor, click **Needs login** again.
 
 ### Setup issues
