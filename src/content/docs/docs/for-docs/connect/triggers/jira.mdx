@@ -19,15 +19,22 @@ A Jira ticket can start a Promptless session, and Promptless replies on the tick
 
 ## How a Jira ticket starts a session
 
-Four paths start a session from a ticket. Three are built in and active whenever Atlassian is connected, with no YAML to configure:
+Four paths start a session from a ticket. Three are built in and need no YAML to configure; the fourth is a Jira trigger you configure.
 
-- **Assignment** — Assigning an issue to the account Promptless acts as.
-- **Reserved label** — Adding a label whose first token is `promptless` (for example `promptless` or `promptless-urgent`). These `promptless`-prefixed labels are reserved for this built-in path and never route to a configured Jira trigger.
-- **Mention** — @mentioning the Promptless account in a comment. The mention is matched by the account's ID, not the literal handle text—an @mention picked from Jira's autocomplete inserts the account's display name, so no literal `@promptless` string appears in the comment.
+- **The built-in label path** — Adding a label whose first token is `promptless` (for example `promptless` or `promptless-urgent`). This path is always on whenever Atlassian is connected. These `promptless`-prefixed labels are reserved for this built-in path and never route to a configured Jira trigger.
+- **The mention path** — @mentioning the account Promptless acts as in a comment. The mention is matched by the account's ID, not the literal handle text—an @mention picked from Jira's autocomplete inserts the account's display name, so no literal `@promptless` string appears in the comment. This path requires an attached Atlassian service account (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)).
+- **The assignment path** — Assigning an issue to the account Promptless acts as. This path requires an attached Atlassian service account (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)).
+- **The configured-trigger path** — Creating an issue, adding a label, or changing an issue's status, per your configured triggers. It is unaffected by the service account and starts sessions whether or not one is attached (see [Configuration](#configuration)).
 
-For each of these three built-in paths, Promptless owes an answer on the ticket and tracks it the way it tracks an unanswered Slack thread. All three are the built-in `jira_mention` trigger—active whenever Atlassian is connected, with no YAML configuration. Like other built-in triggers, these paths are always on when Atlassian is connected and cannot be disabled. (Internally they are the assignment, label, and mention subtypes, but they route through the single `jira_mention` key, so a policy rule targets `jira_mention` rather than a per-path key.)
+The built-in label path needs no [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account): it starts a session whenever Atlassian is connected. The mention path and the assignment path require an attached service account—without one, a mention or assignment delivery is dropped and no session starts.
 
-The fourth path is a configured Jira trigger that activates when an issue is created, when a label is added, or when an issue changes status. Like the three built-in paths, Promptless shares updates on the ticket and tracks it the same way.
+On any built-in path, Promptless comments on the ticket and flags it for follow-up if it goes unanswered, the way it tracks an unanswered Slack thread. (The label, mention, and assignment paths are subtypes of one built-in `jira_mention` trigger and route through a single `jira_mention` key, so a policy rule targets `jira_mention` rather than a per-path key.)
+
+A single delivery can carry more than one built-in path. Three rules resolve that:
+
+- At most one built-in session dispatches per delivery—the highest-precedence surviving path.
+- A `promptless` label still starts a session even when the same delivery's mention or assignment was dropped; the label path is never dropped merely because another path on the delivery was.
+- With a service account attached, a delivery that both assigns the issue and adds a `promptless` label dispatches as the assignment, since assignment outranks the label.
 
 ## Reply on the ticket
 
@@ -104,13 +111,15 @@ A Jira trigger's output lands wherever the run's `escalation` and publishing set
 
 See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for the full schema.
 
-## Give Promptless an identity to post as
+## Attach a service account for mentions and assignments
 
-Promptless replies on the ticket either way—a service account is not required for it to write. What the identity determines is who the reply posts as. Attaching a dedicated Atlassian service account gives Promptless its own bot identity to post as.
+The mention path and the assignment path require an attached Atlassian service account. Without one, @mentioning or assigning the connecting account simply does nothing—the delivery is dropped and no session starts. Promptless does not reply on the ticket and does not notify you in Slack or Teams. Check the Atlassian integration card to confirm whether a service account is attached. Only the built-in label path and configured triggers start sessions, and they read the ticket as, and comment as, the connecting account.
 
-Without a service account, Promptless acts as—and posts as—the account that connected Atlassian. Assigning a ticket to that person starts a session, and that person's own ticket activity is ignored—Promptless does not act on its own identity's activity. Mention and assignment matching both key on the acting account, so the identity determines who the reply posts as and who triggers Promptless. With a personal connecting account, any colleague who @mentions or assigns that person in ordinary work starts a session. That's one more reason to give Promptless a dedicated identity, covered on the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian) page.
+Attaching a dedicated Atlassian service account gives Promptless its own bot identity: it posts as that bot, and the mention and assignment paths are active. Either way, Promptless ignores its own activity—self-echo suppression keys on the connecting account when no service account is attached, and on the service account when one is.
 
-Attach the service account from the Atlassian integration card by entering its **Client ID** and **Client secret** ("Attach service account"). See the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian) guide for the full setup.
+Gating the mention and assignment paths behind a service account is deliberate. Without a bot identity, the account Promptless acts as is a real person—the connecting account—and ordinary ticket traffic addressed to that colleague cannot be told apart from a request to summon Promptless. Requiring a service account keeps anyone from making Promptless act as the connecting account without the team opting in.
+
+Attach the service account from the Atlassian integration card by entering its **Client ID** and **Client secret**, then clicking **Attach**. See the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide for the full setup.
 
 <Aside type="note">
   Reading Jira for context is a separate, read-only capability. See the [Jira context source](/docs/for-docs/connect/context-sources/jira) page.
@@ -122,8 +131,8 @@ A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` la
 
 Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once, matching both `jira-new-docs-issue` and `jira-needs-docs-label`—Promptless dispatches once, tagged with both keys.
 
-Separately, an engineer @mentions the Promptless account on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
+Separately—because the team has attached a service account—an engineer @mentions the account Promptless acts as on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
 
 ## Setup instructions
 
-To connect Atlassian and attach a service account, see the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian) guide.
+To connect Atlassian and attach a service account, see the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide. The Atlassian integration card then shows the attached account's details; a **Not working** or **Unconfirmed** badge on the service-account section flags a problem to fix.
