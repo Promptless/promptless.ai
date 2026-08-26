@@ -221,13 +221,28 @@ Lists your organization's recent documentation tasks, newest first, each with th
 
 Searches your existing suggestions by keyword and status, so you can check whether a change is already covered before starting a new task or find a suggestion to revise.
 
-| Argument | Required | Description                                                         |
-| -------- | -------- | ------------------------------------------------------------------- |
-| `query`  | No       | Matches a suggestion's title and description.                       |
-| `status` | No       | Restricts results to one of `draft`, `open`, `merged`, or `closed`. |
-| `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100. |
+| Argument | Required | Description                                                                                                                                                                                 |
+| -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `query`  | No       | Matches a suggestion's title and description.                                                                                                                                               |
+| `status` | No       | Restricts results to one of `draft`, `open`, `merged`, or `closed`.                                                                                                                         |
+| `labels` | No       | A list of label strings. Returns only suggestions carrying at least one of the given labels—an any-of match. Omit it or pass an empty list to apply no label filter, so results come back across all labels. Matches exactly, including case, so a label in the wrong case returns nothing; call `search_suggestions` without `labels` first to see the exact stored label strings. |
+| `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100.                                                                                                                         |
 
-When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, so you can pick out the suggestion to hand to `update_suggestion` or `request_changes`.
+When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. Filtering by `labels` pulls a labeled queue—say, every `P0` suggestion—in one call, instead of fetching everything and filtering client-side; the suggestion-triage workflow below relies on this. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`, and to check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed the branch may no longer exist, since hosts often delete it, so a local checkout applies to a still-open suggestion.
+
+## Workflow skills
+
+If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. This is guidance for the [eight tools above](#available-tools), not a new set of tools—the catalog is unchanged. The editor decides when to load a skill; you ask for what you want as usual.
+
+One skill ships today: `suggestion-triage`, a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions`, checks the `truncated` flag to see whether more are waiting, and reads each proposal in turn. Then it gives each suggestion one outcome—label or assign it with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`—before handing the queue back to you. That sequence is the point: it keeps the editor from treating a truncated result set as your whole backlog and gives each suggestion exactly one outcome, instead of you prompting each step and risking a missed part of the queue.
+
+A skill doesn't change how the tools behave. The work-changing tools—`update_suggestion`, `request_changes`, and `close_suggestion`—still prompt before each run, just as they do when you call them directly; a skill only guides the sequence, it doesn't bypass those confirmations.
+
+<Aside type="note">
+  If your editor doesn't support skills, you lose nothing, since it calls the same tools directly. Skills reach it over the draft **Skills extension (SEP-2640)**, which the MCP endpoint declares as the `io.modelcontextprotocol/skills` capability in its `initialize` response; many clients don't support it yet, so they won't surface skills at all. To check whether yours does, see its MCP settings or release notes. And because the extension is still a draft, its shape can change.
+</Aside>
+
+Skills are purely additive. A client that doesn't support the extension, or ignores it, sees exactly the same eight tools; the guidance costs nothing when it goes unused.
 
 ## Ask your editor
 
@@ -244,6 +259,8 @@ To set a suggestion's labels, assignees, or title, or open its docs pull request
 To close a suggestion you won't ship, ask for that: "Close Promptless suggestion `<id>`—we decided not to document this." Your editor calls `close_suggestion` and saves your reason with the close; closing also closes the suggestion's docs pull request.
 
 If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
+
+To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `suggestion-triage` steps; if not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
 
 ## See your MCP tasks in the dashboard
 
