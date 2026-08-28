@@ -199,6 +199,7 @@ export default defineConfig({
                       ],
                     },
                     { label: 'Ask to update config', slug: 'docs/for-docs/get-the-most-out/ask-promptless-to-update-config' },
+                    { label: 'Zapier recipes', slug: 'docs/for-docs/get-the-most-out/zapier-recipes' },
                   ],
                 },
                 { label: 'Scale', collapsed: true, items: [{ autogenerate: { directory: 'docs/for-docs/scale', collapsed: true } }] },
