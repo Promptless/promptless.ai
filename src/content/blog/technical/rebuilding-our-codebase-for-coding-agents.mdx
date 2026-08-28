@@ -8,30 +8,30 @@ description: >-
 author: Prithvi
 tag: Technical
 section: Featured
-date: '2026-08-27T00:00:00.000Z'
+date: '2026-08-28T00:00:00.000Z'
 hidden: false
 ---
 
 **tl;dr: yes.** Output per engineer went up 3-5x, without an increase in bug frequency. But we made a lot of mistakes along the way, and there were some unexpected steps needed for the payoff to actually show up.
 
 <figure>
-  <img src="/assets/rewrite-output-per-engineer.png" alt="Line chart titled 'Rebuilding our codebase for agents 5x-ed our output', showing normalized output per engineer and PRs merged relative to January 2026. Both stay flat through March, when the rewrite ships, then diverge upward." />
+  <img src="/assets/rewrite-output-per-engineer.png" alt="Line chart titled 'Rebuilding our codebase for agents 5x-ed our output', showing normalized output per engineer and PRs merged relative to January 2026. Both stay flat through March, when the rewrite ships, then diverge upward to 4.97x and 2.10x." />
 </figure>
 
 ## Why we did it
 
 In February, a few things came to a head:
 
-- **On-call was brutal.** 30-40% of our engineering time was spent on on-call triage and remediation, and when we were debugging, it often felt like the codebase was getting in our own way.
-- **Our agent evals were always breaking.** One of our engineers described it as "a fragile paper mache of monkey-patched code and thorns". Evals were inherently a challenge because we had to mimic arbitrary third-party state for every integration Promptless supports, but any substantial change to our agent broke our evals.
+- **On-call was brutal.** 30-40% of our engineering time was spent on on-call triage and remediation, and when we were debugging, it often felt like the codebase was getting in our way.
+- **Our agent evals were always breaking.** One of our engineers described it as "a fragile paper mache of monkey-patched code and thorns". Evals were inherently a challenge because we had to mimic arbitrary third-party state for every integration Promptless supports, and any substantial change to our agent broke our evals.
 - **When we looked, the metrics on code churn were terrible.** In February, 59% of the code we wrote was code we rewrote shortly after writing it. :(
-- **Our newest engineer asked a provocative question:** *If a new YC company was going to provide the same value to users as Promptless but lap us in a week by leveraging the cutting edge of agentic development, how would they do it?*
+- **Our newest engineer asked a provocative question:** “*If a new YC company was going to provide the same value to users as Promptless but lap us in a week by leveraging the cutting edge of agentic development, how would they do it?”*
 
-What's funny: our product *is* an agent, and we had built a habit of rearchitecting our agent every 3-6 months, recognizing that as the substrate gets more intelligent, we had to shift to an Agent Experience with fewer training wheels and more flexibility to unleash newly afforded headroom. But we hadn't applied the same exercise to our SDLC and design principles.
+What's funny: our product *is* an agent, and we had built a habit of rearchitecting our agent every 3-6 months, recognizing that as the substrate gets more intelligent, we had to shift to an Agent Experience with fewer training wheels and more flexibility to unleash newly afforded headroom. But we hadn't applied the same exercise to our SDLC and software principles.
 
-**But what actually makes a codebase agent-friendly?** We already had a monorepo. Skills, `AGENTS.md`, and agent plans were already checked in, with symlinks. Agents could already spin up an isolated local environment from a fresh worktree in seconds.
+**But what actually makes a codebase agent-friendly?** Before the rewrite, we already had a monorepo. Skills, `AGENTS.md`, and agent plans were already checked in, with symlinks for each harness. Agents could already spin up an isolated local environment from a fresh worktree in seconds.
 
-The biggest gap was the actual code architecture, and it boiled down to one theme: **Lean into eng design patterns meant for much larger teams.** Explicit dependency contracts, layered module boundaries, mechanical enforcement, and per-domain context maps all become table stakes when your contributors are agents. I'd been at small startups for the last 10 years, so this felt very unnatural. From an engineer on the team at the time: *Felt very weird doing "harness engineering" for a 5-person company. Felt less weird the moment a single Plan Mode session shipped what would've been a sprint of work.*
+The biggest gap was the actual code architecture, and it boiled down to one theme: **Lean into eng design patterns meant for much larger teams.** Explicit dependency contracts, layered module boundaries, mechanical enforcement, and per-domain context maps all become table stakes when your contributors are agents. I’d been at small startups for the last 10 years, so this felt very unnatural. From an engineer on the team at the time: *Felt very weird doing “harness engineering” for a 5-person company. Felt less weird the moment a single Plan Mode session shipped what would've been a sprint of work.*
 
 ## How it happened
 
@@ -41,42 +41,40 @@ He'd be the first to admit we dramatically underestimated the scope. We thought 
 
 Here's what happened, with some lovely quotes from the post-mortem.
 
-- **The swarm face-planted.** Post-mortem: *"There was too much variance in individual dev-agent output >> breaking changes and uncoordinated implementations. Reminds me of a friend's situation in a super dysfunctional (human) eng org: multiple teams shipping rapidly into a shared codebase with no concern for cohesion or shared patterns."*
-- **What actually worked was much more deliberate.** One dev agent driving, with a pool of about five review agents in fresh contexts poking holes in its work. The agent wouldn't find flaws in the code it just wrote, and we needed to catch bad design and principle violations early. Ultracode makes this pattern a lot easier now. :)
-- **We set up a cut-over plan that allowed us to migrate each customer to the new codebase independently.** There was no way we could review every line of code, every method, or even every file, so dogfooding was critical. Still, we knew we weren't going to catch every gap before cutting over real customers, which we decided was okay.
-- **We cut over ourselves and then ramped up.** We started dogfooding the new runtime on 3/14 (two weeks after starting work), and cut over the final customers on 3/31. We deleted the legacy codebase on 4/10 (I still remember looking at that PR).
+1. **The swarm face-planted.** Post-mortem: *"There was too much variance in individual dev-agent output >> breaking changes and uncoordinated implementations. Reminds me of a friend's situation in a super dysfunctional (human) eng org: multiple teams shipping rapidly into a shared codebase with no concern for cohesion or shared patterns."*
+2. **What actually worked was much more deliberate.** One dev agent driving, with a pool of about five review agents in fresh contexts poking holes in its work. The agent wouldn't find flaws in the code it just wrote, and we needed to catch bad design and principle violations early. Ultracode makes this pattern a lot easier now. :)
+3. **We set up a cut-over plan that allowed us to migrate each customer to the new codebase independently.** There was no way we could review every line of code, every method, or even every file, so dogfooding was critical. Still, we knew we weren’t going to catch every gap before cutting over real customers, which we decided was a fine tradeoff.
+4. **We cut over ourselves and then ramped up.** We started dogfooding the new runtime on 3/14 (two weeks after starting work), and cut over the final customers on 3/31. We deleted the legacy codebase on 4/10 (I still remember looking at that PR).
 
 ## The aftermath, and the road to the payoff
 
-For about a month after launch, we honestly weren't sure it had been worth it. Eng output *actually went down* for the first month. Did we just get seduced by every engineer's fantasy of being able to rebuild from scratch?
+For about a month after launch, we honestly weren't sure it had been worth it. Eng output *actually went down* for the first month. Did we just get seduced by every engineer’s fantasy of being able to rebuild from scratch?
 
-- **It was like the whole team was onboarding to a new codebase at once** (because we were). We were overly optimistic that the new architecture would be so clean it would explain itself. It wasn't, and eng output *actually went down* the month after the cutover. In reality, we needed to do a lot more work socializing and getting a common understanding of the new architecture with the team.
-- **The agents kept forgetting the design principles.** Coding agents had surprisingly bad instincts in the new codebase by default, and would happily reintroduce exactly the patterns we'd torn out. We added a PRINCIPLES.md file, which was referenced in our AGENTS.md and our pr-review subagent workflow, as a design north star. Honestly, it should have been there on day one.
-- **We spent a lot of that month teaching the models to stay on the rails** — writing skills for our common workflows, subagent definitions. This was critical to ensure that the agent didn't slowly degrade the codebase.
+- **It was like the whole team was onboarding to a new codebase at once** (because we were). We were overly optimistic that the new architecture would be so clean it would explain itself, but it didn’t. In reality, we needed to do a lot more work socializing and getting a common understanding of the new architecture with the team.
+- **The agents kept forgetting the design principles.** Coding agents had surprisingly bad instincts in the new codebase by default, and would happily reintroduce exactly the patterns we'd torn out. We added a `PRINCIPLES.md` file as a design north star, which was referenced in our `AGENTS.md` and our pr-review subagent workflow. Honestly, it should have been there on day one.
+- **We spent a lot of that month teaching the models to stay on the rails** — e.g. writing skills and subagent definitions for our common workflows. This was critical to ensure that the agent didn’t slowly degrade the codebase.
 
 Fortunately, it ended up paying off in a big way.
 
 <figure>
-  <img src="/assets/rewrite-review-vs-features.png" alt="Chart titled 'Human review became optional, but bugs went down', showing the share of merged PRs reviewed by a human falling sharply after the rewrite while the share of effort spent on bugs and maintenance also declines from 61% to 43%." />
+  <img src="/assets/rewrite-review-vs-features.png" alt="Chart titled 'Human review became optional, but bugs went down', showing the share of merged PRs with a human review falling sharply after the rewrite while effort on bugs and maintenance also declines from 61% to 43%." />
 </figure>
 
-- **Output per engineer went up 3-5x.** Percentile according to Weave also went up, from being pretty average to in the 90th percentile, so it wasn't just model improvements.
-- **On-call went from a full-time burden to a fraction of one engineer's attention.** Those anxiety-inducing on-call hand-offs suddenly started being very easy.
+- **Output per engineer went up 3-5x** (according to [@Weave](https://weaveos.com)’s models). Percentile went from 58th to >90th among similar eng teams, so it wasn’t just model improvements.
+- **On-call went from a full-time burden to a fraction of one engineer's attention.** Those anxiety-inducing on-call hand-offs suddenly became very easy.
 - **We made human PR review optional.** Coding agents could follow better patterns, our abstractions became much more testable, and review bots became much more capable, so we elected to make human review of PRs completely optional. Engineers still requested review on 10-15% of PRs, but the shift was dramatic.
-- **I thought I should expect more bugs because of that, but it was the opposite.** In spite of eliminating human PR reviews, the proportion of time spent on bugs and maintenance work actually *went down*. Sure, we occasionally see a bug or design issue that would have been caught with a human review, but we broke the pattern of reduced controls with AI adoption increasing incidents.
-- **We got comfortable biting off more ambitious work.** Interestingly, the number of PRs we merged only went up about 2x, but the engineering effort per PR *went up on average*, meaning that with the new architecture, we could make bigger changes safely.
+- **I thought I should expect more bugs because of that, but it was the opposite.** In spite of eliminating mandatory human PR reviews, the proportion of time spent on bugs and maintenance work actually *went down*. Every report about AI adoption in engineering said the opposite should happen.
+- **We got comfortable biting off more ambitious work.** Interestingly, the number of PRs we merged only went up about 2x, but the engineering effort per PR *went up on average*, meaning that with the new architecture, we could make bigger changes confidently.
 
-I'm sure some of that last part is just stronger models arriving over the same window, but that's not just it: (1) our output was basically **flat from January through March**, when model releases were at an even more relentless cadence, and (2) Weave's data showed our output went from the 58th to the 90th+ percentile among similar teams.
+## If you’re thinking about doing this yourself
 
-## If you're thinking about doing this yourself
+The line from the post-mortem I keep coming back to: “*The rewrite isn't really about code. It's about building a shape of a system that you and a swarm of agents can both think clearly inside.”*
 
-The line from the post-mortem I keep coming back to: *"The rewrite isn't really about code. It's about building a shape of a system that you and a swarm of agents can both think clearly inside."*
+- **Bring the team in early.** I still think it was the right call to centralize the implementation on one engineer’s shoulders, but good context-sharing requires progressive disclosure, and a single braindump at the end isn’t enough.
+- **Don’t trust coding agents’ taste.** Gastown-type approaches just aren’t good enough to uncork the real issues with their system design choices. The frontier models at the time were Opus 4.6 and GPT-5.3-Codex, but I don’t think this part would be different with current generation models.
+- **Spend the most time interrogating the boundaries between systems.** Without good guidance, the models fall flat on answering questions like "should this be a new module?" or "when’s the right time to split this dependency?", and poor decisions at this level get amplified as models continue building on those decisions.
+- **Budget time for scaffolding/revising agent instructions, like skills.** Even though we already had agent instructions, getting them revised to imbue agents with intuition about the new architecture was critical. If we skipped this, the gains would have decayed back to the median.
 
-- **Bring the team in early.** I still think it was the right call to centralize the implementation on one engineer's shoulders, but bring the team in early. Good context sharing requires progressive disclosure, and a single braindump at the end isn't enough.
-- **Don't trust coding agents' taste.** Gastown-type approaches just aren't good enough to uncork the real issues with their system design choices. The frontier models at the time were Opus 4.6 and GPT-5.3-Codex, but this is still something we have to be mindful about.
-- **Spend the most time interrogating the boundaries between systems.** Without good guidance, the models fall flat on answering questions like "should this be a new module?" or "when's the right time to split this dependency?", and poor decisions at this level get amplified as models continue building on that spec.
-- **Budget time for scaffolding/revising agent instructions, like skills.** Even though we already had agent instructions beforehand, getting them revised to imbue agents with intuition about the new architecture was critical. If we skipped this, the gains we gained would have decayed back to the median.
+Keeping those instructions correct as the codebase moves turned out to be a real, recurring maintenance problem (enough that we ended up building a product around it, though that was a few months later). But if you go do a rewrite like this, instruction drift is what you'll be fighting six months later.
 
-Keeping those instructions correct as the codebase moves turned out to be a real, recurring maintenance problem (enough that we ended up building a product around it, though we built that a few months later). But if you go do a rewrite like this, instruction drift is what you'll be fighting six months later.
-
-Thanks for reading! Happy to share more about the specific architecture changes we made, why we separated the `PRINCIPLES.md` from other instructions, or anything else.
+Thanks for reading! Happy to share more about the specific architecture changes we made, what that `PRINCIPLES.md` file looked like, or anything else.
