@@ -1,0 +1,124 @@
+---
+title: Discord messages (beta)
+description: Trigger documentation updates from Discord messages and mentions, so questions raised in your server become documentation suggestions.
+slug: docs/for-docs/connect/triggers/discord-messages
+type: reference
+tags:
+  - connect
+  - triggers
+  - reference
+timestamp: "2026-08-26T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 13
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  You can set up this trigger by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless turn on passive listening for my Discord `support` channel." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+<Aside type="note">
+  The Discord trigger feature is in beta. Contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) for more information about enabling this feature for your organization.
+</Aside>
+
+Before using these triggers, connect Discord from the [integrations page](https://app.gopromptless.ai/integrations).
+
+Discord integration enables documentation updates directly from your server conversations. This is particularly useful for support conversations or community discussions where questions arise that could be better addressed in your documentation.
+
+## Trigger methods
+
+### Mention @Promptless in a channel
+
+Tag @Promptless in a Discord channel with instructions or questions. Promptless analyzes the conversation context to draft relevant updates. It posts a typing indicator and an acknowledgement, then updates that same message in place as it works.
+
+### Enable passive channel listening
+
+Promptless can watch selected channels and draft suggestions without an @mention. See [Passive channel listening](#passive-channel-listening-optional) below for setup.
+
+## How it works
+
+When triggered in Discord:
+
+1. **Message analysis**: Promptless reads the message and conversation context where it was triggered.
+2. **Context gathering**: Promptless analyzes the text content and conversation flow.
+3. **Documentation suggestions**: Promptless creates suggestions based on the conversation content.
+4. **Follow-up editing**: Continue refining the suggestion in the same thread, with or without an @mention. See [Thread reply auto-listening](#thread-reply-auto-listening) for how follow-up replies are handled.
+
+## Thread reply auto-listening
+
+Promptless automatically monitors threads where it's participating. When someone replies in a thread or reply-chain where Promptless has posted or been @mentioned, Promptless treats the reply as a follow-on trigger—no additional @mention required.
+
+This means you can:
+
+- Reply to a notification with feedback or additional context
+- Continue a conversation Promptless started without tagging it again
+- Add details or clarifications that Promptless requested
+
+<Aside type="tip" title="Opting out of individual messages">
+  Promptless tries to reason about whether each message in a thread is actionable, and not every reply triggers a documentation update. However, if you want to explicitly tell Promptless to ignore a message, start it with `aside` or `/aside`:
+
+  ```txt
+  aside Just coordinating our on-call rotation here, not for docs.
+  ```
+</Aside>
+
+### Thread reply trigger mode
+
+Open **Settings** and select **Organization** to configure how Promptless handles thread replies:
+
+- **Listen to all replies** (default): Process all replies in threads where Promptless is participating. Use the aside prefix to skip specific messages.
+- **Require @promptless**: Only process replies that explicitly @mention Promptless.
+
+This setting applies organization-wide to Slack, Microsoft Teams, and Discord threads.
+
+## Passive channel listening (optional)
+
+You can optionally enable passive listening for specific Discord channels. When enabled, Promptless monitors conversations in your selected channels and drafts documentation suggestions without an @mention. This is ideal for support or documentation-focused channels where questions surface that belong in your docs. You can add or remove monitored channels at any time.
+
+<Aside type="tip" title="Before you begin">
+  Make sure the Promptless bot has been added to the server containing the channels you want to monitor.
+</Aside>
+
+<Aside type="caution">
+  Passive listening is completely opt-in and only applies to channels you explicitly select.
+</Aside>
+
+## Configuration
+
+@Promptless mentions in Discord are a built-in trigger type that's always active once the Discord integration is connected, no YAML configuration required.
+
+To enable passive channel listening, add a `discord_listen` trigger to your [Configuration page](https://app.gopromptless.ai/configuration):
+
+```yaml
+triggers:
+  discord-support:
+    trigger_type: discord_listen
+    match:
+      - channel_ids:
+          - "<discord-channel-id>"
+```
+
+You can get a channel ID from the channel picker in the [Configuration page](https://app.gopromptless.ai/configuration)'s structured editor, or by enabling **Developer Mode** in Discord (User Settings → Advanced) and choosing **Copy Channel ID** on a channel. Channel IDs are numeric. See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for details.
+
+Publishing behavior — auto-creating a PR and auto-merging — is controlled by your [policies configuration](/docs/for-docs/reference/configuration-reference#policies). Discord notifications post back to the channel or thread where the trigger activated.
+
+## Discord notifications
+
+When Promptless creates documentation suggestions from Discord triggers, it posts a message with the suggestion details plus interactive buttons:
+
+- **Publish** — Merges the docs PR and publishes the changes. The message updates in place to show the result.
+- **Create PR** — Opens a documentation pull request. The message refreshes to show the new PR link.
+- **View PR** — Opens the docs PR in your browser.
+- **Review in Promptless** — Opens the suggestion in the Promptless dashboard.
+
+Publish and Create PR execute server-side and update the message in place. Unlike the Slack and Teams cards, the suggestion details appear in the message body itself.
+
+## Privacy and channel access
+
+By default, Promptless only reads Discord content when you @mention it. If you enable passive listening, Promptless monitors only the specific channels you explicitly select in your configuration.
+
+## Setup instructions
+
+To connect Discord to Promptless, see the [Discord integration](/docs/for-docs/reference/integrations/discord) setup guide.
