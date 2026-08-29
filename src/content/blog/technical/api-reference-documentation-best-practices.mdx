@@ -1,0 +1,84 @@
+---
+title: 'API Reference Documentation Best Practices: What Auto-Generated Docs Leave Out'
+subtitle: Published July 2026
+description: >-
+  Auto-generated API docs give you a skeleton. Here's what every endpoint page actually needs, and why the missing parts create the most support tickets.
+date: '2026-07-09T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer hits your `/payments` endpoint and gets a 403. They open your API reference. They see the endpoint description: "Create a payment." They see the parameters, the request schema, a sample success response. No mention of what causes a 403 or how to resolve it. They open a support ticket.
+
+That sequence is the most common failure mode in API reference documentation. The page exists. It was generated from an OpenAPI spec. It covers the happy path correctly. It's useless for debugging.
+
+According to the [2024 Stack Overflow Developer Survey](https://survey.stackoverflow.co/2024), 90% of developers use API docs as their primary reference when integrating an API. The [2025 Postman State of the API report](https://www.postman.com/state-of-api/2025/) found that 55% of API teams struggle with inconsistent documentation. Both problems trace back to the same root: teams treat auto-generation as a complete solution.
+
+It generates a skeleton. A working API reference requires more.
+
+## What auto-generation gets right, and what it skips
+
+When you generate reference documentation from an OpenAPI spec, you get parameter names, types, required/optional flags, schema definitions, and basic endpoint descriptions. That's the structural layer, and it's worth having. It's also the minimum.
+
+The parts that make documentation actually useful can't be derived from a spec alone, because they require context the spec doesn't contain:
+
+- Why a field is required in some contexts but optional in others
+- What triggers each error code and what the developer should do about it
+- Which authentication scopes are needed for which operations
+- What rate limits apply at the endpoint level, not just globally
+
+These are the parts developers need when something goes wrong. They're also the parts most API reference pages are missing.
+
+## The six components every endpoint page needs
+
+A complete endpoint reference page contains six elements. Most auto-generated pages ship four.
+
+**Description that explains behavior, not just identity.** "Creates a payment" describes what the endpoint is. "Creates a payment and returns a confirmation object; use the returned `payment_id` for subsequent capture or refund calls" describes what it does and what comes next. The second version also serves a second audience: AI agents that parse your API spec to decide which tool to call. Gartner projects that over 30% of API demand growth by 2026 will come from AI and LLM tools. The endpoint description is the primary signal those tools use to select the right operation. Vague descriptions produce wrong tool selection.
+
+**Parameters with context.** Name, type, required/optional, and constraints are table stakes. What's typically absent: which parameters interact, what valid values look like in realistic use, and what happens when a value is out of range (the specific error code, not just "invalid request").
+
+**Authentication context.** Don't just say "requires authentication." Specify the scope, token type, and any endpoint-specific behavior. Many APIs behave differently depending on whether the request uses a user token or a service token. That behavior needs to be documented on the endpoint page, not buried in a general authentication guide that developers read once during onboarding and never revisit.
+
+**Realistic request and response examples.** Showing a schema is less useful than showing an actual payload. Include both a success response and at least one error response. Developers copy-paste these.
+
+**Error codes with causes and resolution paths.** This is the element most teams skip entirely.
+
+**Rate limit notes.** If this endpoint has a lower limit than the global API default, document it on the page, not just in a rate limits overview.
+
+<BlogNewsletterCTA />
+
+## Error documentation: the highest-leverage gap
+
+Error codes are where most API integrations break, and where most API reference pages offer the least help. A 403 can mean the token is invalid, the token is valid but lacks the required scope, the resource exists but belongs to a different account, or the account is on a plan that doesn't include this feature. Listing "403: Forbidden" tells the developer nothing actionable.
+
+The pattern that works: for each endpoint, list every error code it can return, the specific condition that triggers it, and what the developer should do in response. Stripe's error reference is frequently cited as the benchmark. Their error objects include `code`, `decline_code`, `param`, and `message` fields, with a full enumeration of possible values and what each means in context. It takes significant work to produce. It also eliminates most integration support tickets.
+
+The [2025 Postman State of the API report](https://www.postman.com/state-of-api/2025/) found that 93% of teams face collaboration blockers that lead to documentation gaps. Error documentation is typically the first casualty. OpenAPI can declare that a 403 is possible, but not why it occurs or how to recover from it. That context has to be written, and writing it is usually deferred.
+
+## The drift problem in hand-written content
+
+Auto-generated content updates when the spec updates. Hand-written content doesn't.
+
+Error codes, authentication notes, and endpoint descriptions are maintained manually, which means they drift whenever the underlying behavior changes. A permission model change creates a new 403 condition. The error table, written by an engineer at launch, stays wrong until someone notices.
+
+This is why the OpenAPI-as-single-source-of-truth approach matters but doesn't fully solve the problem. The spec guarantees structural accuracy: parameter names, types, required flags. It doesn't guarantee behavioral accuracy: what the API does in edge cases, which errors appear in practice, and what the rate limits are.
+
+[Documentation drift](/blog/technical/documentation-drift-detection-problem) in API reference pages concentrates in the hand-written parts. A field is renamed: the spec updates, and the generated docs follow. A 403 gets a new cause because of a backend change: the error table, maintained separately, stays wrong indefinitely.
+
+Teams that have [interactive API documentation](/blog/technical/interactive-api-documentation) face the same asymmetry. The "try it out" console reflects the spec. The surrounding error descriptions and behavioral notes don't auto-update. A working console doesn't mean the surrounding context is accurate.
+
+## Three changes that move docs from skeleton to usable
+
+Write error documentation at spec review time, not post-launch. For each endpoint, enumerate every error code it can produce as part of the design phase. Adding it later happens far less consistently.
+
+Add descriptions that say what an endpoint returns and what developers do with the result. One concrete sentence is worth more than a paragraph of generic context.
+
+Track which parts of your API reference are hand-written vs. auto-generated. If you have a process for monitoring code changes against docs, prioritize the hand-written pages. That's where accuracy degrades fastest, and where it causes the most developer friction.
+
+The [API changelog](/blog/technical/api-changelog-best-practices) is where teams typically focus attention when APIs change. The reference page is where developers spend their time when integrations break.
+
+<BlogRequestDemo />
