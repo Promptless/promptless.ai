@@ -1,0 +1,87 @@
+---
+title: 'API Reference Documentation Best Practices for the AI-Agent Era'
+subtitle: Published June 2026
+description: >-
+  AI coding tools are now the primary readers of your API reference. Here's what changes about best practices when accuracy becomes essential infrastructure.
+date: '2026-06-01T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Across all major language models, between 25% and 38% of AI-generated code uses deprecated API methods. That number comes from a 2025 ICSE study that tested every major LLM on real-world API usage tasks. The models were not making things up. They were following documentation. The documentation was wrong.
+
+Your API reference has always mattered. In 2026, it matters differently: the biggest consumer of your reference is no longer a human developer reading through it in a browser. It is an AI coding assistant reading it programmatically, and turning it directly into generated code.
+
+## AI tools are your most frequent reader
+
+Gartner projects that 30% of API demand growth through 2026 will come from AI and LLM tools. Every developer using Claude, GitHub Copilot, Cursor, or a similar assistant is effectively routing API calls through a model that was trained on, or is actively retrieving from, your documentation.
+
+When a developer asks their AI assistant to "add Stripe webhook verification to my Express app," the assistant's first move is to read your reference. It reads the method signature and expected parameters, then generates code.
+
+If the reference is accurate, the code works. If the reference is six months out of date, the developer gets a polite, confident suggestion that uses a parameter you renamed last quarter.
+
+This is not a hypothetical scenario. A Postman survey found that 68% of developers cite outdated documentation as their top frustration when working with APIs. Most of that frustration used to end with a developer filing a support ticket. Now it ends with AI-generated code that fails silently on the first API call.
+
+## The reference is the root cause
+
+API documentation receives a lot of general advice: write working code examples, document every error code, explain authentication clearly, keep the quickstart short. That advice remains correct.
+
+What has changed is the severity of getting accuracy wrong.
+
+Amazon Science published research in 2024 showing that injecting accurate API documentation into the model's context at inference time reduced code hallucinations by up to 96%. The inverse is equally true: if the docs the model retrieves are inaccurate, the code the model generates will be inaccurate with high confidence.
+
+The ICSE study found deprecated usage rates of 25-38% across all models, and identified the root cause consistently: training data and retrieval corpora lag behind the actual API surface. The reference is the upstream source that either prevents this or enables it.
+
+There is a compounding effect here that is worth naming. An outdated tutorial causes problems for the developers who read that tutorial. An outdated API reference causes problems for every developer whose coding assistant reads it, which, at a popular API, is most of them.
+
+<BlogNewsletterCTA />
+
+## What changes about the standard advice
+
+The classic list of API reference best practices holds up. What changes is the priority ordering.
+
+**Code examples.** Examples have always been the highest-signal content in a reference. They are even more important now because language models weight concrete examples heavily when generating code. A working example that shows how authentication and error handling actually work will be reproduced directly. A minimal stub that cuts corners will have those shortcuts reproduced too.
+
+The practical implication: your examples need to represent exactly how your API works today, including any setup that is easy to skip in a demo but required in production. If authentication requires a specific header format, that header needs to be in every example. If a parameter was renamed in your last release, the old name needs to be gone from all of them.
+
+**Error documentation.** Most API references document the happy path and treat error cases as an afterthought. AI models trained on those references learn to generate code that does not handle errors. When a developer is generating a full integration, not just a one-liner, the absence of error documentation means the AI cannot generate meaningful error handling. It will either skip it or invent plausible but wrong behavior.
+
+Document 400, 401, 429, and 500 responses explicitly for every endpoint that can produce them. Explain what each error means in context, not just in general. "401: Unauthorized" is less useful than "401: The API key was missing or invalid. Check that your key has the required permissions for this endpoint."
+
+**Authentication.** Auth instructions have always required precision. In an agentic context, the cost of vague auth documentation is immediate: generated code with broken authentication fails on the first call, and the developer has to debug an error they did not write. Authentication flows should have complete, working code examples that run without modification, covering every supported method.
+
+**Versioning.** This is the area where most references are weakest, and the area where staleness does the most damage. When a parameter is renamed, an endpoint is deprecated, or a behavior changes, the reference needs to reflect that change immediately, with an explicit note about what changed and when.
+
+Mixing documentation from different API versions on the same page is a common cause of AI-generated code errors. The model retrieves a method description from version 3.1, an example from version 2.8, and combines them into code that works on neither version. A clear versioning structure, with a single source of truth for each version, eliminates this failure mode.
+
+## Accuracy as infrastructure
+
+The underlying shift is conceptual. API reference accuracy has moved from a quality concern, something you improve in documentation sprints, to infrastructure, something that needs to stay current continuously.
+
+A broken production dependency triggers an incident. An outdated API reference triggers an incident too: it just happens in a developer's IDE, at unpredictable intervals, across every user of your API who relies on an AI assistant.
+
+This requires a different operational model. Documentation updates need to happen in the same cycle as API changes, not in the next sprint. The team that ships an API change needs a direct path to the reference update, whether that is an automated spec sync or a documentation owner embedded in the release process.
+
+[Documentation drift](https://promptless.ai/blog/technical/documentation-drift-detection-problem) follows a predictable pattern: the change ships, the docs fall behind, and the gap grows until someone notices. For human readers, the signal is a support ticket or a developer complaining in your community. For AI tools, there is no signal: the model generates wrong code with the same confidence it uses for correct code, and the developer often does not know whether the error is in their code or in the AI's suggestion.
+
+Detection has to be proactive. The question is not whether a change was documented, but whether the reference still matches the current API behavior, after every change.
+
+[Interactive API documentation and spec drift](https://promptless.ai/blog/technical/interactive-api-documentation) examines what happens when the spec and the actual API behavior diverge in the "try it out" context. The same problem applies to the reference, and at larger scale.
+
+## Where the gaps usually are
+
+Three areas in a typical API reference accumulate the most accuracy debt over time.
+
+**Authentication flows.** Auth is the most commonly changed and most frequently broken area. Any change to auth methods, header names, or token formats propagates directly into broken generated code.
+
+**Renamed or removed parameters.** Model training data contains years of documentation, including versions that no longer exist. If a parameter was renamed in a recent release, the reference needs to make the rename explicit and remove every example that uses the old name.
+
+**Response schema changes.** Fields added or removed from response objects often go undocumented. When a model generates code that destructures a response, it works from whatever schema was documented last. Fields that were removed silently produce runtime errors in generated code.
+
+The highest-leverage improvement to an API reference is not adding content. It is keeping what is there accurate, continuously, as the API evolves. [Agents are more credulous than humans](https://promptless.ai/blog/technical/agent-friendly-docs-necessary-not-sufficient): they trust your reference completely. The quality of their output is a direct function of the accuracy of what they read.
+
+<BlogRequestDemo />
