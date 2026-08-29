@@ -1,0 +1,81 @@
+---
+title: 'The Docs-as-Code Workflow: What Teams Get Right and What They Miss'
+subtitle: Published May 2026
+description: >-
+  Moving docs to Git gives version control. Wiring docs to your CI/CD pipeline gives accuracy. Most teams do the first part and skip the second.
+date: '2026-05-27T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer ships a new authentication flow. The code is reviewed, merged, and deployed. The API reference page still shows the old parameter names. Nobody filed a ticket. Nobody is responsible for it. It will stay wrong until a user hits it.
+
+This is the most common failure mode in docs-as-code setups, and it happens even after teams have migrated to Markdown, set up a Git repository, and wired up a CI/CD pipeline. The format is right. The workflow is missing.
+
+## Format and workflow are not the same thing
+
+Docs-as-code means treating documentation with the same tools and processes used for code: version control, pull requests, code review, automated testing, and continuous deployment.
+
+Most teams start with the format: they convert docs to Markdown and move them into Git. That's the easier half. It gives them version history, branching, and the ability to deploy documentation as part of a build.
+
+What it does not give them automatically is accuracy.
+
+Accuracy comes from the workflow: the decisions about when docs update, who reviews them, and what automated checks run before a change merges. Teams that implement the format without the workflow get version control of their documentation, but the documentation still drifts from the product. The pages are versioned. They're just wrong.
+
+The distinction matters because the format change is visible (there's a migration, a new repo, a new toolchain), while the workflow gaps are invisible until a user finds them.
+
+If you're deciding whether to move to docs-as-code in the first place, [Help Center vs Docs-as-Code: When to Switch](/blog/technical/help-center-to-docs-as-code) covers that decision. This article is about what to do once you've made it.
+
+## The keystone practice: co-located commits
+
+The most reliable way to prevent documentation drift for a specific feature is to require that the doc update travel in the same pull request as the code change.
+
+When they're in the same PR, the doc cannot ship without the update. The reviewer sees both. The deploy includes both. If the engineer forgets the doc, the PR is incomplete.
+
+When docs live in a separate repository, that link breaks. The code ships. The doc update becomes a follow-up task. Follow-up tasks get triaged, deprioritized, and eventually forgotten.
+
+Some teams keep docs in a separate repo for legitimate reasons: the docs site uses a different build system, the contributor audience is different, or access controls require separation. If you're in that situation, the minimum viable alternative is a documentation checklist in the PR template. A required checkbox forces the engineer to make a deliberate decision about whether a doc update is needed. It is not as reliable as co-location, but it creates a moment of attention where there previously was none.
+
+<BlogNewsletterCTA />
+
+## Making documentation verifiable with CI
+
+One structural advantage of docs-as-code over help centers is that you can run automated checks on documentation as part of a CI/CD pipeline.
+
+The most useful checks:
+
+**Link validation.** Broken internal links are common, especially after a site restructure. A link checker runs in CI and fails the build if it finds a 404. This catches dead links before they reach users, which is the appropriate time to catch them.
+
+**Style linting.** Tools like Vale enforce a style guide automatically: word choices, heading patterns, sentence length limits. This is useful for teams where multiple contributors write documentation, since it reduces the review burden on technical writers.
+
+**Code example testing.** If your docs include code samples, there are tools that extract and execute them as part of the build. A code sample that silently breaks when the API changes is caught before the page deploys.
+
+None of these checks exist in a help center. They're only possible because the documentation lives in a version-controlled repository with a build process. Teams that migrate to docs-as-code but don't set up these checks are leaving the most concrete benefit on the table.
+
+## The review queue problem
+
+The promise of docs-as-code is that engineers review documentation the same way they review code: in a pull request, with comments, before merge.
+
+In practice, doc PRs compete with code PRs for engineer attention, and code usually wins. A documentation PR from a technical writer sits in the queue. The engineer reviewer approves it quickly to clear the backlog. The review is nominal.
+
+There are two ways to address this. The first is to designate a required reviewer for documentation changes: a technical writer or a documentation owner, not just any engineer. GitHub and GitLab both support required reviewers by file path through CODEOWNERS files. A `docs/` directory owned by a technical writing team means no doc PR merges without their review. That's the same standard applied to code.
+
+The second is to reduce what engineers need to review. Automated checks handle style and link validation. What remains for human review is accuracy: does this description match what the product actually does? That's a more focused question, and it takes less time to answer than a full editorial review.
+
+## Ownership: by area, not by default
+
+The most common ownership model in docs-as-code is implicit: anyone can update any page, which in practice means no one is responsible for any page.
+
+The better model mirrors how engineering organizations assign code ownership: by service, feature area, or team boundary. The team that owns the authentication service owns the authentication documentation. When something changes, there's a clear person to notify. When something is wrong, there's a clear person to fix it.
+
+CODEOWNERS files make this explicit and enforced. Each documentation directory maps to an owner. When a PR touches that directory, the owner is automatically added as a reviewer. Ownership becomes a property of the repository, not a convention people remember inconsistently.
+
+This still won't catch everything. [Documentation drift](/blog/technical/documentation-drift-detection-problem) accumulates not just from code changes that skip doc updates, but from implicit changes: behavior that shifts without a code change, configuration that affects how features work, third-party dependencies that alter what your product does. A docs-as-code workflow can only surface what passes through a PR. Changes that don't go through a PR don't trigger a doc review.
+
+That gap is worth knowing about when you set expectations for what docs-as-code will solve. It solves the process problem for documented features going through normal development cycles. The monitoring problem for everything else requires a different layer.
+
+<BlogRequestDemo />
