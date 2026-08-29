@@ -1,0 +1,77 @@
+---
+title: 'How to Implement llms.txt for Developer Documentation'
+subtitle: Published August 2026
+description: >-
+  Most llms.txt implementations fail at maintenance, not at launch. Here's how to structure developer docs for AI coding assistants and keep the file current.
+date: '2026-08-07T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer using Cursor types `@docs` and adds your `llms.txt`. The next day, they ask the assistant to integrate your authentication flow. The assistant follows your index's confident pointer to the authentication guide. That guide describes the token format you deprecated six months ago. The integration fails.
+
+That scenario is repeatable at scale. By 2026, [85% of developers use AI coding assistants](https://buildwithfern.com/post/optimizing-api-docs-ai-agents-llms-txt-guide), and many load `llms.txt` files directly into their context. How you implement the file determines whether those assistants generate working code or plausible-looking code that doesn't run.
+
+Implementation involves four decisions. Most teams only make the first one.
+
+## Which files to publish
+
+The spec defines two files. `llms.txt` is a curated navigation index: an H1 project name, a short summary, and organized sections of links to your most important documentation pages. `llms-full.txt` is the full text of your documentation concatenated into a single Markdown file.
+
+[Anthropic publishes both](https://llmstxt.org/). Their `llms.txt` runs to 8,364 tokens. Their `llms-full.txt` reaches 481,349 tokens. That gap reflects two different use cases.
+
+For large documentation sites, `llms.txt` is the right entry point: an AI coding assistant reads the index, identifies the sections relevant to what it is building, and fetches only those pages. The token budget goes to endpoint descriptions and parameter schemas rather than navigation chrome.
+
+`llms-full.txt` serves a different pattern: an agent processing your entire documentation in a single pass, or a developer who pastes the file directly into a context window for a focused integration task. For APIs with narrow, well-scoped documentation, the full file may be sufficient on its own.
+
+Most developer-facing companies with substantial API surface area benefit from publishing both. Anthropic, Cloudflare, and Zapier all maintain both files. The index for navigation, the full file for ingestion.
+
+## How to organize the sections
+
+The default instinct is to mirror your documentation's navigation hierarchy: Product A, Product B, Product C. That's how the docs site is organized, so it seems natural to carry it over.
+
+AI coding assistants move differently from human readers. They read the index to understand what's available, then fetch the sections relevant to the task the developer described. They don't scan menus or backtrack.
+
+Cloudflare organizes their `llms.txt` [by product](https://buildwithfern.com/post/optimizing-api-docs-ai-agents-llms-txt-guide): Agents, AI Gateway, Workers AI, and so on. A developer building on Workers AI triggers context loading for that section only. The assistant doesn't process documentation for services it isn't integrating.
+
+For API documentation, what agents need most is the authentication path and the endpoint reference for whatever they're about to call. Those should be explicit, prominent sections, not buried as subsections of a product overview.
+
+The practical test: if a developer asked their AI coding assistant to authenticate against your API and make a first request, could the assistant find the right page from your `llms.txt` index without navigating through intermediate pages? If not, the organization is working against the use case.
+
+<BlogNewsletterCTA />
+
+## The instructions section
+
+Stripe's `llms.txt` includes something most implementations don't: an explicit instructions section. It contains guidance for AI models on how to use the API correctly, not just where to navigate.
+
+The instructions section was designed to solve a specific problem. When a developer asks an AI coding assistant to integrate Stripe, the assistant generates code based on its training data. Some of that knowledge is outdated. Some of it reflects patterns that work but aren't what Stripe recommends. The instructions section lets Stripe [steer the AI toward the right pattern](https://www.apideck.com/blog/stripe-llms-txt-instructions-section) before errors happen.
+
+This is a meaningful shift. Most `llms.txt` implementations are navigation tools: here is where to find information. Stripe's is partly behavioral: when you generate code for this, do it this way.
+
+The instructions section hasn't been widely adopted yet. For developer tools where AI-generated integration code is a real part of how users onboard, it's worth considering. The alternative is hoping that the AI's training data reflects your current API recommendations.
+
+## The maintenance problem
+
+A well-structured `llms.txt` that goes stale is worse than no `llms.txt`. An AI assistant that can't find an `llms.txt` falls back to crawling your HTML pages. An AI assistant that reads a stale `llms.txt` navigates confidently to outdated content as though it were current. The file is designed to be trusted; stale versions exploit that trust.
+
+The compounding problem is caching. AI coding assistants cache `llms.txt` files. A stale version can persist in an assistant's context for days or weeks after you've updated the underlying documentation. By the time you notice the problem, a significant number of developers may have generated broken integrations from it.
+
+Manual maintenance produces drift. Every API change requires a corresponding `llms.txt` update. In practice, that update gets deprioritized. A 2026 analysis of implementation patterns put it directly: ["hand-maintained, it will drift, guaranteed. The only version I'd trust is one generated from the canonical content at build time."](https://www.pixelmojo.io/blogs/llms-txt-static-vs-dynamic-implementation-guide)
+
+Documentation platforms increasingly handle this automatically. Fern, GitBook, and Mintlify generate and update `llms.txt` as part of their build pipeline. If your tooling supports automated generation from your documentation source, that's the only implementation worth shipping. A quarterly manual review is the minimum for teams without automation. Many practitioners say deletion is cleaner than a static file left to drift.
+
+## Where automated generation stops
+
+Automated generation solves the index-staleness problem. It doesn't solve the underlying documentation.
+
+Your `llms.txt` can regenerate automatically on every deploy and stay perfectly current with what your documentation site says. If the authentication guide it points to describes a deprecated flow, you've given AI agents a clean, confident pointer to wrong information.
+
+[Documentation drift](https://promptless.ai/blog/technical/documentation-drift-detection-problem) in the underlying pages is the problem that remains after you've sorted out the file structure and the generation pipeline. Auto-generation moves the failure downstream: instead of a stale index, you get a fresh index pointing to stale content. For the developer whose AI coding assistant follows your confident pointer to an outdated page, the experience is the same.
+
+The implementation decision that matters most isn't which file format to use or how to organize your sections. It's how you detect when the pages your `llms.txt` points to have drifted from the product they describe.
+
+<BlogRequestDemo />
