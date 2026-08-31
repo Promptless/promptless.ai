@@ -1,0 +1,85 @@
+---
+title: 'Code-First API Documentation: How to Generate a Reference That Cannot Drift'
+subtitle: Published August 2026
+description: >-
+  Code-first generation produces API references from code annotations, making schema drift impossible. Here is what it solves and where it stops working.
+date: '2026-08-31T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+75% of APIs do not conform to their own specifications, according to a 2025 analysis of production API traffic. In most cases the API changed and the spec did not. The reference page still describes the old parameter name, the old response shape, or the old error codes.
+
+Code-first API documentation generation is the specific fix for this problem. Instead of maintaining a separate OpenAPI file that someone must remember to update, the spec is generated from the code itself at build time. If the code changes, the spec changes with it. The reference page reflects what the API actually does.
+
+This post covers how code-first generation works, which frameworks support it, and where its guarantees end.
+
+## What code-first generation actually means
+
+Most API teams choose between two approaches.
+
+**Design-first**: Write the OpenAPI spec before writing code. The spec becomes the contract. Developers implement against it. Tools validate that the implementation matches. The spec lives in a separate file and must be updated separately whenever the API changes.
+
+**Code-first**: Write code. Annotate endpoints, request bodies, and response schemas with types or decorators. A tool reads those annotations and generates the OpenAPI spec as a build artifact. The spec is a derived file, not a maintained one.
+
+In a code-first setup, the spec cannot lie about the schema. If a developer renames a parameter, the annotation changes too, and the generated spec reflects the new name. The drift between API behavior and reference documentation becomes structurally impossible for anything the type system covers.
+
+The tradeoff is that the spec is only as good as the annotations. Missing error codes and undocumented side effects do not appear in a generated spec because there is no annotation to read.
+
+## Three frameworks that generate specs from code
+
+**FastAPI** (Python) generates an OpenAPI spec from Pydantic models at runtime. Every endpoint uses Python type hints. FastAPI reads those types and produces `/openapi.json` automatically. There is no separate spec file to maintain. The documentation at `/docs` and `/redoc` stays accurate because it reads directly from the generated spec.
+
+**tsoa** (TypeScript/Node) generates a spec as a build artifact. Developers write controller classes with decorators for routes, request types, and response types. Running `tsoa spec` produces an `openapi.json` file. The same command generates Express or Koa route handlers from the same annotations. Code and docs are derived from one source.
+
+**NestJS with nestia** works similarly. Nestia generates a spec from TypeScript type definitions without requiring decorators on every property. It also produces typed fetch clients from the same source, so API consumers and API documentation share a common contract.
+
+Spring Boot teams use `springdoc-openapi`, which scans Spring MVC and Spring WebFlux controllers at runtime and generates a spec through reflection. The pattern is the same: annotations in the code become a spec that drives the reference documentation.
+
+In each case, the spec is a byproduct of shipping code. Keeping it current requires no additional maintenance step.
+
+<BlogNewsletterCTA />
+
+## What code-first generation does not cover
+
+The generated spec tells you: what endpoints exist, what parameters they accept, what response schemas look like, and which HTTP methods apply. That is the API reference.
+
+Developers also need: how to authenticate, what rate limits apply and how to handle 429 responses, which errors to expect for which inputs, how the pagination model works, when to use one endpoint over another, and how to handle webhook signatures. None of that comes from type annotations.
+
+For most developer APIs, the reference covers roughly 30% of the documentation that developers actually read before writing an integration. The other 70% is prose documentation: authentication walkthroughs, error handling patterns, and conceptual guides that explain how to use the API, not just what it accepts.
+
+Code-first generation solves the reference layer completely. It does not touch the prose layer.
+
+[Documentation drift](https://promptless.ai/blog/technical/documentation-drift-detection-problem) in the prose layer follows a different pattern. A developer adds a new required header. The generated spec reflects it. The authentication guide does not mention it. An integration fails because the developer followed the guide, not the spec. The spec was accurate; the guide was stale.
+
+The [existing approaches to API documentation automation](https://promptless.ai/blog/technical/api-documentation-automation) address this by monitoring OpenAPI changes and opening documentation pull requests for review. That workflow works for prose updates, and code-first generation works for the reference layer. The two approaches address different parts of the same problem.
+
+## Where teams typically stop
+
+Teams that adopt FastAPI or tsoa often declare the documentation problem solved after the first sprint. The reference page updates automatically. No one has to remember to update the spec.
+
+Six months later, the authentication guide describes an OAuth flow that the team deprecated in the second sprint. The rate limiting page refers to a header name that changed. The webhook tutorial uses the old signature format.
+
+The 56% of API teams that report keeping docs up to date as their top challenge are mostly describing the prose layer. The reference problem was solved, usually by the same framework migration that introduced code-first generation. The maintenance problem that remains is in the content the type system cannot read.
+
+Two signals indicate that a prose documentation page is likely stale: a code change touched an area the page describes, and no documentation PR was opened in the same time window. That correlation identifies candidates for review without requiring someone to read every page after every release.
+
+[Automated API documentation updates](https://promptless.ai/blog/technical/automated-api-documentation-updates) based on OpenAPI diffs handle part of this: if the spec changes and a reference page exists for the changed endpoint, a PR opens for review. But prose guides and conceptual content do not map cleanly to OpenAPI operations. A changed authentication scope does not generate a PR for the authentication guide.
+
+That monitoring gap is where most teams rely on manual process, and where most prose drift actually occurs.
+
+## What to adopt and in what order
+
+If your team uses FastAPI, NestJS, or Spring Boot, code-first generation is available today with the existing framework. The spec and the reference documentation become accurate by default. This is worth doing before addressing anything else.
+
+Once code-first generation is in place, the remaining documentation problem is the prose layer: conceptual documentation and guides that cannot be derived from type annotations. Monitoring those pages for staleness after code changes is a different kind of automation, one that looks for coverage gaps rather than schema mismatches.
+
+A team that does both has a reference layer that cannot drift and a prose layer with visible signals when it does. That combination covers what [39% of developers identified](https://www.postman.com/state-of-api/2024) as their biggest collaboration roadblock in the 2024 Postman State of the API survey: inconsistent documentation.
+
+The reference problem has a structural fix. The prose problem has a monitoring fix. Neither alone is enough.
+
+<BlogRequestDemo />
