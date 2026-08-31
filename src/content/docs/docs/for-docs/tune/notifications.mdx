@@ -22,6 +22,10 @@ import { Aside } from '@astrojs/starlight/components';
 
 Promptless sends notifications to your team when documentation suggestions are ready for review. You can configure notification channels in your organization's `promptless.yaml` file using the policies section.
 
+<Aside type="caution">
+  The `notification` channels cover suggestion activity only. Operational and integration-health alerts require the separate `escalation` configuration described later on this page. See [Escalation channel](#escalation-channel).
+</Aside>
+
 ## Notification channel configuration
 
 Set the default notification channel and create trigger-specific overrides in your [Configuration page](https://app.gopromptless.ai/configuration):
@@ -156,7 +160,16 @@ When the [Microsoft Teams integration](/docs/for-docs/reference/integrations/mic
 
 ## Escalation channel
 
-Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, the test account lacks the feature flags to reach a screen Promptless needs to screenshot. Or a PR references a Jira issue that Promptless can't read. Either the Jira integration isn't connected, or it's connected but the project isn't accessible.
+Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged.
+
+Escalations come from two places, and the difference matters for routing. **Agent-authored escalations** are the ones Promptless raises while working a trigger, for example:
+
+- An integration it couldn't reach
+- An expired or rejected credential it hit while researching a change
+- A test account that lacks the feature flags to reach a screen Promptless needs to screenshot
+- A PR that references a Jira issue Promptless can't read, because the integration isn't connected or the project isn't accessible
+
+**Deterministic and operational alerts**, including integration-health [proactive notifications](/docs/for-docs/reference/integrations#proactive-notifications), are raised outside any trigger, by ongoing monitoring instead. Only agent-authored escalations fall back to notification routing; deterministic alerts never do. Without an escalation destination configured, these problems surface only on the [Integrations page](https://app.gopromptless.ai/integrations), which you check manually.
 
 The `escalation` section is a sibling to `notification`. It has the same shape. Route these messages to a dedicated channel on Slack, Teams, or both:
 
@@ -173,9 +186,33 @@ policies:
         - docs-team@example.com
 ```
 
-Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack; `msteams_channel` routes them to Teams. The two are independent, like in `notification`. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack; `msteams_channel` routes them to Teams. The two are independent, like in `notification`.
 
-List one or more addresses under `escalation.email`. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
+How each surface routes depends on whether its escalation channel is set:
+
+- **Omitted:** only agent-authored escalations fall back to that surface's notification channel. The fallback resolves per surface, Slack and Teams independently, so an unset escalation channel on one surface doesn't change the other.
+- **A channel name or ID:** overrides the fallback and receives escalations directly.
+- **`null`:** disables that surface, so nothing falls back there.
+
+Deterministic and operational alerts, including integration-health alerts, are never rerouted to a notification channel. They require an explicit escalation destination and stay silent until one is set.
+
+<Aside type="caution">
+  If you configure only a notification channel and no escalation destination, you will not receive integration-health or operational alerts. Set an explicit escalation destination (`escalation.slack_channel`, `escalation.msteams_channel`, or `escalation.email`) to receive them.
+</Aside>
+
+To start receiving integration-health and operational alerts, add an `escalation` channel under an already-populated `notification` block:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+```
+
+List one or more addresses under `escalation.email`. Email is escalation-only. Suggestion notifications never arrive by email. The `notification` block has no email counterpart, so escalations of either kind reach email only when you set `escalation.email` explicitly. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
 
 Blockers flagged here include a test or staging account that can't reach a needed screen, an unreachable or unconfigured integration, an expired or rejected credential, a missing permission, or a configuration mismatch. Each escalation names the resource, quotes what Promptless saw, notes the workaround it applied, and ends with the one action that clears the blocker.
 
