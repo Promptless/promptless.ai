@@ -51,9 +51,9 @@ API keys are managed by organization admins on the **Settings > API Access** pag
 
 - **No single active key**: An organization can hold many API keys at once, each named for the integration that uses it.
 - **Existing keys carry forward**: If your organization already had an API key, it keeps working and appears in the list under the name `Default`.
-- **Purpose-based names**: Give each key a name that describes what it's for, such as a CI pipeline, a Zapier connection, or a script. A separate key per integration means you can revoke or rotate one—after retiring that integration or a leak—without touching the others. Each active key needs a distinct name within your organization.
-- **Independent revocation**: Revoking or creating a key affects only that key; the others keep working. This replaces the earlier behavior, where regenerating the key logged out every other caller. Revoking is permanent—a revoked key can't be restored, so move any caller still using it to another key first.
-- **At-a-glance status**: Each key in the list shows its **Name**, its key prefix (`sk-pl-...`, under the **Key** column), when it was **Created**, and when it was **Last used**. Revoke a key with its **Revoke** action.
+- **Purpose-based names**: Give each key a name that describes what it's for, such as a CI pipeline, a Zapier connection, or a script. A separate key per integration lets you revoke or rotate that one key without touching the others. Do that after you retire that integration, or after a leak. Each active key needs a distinct name within your organization.
+- **Independent revocation**: Revoking or creating a key affects only that key; the others keep working. This replaces the earlier behavior, where regenerating the key logged out every other caller. Revoking is permanent. A revoked key can't be restored, so move any caller still using it to another key first.
+- **At-a-glance status**: Each key in the list shows its **Name** and its key prefix (`sk-pl-...`, under the **Key** column). It also shows when it was **Created** and when it was **Last used**. Revoke a key with its **Revoke** action.
 
 <Aside type="tip">
   To rotate a key, create a new one, move your integrations over to it, then revoke the old one. Because both keys work at the same time, there's no forced break and no need to cut every consumer over at once.
@@ -140,7 +140,7 @@ Send an optional `Idempotency-Key` request header to make a submission safe to r
 - A failed submission (any `4xx` or `5xx`) does not consume the key, so you can retry it with the same key.
 - `POST /triggers` and `POST /v1/triggers` share one idempotency scope, so a key used on one path is recognized on the other.
 
-Reuse a key only for retries of the *same* request. Reusing one key for two genuinely different requests silently discards the second and points its `trigger_event_id` at the first request's task. Derive the key deterministically from the request's content—for example, a hash of `instructions` plus `context`—so a genuine retry reuses the same key while two genuinely different requests get different keys.
+Reuse a key only for retries of the *same* request. Reusing one key for two genuinely different requests silently discards the second and points its `trigger_event_id` at the first request's task. Derive the key deterministically from the request's content, for example a hash of `instructions` plus `context`. A genuine retry then reuses the same key, while two genuinely different requests get different keys.
 
 ```bash
 curl -X POST "https://api.gopromptless.ai/v1/triggers" \
@@ -233,7 +233,7 @@ curl "https://api.gopromptless.ai/v1/doc-collections" \
 GET /v1/suggestions
 ```
 
-Returns the suggestion lifecycle feed for your organization—the suggestions Promptless has created, merged, and closed. For the full schema, see the [List suggestions reference](/docs/for-docs/api/operations/listsuggestions/).
+Returns the suggestion lifecycle feed for your organization. That feed covers the suggestions Promptless has created, merged, and closed. For the full schema, see the [List suggestions reference](/docs/for-docs/api/operations/listsuggestions/).
 
 ```bash
 curl "https://api.gopromptless.ai/v1/suggestions?event=merged&limit=50" \
@@ -307,7 +307,7 @@ Results come back newest-first, ordered by the selected `event`'s timestamp in d
 - Since `since` is inclusive, a row whose event timestamp equals `since` is returned again. Deduplicate results by `id`.
 - Omitting `since` returns from the start of the available history.
 - Page through a large result set with `limit` and `offset`. A response that returns fewer than `limit` suggestions means you have reached the end of the current set.
-- `event` accepts only one value per request and cannot be combined with `status`. To track the full lifecycle—created, merged, and closed-without-merge—run a separate polling loop with its own `since` cursor for each `event` value.
+- `event` accepts only one value per request and cannot be combined with `status`. The full lifecycle covers created, merged, and closed-without-merge. Track it by running a separate polling loop with its own `since` cursor for each `event` value.
 - There is no cursor token; polling is driven entirely by `since`, `limit`, and `offset`.
 
 A minimal incremental loop for one `event` value:
