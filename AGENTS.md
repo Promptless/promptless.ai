@@ -39,6 +39,8 @@ src/
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 +-- styles/             # Global CSS (custom.css, site.css)
+packages/
++-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
 scripts/                # Build/migration scripts
 tests/smoke/            # Smoke tests
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
@@ -54,7 +56,9 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
   `data-track-campaign` attributes on clickable elements. See `docs/analytics.md`
   for the event catalog and naming conventions.
 - **Content**: Marketing pages use content collections in `src/content/website/`.
-  Docs live in `src/content/docs/`. Blog in `src/content/blog/`.
+  Promptless for Docs lives in `src/content/docs/docs/for-docs/`; Promptless for
+  Agent Instructions starts at `src/content/docs/docs/governance.mdx`. Blog
+  lives in `src/content/blog/`.
 - **Redirects**: Defined in `astro.config.mjs` (static) merged with
   `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
   manifest script never writes it), so add redirect entries for moved or renamed
@@ -73,21 +77,23 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
   to rename a section/group or reorder groups, edit the topic config in
   `astro.config.mjs`. `scripts/generate-manifest.ts` still runs via
   `generate:manifest` / `prebuild`, but now only produces `route-manifest.json`
-  (used by the `.md` endpoints). Phase 5 (ADR 0004 §2) settled the topic model on
-  a **single "Documentation" topic** — the OpenAPI `/api/*` pages live inside it,
-  and the repo's `Sidebar` override renders the sublist directly, so no
-  topic-switcher bar shows. Keep it that way: add new sections to the docs topic's
-  `items` rather than creating a second topic, which would surface the switcher
-  bar as a user-visible IA change (write an ADR first if that ever becomes intended).
+  (used by the `.md` endpoints). [ADR 0002](adrs/0002-split-documentation-by-product.md)
+  supersedes only the single-topic decision in Starport ADR 0004 §2. Keep the
+  two product topics separate: Promptless for Docs owns `/docs/for-docs/*`
+  (including its OpenAPI pages), while Promptless for Agent Instructions owns
+  `/docs/governance` until that product's docs expand. Shared product metadata
+  lives in `src/lib/docs-products.ts`; the custom Sidebar switcher uses the
+  plugin's current-topic route data.
 
 ## Commands
 
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build
-npm run check            # typecheck + build
-npm run test:smoke       # smoke tests
+npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run check            # typecheck + MCP contract tests + build
+npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
+npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
@@ -99,7 +105,15 @@ npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
 Three linters gate `src/content/docs` prose/structure/metadata, each in its own
 CI workflow; keep their scopes aligned (all target `src/content/docs`):
 
-- **Vale** (`.vale.ini`, `vale.yml`) — prose style.
+- **Vale** (`.vale.ini`, `vale/Promptless/`, `vale.yml`) — prose style. The
+  rules live in `vale/Promptless/`, a Vale package this repo publishes: the
+  `vale-package.yml` workflow zips it onto the `vale` GitHub release on every
+  push to `main` that touches it, and other Promptless repos sync it from
+  there. The site consumes the same package (`Packages = ./vale/Promptless`),
+  so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
+  synced output and is gitignored. Styles: `Promptless` (house terminology,
+  sentence-case headings) plus `Voices`, `Direct`, and `Moose` vendored from
+  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI auto-repairs (`--output` full reflow),
@@ -138,8 +152,9 @@ do not inline. Derived from customer/prospect call evidence.
 - `docs/content_strategy/README.md` — index + how the IDs link (start here)
 - `docs/content_strategy/audiences/` — 6 target segments (`aud-*`), incl. a cross-cutting brownfield segment
 - `docs/content_strategy/personas/` — 1 minimal persona per audience (`persona-*`)
-- `docs/content_strategy/journeys/` — 16 critical user journeys (`cuj-*`), steps → `/docs/...`
+- `docs/content_strategy/journeys/` — 16 critical user journeys (`cuj-*`), steps → `/docs/for-docs/...`
 - `docs/content_strategy/information_architecture/` — CUJ-driven Docs-tab IA + gap analysis
 
 When planning docs IA, page types, or content priorities, consult `proposed-ia.md` and
-`ia-gap-analysis.md`, and make actual content changes under `src/content/docs/`.
+`ia-gap-analysis.md`, and make Promptless for Docs content changes under
+`src/content/docs/docs/for-docs/`.
