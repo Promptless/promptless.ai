@@ -490,14 +490,14 @@ policies:
 
 **escalation**
 
-The escalation channel is where Promptless routes operational alerts rather than suggestion announcements. An example is a [proactive notification](/docs/for-docs/reference/integrations#proactive-notifications) when a connected integration develops a problem. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, a test account is missing the feature flags to screenshot a screen. Or a PR references a Jira issue that Promptless can't read. Either the Jira integration isn't connected, or it's connected but the project isn't accessible. See [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior. It's a sibling of `notification` and, unlike `notification`, also accepts `email`.
+The escalation channel is where Promptless routes configuration and operational alerts, rather than suggestion announcements. This is completely different from notifications about suggestions being created, updated, closed, or merged. It covers agent-authored escalations, the ones Promptless raises while working a trigger. One example is a test account missing the feature flags to screenshot a screen. Another is a PR that references a Jira issue Promptless can't read. That happens when the Jira integration isn't connected or the project isn't accessible. It also covers deterministic and operational alerts raised by ongoing monitoring, such as integration-health [proactive notifications](/docs/for-docs/reference/integrations#proactive-notifications) when a connected integration develops a problem. See [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior. It's a sibling of `notification` and, unlike `notification`, also accepts `email`.
 
 ```yaml
 policies:
   default:
     escalation:
       slack_channel: ops-alerts
-      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
       email:
         - oncall@acme.com
 ```
@@ -508,9 +508,13 @@ policies:
 | `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`), or `null` to disable an inherited Teams channel                          |
 | `email`           | List of email addresses for escalation alerts (escalation only; not used for suggestion notifications), or `[]` to disable an inherited list |
 
-Set any combination of the three. The same presence semantics as `notification` apply (omit to inherit; `null` for `slack_channel`/`msteams_channel` or `[]` for `email` to disable). `msteams_channel` carries the same Teams-activity prerequisite as `notification`. Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+Set any combination of the three. The same presence semantics as `notification` apply: omit to inherit; `null` for `slack_channel`/`msteams_channel` or `[]` for `email` to disable. `msteams_channel` carries the same Teams-activity prerequisite as `notification`. Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a surface's escalation channel is unset, only agent-authored escalations fall back to that surface's notification channel. This resolves per surface. An omitted escalation channel triggers the fallback; an explicit `null` sends nothing on that surface. Deterministic and operational alerts, including integration-health alerts, are never rerouted this way. They need an explicit escalation destination and stay silent until one is set.
 
-`escalation.email` routes escalations to a list of email addresses. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
+<Aside type="caution">
+  Configure only a notification channel and no escalation destination, and integration-health and operational alerts go nowhere. Set an explicit `escalation` destination to receive them; see [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior.
+</Aside>
+
+`escalation.email` routes escalations to a list of email addresses. Email is escalation-only. Suggestion notifications never arrive by email. The `notification` block has no email counterpart, so escalations reach email only when you set `escalation.email` explicitly. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
 
 **publishing**
 
