@@ -118,6 +118,8 @@ export default defineConfig({
           projectName: 'Promptless',
           description:
             'Promptless continuously improves customer-facing documentation and agent instructions.',
+          details:
+            'For AI client integration (Claude Code, Cursor, etc.), connect to the MCP server at https://api.gopromptless.ai/mcp. Setup for other editors: https://promptless.ai/docs/for-docs/connect/triggers/mcp',
           optionalLinks: [
             { label: 'Blog', url: 'https://promptless.ai/blog', description: 'Product updates, technical writing, and customer stories' },
             { label: 'Changelog', url: 'https://promptless.ai/changelog', description: 'Monthly summaries of user-visible changes' },
