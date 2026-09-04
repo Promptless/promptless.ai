@@ -1,0 +1,78 @@
+name: vale-package
+
+# Publish vale/Promptless as Promptless.zip on the fixed `vale` release so
+# consumers can sync it with:
+#
+#   Packages = https://github.com/Promptless/promptless.ai/releases/download/vale/Promptless.zip
+#
+# Every push to main that touches the package rebuilds the zip, moves the
+# `vale` tag to that commit, and replaces the asset. There is no version to
+# pin: the docs site is unversioned, and consumers pick up the change on their
+# next `vale sync`.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'vale/**'
+      - '.github/workflows/vale-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  VALE_VERSION: '3.20.0'
+  RELEASE_TAG: vale
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build package
+        working-directory: vale
+        run: zip -r ../Promptless.zip Promptless
+
+      - name: Install Vale
+        run: |
+          curl -sSfL -o vale.tar.gz \
+            "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          tar -xzf vale.tar.gz vale
+          sudo install -m 0755 vale /usr/local/bin/vale
+          vale --version
+
+      # Sync a throwaway consumer from the built zip, the way a downstream repo
+      # will, and confirm every style arrived before anything is published.
+      - name: Verify the zip syncs
+        run: |
+          mkdir consumer
+          printf 'StylesPath = styles\nMinAlertLevel = suggestion\nPackages = %s\n[*.md]\nBasedOnStyles = Voices, Direct, Moose, Promptless\n' "$PWD/Promptless.zip" > consumer/.vale.ini
+          cd consumer
+          vale sync
+          for style in Promptless Voices Direct Moose Std; do
+            test -d "styles/$style" || { echo "missing style: $style"; exit 1; }
+          done
+          vale ls-config
+
+      # Move the tag so the release points at the commit that built the asset.
+      # `gh release create` reuses an existing tag; `--clobber` on upload
+      # replaces the previous Promptless.zip.
+      # https://cli.github.com/manual/gh_release_create
+      # https://cli.github.com/manual/gh_release_upload
+      - name: Publish Promptless.zip on the vale release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag --force "$RELEASE_TAG" "$GITHUB_SHA"
+          git push --force origin "refs/tags/$RELEASE_TAG"
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "Vale package" \
+              --notes "Promptless.zip is the Vale package built from vale/Promptless on main. Point \`Packages\` at this asset's download URL and run \`vale sync\`." \
+              --latest=false
+          fi
+          gh release upload "$RELEASE_TAG" Promptless.zip --clobber
