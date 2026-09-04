@@ -1,0 +1,101 @@
+---
+title: Trigger Promptless from Jira Automation
+description: Set up a Jira Automation rule that posts to the Promptless triggers API so a Jira event you choose starts a documentation update.
+slug: docs/for-docs/connect/triggers/jira-automation-api
+type: guide
+tags:
+  - connect
+  - triggers
+  - guide
+timestamp: "2026-09-04T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 14.5
+  label: Jira Automation
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+This page shows a custom API integration for teams that want Jira Automation's own trigger and condition builder to decide when to call Promptless. A Jira Automation rule runs a **Send web request** action against the [API trigger](/docs/for-docs/connect/triggers/api), and that request starts a documentation update.
+
+<Aside type="note">
+  The [built-in Jira paths](/docs/for-docs/connect/triggers/jira)—labels, mentions, assignments, and configured Jira triggers—are the recommended way to trigger from Jira, and they reply on the ticket. Use this custom path when you need Jira Automation's condition builder to decide when Promptless runs.
+</Aside>
+
+## When to use this path
+
+A Jira Automation rule that calls the API trigger suits teams that want to control the timing and conditions themselves. The rule is event-driven, so it runs the moment a Jira event you pick occurs, and you own the rule, its conditions, and when it calls Promptless. You configure it once per rule, and it runs on every matching event, with each run recorded in Jira's audit log. Jira Automation's condition builder handles conditions as complex as you need.
+
+The built-in Jira assignment path starts a session when a ticket is assigned to the account Promptless acts as; a rule like the one below starts a session when a ticket is assigned to any docs owner you choose.
+
+Jira plans [limit how many automation executions a site can run](https://support.atlassian.com/cloud-automation/docs/automation-service-limits/), and a site admin can restrict outgoing web requests. Confirm your plan's automation limits and web-request permissions before you rely on this path.
+
+## Before you start
+
+Make sure you have:
+
+- Permission to manage Jira Automation rules — the project-level **Manage automation rules** permission, or Jira admin access.
+- A connected [Atlassian workspace](/docs/for-docs/reference/integrations/atlassian).
+- An active organization Promptless API key. Generate and manage the key from **Settings > API Access**, described in [API triggers](/docs/for-docs/connect/triggers/api#generate-an-api-key). A reader who does not manage Promptless can request the key from whoever manages **Settings > API Access** in their organization.
+
+## Build the automation rule
+
+The rule below starts a documentation update whenever someone assigns a Jira ticket to a docs owner.
+
+<Steps>
+  1. In Jira, open **Project settings > Automation** for the project this rule covers and create a new rule. If you lack permission to manage automation rules, a Jira admin runs these steps.
+
+  2. Add the trigger **Work item assigned** so the rule runs when someone assigns a work item.
+
+  3. Add a condition that limits the rule to your docs owners — for example an **Issue fields condition** or **User condition** that checks the work item's assignee against the docs-owner account or group.
+
+  4. Add the **Send web request** action. Select **POST** as the method and enter the request URL as `https://api.gopromptless.ai/triggers`.
+
+  5. Add two headers to the action: `Authorization: Bearer sk-pl-your-api-key` and `Content-Type: application/json`.
+
+  6. Enter the request body as the JSON in the next section, then save the rule.
+</Steps>
+
+## Request body
+
+The request body carries two fields: `instructions`, which states what documentation to update, and `context`, metadata that appears in trigger history. Fill `context` with Jira Automation [smart values](https://support.atlassian.com/cloud-automation/docs/jira-smart-values-issues/) — the `{{...}}` fields Jira resolves at run time — so each run records the ticket it came from. Add other issue fields to `context` from that reference.
+
+```json
+{
+  "instructions": "Update the documentation affected by this Jira work item.",
+  "context": {
+    "work_item_key": "{{issue.key}}",
+    "assignee": "{{issue.assignee.displayName}}"
+  }
+}
+```
+
+The `Authorization` header carries your Promptless API key from **Settings > API Access**. The request body holds only `instructions` and `context`.
+
+## Where the result lands
+
+A rule that calls the API trigger produces a documentation suggestion and, per your publishing policy, a documentation PR, plus any Slack or Microsoft Teams notification you have configured. The result lands in your Promptless dashboard the way every other trigger's does.
+
+This custom path posts to the API and leaves the Jira ticket untouched. For a reply on the ticket itself—Promptless commenting on the issue and linking the documentation PR—use the [built-in Jira paths](/docs/for-docs/connect/triggers/jira).
+
+## Confirm it works
+
+Two places confirm the integration works:
+
+- In Jira, the automation rule's **Audit log** in Jira Automation — not the issue's activity history — records the run for the work item that activated it and shows the response the **Send web request** action received. A working run shows a `202 Accepted` response carrying a `trigger_event_id`:
+
+```json
+{
+  "trigger_event_id": "abc123-..."
+}
+```
+
+- In your Promptless dashboard, the event appears in [trigger history](/docs/for-docs/connect/triggers/api#view-api-triggers) with the `context` you sent. Open the [Triggers page](https://app.gopromptless.ai/triggers) directly.
+
+A non-`202` response from the **Send web request** action surfaces in the same Jira **Audit log**. To interpret a non-`202` status, see the [error-response table](/docs/for-docs/connect/triggers/api#error-responses) on the API trigger page.
+
+## See also
+
+- [Built-in Jira triggers](/docs/for-docs/connect/triggers/jira) — the recommended paths to start a session from a Jira ticket and reply on it.
+- [API triggers](/docs/for-docs/connect/triggers/api) — generate and manage your Promptless API key.
+- [Submit an API trigger](/docs/for-docs/api/operations/submitapitrigger/) — the full request and response reference.
