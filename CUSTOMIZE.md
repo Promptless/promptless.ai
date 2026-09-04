@@ -50,7 +50,7 @@ Mandatory infrastructure — keep it wired:
 
 ## Style
 
-- Prose is linted with the repo's Vale config and the `check-broken-links` skill. Run Vale on changed prose before opening a PR (see the repo's Vale CI workflow for the exact invocation).
+- Prose is linted with the repo's Vale package (`vale/Promptless/`, see `AGENTS.md`) and the `check-broken-links` skill. Run `vale sync` once, then `vale` on changed prose before opening a PR; CI fails on any error.
 
 ## Deployment
 
