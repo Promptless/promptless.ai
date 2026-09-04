@@ -57,11 +57,11 @@ GitHub Enterprise Server and Cloud users configure a custom GitHub App with an e
 
 ### GitLab
 
-GitLab connects with a group access token that carries the `api` scope, which is read-write and grants access across the whole group. Publishing uses that same token. There's no separate publishing credential.
+GitLab connects with a GitLab access token that carries the `api` scope, which is read-write. The token can be a group access token or a personal access token. Publishing reuses that same token. For a team or org-wide rollout, a group access token is org-owned and keeps working across staffing changes. A personal access token stays tied to its owner's continued access.
 
-Connecting a GitLab group always writes with the token, because it creates the merge-request webhooks and sets the bot avatar. There's no read-only option. A trigger or context source needs the `api` scope with the **Maintainer** role (webhook management is Maintainer-gated). A docs destination needs the `api` scope with at least the **Developer** role to push a branch and open a merge request. Promptless restricts those writes to the projects you configure as doc collections. This is an application-level restriction Promptless enforces, not a limit imposed by the token itself.
+The only hard requirement to connect is an access token with the `api` scope. A low group role still connects. A token's direct project memberships can grant stronger access than its group role, so Promptless evaluates access per project. The **Maintainer** role is not a connection requirement. It governs per-project webhook eligibility. Promptless installs merge-request webhooks on the projects where the token has Maintainer access. Projects below Maintainer stay visible for context and publishing, and you add a webhook for them by hand in GitLab. Adding a webhook by hand also requires the Maintainer role on that project. If you don't have it, ask a project Maintainer or Owner. Promptless writes only to the projects you configure as doc collections. That is an application-level restriction Promptless enforces.
 
-For a hard technical limit, scope the group access token to a group or subgroup that contains only your documentation projects.
+For a hard technical limit, scope a group access token to a group or subgroup that contains only your documentation projects.
 
 ### Bitbucket
 
@@ -69,7 +69,7 @@ Bitbucket connects with a username and an app password scoped to a single worksp
 
 ## Scope publishing access to your docs
 
-Publishing needs write access to the repository where your docs live. The Promptless GitHub App has write access to a GitHub documentation repository so it can open pull requests. The connected group access token lets Promptless push a branch and open a merge request on a GitLab documentation project. Use **path scope** to limit where those writes land.
+Publishing needs write access to the repository where your docs live. The Promptless GitHub App has write access to a GitHub documentation repository so it can open pull requests. The connected GitLab access token lets Promptless push a branch and open a merge request on a GitLab documentation project. Use **path scope** to limit where those writes land.
 
 Path scope controls which files Promptless can modify in a documentation repository. Specify directories during doc collection setup, and Promptless enforces those boundaries. With no directories set, it can modify files anywhere in the repo. With directories set, it can modify only files that match one of those paths or nest inside them. Path scope accepts both directories and individual files, so an entry like `docs/` allows any file under that directory, while `CHANGELOG.md` allows only that one file. If Promptless drafts a change outside the configured scope, it rejects the suggestion and returns an error listing the out-of-scope files. This is useful for monorepos where docs live alongside source code.
 
@@ -81,6 +81,6 @@ Promptless follows the principle of least privilege, granting only the access ea
 
 - **Select only the repositories Promptless needs.** On GitHub, choose **Only select repositories** rather than **All repositories**, and manage the list from your GitHub organization settings.
 - **Prefer read-only access where you don't publish.** For a public open-source repository, the [GitHub (read-only) app](/docs/for-docs/reference/integrations/github-read-only) opens documentation pull requests from a fork. It never takes write access to your repo. For GitLab, narrow the group access token to a group or subgroup that contains only your documentation projects, as described in [GitLab](#gitlab) above.
-- **Revoke access at any time.** You or Promptless can revoke the GitHub App connection. You can also rotate or remove provider tokens (GitLab group access token, Bitbucket app password) on the provider side.
+- **Revoke access at any time.** You or Promptless can revoke the GitHub App connection. You can also rotate or remove provider tokens (GitLab access token, Bitbucket app password) on the provider side.
 
 For how source-control access fits Promptless's broader security posture, see [Network architecture](/docs/for-docs/security/network-architecture) and [Data handling and classification](/docs/for-docs/security/data-handling-and-classification).
