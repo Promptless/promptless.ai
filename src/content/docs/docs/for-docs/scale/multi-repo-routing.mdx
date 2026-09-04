@@ -1,0 +1,70 @@
+---
+title: Route changes across multiple repos
+description: Structure doc collections and triggers so changes across many code repositories and organizations reach the right documentation, without cross-wiring your teams.
+slug: docs/for-docs/scale/multi-repo-routing
+type: guide
+tags:
+  - scale
+  - guide
+timestamp: "2026-07-17T20:05:55Z"
+sidebar:
+  hidden: false
+  order: 32
+  label: Multi-repo routing
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  You can set this up by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless route suggestions from my acme/api repo to the #api-docs channel." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+When organizations juggle a multitude of docs and code repositories, a few questions commonly come up. Which code repositories feed which doc sites? How do you keep one team's changes out of another team's docs? How do you work across several GitHub organizations at once? The answer to these questions is to scope each trigger to activate only on the changes that matter. You also give Promptless the context it can't research, like your team preferences. This page shows how those pieces fit together across many repositories.
+
+## One repository per doc collection
+
+Each doc collection is tied to a specific documentation repository. Each collection carries its own settings. These include where the repo lives, the docs framework it uses, its default branch, and where the docs are published. They also include any path scopes that limit which files Promptless can modify.
+
+Promptless can publish to multiple doc collections at once, reusing the same trigger events and context sources across different doc sites. When a trigger is relevant to more than one doc collection, Promptless automatically identifies and suggests changes for all applicable docs across suggestions. Related docs stay in sync.
+
+## Scope which triggers activate
+
+Routing across many repos comes down to activating the right triggers on the right changes. When you set up a trigger on the **Triggers** tab of the **Configuration** page, its filters scope what it watches. A change in one repo starts documentation work only where you've told it to:
+
+- **Which repositories?** Choose **All repositories**, or pick **Specific repos**. This is the primary control over which repositories a trigger watches.
+- **Skip these repositories**: repositories to leave out, useful when you watch **All repositories** but want to exclude a few.
+- **Only repos owned by these accounts**: restrict a trigger to repositories owned by specific accounts (the `owner` segment of `owner/repo`).
+- **Only repos tagged with these GitHub topics**: restrict a trigger to repositories carrying specific GitHub topics. You can opt repos in by topic rather than listing each one.
+- **Only when files in these folders change**: activate only when a change touches specific folders. Unrelated changes in the same repo don't start documentation work.
+- **Only pull requests targeting these branches**: activate only for changes targeting specific branches.
+
+Scoping a trigger limits which *code changes* start documentation work. No setting binds a trigger to a specific collection. Collection targeting is relevance-based, not a configured route. Team separation comes from configuring these levers yourself. Scope each team's triggers to the repositories it owns. Use each collection's **Only watch these folders** path scope to limit which files Promptless can modify. See the [Configuration Reference](/docs/for-docs/reference/configuration-reference) for the full trigger and doc-collection schema.
+
+## Work across multiple GitHub organizations
+
+Connect multiple GitHub organizations to one Promptless account when your repositories span more than one org. After connecting the first organization, click **Connect another GitHub Org** on the [Integrations page](https://app.gopromptless.ai/integrations). Each organization appears as its own card with its own repository list and refresh and disconnect controls. When you create or edit projects, repositories from every connected organization appear in the dropdowns, shown as `organization/repository`. See the [GitHub integration](/docs/for-docs/reference/integrations/github) guide for details.
+
+## See which collection a suggestion targeted
+
+When suggestions span several collections, the suggestions list makes the target explicit. Each suggestion shows a **Docs target** chip with a document icon marking which doc collection it targets. Hover over the chip to see the full repository path, or click it to filter the list to suggestions targeting that collection. This is especially useful when your organization has multiple doc collections. See [Use the web interface](/docs/for-docs/work-the-queue/web-interface) for the rest of the suggestions list.
+
+## Apply rules per collection
+
+Publishing and notification behavior can differ by collection. On the **Policies** tab, add a rule and set its **Doc collection** condition so the rule applies only to that collection. For example, route one collection's announcements to a different **Slack channel for new suggestion announcements**. Or change **Open a pull request automatically** for its suggestions. When more than one rule matches, the later one wins, field by field. See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#policies) for the policy schema.
+
+## Set per-collection preferences in your Knowledge Base
+
+A [policy rule](#apply-rules-per-collection) applies based only on a trigger and a doc collection, and it sets only notification, publishing, and archiving fields. Preferences that don't fit those fields belong in `PROMPTLESS.md` and other files in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), which Promptless reads when performing documentation tasks. That's where each team's own conventions and exceptions live. It holds the judgment a policy rule has no field for.
+
+In the left sidebar, open **Settings** and select **Agent Knowledge Base**. Open `PROMPTLESS.md` in the editor and click **Save**. The change commits directly to the repository. Organization admins edit these files, while other members have read-only access. If you're not an admin, ask Promptless to make the change for you. It edits `PROMPTLESS.md` and commits the change.
+
+The Knowledge Base is shared across your whole organization. Name the doc collection in each instruction to keep it scoped to that team's docs. For example:
+
+- "Customer-facing guides belong in `acme/docs`. Keep internal runbooks in `acme/internal-docs`."
+- "Treat `reference/` in `acme/docs` as generated. Its source of truth lives elsewhere, so leave those pages alone."
+- "Never revise a released changelog entry in `acme/docs`. Add a new entry instead."
+- "When `acme/api-docs` changes, check the authentication overview in `acme/docs` for staleness."
+
+<Aside type="note">
+  Knowledge Base instructions shape what the agent does and writes. Policy rules shape how the finished result is published and announced. A policy rule can't stop a suggestion from being created. To prevent the work entirely, narrow the trigger scope instead.
+</Aside>

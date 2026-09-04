@@ -1,0 +1,48 @@
+---
+title: Remediate findings
+description: How a high-confidence finding becomes a remediation pull request you review and merge, with human review as the only gate.
+slug: docs/governance/findings-and-remediation/remediate-findings
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+timestamp: "2026-08-20T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 2
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Remediation turns a [finding](/docs/governance/findings-and-remediation/understand-findings) into a proposed fix in your Instruction Hub. A remediation agent opens a pull request; a human reviews and merges it. That human review is the gate.
+
+## When a remediation pull request opens
+
+Only high-confidence findings are eligible for remediation. That means a finding created at high confidence, or one promoted from low to high as evidence accumulates. For an eligible finding, an isolated remediation agent runs in your worker (the same worker that runs the Friction Analyzer) in its own workspace, and:
+
+<Steps>
+  1. Checks out a fresh branch of your Instruction Hub repository.
+  2. Uses a repository-scoped token to draft a change that addresses the finding.
+  3. Opens a pull request against your hub that closes the finding's GitHub issue.
+</Steps>
+
+The agent runs in isolation with only a repository-scoped token; it holds no other credentials for your systems. Hosted Promptless verifies that the recorded pull request is ready on the expected branch. It checks that the pull request exists, not that its change actually fixed the behavior. Whether the change lands is your decision.
+
+Remediation is unique per finding and repository: the agent opens at most one remediation pull request per finding, on a deterministic branch. A later analysis run adds evidence to the existing finding rather than opening a second, competing pull request for the same finding. An unreviewed pull request stays open until a human acts on it. Promptless does not auto-close or expire it.
+
+## Review and merge
+
+A human reviews the pull request and merges it. Nothing merges automatically. This review is the gate that decides whether a change lands in your hub. Who may merge a remediation pull request is governed entirely by your own GitHub repository permissions and branch protections. Those include required reviewers, CODEOWNERS, and branch protection rules. Promptless neither grants nor restricts merge access; the remediation agent only opens the pull request.
+
+Merging into your hub's default branch is the same merge event that triggers the [publish workflow](/docs/governance/get-started/publish-and-install-plugins). The improved instructions recompile and redistribute through the normal publish path, closing the loop from finding to fix.
+
+Hosts pick up the new release when they refresh their plugins on startup. Fleet-wide adoption is eventual as hosts restart rather than an instantaneous, confirmable event. To check a single host's state, run `promptless-host-runtime status` on it. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+
+<Aside type="note">
+  Review a remediation pull request as you would any change to your instructions. The remediation agent proposes; you decide.
+</Aside>
+
+## No automated evaluation gate
+
+There is no automated evaluation gate before a remediation merges. Do not rely on an automated step judging whether a fix is safe to merge.
