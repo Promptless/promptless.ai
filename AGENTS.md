@@ -105,7 +105,15 @@ npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
 Three linters gate `src/content/docs` prose/structure/metadata, each in its own
 CI workflow; keep their scopes aligned (all target `src/content/docs`):
 
-- **Vale** (`.vale.ini`, `vale.yml`) — prose style.
+- **Vale** (`.vale.ini`, `vale/Promptless/`, `vale.yml`) — prose style. The
+  rules live in `vale/Promptless/`, a Vale package this repo publishes: the
+  `vale-package.yml` workflow zips it onto the `vale` GitHub release on every
+  push to `main` that touches it, and other Promptless repos sync it from
+  there. The site consumes the same package (`Packages = ./vale/Promptless`),
+  so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
+  synced output and is gitignored. Styles: `Promptless` (house terminology,
+  sentence-case headings) plus `Voices`, `Direct`, and `Moose` vendored from
+  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI auto-repairs (`--output` full reflow),
