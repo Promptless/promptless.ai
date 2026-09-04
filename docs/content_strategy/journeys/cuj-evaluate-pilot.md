@@ -4,15 +4,15 @@ type: cuj
 title: Evaluate Promptless and run a pilot
 personas: [persona-scaleup-solo-writer, persona-eng-docs-owner, persona-enterprise-docs-lead, persona-devrel-owner]
 trigger: "Docs are slipping behind eng velocity; a champion wants to test whether Promptless helps before committing."
-entry_point: /docs/getting-started/welcome
+entry_point: /docs/for-docs/getting-started/welcome
 success_criteria: "Within the first session(s), Promptless surfaces a real change the team missed and drafts a usable doc PR the champion would merge."
 steps:
-  - { stage: "Understand the model", doc: /docs/getting-started/core-concepts, exists: true }
-  - { stage: "Scope the pilot", doc: /docs/getting-started/pilot-overview, exists: true }
-  - { stage: "Connect a repo & sources", doc: /docs/getting-started/setup-quickstart, exists: true }
-  - { stage: "See first suggestions", doc: /docs/how-to-use-promptless/using-the-web-interface, exists: true }
-  - { stage: "Judge & give feedback on quality", doc: /docs/how-to-use-promptless/providing-feedback, exists: true }
-  - { stage: "Define what 'success' means for this pilot", doc: "/docs/getting-started/pilot-overview#defining-success", exists: partial, note: "Pilot success criteria / exit metrics not explicit" }
+  - { stage: "Understand the model", doc: /docs/for-docs/getting-started/core-concepts, exists: true }
+  - { stage: "Scope the pilot", doc: /docs/for-docs/getting-started/pilot-overview, exists: true }
+  - { stage: "Connect a repo & sources", doc: /docs/for-docs/getting-started/setup-quickstart, exists: true }
+  - { stage: "See first suggestions", doc: /docs/for-docs/how-to-use-promptless/using-the-web-interface, exists: true }
+  - { stage: "Judge & give feedback on quality", doc: /docs/for-docs/how-to-use-promptless/providing-feedback, exists: true }
+  - { stage: "Define what 'success' means for this pilot", doc: "/docs/for-docs/getting-started/pilot-overview#defining-success", exists: partial, note: "Pilot success criteria / exit metrics not explicit" }
 ---
 
 # CUJ: Evaluate Promptless and run a pilot

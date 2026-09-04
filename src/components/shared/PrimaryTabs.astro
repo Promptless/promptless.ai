@@ -2,21 +2,28 @@
 import {
   TOP_NAV_ITEMS,
   getActiveSection,
+  isTopNavLinkItem,
   type SiteSection,
-  type TopNavLinkItem,
 } from '@lib/site-navigation';
+import { getActiveDocsProduct } from '@lib/docs-products';
+import { ChevronDown } from '@lucide/astro';
+import DocsProductIcon from './DocsProductIcon.astro';
 import NavIcon from './NavIcon.astro';
 
 interface Props {
   activeSection?: SiteSection;
   class?: string;
+  trackingLocation?: 'nav' | 'mobile_menu';
 }
 
-const { activeSection = getActiveSection(Astro.url.pathname), class: className } = Astro.props;
+const {
+  activeSection = getActiveSection(Astro.url.pathname),
+  class: className,
+  trackingLocation = 'nav',
+} = Astro.props;
 
-type NavItemWithActive = TopNavLinkItem & { active: boolean };
-
-const navItems: NavItemWithActive[] = TOP_NAV_ITEMS.map((item) => ({
+const activeDocsProduct = getActiveDocsProduct(Astro.url.pathname);
+const navItems = TOP_NAV_ITEMS.map((item) => ({
   ...item,
   active: item.section === activeSection,
 }));
@@ -24,27 +31,100 @@ const navItems: NavItemWithActive[] = TOP_NAV_ITEMS.map((item) => ({
 
 <nav class:list={['pl-site-tabs', className]} aria-label="Primary">
   {
-    navItems.map((item) => (
-      <a
-        aria-current={item.active ? 'page' : undefined}
-        class:list={['pl-site-tab', { active: item.active }]}
-        href={item.href}
-        target={item.external ? '_blank' : undefined}
-        rel={item.external ? 'noopener noreferrer' : undefined}
-      >
-        {item.icon && <NavIcon name={item.icon} />}
-        <span>{item.label}</span>
-        {item.external && (
-          <img
-            class="pl-site-tab-external"
-            src="/site/link.svg"
-            alt=""
-            aria-hidden="true"
-            width="14"
-            height="14"
-          />
-        )}
-      </a>
-    ))
+    navItems.map((item) =>
+      isTopNavLinkItem(item) ? (
+        <a
+          aria-current={item.active ? 'page' : undefined}
+          class:list={['pl-site-tab', { active: item.active }]}
+          href={item.href}
+          target={item.external ? '_blank' : undefined}
+          rel={item.external ? 'noopener noreferrer' : undefined}
+        >
+          {item.icon && <NavIcon name={item.icon} />}
+          <span>{item.label}</span>
+          {item.external && (
+            <img
+              class="pl-site-tab-external"
+              src="/site/link.svg"
+              alt=""
+              aria-hidden="true"
+              width="14"
+              height="14"
+            />
+          )}
+        </a>
+      ) : (
+        <details class="pl-site-tab-menu" data-site-nav-disclosure>
+          <summary class:list={['pl-site-tab', { active: item.active }]} aria-label="Choose a documentation product">
+            {item.icon && <NavIcon name={item.icon} />}
+            <span>{item.label}</span>
+            <ChevronDown class="pl-site-tab-menu-chevron" size={14} stroke-width={2} aria-hidden="true" />
+          </summary>
+          <div class="pl-docs-product-menu">
+            {item.children.map((product) => {
+              const active = activeDocsProduct?.id === product.id;
+              return (
+                <a
+                  class:list={['pl-docs-product-menu-item', { active }]}
+                  href={product.href}
+                  aria-current={active ? 'true' : undefined}
+                  data-track-action="select_docs_product"
+                  data-track-funnel="evaluation"
+                  data-track-location={trackingLocation}
+                  data-track-campaign={product.id}
+                >
+                  <DocsProductIcon name={product.icon} class="pl-docs-product-menu-icon" />
+                  <span class="pl-docs-product-menu-copy">
+                    <span class="pl-docs-product-menu-title">
+                      {product.label}
+                      {product.badge && <span class="pl-docs-product-badge">{product.badge}</span>}
+                    </span>
+                    <span class="pl-docs-product-menu-description">{product.description}</span>
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </details>
+      ),
+    )
   }
 </nav>
+
+<script is:inline>
+  if (!window.__plSiteNavDisclosuresAttached) {
+    window.__plSiteNavDisclosuresAttached = true;
+
+    const closeDisclosure = (disclosure, restoreFocus = false) => {
+      if (!(disclosure instanceof HTMLDetailsElement) || !disclosure.open) return;
+      disclosure.open = false;
+      if (restoreFocus) disclosure.querySelector('summary')?.focus();
+    };
+
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      document.querySelectorAll('[data-site-nav-disclosure][open]').forEach((disclosure) => {
+        if (!disclosure.contains(target)) closeDisclosure(disclosure);
+      });
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      const openDisclosure = document.activeElement?.closest('[data-site-nav-disclosure][open]')
+        ?? document.querySelector('[data-site-nav-disclosure][open]');
+      if (openDisclosure) {
+        event.preventDefault();
+        closeDisclosure(openDisclosure, true);
+      }
+    });
+
+    document.addEventListener('toggle', (event) => {
+      const disclosure = event.target;
+      if (!(disclosure instanceof HTMLDetailsElement) || !disclosure.matches('[data-site-nav-disclosure]') || !disclosure.open) return;
+      document.querySelectorAll('[data-site-nav-disclosure][open]').forEach((other) => {
+        if (other !== disclosure && !other.contains(disclosure)) closeDisclosure(other);
+      });
+    }, true);
+  }
+</script>

@@ -54,8 +54,8 @@ function routePathToSlug(routePath: string): string {
 const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: string }> = [
   {
     routePath: '/',
-    title: 'Automatically update your docs',
-    description: 'Eliminate docs drift and automate the most painful parts of docs maintenance.',
+    title: 'Promptless improves your docs and AI workforce automatically.',
+    description: 'It eliminates drift in the docs and instructions your teams and their agents rely on.',
   },
   {
     routePath: '/pricing',
