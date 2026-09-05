@@ -18,18 +18,16 @@ Fires every time a visitor gives us their email, regardless of context.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `intent` | string | Why they gave it: `demo`, `newsletter`, `free_tool` |
-| `location` | string | Where: `hero`, `demo_page`, `blog`, `free_tools` |
+| `intent` | string | Why they gave it: `demo`, `newsletter` |
+| `location` | string | Where: `hero`, `demo_page`, `blog` |
 | `campaign` | string | Campaign slug or empty |
 | `$set: { email }` | string | Always set to identify the person |
 
 **Sources**: HeroV2.astro, DemoBooking.astro, BlogRequestDemo.astro,
-BlogNewsletterCTA.astro, BrokenLinkReportForm.astro
+BlogNewsletterCTA.astro
 
 Replaces the old `demo_requested`, `blog_demo_requested`, and
-`blog_newsletter_subscribed` events. The `broken_link_report_submitted` event
-still fires separately with tool-specific properties — but `email_captured`
-fires alongside it.
+`blog_newsletter_subscribed` events.
 
 ---
 
@@ -54,7 +52,6 @@ Current `action` values:
 | `sign_up` | `nav`, `mobile_menu`, `pricing_startup` |
 | `sign_in` | `nav`, `mobile_menu` |
 | `watch_demo` | `jobs_page` |
-| `use_free_tool` | `free_tools` |
 | `view_commits` | `demo_social_proof` |
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
@@ -166,22 +163,6 @@ Fires when a visitor types 2+ characters in the Pagefind search input
 |----------|------|-------------|
 | `query` | string | Search text |
 | `page_url` | string | Pathname where the search happened |
-
----
-
-## `broken_link_report_submitted`
-
-Fires when a visitor submits the broken link checker tool. Already implemented
-in `BrokenLinkReportForm.astro`. Note: `email_captured` also fires alongside
-this event.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `target_url` | string | URL to scan |
-| `check_external` | boolean | Include external links |
-| `check_anchors` | boolean | Include anchor links |
-| `max_pages` | number \| null | Page limit |
-| `$set: { email }` | string | Identifies the visitor |
 
 ---
 

@@ -23,7 +23,6 @@ setup, the event catalog, known gaps, and recommendations.
 | `cta_clicked` | `action`, `funnel_stage`, `location`, `campaign`, `link_url` | AnalyticsClickTracker (data-track-* attrs) |
 | `demo_requested` | `location` (hero / demo_page), `$set.email` | Hero.astro, DemoBooking.astro |
 | `blog_demo_requested` | `location` (blog), `$set.email` | BlogRequestDemo.astro |
-| `broken_link_report_submitted` | `target_url`, `check_external`, `check_anchors`, `max_pages`, `$set.email` | BrokenLinkReportForm.astro |
 | `site_searched` | `query`, `page_url` | posthog.astro (MutationObserver on Pagefind input) |
 
 ### Poorly-instrumented events
@@ -62,7 +61,6 @@ sends a parallel `gtag` event for Google Analytics.
 - `sign_up` -- nav, pricing_startup, mobile_menu
 - `sign_in` -- mobile_menu
 - `watch_demo` -- jobs_page
-- `use_free_tool` -- free_tools
 - `view_commits` -- demo_social_proof
 - `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
 - `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
@@ -151,5 +149,4 @@ comparison clicks.
 4. `/pricing`
 5. `/jobs`
 6. `/blog`
-7. `/free-tools`
-8. `/changelog`
+7. `/changelog`
