@@ -8,6 +8,7 @@ import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import vercel from '@astrojs/vercel';
 import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import starlightSearch, { searchIncludeFiles } from './packages/starlight-search/src/index.ts';
 import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 import { DOCS_PRODUCTS } from './src/lib/docs-products.ts';
 
@@ -35,6 +36,7 @@ const hiddenSitemapPaths = new Set([
 // static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
 // ---------------------------------------------------------------------------
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
+const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
 
 const redirects = {
   '/home': '/',
@@ -67,7 +69,7 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
-  adapter: MCP_ENABLED ? vercel() : undefined,
+  adapter: MCP_ENABLED || ASSISTANT_ENABLED ? vercel({ includeFiles: searchIncludeFiles }) : undefined,
   redirects,
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
@@ -96,6 +98,12 @@ export default defineConfig({
       favicon: '/favicon.ico',
       customCss: ['./src/styles/custom.css', './src/styles/site.css'],
       plugins: [
+        starlightSearch({
+          assistant: ASSISTANT_ENABLED,
+          apiPaths: ['/docs/for-docs/api'],
+          docsPaths: ['/docs'],
+          exclude: [...hiddenSitemapPaths, '/report/*', '/docs/internal/*', '/docs/marketing-images/*'],
+        }),
         starlightOpenAPI([
           {
             base: 'docs/for-docs/api',

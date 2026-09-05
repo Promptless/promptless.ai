@@ -1,0 +1,34 @@
+const en = {
+  search: 'Search', placeholder: 'Search the site…', ask: 'Ask Assistant', assistant: 'Assistant',
+  close: 'Close', clear: 'Clear conversation', stop: 'Stop generation', copy: 'Copy answer', copied: 'Copied',
+  retry: 'Retry', helpful: 'Helpful', unhelpful: 'Not helpful', question: 'Ask a question…', send: 'Send question',
+  intro: 'What would you like to know?', hint: 'Ask about a feature, find a setup guide, or explore this page.',
+  page: 'Explain this page', thinking: 'Working on your question…', searching: 'Searching', reading: 'Reading',
+  found: 'Found results for', read: 'Read', noResults: 'No results. Try a shorter query or different words.',
+  start: 'Find a page, a setting, or a code example.', loading: 'Loading search…', sources: 'Sources',
+  interrupted: 'This answer was interrupted. Retry when you’re ready.', failed: 'The assistant could not finish. Please retry.',
+  rateLimit: 'Too many questions. Please try again in a few minutes.', unavailable: 'The assistant is temporarily unavailable. Search is still available.',
+  searchError: 'Search could not load. Please try again.', select: 'Select', open: 'Open',
+  dev: 'Development index: run npm run build after content changes. Use a production preview to test search.',
+  missing: 'Run npm run build to create the development search index.',
+  storage: 'Tab storage is unavailable. This conversation will not survive a reload.',
+  copyError: 'Could not copy. Select the answer text to copy it.', feedback: 'Thanks for your feedback.',
+};
+const es: typeof en = {
+  search: 'Buscar', placeholder: 'Buscar en el sitio…', ask: 'Preguntar al asistente', assistant: 'Asistente',
+  close: 'Cerrar', clear: 'Borrar conversación', stop: 'Detener respuesta', copy: 'Copiar respuesta', copied: 'Copiado',
+  retry: 'Reintentar', helpful: 'Útil', unhelpful: 'No es útil', question: 'Haz una pregunta…', send: 'Enviar pregunta',
+  intro: '¿Qué te gustaría saber?', hint: 'Pregunta sobre una función, busca una guía o explora esta página.',
+  page: 'Explica esta página', thinking: 'Trabajando en tu pregunta…', searching: 'Buscando', reading: 'Leyendo',
+  found: 'Resultados para', read: 'Leído', noResults: 'Sin resultados. Prueba una consulta más corta u otras palabras.',
+  start: 'Encuentra una página, un ajuste o un ejemplo de código.', loading: 'Cargando búsqueda…', sources: 'Fuentes',
+  interrupted: 'La respuesta se interrumpió. Reinténtalo cuando quieras.', failed: 'El asistente no pudo terminar. Vuelve a intentarlo.',
+  rateLimit: 'Demasiadas preguntas. Inténtalo de nuevo en unos minutos.', unavailable: 'El asistente no está disponible. Puedes seguir usando la búsqueda.',
+  searchError: 'No se pudo cargar la búsqueda. Vuelve a intentarlo.', select: 'Seleccionar', open: 'Abrir',
+  dev: 'Índice de desarrollo: ejecuta npm run build tras cambiar contenido. Prueba la búsqueda en una vista previa de producción.',
+  missing: 'Ejecuta npm run build para crear el índice de búsqueda.',
+  storage: 'El almacenamiento de la pestaña no está disponible. La conversación se perderá al recargar.',
+  copyError: 'No se pudo copiar. Selecciona el texto de la respuesta para copiarlo.', feedback: 'Gracias por tu opinión.',
+};
+export function translations(locale: string) { return locale.startsWith('es') ? es : en; }
+export type Labels = typeof en;

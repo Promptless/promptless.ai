@@ -24,7 +24,7 @@ setup, the event catalog, known gaps, and recommendations.
 | `demo_requested` | `location` (hero / demo_page), `$set.email` | Hero.astro, DemoBooking.astro |
 | `blog_demo_requested` | `location` (blog), `$set.email` | BlogRequestDemo.astro |
 | `broken_link_report_submitted` | `target_url`, `check_external`, `check_anchors`, `max_pages`, `$set.email` | BrokenLinkReportForm.astro |
-| `site_searched` | `query`, `page_url` | posthog.astro (MutationObserver on Pagefind input) |
+| `site_searched` | `query`, `page_url` | posthog.astro (Starport search event bridge) |
 
 ### Poorly-instrumented events
 

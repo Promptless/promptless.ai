@@ -55,3 +55,19 @@ Mandatory infrastructure — keep it wired:
 ## Deployment
 
 - Deployed to **Vercel**. The site is fully static — every route is prerendered and no SSR adapter is wired. The one on-demand route the template offers (`/mcp` via `@astrojs/vercel`) is deferred with the MCP server (ADR 0004 §3); it would add SSR only when that capability is attempted.
+
+## Search and assistant
+
+`packages/starlight-search` is copied unchanged from Starport. Its configuration
+in `astro.config.mjs` includes the whole published site, with a modest docs/API
+ranking boost and explicit exclusions for internal/hidden content. Promptless's
+custom header imports the plugin search control; its homepage announcement stays
+in the same place. The page frame mounts the panel on Starlight pages.
+
+Configure `ANTHROPIC_API_KEY` at build and runtime on Vercel to enable the
+assistant. The pinned model is `claude-haiku-4-5-20251001`; override it with
+`STARPORT_ASSISTANT_MODEL`. Search needs no credentials. See the
+[plugin setup and limits](packages/starlight-search/README.md).
+
+The PostHog bridge lives in `src/components/posthog.astro`. It replaces the old
+Pagefind observer and retains `site_searched` for existing dashboards.
