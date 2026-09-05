@@ -49,6 +49,11 @@ test('excludes noindex, redirects, drafts, internal routes and per-page search e
 test('retains locale and custom API classification', () => {
   const page = extractPage(html.replace('lang="en"', 'lang="es"'), '/docs/api/operation/', { apiPaths: ['/docs/api'] })!;
   assert.equal(page.locale, 'es'); assert.equal(page.type, 'api');
+  const fallback = extractPage(html.replace('lang="en"', 'lang="es"').replace('<main ', '<main lang="en" '), '/es/docs/slack/')!;
+  assert.equal(fallback.locale, 'es');
+  const index = createIndex([extractPage(html, '/docs/slack/')!, fallback]);
+  assert.ok(search(index, 'slack', { locale: 'es' }).every((result) => result.pageId === fallback.id));
+  assert.ok(search(index, 'slack', { locale: 'en' }).every((result) => result.pageId === '/docs/slack/'));
 });
 
 test('exact identifiers, prefixes and ordinary transposed typos use MiniSearch ranking', () => {

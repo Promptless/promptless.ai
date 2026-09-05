@@ -1,11 +1,11 @@
 /// <reference lib="webworker" />
 import { loadIndex, search } from '../core/search';
-import type { SearchArtifact } from '../core/types';
+import type { SearchArtifact, SearchFilters } from '../core/types';
 
 let index: ReturnType<typeof loadIndex> | undefined;
 let loading: Promise<void> | undefined;
-self.onmessage = async (event: MessageEvent<{ id: number; query?: string; manifestUrl: string }>) => {
-  const { id, query, manifestUrl } = event.data;
+self.onmessage = async (event: MessageEvent<{ id: number; query?: string; manifestUrl: string; filters?: SearchFilters }>) => {
+  const { id, query, manifestUrl, filters } = event.data;
   try {
     loading ??= (async () => {
       const signal = AbortSignal.timeout(14_000);
@@ -18,7 +18,7 @@ self.onmessage = async (event: MessageEvent<{ id: number; query?: string; manife
     })().catch((error) => { loading = undefined; throw error; });
     await loading;
     const start = performance.now();
-    const results = query ? search(index!, query) : [];
+    const results = query ? search(index!, query, filters) : [];
     self.postMessage({ id, results, duration: performance.now() - start });
   } catch { self.postMessage({ id, error: 'INDEX_UNAVAILABLE' }); }
 };

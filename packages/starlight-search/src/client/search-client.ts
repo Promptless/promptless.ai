@@ -1,10 +1,10 @@
-import type { SearchResult } from '../core/types';
+import type { SearchFilters, SearchResult } from '../core/types';
 interface Reply { results: SearchResult[]; duration: number }
 let worker: Worker | undefined;
 let sequence = 0;
 const pending = new Map<number, { resolve: (value: Reply) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 
-export function queryIndex(manifestUrl: string, query?: string): Promise<Reply> {
+export function queryIndex(manifestUrl: string, query?: string, filters: SearchFilters = {}): Promise<Reply> {
   if (!worker) {
     worker = new Worker(new URL('./search.worker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = ({ data }) => {
@@ -24,6 +24,6 @@ export function queryIndex(manifestUrl: string, query?: string): Promise<Reply> 
     const id = ++sequence;
     const timer = setTimeout(() => { pending.delete(id); reject(new Error('SEARCH_TIMEOUT')); }, 15_000);
     pending.set(id, { resolve, reject, timer });
-    worker!.postMessage({ id, manifestUrl, query });
+    worker!.postMessage({ id, manifestUrl, query, filters });
   });
 }

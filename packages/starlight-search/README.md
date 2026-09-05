@@ -74,8 +74,9 @@ MiniSearch indexes page titles, section headings and body text with weights
 4/3/1. Docs and API references get a 1.15 multiplier. Queries use AND matching,
 prefix matches and bounded edit-distance matching. Configuration identifiers
 retain underscores; Unicode words support English and Spanish without a custom
-stemmer. Search spans all indexed locales; the shared API also accepts locale
-and content-type filters.
+stemmer. The search dialog follows the current route’s language, including Starlight’s
+untranslated fallback pages. The shared API searches all locales by default and
+accepts locale and content-type filters; the assistant can search across languages.
 
 The browser fetches a manifest and content-hashed serialized index when the
 control is approached or opened. A worker loads and searches it once per page.

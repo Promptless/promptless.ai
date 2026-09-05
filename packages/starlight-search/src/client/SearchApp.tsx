@@ -79,7 +79,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
     const start = performance.now();
     setLoading(true); setError(false); setSelected(0);
     const timer = setTimeout(() => {
-      void queryIndex(config.manifestUrl, query).then((reply) => {
+      void queryIndex(config.manifestUrl, query, { locale }).then((reply) => {
         if (cancelled) return;
         setResults(reply.results); setLoading(false);
         if (query.trim()) track('search_query', { query: query.trim(), results: reply.results.length, latency_ms: Math.round(performance.now() - start), query_ms: reply.duration });
@@ -89,7 +89,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
       });
     }, 70);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [query, open, config.manifestUrl]);
+  }, [query, open, locale, config.manifestUrl]);
   useEffect(() => { dialog.current?.querySelector(`#sp-result-${selected}`)?.scrollIntoView({ block: 'nearest' }); }, [selected]);
 
   const ask = () => {
@@ -139,7 +139,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
         <footer className="sp-search-footer"><span>↑ ↓ <span>{t.select}</span>　↵ <span>{t.open}</span></span><button onClick={() => setOpen(false)}><kbd>Esc</kbd> {t.close}</button></footer>
       </div>
     </dialog>
-    {mounted && config.assistant && <Suspense fallback={panel ? <aside className="sp-panel"><p className="sp-empty">{t.loading}</p></aside> : null}>
+    {mounted && config.assistant && <Suspense fallback={panel ? <aside className="sp-panel" aria-label={t.assistant}><header className="sp-panel-header"><h2>✦ {t.assistant}</h2><button className="sp-icon-button" aria-label={t.close} onClick={() => { setPanel(false); requestAnimationFrame(restoreFocus); }}>×</button></header><p className="sp-status" role="status">{t.loadingAssistant}</p></aside> : null}>
       <Assistant open={panel} config={config} t={t} initialQuestion={initialQuestion} onClose={() => { setPanel(false); requestAnimationFrame(restoreFocus); }} />
     </Suspense>}
   </>;
