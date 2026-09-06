@@ -52,7 +52,7 @@ You have at most three rounds of tools, then must answer using what you have rea
     },
     timeout: 30_000,
     abortSignal: signal,
-    providerOptions: { anthropic: { thinking: { type: 'disabled' } } },
+    providerOptions: { anthropic: { effort: 'low', thinking: { type: 'disabled' } } },
     stopWhen: isStepCount(4),
     prepareStep: ({ stepNumber, steps }) => {
       const remaining = Math.max(1, 1_000 - steps.reduce((total, step) => total + (step.usage.outputTokens ?? 0), 0));

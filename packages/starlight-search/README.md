@@ -36,8 +36,10 @@ use a `PUBLIC_` prefix. Removing the key requires rebuilding to hide entry point
 the endpoint returns 503 immediately if its runtime key is absent.
 
 `STARPORT_ASSISTANT_MODEL` optionally overrides the pinned default
-`claude-haiku-4-5-20251001`. The endpoint calls Anthropic directly; extended
-thinking and automatic provider retries are disabled.
+`claude-sonnet-5`. The endpoint calls Anthropic directly with `effort: "low"`;
+extended thinking and automatic provider retries are disabled. Model overrides
+must support Anthropic’s effort parameter. Low effort controls response and tool
+verbosity even with thinking disabled. See [Anthropic’s effort guidance](https://platform.claude.com/docs/en/build-with-claude/effort).
 
 Search works on static deployments. Set `assistant: false`, omit the adapter
 unless another feature needs it, and build normally. In the template,

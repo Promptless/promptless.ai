@@ -26,7 +26,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     corpusPromise ??= loadCorpus(artifactDir).catch((error) => { corpusPromise = undefined; throw error; });
     const corpus = await corpusPromise;
     const result = answerQuestion({
-      model: createAnthropic({ apiKey: key })(process.env.STARPORT_ASSISTANT_MODEL || 'claude-haiku-4-5-20251001'),
+      model: createAnthropic({ apiKey: key })(process.env.STARPORT_ASSISTANT_MODEL || 'claude-sonnet-5'),
       corpus, ...input, pageId: corpus.pageId(input.pageId), signal,
     });
     return createUIMessageStreamResponse({

@@ -65,8 +65,9 @@ custom header imports the plugin search control; its homepage announcement stays
 in the same place. The page frame mounts the panel on Starlight pages.
 
 Configure `ANTHROPIC_API_KEY` at build and runtime on Vercel to enable the
-assistant. The pinned model is `claude-haiku-4-5-20251001`; override it with
-`STARPORT_ASSISTANT_MODEL`. Search needs no credentials. See the
+assistant. The pinned model is `claude-sonnet-5` with low effort and thinking
+disabled; override it with an effort-compatible `STARPORT_ASSISTANT_MODEL`.
+Search needs no credentials. See the
 [plugin setup and limits](packages/starlight-search/README.md).
 
 The PostHog bridge lives in `src/components/posthog.astro`. It replaces the old

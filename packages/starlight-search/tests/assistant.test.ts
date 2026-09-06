@@ -27,7 +27,7 @@ test('streams real tool activity and read content, then a cited answer', async (
   assert.equal(model.doStreamCalls.length, 2);
   assert.match(JSON.stringify(model.doStreamCalls[1].prompt), /npm install/);
   assert.equal(model.doStreamCalls[0].maxOutputTokens, 1000);
-  assert.deepEqual(model.doStreamCalls[0].providerOptions?.anthropic, { thinking: { type: 'disabled' } });
+  assert.deepEqual(model.doStreamCalls[0].providerOptions?.anthropic, { effort: 'low', thinking: { type: 'disabled' } });
 });
 
 test('forces a final response after three tool rounds', async () => {

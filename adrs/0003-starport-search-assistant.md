@@ -35,8 +35,9 @@ The plugin's page frame mounts the panel across Starlight pages; colors and
 type inherit Promptless's current theme. Session state stays in the browser tab.
 
 Add the customer's Anthropic key to Vercel's build/runtime environment to expose
-the assistant. Without a key, only search is shown. Pass generated artifacts to
-the existing Vercel adapter through `includeFiles`. Replace Pagefind's PostHog
+the assistant. Use Starport’s `claude-sonnet-5` default with low effort and
+thinking disabled for concise answers. Without a key, only search is shown.
+Pass generated artifacts to the existing Vercel adapter through `includeFiles`. Replace Pagefind's PostHog
 observer with the plugin event bridge; keep `site_searched` and document the
 additional events without storing full answers or tool transcripts.
 
