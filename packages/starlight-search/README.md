@@ -65,6 +65,33 @@ supports Vercel/Node in this release, not Cloudflare Workers.
 
 ## Content and search
 
+Search opens with up to four site-configured starting points per language:
+
+```js
+starlightSearch({
+  starterLinks: {
+    en: [
+      { title: 'Quickstart', url: '/docs/quickstart/', description: 'Connect your first integration.' },
+      { title: 'Configuration', url: '/docs/reference/', description: 'Look up settings and examples.' },
+    ],
+  },
+});
+```
+
+Use route language codes (`en`, `es`), not Starlight's `root` key. Paths are
+relative to the site's Astro base and must point to indexed published pages or
+sections; the build rejects broken or excluded destinations. Replace the
+template's starter links when replacing its sample content. After a visitor
+opens a result, the empty state shows their four most recent destinations in
+that language. It stores at most twelve destinations in tab-only `sessionStorage`,
+with no server history. Without starting points or history, a short prompt is shown.
+
+Article rows use two lines with muted breadcrumbs beside the title. The full
+breadcrumb is available on hover; narrow screens show its immediate parent.
+Highlighting and excerpts respect word/identifier boundaries. The query-specific
+assistant action remains visible below the scrolling results, participates in
+arrow-key selection, and supports Alt+Enter (Option+Enter on macOS).
+
 `astro:build:generated` extracts main content from the rendered HTML, after MDX
 and OpenAPI generation and before Vercel packages the server. Real heading IDs,
 code samples, links and tables are preserved. Navigation, controls, redirects,
@@ -125,8 +152,10 @@ Generated files live in `.starport/search/` (server index and page contents) and
 commit them. Vercel's `includeFiles` bundles the two server files; their runtime
 location is `.starport/search/` relative to the function's working directory.
 
-Development serves the latest generated artifacts and shows an explicit build
-instruction. Run `npm run build` after editing content. A deployed production
+Development serves the latest generated artifacts. A footer indicator exposes
+build instructions on hover, focus or click; changed content flags it as needing
+a rebuild, and a missing index displays an explicit error and retry action.
+Run `npm run build` after editing content, then reload. A deployed production
 build preview is the authoritative test; the dev server does not maintain a
 second source-based index.
 
@@ -165,7 +194,7 @@ Listen for `window`'s `starport:analytics` event. Its `detail` is
 | Event | Additional properties |
 | --- | --- |
 | `search_query` | `query`, `results`, `latency_ms`, `query_ms` |
-| `search_result_click` | `query`, `url`, `position` |
+| `search_result_click` | `query`, `url`, `position`, `source` (`search`, `recent`, or `starter`) |
 | `search_error` | `code` |
 | `assistant_question` | `question`, `question_length` |
 | `assistant_source_click` | `url` |
@@ -176,6 +205,8 @@ Listen for `window`'s `starport:analytics` event. Its `detail` is
 No full answer text or tool-result transcripts are emitted. Query/question
 events contain visitor input; connect them only through the site's existing
 analytics/consent setup. Remove old Pagefind input observers to avoid duplicates.
+Recent and starter destinations emit an empty `query`; opening the dialog alone
+does not emit a search query event.
 
 ## Validation
 

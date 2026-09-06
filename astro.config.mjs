@@ -100,6 +100,14 @@ export default defineConfig({
       plugins: [
         starlightSearch({
           assistant: ASSISTANT_ENABLED,
+          starterLinks: {
+            en: [
+              { title: 'Quickstart', url: '/docs/for-docs/start-here/quickstart/', description: 'Connect your first integrations and start updating docs.' },
+              { title: 'Set up Slack', url: '/docs/for-docs/reference/integrations/slack/', description: 'Connect Slack so conversations can become documentation updates.' },
+              { title: 'Configuration reference', url: '/docs/for-docs/reference/configuration-reference/', description: 'Understand the settings in promptless.yaml.' },
+              { title: 'Promptless for Agent Instructions', url: '/docs/governance/', description: 'Keep the instructions your coding agents use up to date.' },
+            ],
+          },
           ranking: {
             fields: { title: 4, description: 3, heading: 2, body: 1 },
             contentTypes: { docs: 1.15, api: 1.15, blog: 1, marketing: 1 },

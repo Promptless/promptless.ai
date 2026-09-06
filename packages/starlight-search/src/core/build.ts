@@ -4,6 +4,7 @@ import { join, relative, sep } from 'node:path';
 import { extractPage } from './extract';
 import { createIndex } from './search';
 import type { Page, SearchArtifact, SearchOptions } from './types';
+import { starterLinks } from './shortcuts';
 
 async function htmlFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -20,6 +21,15 @@ export async function buildCorpus(outDir: string, artifactDir: string, options: 
     if (page) pages.push(page);
   }
   if (!pages.length) throw new Error('Starport search found no eligible main content in the rendered site.');
+  for (const links of Object.values(starterLinks(options.starterLinks, base))) {
+    for (const link of links) {
+      const url = new URL(link.url, 'https://starport.invalid');
+      const page = pages.find((page) => page.id.replace(/\/$/, '') === url.pathname.replace(/\/$/, ''));
+      if (!page || (url.hash && !page.sections.some((section) => section.id === decodeURIComponent(url.hash.slice(1))))) {
+        throw new Error(`Search starter link is not indexed published content: ${link.url}`);
+      }
+    }
+  }
   const { engine, ranking } = createIndex(pages, options.ranking);
   const artifact: SearchArtifact = { version: 2, generatedAt: new Date().toISOString(), ranking, index: engine.toJSON() };
   const serialized = JSON.stringify(artifact);

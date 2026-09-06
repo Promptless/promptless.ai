@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import type { AstroIntegration } from 'astro';
 import { buildCorpus } from './core/build';
+import { starterLinks } from './core/shortcuts';
 import type { ClientConfig, SearchOptions } from './core/types';
 
 export function searchIntegration(options: SearchOptions, siteTitle: string): AstroIntegration {
@@ -15,6 +16,7 @@ export function searchIntegration(options: SearchOptions, siteTitle: string): As
         base = config.base;
         const dev = command === 'dev';
         const clientConfig: ClientConfig = {
+          starterLinks: starterLinks(options.starterLinks, base),
           assistant: options.assistant === true,
           endpoint: `${base.replace(/\/$/, '')}/_starport/assistant`,
           manifestUrl: `${base.replace(/\/$/, '')}/starport-search/manifest.json`,
@@ -29,8 +31,9 @@ export function searchIntegration(options: SearchOptions, siteTitle: string): As
           },
           configureServer(server) {
             let stale = false;
+            const contentRoots = ['src/', 'public/', 'openapi/'].map((path) => fileURLToPath(new URL(path, config.root)));
             server.watcher.on('all', (_event, path) => {
-              if (/\/(src|public|openapi)\//.test(path) || /astro\.config\./.test(path)) stale = true;
+              if (contentRoots.some((root) => path.startsWith(root)) || /astro\.config\./.test(path)) stale = true;
             });
             server.middlewares.use(async (req, res, next) => {
               if (!req.url?.startsWith(`${base.replace(/\/$/, '')}/starport-search/`)) return next();

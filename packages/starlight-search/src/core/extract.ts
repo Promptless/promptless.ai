@@ -3,6 +3,7 @@ import type { AnyNode } from 'domhandler';
 import TurndownService from 'turndown';
 import { gfm } from 'turndown-plugin-gfm';
 import type { Page, SearchOptions, Section } from './types';
+import { fallbackBreadcrumbs } from './breadcrumbs';
 
 const markdown = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' });
 markdown.use(gfm);
@@ -34,8 +35,7 @@ export function extractPage(html: string, path: string, options: SearchOptions =
   const active = $('#starlight__sidebar a[aria-current="page"]').first();
   const breadcrumbs = active.parents('details').toArray().reverse().map((node) => cleanText($(node).children('summary').text()));
   if (!breadcrumbs.length) {
-    const segments = path.split('/').filter(Boolean).slice(0, -1);
-    breadcrumbs.push(...segments.map((part) => decodeURIComponent(part).replace(/[-_]/g, ' ')));
+    breadcrumbs.push(...fallbackBreadcrumbs(path, locale));
   }
   main.find('script, style, noscript, nav, footer, button, input, select, textarea, svg, [hidden], [aria-hidden="true"], [data-pagefind-ignore], [data-search-exclude], .copy, .sr-only, .visually-hidden, .sl-anchor-link, #dropdown-menu').remove();
   // Resolve links against the page, retaining same-site path/anchor identities.

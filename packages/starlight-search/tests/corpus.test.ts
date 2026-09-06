@@ -93,6 +93,9 @@ test('browser serialization and server search/read use the same rendered artifac
     assert.equal(corpus.pageId('/api/slack'), '/api/slack/');
     const manifest = JSON.parse(await readFile(join(out, 'starport-search', 'manifest.json'), 'utf8'));
     assert.deepEqual(JSON.parse(await readFile(join(out, 'starport-search', manifest.index), 'utf8')), serialized);
+    await buildCorpus(out, artifacts, { starterLinks: { en: [{ title: 'Setup', url: '/api/slack/#actual-setup-anchor' }] } });
+    await assert.rejects(buildCorpus(out, artifacts, { starterLinks: { en: [{ title: 'Private', url: '/internal/' }] } }), /not indexed published content/);
+    await assert.rejects(buildCorpus(out, artifacts, { starterLinks: { en: [{ title: 'Missing', url: '/api/slack/#missing' }] } }), /not indexed published content/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

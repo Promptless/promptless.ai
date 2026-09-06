@@ -1,7 +1,7 @@
 import type { StarlightPlugin } from '@astrojs/starlight/types';
 import { searchIntegration } from './integration';
 import type { SearchOptions } from './core/types';
-export type { SearchOptions, SearchRankingOptions, SearchRanking } from './core/types';
+export type { SearchOptions, SearchRankingOptions, SearchRanking, SearchShortcut } from './core/types';
 
 /** Pass these to the Vercel adapter, which packages them after HTML generation. */
 export const searchIncludeFiles = ['.starport/search/index.json', '.starport/search/pages.json'];

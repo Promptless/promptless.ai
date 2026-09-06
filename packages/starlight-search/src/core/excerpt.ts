@@ -1,6 +1,7 @@
+import { matchRanges } from './matches';
+
 export function excerpt(text: string, terms: string[], length = 180): string {
-  const lower = text.toLocaleLowerCase();
-  const positions = terms.map((term) => lower.indexOf(term.toLocaleLowerCase())).filter((position) => position >= 0);
-  const start = Math.max(0, (positions.length ? Math.min(...positions) : 0) - 55);
+  let start = Math.max(0, (matchRanges(text, terms)[0]?.start ?? 0) - 55);
+  if (start) start = text.lastIndexOf(' ', start) + 1;
   return `${start ? '…' : ''}${text.slice(start, start + length)}${text.length > start + length ? '…' : ''}`;
 }

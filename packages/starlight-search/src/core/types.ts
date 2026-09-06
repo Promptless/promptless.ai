@@ -86,7 +86,15 @@ export interface ContentArtifact {
   pages: Page[];
 }
 
+export interface SearchShortcut {
+  url: string;
+  title: string;
+  description?: string;
+}
+
 export interface SearchOptions {
+  /** Up to four published starting points per locale, before a visitor has recent destinations. */
+  starterLinks?: Record<string, SearchShortcut[]>;
   /** Serialized with the index so browser and assistant agree. Rebuild after changes. */
   ranking?: SearchRankingOptions;
   /** Enable the Node endpoint. Configure ANTHROPIC_API_KEY at build and runtime. */
@@ -99,6 +107,7 @@ export interface SearchOptions {
 }
 
 export interface ClientConfig {
+  starterLinks?: Record<string, SearchShortcut[]>;
   assistant: boolean;
   endpoint: string;
   manifestUrl: string;
