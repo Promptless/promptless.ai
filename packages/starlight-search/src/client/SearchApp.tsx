@@ -84,9 +84,9 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
   useEffect(() => { dialog.current?.querySelector(`#sp-result-${selected}`)?.scrollIntoView({ block: 'nearest' }); }, [selected, results]);
 
   const ask = () => {
-    if (!config.assistant || !query.trim()) return;
+    if (!config.assistant) return;
     setOpen(false); setMounted(true); setPanel(true);
-    setInitialQuestion({ text: query.trim(), id: ++requestCounter.current });
+    if (query.trim()) setInitialQuestion({ text: query.trim(), id: ++requestCounter.current });
   };
   const navigate = (entry: typeof entries[number]) => {
     track('search_result_click', { query: resultQuery, url: entry.url, position: entry.position });
@@ -105,7 +105,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (count) setSelected((selected + (event.key === 'ArrowDown' ? 1 : -1) + count) % count); }
               if (event.key === 'Enter') { event.preventDefault(); if (event.altKey || selected === entries.length) ask(); else if (entries[selected]) navigate(entries[selected]); }
             }} />
-          {config.assistant && <button className="sp-ask-query" aria-label={t.ask} title={t.ask} disabled={!query.trim()} onClick={ask}><span className="sp-ask-label">{t.ask}</span><span aria-hidden="true">✦</span></button>}
+          {config.assistant && <button className="sp-ask-query" aria-label={t.ask} title={t.ask} onClick={ask}><span className="sp-ask-label">{t.ask}</span><span aria-hidden="true">✦</span></button>}
           <button className="sp-icon-button sp-mobile-close" onClick={() => setOpen(false)} aria-label={t.close}>×</button>
         </div>
         {config.dev && <p className="sp-dev-note">{t.dev}</p>}
@@ -116,7 +116,10 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
           <div id="sp-results" role="listbox" aria-label={t.search} aria-busy={pending}>
             {entries.map((entry, i) => <a key={entry.id} id={`sp-result-${i}`} role="option" aria-selected={selected === i} className={`sp-result${entry.section ? ' sp-section-result' : ''}`} tabIndex={-1} href={entry.url}
               onPointerMove={() => setSelected(i)} onClick={(event) => { event.preventDefault(); navigate(entry); }}>
-              <span className="sp-result-icon" aria-hidden="true">{entry.section ? '#' : '▤'}</span>
+              <span className="sp-result-icon" aria-hidden="true">{entry.section ? '#' : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+                <path d="M14 2v6h6M8 12h8M8 16h8M8 8h2" />
+              </svg>}</span>
               <span className="sp-result-content"><span className="sp-result-title"><Highlight text={entry.title} terms={entry.terms} /></span>
                 {entry.breadcrumbs.length > 0 && <span className="sp-breadcrumb">{entry.breadcrumbs.join(' › ')}</span>}
                 <span className="sp-excerpt"><Highlight text={excerpt(entry.text, entry.terms)} terms={entry.terms} /></span>
