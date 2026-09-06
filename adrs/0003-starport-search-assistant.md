@@ -34,6 +34,11 @@ Update the custom header's search import and retain the homepage announcement.
 The plugin's page frame mounts the panel across Starlight pages; colors and
 type inherit Promptless's current theme. Session state stays in the browser tab.
 
+Adopt the shared search interaction model: index readiness and completed query
+results are separate. Queries run immediately; existing results remain visible
+until replacements arrive. Delayed progress uses the fixed footer space, and
+analytics debounce independently, so typing does not insert loading rows.
+
 Add the customer's Anthropic key to Vercel's build/runtime environment to expose
 the assistant. Use Starport’s `claude-sonnet-5` default with low effort and
 thinking disabled for concise answers. Without a key, only search is shown.

@@ -87,6 +87,13 @@ control is approached or opened. A worker loads and searches it once per page.
 HTTP caching reuses the hashed artifact across navigation. Assistant search uses
 the same index and query function. `readPage` accesses only indexed IDs.
 
+Index readiness is separate from query results. Empty input shows the welcome
+message while the index preloads; non-empty queries run immediately in the
+worker. Each completed result set retains its query and locale, and stays visible
+until its replacement arrives. Keyboard selection belongs to that displayed set.
+Operations lasting over 250ms show progress in the existing footer without
+moving results. Only query analytics are debounced (200ms), not retrieval.
+
 Generated files live in `.starport/search/` (server index and page contents) and
 `starport-search/` in the static output (manifest and browser index). Do not
 commit them. Vercel's `includeFiles` bundles the two server files; their runtime

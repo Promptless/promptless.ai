@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { ClientConfig, SearchResult } from '../core/types';
 import { excerpt } from '../core/excerpt';
 import { translations } from './i18n';
-import { queryIndex } from './search-client';
+import { preloadIndex } from './search-client';
+import { useSearch } from './useSearch';
 import { track } from './events';
 import { readSession, writeSession } from './session';
 
@@ -23,10 +24,10 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
   const [mounted, setMounted] = useState(false);
   const [initialQuestion, setInitialQuestion] = useState<{ text: string; id: number }>();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [selected, setSelected] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const { results, resultQuery, pending, showProgress, error, retry } = useSearch(config.manifestUrl, query, locale, open);
+  const [selection, setSelection] = useState<{ results: SearchResult[]; index: number }>();
+  const selected = selection?.results === results ? Math.min(selection.index, results.length) : 0;
+  const setSelected = (index: number) => setSelection({ results, index });
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -36,7 +37,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
     if (previous?.isConnected && previous.getClientRects().length) previous.focus();
     else document.querySelector<HTMLElement>('[data-starport-search]')?.focus();
   };
-  const preload = () => { void queryIndex(config.manifestUrl).catch(() => {}); };
+  const preload = () => { void preloadIndex(config.manifestUrl).catch(() => {}); };
 
   useEffect(() => {
     setLocale(document.documentElement.lang || 'en');
@@ -73,24 +74,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
     writeSession(OPEN_KEY, panel);
     return () => document.documentElement.removeAttribute('data-starport-assistant');
   }, [panel]);
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    const start = performance.now();
-    setLoading(true); setError(false); setSelected(0);
-    const timer = setTimeout(() => {
-      void queryIndex(config.manifestUrl, query, { locale }).then((reply) => {
-        if (cancelled) return;
-        setResults(reply.results); setLoading(false);
-        if (query.trim()) track('search_query', { query: query.trim(), results: reply.results.length, latency_ms: Math.round(performance.now() - start), query_ms: reply.duration });
-      }).catch(() => {
-        if (cancelled) return;
-        setResults([]); setLoading(false); setError(true); track('search_error', { code: 'index_unavailable' });
-      });
-    }, 70);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [query, open, locale, config.manifestUrl]);
-  useEffect(() => { dialog.current?.querySelector(`#sp-result-${selected}`)?.scrollIntoView({ block: 'nearest' }); }, [selected]);
+  useEffect(() => { dialog.current?.querySelector(`#sp-result-${selected}`)?.scrollIntoView({ block: 'nearest' }); }, [selected, results]);
 
   const ask = () => {
     if (!config.assistant || !query.trim()) return;
@@ -98,7 +82,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
     setInitialQuestion({ text: query.trim(), id: ++requestCounter.current });
   };
   const navigate = (result: SearchResult) => {
-    track('search_result_click', { query, url: result.url, position: results.indexOf(result) + 1 });
+    track('search_result_click', { query: resultQuery, url: result.url, position: results.indexOf(result) + 1 });
     setOpen(false); window.location.assign(result.url);
   };
   const askOption = config.assistant && Boolean(query.trim());
@@ -119,10 +103,10 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
         </div>
         {config.dev && <p className="sp-dev-note">{t.dev}</p>}
         <div className="sp-result-scroll">
-          <div role="status" className="sp-status">{error ? (config.dev ? t.missing : t.searchError) : loading ? t.loading : !query.trim() ? t.start : !results.length ? t.noResults : ''}
-            {error && <button onClick={() => { setOpen(false); setTimeout(() => setOpen(true), 0); }}>{t.retry}</button>}
+          <div role="status" className="sp-status">{error ? (config.dev ? t.missing : t.searchError) : !query.trim() ? t.start : !pending && !results.length ? t.noResults : ''}
+            {error && <button onClick={() => { retry(); input.current?.focus(); }}>{t.retry}</button>}
           </div>
-          <div id="sp-results" role="listbox" aria-label={t.search} aria-busy={loading}>
+          <div id="sp-results" role="listbox" aria-label={t.search} aria-busy={pending}>
             {results.map((result, i) => <a key={result.id} id={`sp-result-${i}`} role="option" aria-selected={selected === i} className="sp-result" tabIndex={-1} href={result.url}
               onPointerMove={() => setSelected(i)} onClick={(event) => { event.preventDefault(); navigate(result); }}>
               <span className="sp-result-icon" aria-hidden="true">{result.sectionId ? '#' : '▤'}</span>
@@ -136,7 +120,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
             </button>}
           </div>
         </div>
-        <footer className="sp-search-footer"><span>↑ ↓ <span>{t.select}</span>　↵ <span>{t.open}</span></span><button onClick={() => setOpen(false)}><kbd>Esc</kbd> {t.close}</button></footer>
+        <footer className="sp-search-footer"><span>↑ ↓ <span>{t.select}</span>　↵ <span>{t.open}</span></span><span className="sp-search-progress" role="status">{showProgress ? t.loading : ''}</span><button onClick={() => setOpen(false)}><kbd>Esc</kbd> {t.close}</button></footer>
       </div>
     </dialog>
     {mounted && config.assistant && <Suspense fallback={panel ? <aside className="sp-panel" aria-label={t.assistant}><header className="sp-panel-header"><h2>✦ {t.assistant}</h2><button className="sp-icon-button" aria-label={t.close} onClick={() => { setPanel(false); requestAnimationFrame(restoreFocus); }}>×</button></header><p className="sp-status" role="status">{t.loadingAssistant}</p></aside> : null}>
