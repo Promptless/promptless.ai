@@ -70,7 +70,11 @@ test('short follow-ups past 50 turns fit the server message limit without splitt
 test('request abort and the overall deadline cancel an unfinished upload', { timeout: 1000 }, async () => {
   for (const timeout of [false, true]) {
     const controller = new AbortController();
-    const signal = timeout ? AbortSignal.timeout(20) : controller.signal;
+    const deadline = new AbortController();
+    const signal = timeout ? AbortSignal.any([controller.signal, deadline.signal]) : controller.signal;
+    // Unlike a real HTTP upload, this fixture has no socket keeping Node alive.
+    // Use a referenced timer (AbortSignal.timeout's timer is unreferenced).
+    const timer = timeout ? setTimeout(() => deadline.abort(new DOMException('Timed out', 'TimeoutError')), 20) : undefined;
     let cancelled: unknown;
     const body = new ReadableStream({
       start(stream) { stream.enqueue(new TextEncoder().encode('{"messages":')); },
@@ -80,7 +84,8 @@ test('request abort and the overall deadline cancel an unfinished upload', { tim
     const parsed = timeout ? parseRequest(req, signal) : parseRequest(req);
     const rejected = assert.rejects(parsed, { name: timeout ? 'TimeoutError' : 'AbortError' });
     if (!timeout) controller.abort();
-    await rejected;
+    try { await rejected; }
+    finally { clearTimeout(timer); }
     assert.equal(cancelled, signal.reason);
     assert.equal(body.locked, false);
   }
