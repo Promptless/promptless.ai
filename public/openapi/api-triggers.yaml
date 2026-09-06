@@ -305,6 +305,141 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
       security:
       - bearerAuth: []
+  /v1/triggers/{trigger_event_id}:
+    get:
+      tags:
+      - Triggers
+      summary: Get task status
+      description: |
+        Read the current status and conversation of a task submitted through `POST /v1/triggers`. The `messages` array holds the persisted conversation (latest 100, oldest-first) for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`, and comes back empty for other sources. Reading the conversation does not consume it.
+      operationId: getTaskStatus
+      parameters:
+      - name: trigger_event_id
+        in: path
+        required: true
+        description: Identifier of the task, as returned by `POST /v1/triggers`.
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: The task's current status and conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatusResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '404':
+          description: No task with this id exists for the organization (`task_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The `trigger_event_id` path parameter is not a valid UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/triggers/{trigger_event_id}/messages:
+    post:
+      tags:
+      - Triggers
+      summary: Send a task message
+      description: |
+        Append a message to the conversation of a task submitted through `POST /v1/triggers`, continuing the reply on that same task. Available for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`.
+      operationId: sendTaskMessage
+      parameters:
+      - name: trigger_event_id
+        in: path
+        required: true
+        description: Identifier of the task, as returned by `POST /v1/triggers`.
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: |
+          Optional key of up to 255 characters that makes the message send safe to retry. Reusing the key with the same text returns the original stored message with `deduplicated` set to `true`. Reusing it with different text returns `409 idempotency_conflict`.
+        schema:
+          type: string
+          maxLength: 255
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTaskMessageRequest'
+        required: true
+      responses:
+        '200':
+          description: An idempotent replay of a message stored earlier under the same
+            Idempotency-Key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendTaskMessageResponse'
+        '201':
+          description: Promptless appends the message to the task's conversation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendTaskMessageResponse'
+        '400':
+          description: The task source does not support messages (`unsupported_task_source`),
+            or the message is empty or longer than 20,000 characters, or an Idempotency-Key
+            is blank or longer than 255 characters (`invalid_message`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '404':
+          description: No task with this id exists for the organization (`task_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The task has finished and stops accepting messages (`task_finished`),
+            or the caller reused the same Idempotency-Key with different text (`idempotency_conflict`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The `trigger_event_id` path parameter is not a valid UUID, or
+            the request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: Task intake or lookup is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
 components:
   schemas:
     ApiTriggerAcceptedResponse:
@@ -505,7 +640,7 @@ components:
           title: Status
           description: Current status, mirroring the docs pull request's state (open,
             draft, merged, or closed). Null when the suggestion is drafted but no docs
-            PR has been opened yet; draft when a draft docs PR is open.
+            PR has been opened yet. Draft when a draft docs PR is open.
         url:
           type: string
           title: Url
@@ -602,6 +737,255 @@ components:
             $ref: '#/components/schemas/Suggestion'
       required:
       - suggestions
+    TaskMessage:
+      type: object
+      title: TaskMessage
+      description: A single message in a task's conversation.
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          description: Stable, immutable identifier for the message. Deduplicate on it.
+          examples:
+          - b1e2c3d4-5678-90ab-cdef-1234567890ab
+        trigger_event_id:
+          type: string
+          format: uuid
+          title: Trigger Event Id
+          description: Identifier of the task this message belongs to.
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+        sequence:
+          type: integer
+          title: Sequence
+          description: The message's order within the task.
+          examples:
+          - 1
+        author:
+          type: object
+          title: Author
+          description: Who wrote the message.
+          properties:
+            type:
+              type: string
+              enum:
+              - promptless
+              - customer
+              title: Type
+            name:
+              type:
+              - string
+              - 'null'
+              title: Name
+              description: The customer's email when available, otherwise null.
+          required:
+          - type
+          - name
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: ISO 8601 time the message was created.
+        message:
+          type: string
+          title: Message
+          description: The message text.
+      required:
+      - id
+      - trigger_event_id
+      - sequence
+      - author
+      - created_at
+      - message
+    TaskSuggestionSummary:
+      type: object
+      title: TaskSuggestionSummary
+      description: A per-task summary of a suggestion the task produced. This is a lighter
+        shape than the Suggestion lifecycle feed.
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+          description: Stable identifier for the suggestion.
+          examples:
+          - 7c9e6679-7425-40de-944b-e07fc1f90ae7
+        title:
+          type:
+          - string
+          - 'null'
+          title: Title
+          description: Short summary of the documentation change.
+        description:
+          type:
+          - string
+          - 'null'
+          title: Description
+          description: Longer explanation of the change.
+        status:
+          type:
+          - string
+          - 'null'
+          enum:
+          - open
+          - draft
+          - merged
+          - closed
+          - null
+          title: Status
+          description: The docs pull request's state (open, draft, merged, or closed),
+            or null before a docs PR exists.
+        doc_collection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          title: Doc Collection Id
+          description: Identifier of the collection the suggestion targets.
+        docs_pr_url:
+          type:
+          - string
+          - 'null'
+          title: Docs Pr Url
+          description: Link to the documentation pull request, or null before a docs PR
+            exists.
+        branch_name:
+          type: string
+          title: Branch Name
+          description: The git branch in the documentation repository.
+        labels:
+          type: array
+          title: Labels
+          items:
+            type: string
+        assignees:
+          type: array
+          title: Assignees
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+          description: ISO 8601 time the suggestion was created.
+      required:
+      - id
+      - title
+      - description
+      - status
+      - doc_collection_id
+      - docs_pr_url
+      - branch_name
+      - labels
+      - assignees
+      - created_at
+    TaskStatusResponse:
+      type: object
+      title: TaskStatusResponse
+      description: The current status of a task and its persisted conversation.
+      properties:
+        trigger_event_id:
+          type: string
+          format: uuid
+          title: Trigger Event Id
+          description: The task's id.
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          title: Status
+          description: The task's current status. The status string can change over
+            time, so branch on finished to detect completion.
+        finished:
+          type: boolean
+          title: Finished
+          description: True when the task has completed or been skipped.
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+          description: ISO 8601 time the task was submitted.
+        source:
+          type: string
+          title: Source
+          description: The task's origin.
+        request:
+          type:
+          - string
+          - 'null'
+          title: Request
+          description: A one-line summary of the submitted request.
+        resolution:
+          type:
+          - string
+          - 'null'
+          title: Resolution
+          description: A note that distinguishes a deliberate no-op from a run that could
+            not finish.
+        suggestions:
+          type: array
+          title: Suggestions
+          description: The suggestions this task produced. Each entry is a per-task summary,
+            a lighter shape than the Suggestion lifecycle feed.
+          items:
+            $ref: '#/components/schemas/TaskSuggestionSummary'
+        status_guidance:
+          type: string
+          title: Status Guidance
+          description: Human- or LLM-readable advice for polling the task and interpreting
+            its outcome. Callers detect completion with finished.
+        messages:
+          type: array
+          title: Messages
+          description: The persisted conversation, latest 100, oldest-first. Empty for
+            task sources that do not support messages.
+          items:
+            $ref: '#/components/schemas/TaskMessage'
+      required:
+      - trigger_event_id
+      - status
+      - finished
+      - submitted_at
+      - source
+      - request
+      - resolution
+      - suggestions
+      - status_guidance
+      - messages
+    SendTaskMessageRequest:
+      type: object
+      title: SendTaskMessageRequest
+      description: JSON request body for appending a message to a task's conversation.
+      properties:
+        message:
+          type: string
+          title: Message
+          description: The instruction to add. Non-empty after trimming, up to 20,000
+            characters.
+          minLength: 1
+          maxLength: 20000
+          examples:
+          - Also document the 429 rate-limit response for this endpoint.
+      required:
+      - message
+    SendTaskMessageResponse:
+      type: object
+      title: SendTaskMessageResponse
+      description: Response body returned when a task message is stored or replayed.
+      properties:
+        message:
+          $ref: '#/components/schemas/TaskMessage'
+        deduplicated:
+          type: boolean
+          title: Deduplicated
+          description: True when this response replays a message stored earlier under
+            the same Idempotency-Key instead of storing a new one.
+          examples:
+          - false
+      required:
+      - message
+      - deduplicated
   securitySchemes:
     bearerAuth:
       type: http
