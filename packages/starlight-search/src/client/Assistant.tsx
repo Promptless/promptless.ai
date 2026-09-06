@@ -121,8 +121,8 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
       }
     }}>
     <header className="sp-panel-header"><h2><span aria-hidden="true">✦</span> {t.assistant}</h2><div>
-      <button className="sp-icon-button" onClick={() => void reset()} aria-label={t.clear} title={t.clear}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg></button>
-      <button className="sp-icon-button" onClick={onClose} aria-label={t.close} title={t.close}>×</button>
+      <button className="sp-icon-button" onClick={() => void reset()} aria-label={t.clear}><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"/></svg></button>
+      <button className="sp-icon-button" onClick={onClose} aria-label={t.closeAssistant}>×</button>
     </div></header>
     <div className="sp-conversation ph-no-capture ph-mask" ref={scroll} onScroll={() => { const element = scroll.current!; atBottom.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80; }}>
       {!messages.length && <div className="sp-welcome"><div className="sp-welcome-star" aria-hidden="true">✦</div><h3>{t.intro}</h3><p>{t.hint}</p><button onClick={() => void submit(t.page)}>{t.page} <span aria-hidden="true">↗</span></button></div>}

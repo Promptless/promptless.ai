@@ -133,7 +133,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
         <footer className="sp-search-footer"><span>↑ ↓ <span>{t.select}</span>　↵ <span>{t.open}</span></span><span className="sp-search-progress" role="status">{showProgress ? t.loading : ''}</span><button onClick={() => setOpen(false)}><kbd>Esc</kbd> {t.close}</button></footer>
       </div>
     </dialog>
-    {mounted && config.assistant && <Suspense fallback={panel ? <aside className="sp-panel" aria-label={t.assistant}><header className="sp-panel-header"><h2>✦ {t.assistant}</h2><button className="sp-icon-button" aria-label={t.close} onClick={() => { setPanel(false); requestAnimationFrame(restoreFocus); }}>×</button></header><p className="sp-status" role="status">{t.loadingAssistant}</p></aside> : null}>
+    {mounted && config.assistant && <Suspense fallback={panel ? <aside className="sp-panel" aria-label={t.assistant}><header className="sp-panel-header"><h2>✦ {t.assistant}</h2><button className="sp-icon-button" aria-label={t.closeAssistant} onClick={() => { setPanel(false); requestAnimationFrame(restoreFocus); }}>×</button></header><p className="sp-status" role="status">{t.loadingAssistant}</p></aside> : null}>
       <Assistant open={panel} config={config} t={t} initialQuestion={initialQuestion} onClose={() => { setPanel(false); requestAnimationFrame(restoreFocus); }} />
     </Suspense>}
   </>;

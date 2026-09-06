@@ -1,6 +1,6 @@
 const en = {
   search: 'Search', placeholder: 'Search the site…', ask: 'Ask Assistant', assistant: 'Assistant',
-  close: 'Close', clear: 'Clear conversation', stop: 'Stop generation', copy: 'Copy answer', copied: 'Copied',
+  close: 'Close', closeAssistant: 'Close assistant', clear: 'Clear conversation', stop: 'Stop generation', copy: 'Copy answer', copied: 'Copied',
   retry: 'Retry', helpful: 'Helpful', unhelpful: 'Not helpful', question: 'Ask a question…', send: 'Send question',
   intro: 'What would you like to know?', hint: 'Ask about a feature, find a setup guide, or explore this page.',
   page: 'Explain this page', thinking: 'Working on your question…', searching: 'Searching', reading: 'Reading',
@@ -17,7 +17,7 @@ const en = {
 };
 const es: typeof en = {
   search: 'Buscar', placeholder: 'Buscar en el sitio…', ask: 'Preguntar al asistente', assistant: 'Asistente',
-  close: 'Cerrar', clear: 'Borrar conversación', stop: 'Detener respuesta', copy: 'Copiar respuesta', copied: 'Copiado',
+  close: 'Cerrar', closeAssistant: 'Cerrar asistente', clear: 'Borrar conversación', stop: 'Detener respuesta', copy: 'Copiar respuesta', copied: 'Copiado',
   retry: 'Reintentar', helpful: 'Útil', unhelpful: 'No es útil', question: 'Haz una pregunta…', send: 'Enviar pregunta',
   intro: '¿Qué te gustaría saber?', hint: 'Pregunta sobre una función, busca una guía o explora esta página.',
   page: 'Explica esta página', thinking: 'Trabajando en tu pregunta…', searching: 'Buscando', reading: 'Leyendo',
