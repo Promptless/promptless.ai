@@ -74,11 +74,37 @@ Use `data-search-exclude` or `data-pagefind-ignore` to exclude an element, and
 does not exclude a page; each site must configure any additional private paths.
 Only published content belongs in this public index.
 
-MiniSearch indexes page titles, section headings and body text with weights
-4/3/1. Docs and API references get a 1.15 multiplier. Queries use AND matching,
-prefix matches and bounded edit-distance matching. Configuration identifiers
-retain underscores; Unicode words support English and Spanish without a custom
-stemmer. The search dialog follows the current route’s language, including Starlight’s
+MiniSearch indexes page titles, rendered meta descriptions, section headings and
+body text. The default weights are 4/3/2/1. Titles and descriptions count once per
+article; the article's body includes all its sections. Separate section records
+index headings and section text without repeating title or description boosts.
+Results are grouped by article before the ten-result limit, ranked by their
+strongest match without adding section scores together. Each result links to the
+article, with one additional section link when that section scores above the
+article match. This preserves direct anchors for specific settings and procedures.
+
+All field and content-type multipliers are configurable:
+
+```js
+starlightSearch({
+  ranking: {
+    fields: { title: 4, description: 3, heading: 2, body: 1 },
+    contentTypes: { docs: 1.15, api: 1.15, blog: 1, marketing: 1 },
+  },
+});
+```
+
+Omitted multipliers use the defaults above. Values must be finite and
+non-negative; zero disables a field or content type. Rebuild after changing
+ranking. The resolved configuration travels in the serialized index so browser
+and assistant searches always use identical settings.
+
+Queries use AND matching and prefix matching on the last term. Bounded fuzzy
+matching runs only when there are no literal or prefix results. Dotted filenames,
+hyphenated names and identifiers with underscores remain intact in queries; their
+component words are indexed too. For example, `promptless.yaml` requires that
+filename, while `yaml` can also find it. Unicode words support English and Spanish
+without a custom stemmer. The search dialog follows the current route’s language, including Starlight’s
 untranslated fallback pages. The shared API searches all locales by default and
 accepts locale and content-type filters; the assistant can search across languages.
 

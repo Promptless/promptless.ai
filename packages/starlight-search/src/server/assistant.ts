@@ -18,8 +18,9 @@ export function answerQuestion({ model, corpus, messages, pageId, locale, signal
       description: 'Find published site pages and sections using full-text search. Use short keywords, not full questions. Try alternate wording if needed. Search all languages unless a locale is specified.',
       inputSchema: z.object({ query: z.string().min(1).max(300), locale: z.string().max(30).optional() }),
       execute: async ({ query, locale }) => withinBudget({ results: corpus.search(query, { locale, limit: 6 }).map((result) => ({
-        pageId: result.pageId, sectionId: result.sectionId, title: result.title, heading: result.heading,
+        pageId: result.pageId, title: result.title, description: result.description,
         url: result.url, excerpt: result.text.slice(0, 500),
+        sections: result.sections.map(({ sectionId, heading, url, text }) => ({ sectionId, heading, url, excerpt: text.slice(0, 300) })),
       })) }),
     }),
     readPage: tool({

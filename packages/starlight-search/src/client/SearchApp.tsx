@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { ClientConfig, SearchResult } from '../core/types';
 import { excerpt } from '../core/excerpt';
 import { translations } from './i18n';
@@ -25,8 +25,15 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
   const [initialQuestion, setInitialQuestion] = useState<{ text: string; id: number }>();
   const [query, setQuery] = useState('');
   const { results, resultQuery, pending, showProgress, error, retry } = useSearch(config.manifestUrl, query, locale, open);
+  const entries = useMemo(() => results.flatMap((result, pageIndex) => [{
+    id: result.id, url: result.url, title: result.title, breadcrumbs: result.breadcrumbs,
+    text: result.description || result.text, terms: result.terms, section: false, position: pageIndex + 1,
+  }, ...result.sections.map((section) => ({
+    id: section.id, url: section.url, title: section.heading, breadcrumbs: [],
+    text: section.text, terms: section.terms, section: true, position: pageIndex + 1,
+  }))]), [results]);
   const [selection, setSelection] = useState<{ results: SearchResult[]; index: number }>();
-  const selected = selection?.results === results ? Math.min(selection.index, results.length) : 0;
+  const selected = selection?.results === results ? Math.min(selection.index, entries.length) : 0;
   const setSelected = (index: number) => setSelection({ results, index });
   const dialog = useRef<HTMLDialogElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -81,12 +88,12 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
     setOpen(false); setMounted(true); setPanel(true);
     setInitialQuestion({ text: query.trim(), id: ++requestCounter.current });
   };
-  const navigate = (result: SearchResult) => {
-    track('search_result_click', { query: resultQuery, url: result.url, position: results.indexOf(result) + 1 });
-    setOpen(false); window.location.assign(result.url);
+  const navigate = (entry: typeof entries[number]) => {
+    track('search_result_click', { query: resultQuery, url: entry.url, position: entry.position });
+    setOpen(false); window.location.assign(entry.url);
   };
   const askOption = config.assistant && Boolean(query.trim());
-  const count = results.length + (askOption ? 1 : 0);
+  const count = entries.length + (askOption ? 1 : 0);
   return <>
     <dialog className="sp-modal" ref={dialog} aria-label={t.search} onCancel={(event) => { event.preventDefault(); setOpen(false); }} onClick={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <div className="sp-modal-inner">
@@ -96,7 +103,7 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
             role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="sp-results" aria-activedescendant={count ? `sp-result-${selected}` : undefined}
             autoComplete="off" spellCheck="false" data-ph-unmask onKeyDown={(event) => {
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (count) setSelected((selected + (event.key === 'ArrowDown' ? 1 : -1) + count) % count); }
-              if (event.key === 'Enter') { event.preventDefault(); if (event.altKey || selected === results.length) ask(); else if (results[selected]) navigate(results[selected]); }
+              if (event.key === 'Enter') { event.preventDefault(); if (event.altKey || selected === entries.length) ask(); else if (entries[selected]) navigate(entries[selected]); }
             }} />
           {config.assistant && <button className="sp-ask-query" aria-label={t.ask} title={t.ask} disabled={!query.trim()} onClick={ask}><span className="sp-ask-label">{t.ask}</span><span aria-hidden="true">✦</span></button>}
           <button className="sp-icon-button sp-mobile-close" onClick={() => setOpen(false)} aria-label={t.close}>×</button>
@@ -107,15 +114,15 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
             {error && <button onClick={() => { retry(); input.current?.focus(); }}>{t.retry}</button>}
           </div>
           <div id="sp-results" role="listbox" aria-label={t.search} aria-busy={pending}>
-            {results.map((result, i) => <a key={result.id} id={`sp-result-${i}`} role="option" aria-selected={selected === i} className="sp-result" tabIndex={-1} href={result.url}
-              onPointerMove={() => setSelected(i)} onClick={(event) => { event.preventDefault(); navigate(result); }}>
-              <span className="sp-result-icon" aria-hidden="true">{result.sectionId ? '#' : '▤'}</span>
-              <span className="sp-result-content"><span className="sp-result-title"><Highlight text={result.sectionId ? result.heading : result.title} terms={result.terms} /></span>
-                <span className="sp-breadcrumb">{[...result.breadcrumbs, ...(result.sectionId ? [result.title] : [])].join(' › ')}</span>
-                <span className="sp-excerpt"><Highlight text={excerpt(result.text, result.terms)} terms={result.terms} /></span>
+            {entries.map((entry, i) => <a key={entry.id} id={`sp-result-${i}`} role="option" aria-selected={selected === i} className={`sp-result${entry.section ? ' sp-section-result' : ''}`} tabIndex={-1} href={entry.url}
+              onPointerMove={() => setSelected(i)} onClick={(event) => { event.preventDefault(); navigate(entry); }}>
+              <span className="sp-result-icon" aria-hidden="true">{entry.section ? '#' : '▤'}</span>
+              <span className="sp-result-content"><span className="sp-result-title"><Highlight text={entry.title} terms={entry.terms} /></span>
+                {entry.breadcrumbs.length > 0 && <span className="sp-breadcrumb">{entry.breadcrumbs.join(' › ')}</span>}
+                <span className="sp-excerpt"><Highlight text={excerpt(entry.text, entry.terms)} terms={entry.terms} /></span>
               </span><span className="sp-result-enter" aria-hidden="true">↵</span>
             </a>)}
-            {askOption && <button id={`sp-result-${results.length}`} role="option" aria-selected={selected === results.length} className="sp-result sp-ask-result" tabIndex={-1} onPointerMove={() => setSelected(results.length)} onClick={ask}>
+            {askOption && <button id={`sp-result-${entries.length}`} role="option" aria-selected={selected === entries.length} className="sp-result sp-ask-result" tabIndex={-1} onPointerMove={() => setSelected(entries.length)} onClick={ask}>
               <span aria-hidden="true">✦</span><span>{t.ask}: <strong>{query}</strong></span><span aria-hidden="true">↵</span>
             </button>}
           </div>

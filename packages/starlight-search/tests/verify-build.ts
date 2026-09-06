@@ -27,7 +27,7 @@ for (const page of content.pages) {
     assert.deepEqual(search(index, query), corpus.search(query), `browser/server parity: ${query}`);
   }
 }
-assert.equal(index.documentCount, documentsFor(content.pages).length);
+assert.equal(index.engine.documentCount, documentsFor(content.pages).length);
 const manifest = JSON.parse(await readFile(join(output, 'starport-search/manifest.json'), 'utf8'));
 assert.deepEqual(JSON.parse(await readFile(join(output, 'starport-search', manifest.index), 'utf8')), serialized);
 const functionDir = '.vercel/output/functions/_render.func';

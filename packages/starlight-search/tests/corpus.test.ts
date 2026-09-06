@@ -59,7 +59,7 @@ test('retains locale and custom API classification', () => {
 test('exact identifiers, prefixes and ordinary transposed typos use MiniSearch ranking', () => {
   const page = extractPage(html, '/docs/slack/')!;
   const index = createIndex([page]);
-  assert.equal(search(index, 'SLACK_BOT_TOKEN')[0].sectionId, 'actual-setup-anchor');
+  assert.equal(search(index, 'SLACK_BOT_TOKEN')[0].sections[0].sectionId, 'actual-setup-anchor');
   assert.ok(search(index, 'slcak').length);
   assert.ok(search(index, 'conf').length);
   assert.equal(search(index, 'SLACK_NONEXISTENT_TOKEN').length, 0);
@@ -79,9 +79,12 @@ test('browser serialization and server search/read use the same rendered artifac
     const out = join(dir, 'site'), artifacts = join(dir, 'artifacts');
     await mkdir(join(out, 'api', 'slack'), { recursive: true });
     await writeFile(join(out, 'api', 'slack', 'index.html'), html);
-    await buildCorpus(out, artifacts, {});
+    await buildCorpus(out, artifacts, { ranking: { fields: { description: 7, heading: 0 }, contentTypes: { api: 2 } } });
     const serialized = JSON.parse(await readFile(join(artifacts, 'index.json'), 'utf8')) as SearchArtifact;
     const browserIndex = loadIndex(serialized);
+    assert.equal(browserIndex.ranking.fields.description, 7);
+    assert.equal(browserIndex.ranking.fields.heading, 0);
+    assert.equal(browserIndex.ranking.contentTypes.api, 2);
     const corpus = await loadCorpus(artifacts);
     assert.deepEqual(search(browserIndex, 'SLACK_BOT_TOKEN'), corpus.search('SLACK_BOT_TOKEN'));
     assert.ok(corpus.readPage('/api/slack/', 'actual-setup-anchor')?.sections[0].markdown.includes('export SLACK_BOT_TOKEN'));

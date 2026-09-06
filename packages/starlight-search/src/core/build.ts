@@ -20,7 +20,8 @@ export async function buildCorpus(outDir: string, artifactDir: string, options: 
     if (page) pages.push(page);
   }
   if (!pages.length) throw new Error('Starport search found no eligible main content in the rendered site.');
-  const artifact: SearchArtifact = { version: 1, generatedAt: new Date().toISOString(), index: createIndex(pages).toJSON() };
+  const { engine, ranking } = createIndex(pages, options.ranking);
+  const artifact: SearchArtifact = { version: 2, generatedAt: new Date().toISOString(), ranking, index: engine.toJSON() };
   const serialized = JSON.stringify(artifact);
   const hash = createHash('sha256').update(serialized).digest('hex').slice(0, 16);
   const publicDir = join(outDir, 'starport-search');

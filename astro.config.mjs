@@ -100,6 +100,10 @@ export default defineConfig({
       plugins: [
         starlightSearch({
           assistant: ASSISTANT_ENABLED,
+          ranking: {
+            fields: { title: 4, description: 3, heading: 2, body: 1 },
+            contentTypes: { docs: 1.15, api: 1.15, blog: 1, marketing: 1 },
+          },
           apiPaths: ['/docs/for-docs/api'],
           docsPaths: ['/docs'],
           exclude: [...hiddenSitemapPaths, '/report/*', '/docs/internal/*', '/docs/marketing-images/*'],

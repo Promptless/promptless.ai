@@ -10,6 +10,7 @@ export interface Section {
 export interface Page {
   id: string;
   title: string;
+  description: string;
   locale: string;
   type: ContentType;
   breadcrumbs: string[];
@@ -22,16 +23,49 @@ export interface SearchDocument {
   sectionId: string;
   url: string;
   title: string;
+  pageTitle: string;
+  description: string;
   heading: string;
+  body: string;
   text: string;
   locale: string;
   type: ContentType;
   breadcrumbs: string[];
 }
 
-export interface SearchResult extends SearchDocument {
+export interface SectionMatch {
+  id: string;
+  sectionId: string;
+  heading: string;
+  url: string;
+  text: string;
   score: number;
   terms: string[];
+}
+
+export interface SearchResult {
+  id: string;
+  pageId: string;
+  url: string;
+  title: string;
+  description: string;
+  text: string;
+  locale: string;
+  type: ContentType;
+  breadcrumbs: string[];
+  sections: SectionMatch[];
+  score: number;
+  terms: string[];
+}
+
+export interface SearchRanking {
+  fields: Record<'title' | 'description' | 'heading' | 'body', number>;
+  contentTypes: Record<ContentType, number>;
+}
+
+export interface SearchRankingOptions {
+  fields?: Partial<SearchRanking['fields']>;
+  contentTypes?: Partial<SearchRanking['contentTypes']>;
 }
 
 export interface SearchFilters {
@@ -41,8 +75,9 @@ export interface SearchFilters {
 }
 
 export interface SearchArtifact {
-  version: 1;
+  version: 2;
   generatedAt: string;
+  ranking: SearchRanking;
   index: ReturnType<import('minisearch').default<SearchDocument>['toJSON']>;
 }
 
@@ -52,6 +87,8 @@ export interface ContentArtifact {
 }
 
 export interface SearchOptions {
+  /** Serialized with the index so browser and assistant agree. Rebuild after changes. */
+  ranking?: SearchRankingOptions;
   /** Enable the Node endpoint. Configure ANTHROPIC_API_KEY at build and runtime. */
   assistant?: boolean;
   /** Exact paths or path prefixes ending in /*. Applied before extraction. */

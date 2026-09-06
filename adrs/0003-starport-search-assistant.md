@@ -30,6 +30,12 @@ Both product docs, generated API pages, blog posts and marketing pages enter the
 corpus. Existing hidden-site paths and explicit internal/report paths are
 excluded. Docs/API references receive a modest ranking preference.
 
+Prefer articles about the query: index rendered descriptions and use configurable
+title/description/heading/body weights of 4/3/2/1. Preserve complete filenames
+such as `promptless.yaml` in query matching, and group sections by article before
+limiting results. Article links lead; a stronger section match adds a direct
+anchor link. The shared serialized index carries the resolved ranking weights.
+
 Update the custom header's search import and retain the homepage announcement.
 The plugin's page frame mounts the panel across Starlight pages; colors and
 type inherit Promptless's current theme. Session state stays in the browser tab.

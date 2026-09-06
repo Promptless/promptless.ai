@@ -28,6 +28,7 @@ export function extractPage(html: string, path: string, options: SearchOptions =
   // Starlight omits this marker for pagefind:false, even with its own search disabled.
   if ($('[data-starport-page]').length && !main.is('[data-pagefind-body]')) return null;
   const title = cleanText(main.find('h1').first().text() || $('title').text().split('|')[0] || path);
+  const description = cleanText($('meta[name="description"]').attr('content') || '');
   // The route language includes Starlight's fallback pages in their browsed locale.
   const locale = $('html').attr('lang') || main.attr('lang') || 'en';
   const active = $('#starlight__sidebar a[aria-current="page"]').first();
@@ -80,5 +81,5 @@ export function extractPage(html: string, path: string, options: SearchOptions =
   const type = inPaths(path, options.apiPaths ?? ['/api']) ? 'api'
     : inPaths(path, ['/blog', '/changelog']) ? 'blog'
     : inPaths(path, options.docsPaths ?? ['/docs', '/getting-started', '/guides', '/es']) ? 'docs' : 'marketing';
-  return { id: path, title, locale, type, breadcrumbs, sections };
+  return { id: path, title, description, locale, type, breadcrumbs, sections };
 }
