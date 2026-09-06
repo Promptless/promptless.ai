@@ -5,7 +5,7 @@ import { parseRequest, createThrottle } from '../src/server/limits';
 import { messageText, requestHistory, saveChat, loadChat } from '../src/client/session';
 import type { UIMessage } from 'ai';
 
-const request = (messages: unknown, extra: object = {}) => new Request('https://docs.example/api/starport/assistant', {
+const request = (messages: unknown, extra: object = {}) => new Request('https://docs.example/_starport/assistant', {
   method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages, pageId: '/docs/', ...extra }),
 });
 

@@ -16,7 +16,7 @@ export function searchIntegration(options: SearchOptions, siteTitle: string): As
         const dev = command === 'dev';
         const clientConfig: ClientConfig = {
           assistant: options.assistant === true,
-          endpoint: `${base.replace(/\/$/, '')}/api/starport/assistant`,
+          endpoint: `${base.replace(/\/$/, '')}/_starport/assistant`,
           manifestUrl: `${base.replace(/\/$/, '')}/starport-search/manifest.json`,
           siteTitle, dev,
         };

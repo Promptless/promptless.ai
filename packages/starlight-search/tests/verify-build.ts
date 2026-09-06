@@ -32,6 +32,16 @@ const manifest = JSON.parse(await readFile(join(output, 'starport-search/manifes
 assert.deepEqual(JSON.parse(await readFile(join(output, 'starport-search', manifest.index), 'utf8')), serialized);
 const functionDir = '.vercel/output/functions/_render.func';
 if (output !== 'dist' && await exists(functionDir)) {
+  const { routes } = JSON.parse(await readFile('.vercel/output/config.json', 'utf8')) as {
+    routes: { src?: string; dest?: string; status?: number; headers?: Record<string, string> }[];
+  };
+  const assistantRoute = routes.findIndex((route) => route.dest && route.src?.includes('/_starport/assistant'));
+  if (assistantRoute >= 0) {
+    for (const route of routes.slice(0, assistantRoute)) {
+      if (!route.src || !route.headers?.Location || !route.status || route.status < 300 || route.status >= 400) continue;
+      assert.ok(!new RegExp(route.src).test('/_starport/assistant'), `Assistant is shadowed by redirect ${route.src}`);
+    }
+  }
   for (const file of ['index.json', 'pages.json']) {
     assert.equal(await readFile(join(functionDir, '.starport/search', file), 'utf8'), await readFile(join('.starport/search', file), 'utf8'));
   }

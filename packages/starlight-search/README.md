@@ -28,7 +28,9 @@ starlightSearch({
 
 The template already wires this up. `ANTHROPIC_API_KEY` must be available to the
 build process (to expose the assistant UI) and the Node server (to call Anthropic).
-On Vercel, add it to Preview and Production as appropriate, then rebuild. For
+The same-origin endpoint is `/_starport/assistant`, outside legacy `/api/*`
+reference redirects. On Vercel, add the key to Preview and Production as
+appropriate, then rebuild. For
 local development, export the variable in the shell before running Astro. Never
 use a `PUBLIC_` prefix. Removing the key requires rebuilding to hide entry points;
 the endpoint returns 503 immediately if its runtime key is absent.
