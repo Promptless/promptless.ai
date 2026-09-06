@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { budgetHistory, MAX_HISTORY_CHARS, type HistoryMessage } from '../src/core/conversation';
+import { budgetHistory, MAX_HISTORY_CHARS, MAX_HISTORY_MESSAGES, type HistoryMessage } from '../src/core/conversation';
 import { parseRequest, createThrottle } from '../src/server/limits';
 import { messageText, requestHistory, saveChat, loadChat } from '../src/client/session';
 import type { UIMessage } from 'ai';
@@ -51,6 +51,47 @@ test('client drops abandoned questions and sends only text, never tool transcrip
     { id: '4', role: 'user', parts: [{ type: 'text', text: 'follow up' }] },
   ];
   assert.deepEqual(requestHistory(messages), [{ role: 'user', content: 'new question' }, { role: 'assistant', content: 'answer' }, { role: 'user', content: 'follow up' }]);
+});
+
+test('short follow-ups past 50 turns fit the server message limit without splitting turns', async () => {
+  const messages: UIMessage[] = Array.from({ length: 201 }, (_, i) => ({
+    id: String(i), role: i % 2 ? 'assistant' : 'user', parts: [{ type: 'text', text: `Message ${i}` }],
+  }));
+  for (const length of [99, 101, 103, 201]) {
+    const history = requestHistory(messages.slice(0, length));
+    assert.ok(history.length <= MAX_HISTORY_MESSAGES);
+    assert.equal(history.length, 99);
+    assert.equal(history[0].content, `Message ${length - 99}`);
+    assert.equal(history.at(-1)?.content, `Message ${length - 1}`);
+    assert.deepEqual((await parseRequest(request(history))).messages, history);
+  }
+});
+
+test('request abort and the overall deadline cancel an unfinished upload', { timeout: 1000 }, async () => {
+  for (const timeout of [false, true]) {
+    const controller = new AbortController();
+    const signal = timeout ? AbortSignal.timeout(20) : controller.signal;
+    let cancelled: unknown;
+    const body = new ReadableStream({
+      start(stream) { stream.enqueue(new TextEncoder().encode('{"messages":')); },
+      cancel(reason) { cancelled = reason; return new Promise<void>(() => {}); },
+    });
+    const req = new Request('https://docs.example/api', { method: 'POST', body, signal: controller.signal, headers: { 'Content-Type': 'application/json' }, duplex: 'half' } as RequestInit);
+    const parsed = timeout ? parseRequest(req, signal) : parseRequest(req);
+    const rejected = assert.rejects(parsed, { name: timeout ? 'TimeoutError' : 'AbortError' });
+    if (!timeout) controller.abort();
+    await rejected;
+    assert.equal(cancelled, signal.reason);
+    assert.equal(body.locked, false);
+  }
+});
+
+test('already-aborted requests fail before consuming the body', async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const req = request([{ role: 'user', content: 'Hi' }]);
+  await assert.rejects(parseRequest(req, controller.signal), { name: 'AbortError' });
+  assert.equal(req.bodyUsed, false);
 });
 
 test('session persistence preserves sources and interruption; clearing removes the conversation', () => {

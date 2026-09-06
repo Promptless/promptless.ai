@@ -126,6 +126,10 @@ non-negative; zero disables a field or content type. Rebuild after changing
 ranking. The resolved configuration travels in the serialized index so browser
 and assistant searches always use identical settings.
 
+Article records include section headings, so a query such as `Slack permissions`
+can combine a page title with a heading. Separate section records retain their
+anchor links without repeating the article's title or description boosts.
+
 Queries use AND matching and prefix matching on the last term. Bounded fuzzy
 matching runs only when there are no literal or prefix results. Dotted filenames,
 hyphenated names and identifiers with underscores remain intact in queries; their
@@ -140,8 +144,9 @@ control is approached or opened. A worker loads and searches it once per page.
 HTTP caching reuses the hashed artifact across navigation. Assistant search uses
 the same index and query function. `readPage` accesses only indexed IDs.
 
-Index readiness is separate from query results. Empty input shows the welcome
-message while the index preloads; non-empty queries run immediately in the
+Index readiness is separate from query results. Empty input shows recent
+destinations or configured starter links while the index preloads, with a short
+prompt when neither is available. Non-empty queries run immediately in the
 worker. Each completed result set retains its query and locale, and stays visible
 until its replacement arrives. Keyboard selection belongs to that displayed set.
 Operations lasting over 250ms show progress in the existing footer without
@@ -163,17 +168,21 @@ second source-based index.
 
 - Up to three tool-use rounds followed by a final response; approximately 1,000
   generated tokens across the answer (including tool arguments) and a 30-second
-  request deadline. Request aborts cancel provider
+  request deadline, including reading the incoming body. Request aborts cancel provider
   work. Search and reading tools run directly in the same process.
 - Questions: 4,000 characters. Prior answers: up to 20,000 characters. Request
-  bodies: 128 KB. History: 24,000 characters, dropping oldest complete turns.
+  bodies: 128 KB. History: 24,000 characters and 100 messages, dropping oldest
+  complete turns with the same budget on client and server.
   Read content: at most 10,000 characters per call. All serialized tool results
   share a 32,000-character budget per answer.
 - The browser sends text history only. Tool transcripts are not accepted from
   clients or stored as conversation history. Follow-ups can search and read again.
 - `sessionStorage` holds conversation text, source links, interruption status
   and panel state in the current tab. No automatic resumption, accounts or
-  server-side conversation storage. Clear deletes the conversation. Storage
+  server-side conversation storage. Clear deletes the conversation. Clear, retry,
+  stop and replacement questions wait for the previous SDK request to settle;
+  callbacks from superseded requests cannot restore an interruption or error.
+  Storage
   failures show a notice and leave the current interaction usable.
 - The endpoint accepts same-origin JSON requests and applies an in-memory limit
   of 20 questions per IP per ten minutes, with a bounded map. This is approximate

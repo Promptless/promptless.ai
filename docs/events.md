@@ -159,8 +159,8 @@ Fires when a visitor changes the Growth plan page-range dropdown on /pricing.
 
 ## `site_searched`
 
-Fires when a nonempty Starport search query completes
-(debounced 70ms). The Starport event bridge in `posthog.astro` replaces the
+Fires after a nonempty Starport search query completes and remains current for
+200ms. Queries run immediately; only analytics are debounced. The Starport event bridge in `posthog.astro` replaces the
 old Pagefind observer.
 
 | Property | Type | Description |
@@ -168,7 +168,7 @@ old Pagefind observer.
 | `query` | string | Search text |
 | `page_url` | string | Pathname where the search happened |
 | `results` | number | Number of displayed results |
-| `latency_ms` | number | Input-to-results duration, including debounce and initial loading |
+| `latency_ms` | number | Input-to-results duration, including initial loading but excluding the analytics debounce |
 | `query_ms` | number | Search execution time in the worker |
 
 ---
@@ -206,7 +206,7 @@ include `page_url`; no full answer text or tool-result transcripts are recorded.
 
 | Event | Additional properties |
 | --- | --- |
-| `site_search_result_clicked` | `query`, `url`, `position` |
+| `site_search_result_clicked` | `query`, `url`, `position`, `source` (`search`, `recent`, or `starter`) |
 | `site_search_error` | `code` |
 | `docs_assistant_question` | `question`, `question_length` |
 | `docs_assistant_source_clicked` | `url` |

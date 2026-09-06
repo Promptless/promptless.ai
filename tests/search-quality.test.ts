@@ -12,7 +12,10 @@ const tasks = [
   { query: 'slack_listen', path: '/docs/for-docs/connect/triggers/slack-messages/', within: 3 },
   { query: 'INSTRUCTION_HUB_ANALYSIS_MODEL_NAME', path: '/docs/governance/deploy-the-worker/configuration-reference/', within: 1 },
   { query: 'API authentication', path: '/docs/for-docs/connect/triggers/api/', within: 3 },
-  { query: 'submit API trigger', path: '/docs/for-docs/api/operations/submitapitrigger/', within: 1 },
+  { query: 'API triggers error responses', path: '/docs/for-docs/connect/triggers/api/', within: 1 },
+  { query: 'promptless ingestion', path: '/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs/', within: 3 },
+  // The usage guide and endpoint reference are both useful for this task.
+  { query: 'submit API trigger', path: '/docs/for-docs/api/operations/submitapitrigger/', within: 3 },
   { query: 'install plugin', path: '/docs/governance/get-started/publish-and-install-plugins/', within: 3 },
   { query: 'agent instructions', path: '/docs/governance/', within: 3 },
   { query: 'pricing', path: '/pricing/', within: 1 },

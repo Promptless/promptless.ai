@@ -30,7 +30,7 @@ export function documentsFor(pages: Page[]): SearchDocument[] {
     const common = { pageId: page.id, pageTitle: page.title, locale: page.locale, type: page.type, breadcrumbs: page.breadcrumbs };
     return [{
       ...common, id: page.id, sectionId: '', url: page.id, title: page.title,
-      description: page.description, heading: '', text: page.sections[0]?.text || '',
+      description: page.description, heading: page.sections.filter((section) => section.id).map((section) => section.heading).join('\n'), text: page.sections[0]?.text || '',
       body: page.sections.map((section) => section.text).join('\n'),
     }, ...page.sections.filter((section) => section.id).map((section) => ({
       ...common, id: `${page.id}#${section.id}`, sectionId: section.id,

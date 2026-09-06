@@ -8,6 +8,7 @@ import { MAX_QUESTION_CHARS } from '../core/conversation';
 import type { Labels } from './i18n';
 import { track } from './events';
 import { loadChat, messageText, requestHistory, saveChat, sourcesFor } from './session';
+import { ChatActions } from './chat-actions';
 
 function Activity({ message, t }: { message: UIMessage; t: Labels }) {
   return <>{message.parts.map((part, i) => {
@@ -26,6 +27,7 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   config: ClientConfig; t: Labels; open: boolean; onClose: () => void; initialQuestion?: { text: string; id: number };
 }) {
   const [saved] = useState(loadChat);
+  const [actions] = useState(() => new ChatActions());
   const [interrupted, setInterrupted] = useState(saved.interrupted);
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState('');
@@ -53,10 +55,13 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   const { messages, sendMessage, regenerate, stop, status, error, setMessages, clearError } = useChat({
     messages: saved.messages, transport, throttle: 40,
     onFinish: ({ isAbort, isDisconnect, isError, finishReason }) => {
-      setInterrupted(isAbort || isDisconnect || isError || finishReason === 'length');
+      if (actions.acceptsEvents) setInterrupted(isAbort || isDisconnect || isError || finishReason === 'length');
       if (startedAt.current) track('assistant_latency', { stage: 'complete', latency_ms: Math.round(performance.now() - startedAt.current), interrupted: isAbort || isDisconnect || isError });
     },
-    onError: (error) => { setInterrupted(true); track('assistant_error', { code: error.message === 'RATE_LIMIT' ? 'rate_limit' : 'request_failed' }); },
+    onError: (error) => {
+      if (!actions.acceptsEvents) return;
+      setInterrupted(true); track('assistant_error', { code: error.message === 'RATE_LIMIT' ? 'rate_limit' : 'request_failed' });
+    },
   });
   const busy = status === 'streaming' || status === 'submitted';
 
@@ -89,10 +94,11 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   const begin = () => { setInterrupted(false); clearError(); setNotice(''); startedAt.current = performance.now(); firstText.current = false; atBottom.current = true; };
   const submit = async (question: string) => {
     if (!question.trim()) return;
-    if (busy) await stop();
-    begin(); setInput('');
-    track('assistant_question', { question: question.trim(), question_length: question.trim().length });
-    await sendMessage({ text: question.trim() });
+    await actions.run(stop, async () => {
+      begin(); setInput('');
+      track('assistant_question', { question: question.trim(), question_length: question.trim().length });
+      await sendMessage({ text: question.trim() });
+    });
   };
   useEffect(() => {
     if (initialQuestion && initialQuestion.id !== lastSubmitted.current) {
@@ -100,11 +106,12 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
       void submit(initialQuestion.text);
     }
   }, [initialQuestion]);
-  const retry = async (messageId?: string) => { if (busy) await stop(); begin(); await regenerate({ messageId }); };
-  const reset = async () => {
-    await stop(); setMessages([]); clearError(); setInterrupted(false); setFeedback({}); setNotice(''); setInput('');
+  const retry = (messageId?: string) => actions.run(stop, async () => { begin(); await regenerate({ messageId }); });
+  const reset = () => actions.run(stop, () => {
+    setMessages([]); clearError(); setInterrupted(false); setFeedback({}); setNotice(''); setInput('');
     saveChat([], false); composer.current?.focus();
-  };
+  });
+  const cancel = () => actions.run(stop, () => { setInterrupted(true); });
   const sourceClick = (url: string) => {
     saveChat(messages, busy || interrupted); track('assistant_source_click', { url });
   };
@@ -154,7 +161,7 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
         <textarea ref={composer} value={input} onChange={(event) => setInput(event.target.value)} placeholder={t.question} aria-label={t.question} rows={2} maxLength={MAX_QUESTION_CHARS}
           onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (!busy) void submit(input); } }} />
         <div className="sp-composer-footer"><span>{config.siteTitle}</span>{busy
-          ? <button type="button" className="sp-send" onClick={() => { setInterrupted(true); void stop(); }} aria-label={t.stop} title={t.stop}>■</button>
+          ? <button type="button" className="sp-send" onClick={() => void cancel()} aria-label={t.stop} title={t.stop}>■</button>
           : <button type="submit" className="sp-send" disabled={!input.trim()} aria-label={t.send} title={t.send}>↑</button>}
         </div>
       </form>

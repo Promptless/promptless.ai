@@ -26,7 +26,7 @@ test('description identifies the article; filenames cannot match disconnected wo
 });
 
 test('page limit applies after grouping and specific section matches keep real links', () => {
-  const manySections = page('/docs/large/', 'Long guide', '', Array.from({ length: 20 }, () => ['Needle', 'Exact needle settings.']));
+  const manySections = page('/docs/large/', 'Long guide', '', Array.from({ length: 20 }, (_, i) => [i === 0 ? 'Needle' : `Other settings ${i}`, 'Exact needle settings.']));
   const small = page('/docs/small/', 'Small guide', 'Needle settings for a different product.');
   const results = search(createIndex([manySections, small]), 'needle', { limit: 2 });
   assert.equal(results.length, 2);
@@ -41,6 +41,18 @@ test('article title and words across sections combine without copying title boos
   const guide = page('/docs/slack/', 'Slack', '', [['Credentials', 'Authorize access.'], ['Permissions', 'Use a token.']]);
   assert.equal(search(createIndex([guide]), 'Slack token')[0].pageId, guide.id);
   assert.equal(search(createIndex([guide]), 'authorize token')[0].pageId, guide.id);
+});
+
+test('page titles, descriptions and section headings can satisfy one multiword query', () => {
+  const guide = page('/docs/slack/', 'Slack integration', 'Connect your workspace.', [['Credentials', 'Authorize access.'], ['Permissions', 'Request the following scopes.']]);
+  const index = createIndex([guide]);
+  const restored = loadIndex({ version: 2, index: index.engine.toJSON(), ranking: index.ranking } as SearchArtifact);
+  for (const query of ['slack permissions', 'workspace permissions', 'credentials permissions']) {
+    const results = search(index, query);
+    assert.equal(results[0]?.pageId, guide.id, query);
+    assert.deepEqual(search(restored, query), results, 'browser and server agree');
+  }
+  assert.deepEqual(search(createIndex([guide], { fields: { heading: 0 } }), 'slack permissions'), []);
 });
 
 test('field and content-type multipliers change ordering and support disabling fields', () => {
