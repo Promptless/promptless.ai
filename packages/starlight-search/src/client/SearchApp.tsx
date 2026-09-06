@@ -120,8 +120,13 @@ export default function SearchApp({ config }: { config: ClientConfig }) {
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
                 <path d="M14 2v6h6M8 12h8M8 16h8M8 8h2" />
               </svg>}</span>
-              <span className="sp-result-content"><span className="sp-result-title"><Highlight text={entry.title} terms={entry.terms} /></span>
-                {entry.breadcrumbs.length > 0 && <span className="sp-breadcrumb">{entry.breadcrumbs.join(' › ')}</span>}
+              <span className="sp-result-content"><span className="sp-result-heading">
+                <span className="sp-result-title" title={entry.title}><Highlight text={entry.title} terms={entry.terms} /></span>
+                {entry.breadcrumbs.length > 0 && <span className="sp-breadcrumb">
+                  <span className="sp-breadcrumb-text">{entry.breadcrumbs.length > 1 && <span className="sp-breadcrumb-ancestors">{entry.breadcrumbs.slice(0, -1).join(' › ')} › </span>}{entry.breadcrumbs.at(-1)}</span>
+                  <span className="sp-breadcrumb-tooltip" aria-hidden="true">{entry.breadcrumbs.join(' › ')}</span>
+                </span>}
+                </span>
                 <span className="sp-excerpt"><Highlight text={excerpt(entry.text, entry.terms)} terms={entry.terms} /></span>
               </span><span className="sp-result-enter" aria-hidden="true">↵</span>
             </a>)}
