@@ -346,18 +346,18 @@ GET /v1/triggers/{trigger_event_id}
 
 `trigger_event_id` is the id returned by `POST /v1/triggers`. A successful request returns `200 OK` with the task's current state:
 
-| Field              | Type           | Description                                                                                                                                                |
-| ------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trigger_event_id` | string (UUID)  | The task's id.                                                                                                                                             |
-| `status`           | string         | The task's current status. The `status` string can change over time, so branch on `finished` to detect completion.                                         |
-| `finished`         | boolean        | `true` when the task has completed or been skipped.                                                                                                        |
-| `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                      |
-| `source`           | string         | The task's origin.                                                                                                                                         |
-| `request`          | string \| null | A one-line summary of the submitted request.                                                                                                               |
-| `resolution`       | string \| null | A human-readable note, not a fixed set of codes, that distinguishes a deliberate no-op from a run that could not finish. Read it for context after `finished` is `true`. |
-| `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed. |
+| Field              | Type           | Description                                                                                                                                                                  |
+| ------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trigger_event_id` | string (UUID)  | The task's id.                                                                                                                                                               |
+| `status`           | string         | The task's current status. The `status` string can change over time, so branch on `finished` to detect completion.                                                           |
+| `finished`         | boolean        | `true` when the task has completed or been skipped.                                                                                                                          |
+| `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                                        |
+| `source`           | string         | The task's origin.                                                                                                                                                           |
+| `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                 |
+| `resolution`       | string \| null | A human-readable note, not a fixed set of codes, that distinguishes a deliberate no-op from a run that could not finish. Read it for context after `finished` is `true`.     |
+| `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                   |
 | `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code. |
-| `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                          |
+| `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                            |
 
 Each entry in `suggestions` carries these fields:
 
@@ -496,16 +496,16 @@ For the full schema, see the [Send a task message reference](/docs/for-docs/api/
 
 Both operations return `401 authentication_failed` when the key is missing, invalid, or revoked. Both return `404 task_not_found` for an unknown task or one in another organization. Both return `503 runtime_store_unavailable` when the read store is temporarily unavailable.
 
-| Status | Error                       | Description                                                                                                                                    | Applies to |
-| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 404    | `task_not_found`            | Unknown task, or a task in another organization.                                                                                               | both       |
-| 422    | Validation error            | The `trigger_event_id` in the path isn't a valid UUID, or the request body is malformed.                                                       | both       |
-| 409    | `task_finished`             | The task has finished and stops accepting messages. A task that finished by reporting a blocker or a clarification request has still finished. To continue the work, submit a new trigger with `POST /v1/triggers`. | send       |
+| Status | Error                       | Description                                                                                                                                                                                                                                                             | Applies to |
+| ------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 404    | `task_not_found`            | Unknown task, or a task in another organization.                                                                                                                                                                                                                        | both       |
+| 422    | Validation error            | The `trigger_event_id` in the path isn't a valid UUID, or the request body is malformed.                                                                                                                                                                                | both       |
+| 409    | `task_finished`             | The task has finished and stops accepting messages. A task that finished by reporting a blocker or a clarification request has still finished. To continue the work, submit a new trigger with `POST /v1/triggers`.                                                     | send       |
 | 400    | `unsupported_task_source`   | Task messages are available for tasks submitted over the API or MCP and for MCP `request_changes` tasks. Read the task's status with `GET /v1/triggers/{trigger_event_id}` (status is available for every source), or submit the work as a new API trigger to converse. | send       |
-| 400    | `invalid_message`           | The message is empty or longer than 20,000 characters after trimming, or an `Idempotency-Key` that is blank or longer than 255 characters.     | send       |
-| 409    | `idempotency_conflict`      | The same `Idempotency-Key` was reused with different text.                                                                                     | send       |
-| 401    | `authentication_failed`     | The API key is missing, invalid, or revoked.                                                                                                   | both       |
-| 503    | `runtime_store_unavailable` | Task intake or lookup is temporarily unavailable.                                                                                              | both       |
+| 400    | `invalid_message`           | The message is empty or longer than 20,000 characters after trimming, or an `Idempotency-Key` that is blank or longer than 255 characters.                                                                                                                              | send       |
+| 409    | `idempotency_conflict`      | The same `Idempotency-Key` was reused with different text.                                                                                                                                                                                                              | send       |
+| 401    | `authentication_failed`     | The API key is missing, invalid, or revoked.                                                                                                                                                                                                                            | both       |
+| 503    | `runtime_store_unavailable` | Task intake or lookup is temporarily unavailable.                                                                                                                                                                                                                       | both       |
 
 ## View API triggers
 
