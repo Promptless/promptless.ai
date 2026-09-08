@@ -1,7 +1,7 @@
 import { DOCS_PRODUCTS, type DocsProduct } from './docs-products';
 
-export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs' | 'none';
-export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'free_tools' | 'jobs';
+export type SiteSection = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'jobs' | 'none';
+export type TopNavIcon = 'website' | 'pricing' | 'docs' | 'blog' | 'changelog' | 'jobs';
 
 interface TopNavBaseItem {
   section: SiteSection;
@@ -30,7 +30,6 @@ export const TOP_NAV_ITEMS: TopNavItem[] = [
   { section: 'docs', label: 'Docs', icon: 'docs', children: DOCS_PRODUCTS },
   { section: 'blog', href: '/blog', label: 'Blog', icon: 'blog' },
   { section: 'changelog', href: '/changelog', label: 'Changelog', icon: 'changelog' },
-  { section: 'free_tools', href: '/free-tools', label: 'Free tools', icon: 'free_tools' },
 ];
 
 function normalizePathname(pathname: string): string {
@@ -52,7 +51,6 @@ export function getActiveSection(pathname: string): SiteSection {
   if (normalized.startsWith('/docs')) return 'docs';
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
-  if (normalized.startsWith('/free-tools')) return 'free_tools';
   if (normalized === '/meet') return 'none';
   return 'website';
 }
