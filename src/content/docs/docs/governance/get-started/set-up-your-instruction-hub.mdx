@@ -15,19 +15,19 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-You scaffold and manage an [Instruction Hub](/docs/governance/start-here/key-concepts) with the `pig` toolchain. This guide walks you through creating one, filling in its manifest, importing your existing skills and MCP configs, and validating the result. For the toolchain's package identity and full command surface, see [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+You scaffold and manage an [Instruction Hub](/docs/governance/start-here/key-concepts) with the `pig` toolchain. This guide walks you through creating one, filling in its manifest, importing your existing skills and MCP configs, and validating the result. For the toolchain's plugin and marketplace identity and full command surface, see [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
 
 ## Scaffold a hub
 
 <Steps>
   1. **Create and enter an empty Git repository** for your hub.
 
-  2. **Run `pig init`** to write `hub.yaml`, the required `pig` package, and the asset and generated-output directories.
+  2. **Run `pig init`** to write `hub.yaml`, the required `pig` plugin, and the asset and generated-output directories.
 
      ```bash
      pig init --org "YourOrg" \
-       --plugin-id your-instruction-hub \
-       --plugin-name "Your Instruction Hub"
+       --marketplace-id yourorg-marketplace \
+       --marketplace-name "YourOrg Marketplace"
      ```
 
   3. **Commit the scaffold** so your hub starts from a clean, versioned baseline.
@@ -35,21 +35,25 @@ You scaffold and manage an [Instruction Hub](/docs/governance/start-here/key-con
 
 `pig init` sets `plugin_version` to `0.1.0` unless you pass `--plugin-version`. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference) for every flag.
 
+<Aside type="tip">
+  Already have an Instruction Hub built on an earlier configuration form? Follow the toolchain's [migration guide](https://github.com/Promptless/instruction-hub-toolchain#migrating-existing-hubs) to bring it up to the current schema. To pull loose skills and MCP configs from another repo into a new hub instead, see [Import existing instructions](#import-existing-instructions).
+</Aside>
+
 ## Configure hub.yaml
 
 `hub.yaml` is your hub's root manifest. Its schema forbids unknown keys, so a typo or an unsupported key fails validation instead of being ignored silently.
 
-| Key               | Required | Description                                                                                  |
-| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `org`             | Yes      | Your organization name.                                                                      |
-| `plugin_id`       | Yes      | A kebab-case identifier for the hub's plugins.                                               |
-| `plugin_name`     | Yes      | A human-readable display name.                                                               |
-| `plugin_version`  | Yes      | The hub's plugin version, in SemVer form.                                                    |
-| `stable_packages` | Yes      | The packages to compile. At least one, all unique, and the list must include `pig`.          |
-| `targets`         | No       | The compile targets: any of `claude`, `codex`, `gemini`, and `cursor`. Defaults to all four. |
+| Key                | Required | Description                                                                                  |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------- |
+| `org`              | Yes      | Your organization name.                                                                      |
+| `marketplace.id`   | Yes      | A kebab-case identifier for your marketplace, emitted as the marketplace manifest name.      |
+| `marketplace.name` | Yes      | A human-readable marketplace display name.                                                   |
+| `plugin_version`   | Yes      | The hub's plugin version, in SemVer form.                                                    |
+| `stable_plugins`   | No       | The plugins to compile. Non-empty, all unique, and must include `pig`. Defaults to `[pig]`.  |
+| `targets`          | No       | The compile targets: any of `claude`, `codex`, `cursor`, and `gemini`. Defaults to all four. |
 
 <Aside type="note">
-  `stable_packages` must always contain `pig`. The `pig` package carries the managed update skill and the host runtime that the toolchain injects at compile time.
+  `stable_plugins` must always contain `pig`. The `pig` plugin carries the managed update skill and the host runtime that the toolchain injects at compile time.
 </Aside>
 
 ## Repo layout
@@ -59,18 +63,18 @@ After you scaffold and start authoring, a hub looks like this:
 ```text
 hub.yaml                        # root manifest
 hub.repo-context.json           # inventory of context files (AGENTS.md, CLAUDE.md, GEMINI.md)
-packages/<id>.yaml              # one file per package
+plugins/<id>.yaml               # one file per plugin
 assets/
   skills/<id>/SKILL.md          # skill assets (with optional references/, scripts/, asset.yaml)
   commands/<id>.md              # command assets
   mcps/<id>.json                # MCP configs
   # pig init also scaffolds assets/rules, assets/agents, and assets/hooks
 .github/workflows/              # hand-authored thin caller workflows for PR checks and publishing
-dist/<target>/<package>/        # toolchain-generated, committed plugin packages
+dist/<target>/<plugin-id>/       # toolchain-generated, committed plugins
 .claude-plugin/marketplace.json # toolchain-generated marketplace manifests (Claude, Codex, Cursor)
 ```
 
-Only `dist/` and the marketplace manifests are toolchain-generated. You author the manifest, the packages, the assets, and the thin `.github/workflows/` caller workflows.
+Only `dist/` and the marketplace manifests are toolchain-generated. You author the manifest, the plugins, the assets, and the thin `.github/workflows/` caller workflows.
 
 ## Import existing instructions
 
@@ -80,13 +84,13 @@ If you already have skills and MCP configs, `pig scan` brings them into the hub 
 pig scan --source /path/to/existing/repo
 ```
 
-`pig scan` imports skills from `.agents/skills` and your MCP configs, inventories your `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` context files into `hub.repo-context.json`, and adds references for the imported assets to the `pig` package. Review the result, then move the imported assets into the packages that should own them.
+`pig scan` imports skills from `.agents/skills` and your MCP configs, inventories your `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` context files into `hub.repo-context.json`, and adds references for the imported assets to the `pig` plugin. Review the result, then move the imported assets into the plugins that should own them.
 
 ## Validate your hub
 
 Before you publish, confirm the hub is well formed:
 
-- `pig validate` checks the configuration, packages, asset support modes, references, and MCP configs, and confirms there are no symlinks or literal secrets.
+- `pig validate` checks the configuration, plugins, asset support modes, references, and MCP configs, and confirms there are no symlinks or literal secrets.
 - `pig verify` runs the same validation and then fully compiles the hub in a temporary directory, so you see a real build without touching your working tree.
 
 ```bash
