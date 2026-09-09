@@ -1,6 +1,6 @@
 ---
 title: Key concepts
-description: A glossary of the primitives the rest of the docs build on, including hub, pig, assets, packages, compile targets, plugins, host runtime, enrollment, traces, findings, and remediation.
+description: A glossary of the primitives the rest of the docs build on, including hub, pig, assets, plugin definitions, compile targets, plugins, host runtime, enrollment, traces, findings, and remediation.
 slug: docs/governance/start-here/key-concepts
 type: reference
 tags:
@@ -19,33 +19,33 @@ This page defines the primitives the rest of the documentation refers to. Read i
 
 ## Instruction Hub
 
-An Instruction Hub is a versioned Git repository that holds your governed agent instructions as source. It declares which packages to compile and which agent targets to compile for, and it receives remediation pull requests when a finding is fixed. To scaffold and configure one, see [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+An Instruction Hub is a versioned Git repository that holds your governed agent instructions as source. It declares which plugins to compile and which agent targets to compile for, and it receives remediation pull requests when a finding is fixed. To scaffold and configure one, see [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
 
 ## Assets
 
 An asset is a single governed unit of instruction. There are six kinds: `skill`, `rule`, `agent`, `command`, `hook`, and `mcp`. Each asset lives under `assets/<kind>s/` and is referenced in the `kind:id` form, for example `skill:agent-slack` or `mcp:repo-mcp`. A skill is a directory with a `SKILL.md` file and optional `references/`, `scripts/`, and an `asset.yaml` sidecar.
 
-## Packages
+## Plugin definitions
 
-A package groups assets for distribution. Each package is a `packages/<id>.yaml` file with an `id`, a `name`, a list of `owners`, and an `includes` list of `kind:id` asset references. Your hub declares which packages to compile in its `stable_packages` list.
+A plugin definition groups assets for distribution. Each plugin definition is a `plugins/<id>.yaml` file with an `id`, a `name`, a list of `owners`, and an `includes` list of `kind:id` asset references. Your hub declares which plugin definitions to compile in its `stable_plugins` list.
 
-Every hub carries one required package named `pig` (display name `PIG`, an empty `includes` list). At compile time the toolchain injects a managed update skill and the host runtime into the `pig` package. It always ships even though you never add assets to it yourself. Every other package is your own. You define them around your teams and workflows.
+Every hub carries one required plugin definition named `pig`, with display name `PIG` and an empty `includes` list. At compile time the toolchain injects a managed update skill and the host runtime into the compiled `pig` plugin. It always ships even though you never add assets to it yourself. Every other plugin definition is your own. You define them around your teams and workflows.
 
 <Aside type="note">
-  There is no fixed set of packages you receive. A hub is scaffolded with the required `pig` package, and you add packages that group your own assets.
+  There is no fixed set of plugin definitions you receive. A hub is scaffolded with the required `pig` plugin definition, and you add plugin definitions that group your own assets.
 </Aside>
 
 ## The pig toolchain
 
-`pig` is the toolchain that validates an Instruction Hub and compiles it into target-native plugin packages. It is a Python command-line program (also invoked as `promptless-instruction-hub`) that runs in your continuous-integration pipeline rather than as a service. It lives in the public `Promptless/instruction-hub-toolchain` repository. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+`pig` is the toolchain that validates an Instruction Hub and compiles it into target-native plugins. It is a Python command-line program (also invoked as `promptless-instruction-hub`) that runs in your continuous-integration pipeline rather than as a service. It lives in the public `Promptless/instruction-hub-toolchain` repository. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
 
 ## Compile targets
 
-A compile target is an agent runtime that `pig` can compile a package for. There are four: Claude, Codex, Cursor, and Gemini. A hub compiles to all four by default; you can narrow the set in your hub configuration. See [Supported agents](/docs/governance/reference/supported-agents).
+A compile target is an agent runtime that `pig` can compile a plugin for. There are four: Claude, Codex, Cursor, and Gemini. A hub compiles to all four by default; you can narrow the set in your hub configuration. See [Supported agents](/docs/governance/reference/supported-agents).
 
 ## Plugins
 
-A plugin is the compiled, target-native form of a package. `pig` writes each one to `dist/<target>/<package>/`, for example `dist/claude/<package>/`. Your fleet installs plugins from a marketplace and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+A plugin is the compiled, target-native form of a plugin definition. `pig` compiles each plugin definition and writes the result to `dist/<target>/<plugin-id>/`, for example `dist/claude/<plugin-id>/`. A plugin installs under its own definition `id`, with no organization or marketplace prefix or suffix. For example, a `dev` plugin installs as `dev`. Your fleet installs plugins from a marketplace and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
 
 ## The host runtime
 
