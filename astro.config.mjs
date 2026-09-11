@@ -245,6 +245,16 @@ export default defineConfig({
                   ],
                 },
                 ...openAPISidebarGroups,
+                // Starport: the managed docs-as-code platform. Sits after the
+                // API Reference group (which ...openAPISidebarGroups spreads in).
+                // Blanket autogenerate over the flat starport/ directory, ordered
+                // by each page's sidebar.order (index.mdx first). Label set
+                // explicitly so the group renders as "Starport", not the raw
+                // folder segment.
+                // Group-level `badge` renders next to the "Starport" category
+                // label (distinct from per-page sidebar.badge). Matches the
+                // `New` badge on the Agent Instructions topic (docs-products.ts).
+                { label: 'Starport', collapsed: true, badge: { text: 'New', variant: 'note' }, items: [{ autogenerate: { directory: 'docs/for-docs/starport', collapsed: true } }] },
               ],
             },
             {

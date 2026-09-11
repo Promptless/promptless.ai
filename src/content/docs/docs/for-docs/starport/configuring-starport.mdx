@@ -1,0 +1,110 @@
+---
+title: Configure your Starport site
+description: Self-service configuration options in the Starport template you set after onboarding, covering site metadata, branding, search, redirects, and deploy settings.
+slug: docs/for-docs/starport/configuring-starport
+type: reference
+tags:
+  - starport
+  - reference
+timestamp: "2026-09-11T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 76
+  label: Configuration
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+After Promptless completes your onboarding, you maintain the site yourself through its configuration files. Two files hold most of the settings you own: `astro.config.mjs` for the site's structure and appearance, and `.env` for values that change per environment. For the managed setup that comes first, see [How Starport works](/docs/for-docs/starport/how-it-works) and [Migrate to Starport](/docs/for-docs/starport/migration).
+
+None of this configuration is required to go live. Promptless sets sensible defaults during onboarding, and the options below are the ones you can adjust yourself afterward.
+
+## Set site metadata
+
+Your site's identity lives in `astro.config.mjs`, keyed off environment variables you set in `.env`:
+
+- `site` reads from `SITE_URL`. It sets the canonical URL, the sitemap, and OpenGraph links.
+- The Starlight `title` reads from `SITE_TITLE`, and `description` from `SITE_DESCRIPTION`.
+- `editLink.baseUrl` reads from `EDIT_LINK_BASE_URL`. It points each page's edit link at your repository.
+
+```bash
+# .env
+SITE_URL=https://docs.your-company.com
+SITE_TITLE=Your Docs
+SITE_DESCRIPTION=Product documentation for your product.
+EDIT_LINK_BASE_URL=https://github.com/your-org/your-repo/edit/main/
+```
+
+## Set branding
+
+Branding lives in two places. In `astro.config.mjs`, set `logo` to `./public/logo.svg` and `favicon` to `/favicon.svg`, and replace those two files with your own.
+
+Colors and fonts live in `./src/styles/custom.css`, loaded through the `customCss` option. Set your brand accent with the `--sl-color-accent` token family, and your typeface with the `--sl-font` token. Put dark-mode overrides under the `:root[data-theme='dark']` selector.
+
+## Configure search and the Ask AI assistant
+
+Site search is on by default. Two settings tune it, both in `astro.config.mjs`:
+
+- Ranking field weights control how much each field counts toward a match. The fields are `title`, `description`, `heading`, and `body`, weighted `4`, `3`, `2`, and `1` by default.
+- Up to four starter links seed the empty search box with suggested destinations.
+
+To turn on the optional Ask AI assistant, set `ANTHROPIC_API_KEY` in `.env` and enable the assistant in the search options. The key comes from your Anthropic account. `STARPORT_ASSISTANT_MODEL` selects the model, and defaults to `claude-sonnet-5`.
+
+```bash
+# .env
+ANTHROPIC_API_KEY=your-anthropic-api-key
+STARPORT_ASSISTANT_MODEL=claude-sonnet-5
+```
+
+<Aside type="note">
+  Without an Anthropic API key, site search runs and the assistant entry points stay hidden. See [Agent-ready docs](/docs/for-docs/starport/agent-ready) for what the assistant does.
+</Aside>
+
+The OpenAPI reference reads one entry per API, each with a `base`, a `label`, and a `schema` field. Add an entry to publish another API, and remove one to drop it. Page actions take a position setting and a list of which actions to display.
+
+## Author redirects
+
+Author redirects in `redirects.json`. The file holds a top-level `redirects` key whose value is an array of `source` and `destination` pairs. The build emits them as 301 redirects into `vercel.json`.
+
+```json
+{
+  "redirects": [
+    { "source": "/old-guide", "destination": "/docs/new-guide" }
+  ]
+}
+```
+
+## Configure deploy settings
+
+Starport deploys to Vercel. This guide also documents how to deploy to GitHub Pages and Cloudflare Pages. The docs MCP server is enabled by default through `MCP_ENABLED`, and you can turn it off. It needs an on-demand runtime, so set `MCP_RUNTIME` in `.env`, which defaults to `vercel`.
+
+```bash
+# .env
+MCP_ENABLED=true
+MCP_RUNTIME=vercel
+```
+
+You supply the deploy credentials for your hosting account. A Vercel deploy reads `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` from your deploy environment. Each value comes from your Vercel account and project settings. Your custom domain and its TLS certificate are handled by your hosting provider, so no in-repo setting configures them.
+
+## Edit other configuration files
+
+Beyond `astro.config.mjs` and `.env`, these files control the build and its checks:
+
+- `package.json` holds the scripts you run.
+- `pdf-exports.json` defines named export sets, each with a name and its entry points.
+- `docmeta.config.yaml` validates frontmatter, `.vale.ini` lints prose, and `.remarkrc.mjs` lints Markdown structure.
+
+The `package.json` scripts you run:
+
+- `dev`
+- `build`
+- `preview`
+- `build:redirects`
+- `build:pdf`
+- `typecheck`
+- `lint:md`
+- `lint:frontmatter`
+- `test`
+- `check`
+
+`lint:frontmatter` needs Node 24 or newer; `lint:md` runs on Node 22.

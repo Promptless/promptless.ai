@@ -1,0 +1,57 @@
+---
+title: Agent-ready docs on Starport
+description: How Starport makes docs consumable by AI agents through llms.txt, a read-only docs MCP server, page actions, afdocs scoring, and an optional Ask AI assistant.
+slug: docs/for-docs/starport/agent-ready
+type: guide
+tags:
+  - starport
+  - guide
+timestamp: "2026-09-11T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 73
+  label: Agent-ready docs
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+Agent-ready docs are documentation an AI agent can read, search, and cite on its own, without a person pasting pages into a prompt. A Starport site ships llms.txt and llms-full.txt files, a docs Model Context Protocol (MCP) server, and page actions. It adds agent-friendly-docs (afdocs) scoring and an optional Ask AI assistant. Together these surfaces let any AI agent answer questions about your product from your content. For the full capability list, see [What's included in Starport](/docs/for-docs/starport/whats-included).
+
+## The llms.txt and llms-full.txt files
+
+Starport generates two files at build, following the [llms.txt standard](https://llmstxt.org/), so an agent can load your docs as plain text. `llms.txt` lists your pages with short summaries and links. `llms-full.txt` carries the full text of every page in one file.
+
+An agent reads them at their published paths:
+
+```text
+https://docs.example.com/llms.txt
+https://docs.example.com/llms-full.txt
+```
+
+Point an agent at `llms-full.txt` when it needs the whole corpus, and at `llms.txt` when it selects pages to fetch.
+
+## Read-only docs MCP server
+
+Starport serves a read-only [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server at `/mcp`. An MCP client connects to it and calls two tools: `search`, which finds pages by query, and `get_page`, which returns one page's content. Both are read-only, so an agent reads your docs and never writes to them.
+
+```text
+https://docs.example.com/mcp
+```
+
+The endpoint requires no authentication. Restrict access with your hosting provider's access control, for example Cloudflare Access or Vercel Deployment Protection.
+
+<Aside type="note">
+  The docs MCP server is enabled by default and can be turned off through `MCP_ENABLED`. See [Configure your Starport site](/docs/for-docs/starport/configuring-starport) for the deploy settings it needs.
+</Aside>
+
+## Page actions
+
+Every page carries controls that hand its content to an agent in one step. Select `Copy Markdown` to copy the page as Markdown for pasting into any tool. Select `Open in ChatGPT` or `Open in Claude` to open the page's content in that assistant with your question ready.
+
+## Afdocs scoring
+
+Starport scores how ready your docs are for agents with its own afdocs check. The check grades your deployed site against the external [Agent-Friendly Documentation Spec](https://agentdocsspec.com/) and compares its score to a minimum, 100 by default. It runs on a daily schedule and can also be run manually. A regression then surfaces on the next scheduled or manual run against your live site.
+
+## The optional Ask AI assistant
+
+Set an Anthropic API key and Starport turns on the Ask AI assistant in search. A reader asks a question and the assistant answers from your indexed content, with links to the pages it drew from. For where it fits among the search capabilities, see [What's included in Starport](/docs/for-docs/starport/whats-included). For the key and the model setting, see [Configure your Starport site](/docs/for-docs/starport/configuring-starport).
