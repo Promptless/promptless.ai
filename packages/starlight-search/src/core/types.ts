@@ -99,6 +99,8 @@ export interface SearchOptions {
   ranking?: SearchRankingOptions;
   /** Enable the Node endpoint. Configure ANTHROPIC_API_KEY at build and runtime. */
   assistant?: boolean;
+  /** Site-relative server module exporting a StartAssistantTrace default function. Opt-in only. */
+  assistantTelemetry?: string;
   /** Exact paths or path prefixes ending in /*. Applied before extraction. */
   exclude?: string[];
   /** URL prefixes used to distinguish API references and docs from other pages. */

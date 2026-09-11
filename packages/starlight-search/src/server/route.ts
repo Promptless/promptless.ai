@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createUIMessageStreamResponse, toUIMessageStream } from 'ai';
-import { artifactDir } from 'virtual:starport-search/server';
+import { randomUUID } from 'node:crypto';
+import { artifactDir, startTrace } from 'virtual:starport-search/server';
 import { loadCorpus, type Corpus } from './corpus';
-import { answerQuestion } from './assistant';
+import { answerResponse } from './response';
 import { createThrottle, parseRequest, RequestError } from './limits';
 
 export const prerender = false;
@@ -26,14 +26,10 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     corpusPromise ??= loadCorpus(artifactDir).catch((error) => { corpusPromise = undefined; throw error; });
     const corpus = await corpusPromise;
     signal.throwIfAborted();
-    const result = answerQuestion({
+    return answerResponse({
       model: createAnthropic({ apiKey: key })(process.env.STARPORT_ASSISTANT_MODEL || 'claude-sonnet-5'),
       corpus, ...input, pageId: corpus.pageId(input.pageId), signal,
-    });
-    return createUIMessageStreamResponse({
-      stream: toUIMessageStream({ stream: result.stream, onError: () => 'The assistant could not finish. Please retry.' }),
-      headers: { 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no' },
-    });
+    }, { ...input, conversationId: input.conversationId ?? randomUUID(), attemptId: input.attemptId ?? randomUUID() }, startTrace);
   } catch (error) {
     if (signal.aborted) return errorResponse(408, 'The assistant request was interrupted. Please retry.');
     if (error instanceof RequestError) return errorResponse(error.status, error.message);

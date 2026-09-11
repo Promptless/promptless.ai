@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetHistory, MAX_HISTORY_CHARS, MAX_HISTORY_MESSAGES, type HistoryMessage } from '../src/core/conversation';
 import { parseRequest, createThrottle } from '../src/server/limits';
-import { messageText, requestHistory, saveChat, loadChat } from '../src/client/session';
+import { assistantProperties, messageText, requestHistory, saveChat, loadChat } from '../src/client/session';
 import type { UIMessage } from 'ai';
 
 const request = (messages: unknown, extra: object = {}) => new Request('https://docs.example/_starport/assistant', {
@@ -103,18 +103,39 @@ test('session persistence preserves sources and interruption; clearing removes t
   const data = new Map<string, string>();
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: (key: string) => data.get(key), setItem: (key: string, value: string) => data.set(key, value) } });
   try {
+    const conversationId = crypto.randomUUID();
+    const metadata = { conversationId, attemptId: crypto.randomUUID(), traceId: 'a'.repeat(32) };
     const message: UIMessage = { id: 'a', role: 'assistant', parts: [{ type: 'text', text: 'partial answer' }, { type: 'tool-readPage', toolCallId: 'read', state: 'output-available', input: { pageId: '/docs/' }, output: { title: 'Docs', url: '/docs/', content: 'Entire page transcript' } }] };
-    assert.equal(saveChat([message], true), true);
+    message.metadata = metadata;
+    assert.equal(saveChat([message], true, conversationId), true);
     const restored = loadChat();
+    assert.equal(restored.conversationId, conversationId);
+    assert.deepEqual(assistantProperties(restored.messages[0].metadata), { conversation_id: conversationId, attempt_id: metadata.attemptId, trace_id: metadata.traceId });
     assert.equal(restored.interrupted, true); assert.equal(messageText(restored.messages[0]), 'partial answer');
     assert.equal(restored.messages[0].parts[1].type, 'source-url');
     assert.doesNotMatch(JSON.stringify(restored), /Entire page transcript/);
-    saveChat([], false); assert.deepEqual(loadChat(), { messages: [], interrupted: false });
+    const nextConversation = crypto.randomUUID();
+    saveChat([], false, nextConversation); assert.deepEqual(loadChat(), { messages: [], interrupted: false, conversationId: nextConversation });
+    assert.notEqual(nextConversation, restored.conversationId);
   } finally { Reflect.deleteProperty(globalThis, 'sessionStorage'); }
 });
 
 test('storage failures do not break search or chat', () => {
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, get() { throw new Error('Denied'); } });
-  try { assert.equal(saveChat([], false), false); assert.deepEqual(loadChat(), { messages: [], interrupted: false }); }
+  try {
+    assert.equal(saveChat([], false, crypto.randomUUID()), false);
+    const restored = loadChat(); assert.deepEqual(restored.messages, []); assert.equal(restored.interrupted, false); assert.ok(restored.conversationId);
+  }
   finally { Reflect.deleteProperty(globalThis, 'sessionStorage'); }
+});
+
+test('analytics attribution is bounded and excluded from model history', async () => {
+  const messages = [{ role: 'user', content: 'Hi' }];
+  const context = { conversationId: crypto.randomUUID(), attemptId: crypto.randomUUID(), analytics: { distinctId: 'anonymous-browser', sessionId: 'browser-session' } };
+  const parsed = await parseRequest(request(messages, context));
+  assert.deepEqual(parsed.analytics, context.analytics);
+  assert.deepEqual(parsed.messages, messages);
+  for (const extra of [{ conversationId: 'bad' }, { attemptId: 'bad' }, { analytics: { distinctId: 'x'.repeat(257) } }]) {
+    await assert.rejects(parseRequest(request(messages, extra)), { status: 400 });
+  }
 });

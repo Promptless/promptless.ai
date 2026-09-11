@@ -100,6 +100,7 @@ export default defineConfig({
       plugins: [
         starlightSearch({
           assistant: ASSISTANT_ENABLED,
+          assistantTelemetry: './src/lib/assistant-telemetry.ts',
           starterLinks: {
             en: [
               { title: 'Quickstart', url: '/docs/for-docs/start-here/quickstart/', description: 'Connect your first integrations and start updating docs.' },
