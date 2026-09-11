@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Connect Claude Code, Cursor, or another MCP editor to Promptless, then start, track, and search documentation tasks by asking. Authorize with OAuth. No API key is needed.
+description: Connect Claude Code, Cursor, or another MCP editor to Promptless. Start, track, message, search, and revise documentation tasks by asking, then get each task's outcome and docs pull request link back. Authorize with OAuth. No API key needed.
 slug: docs/for-docs/connect/triggers/mcp
 type: reference
 tags:
@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. Then start and track documentation tasks by asking in the editor you already have open. There's no API key to create, store, or rotate: you authorize once in a browser instead.
+Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. Then, from the editor you already have open, start a documentation task and follow it to its outcome in the same conversation. Its docs pull request link comes back too. You can also ask Promptless to revise a suggestion it already made. You can send a follow-up instruction into a running task and read that task's conversation. You can set a suggestion's labels, assignees, and title, open its pull request, or close it yourself. There's no API key to create, store, or rotate: you authorize once in a browser instead.
 
 [MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools; any editor with an "MCP servers" setting can connect to Promptless. It's a built-in surface that's always available. It needs no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
 
@@ -24,7 +24,7 @@ Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. T
 </Aside>
 
 <Aside type="note" title="Before you start">
-  You need an MCP-capable editor, such as Claude Code or Cursor, and your organization must have finished setting up Promptless. No API key is required.
+  You need an MCP-capable editor, such as Claude Code or Cursor. Your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required.
 </Aside>
 
 ## Connect the server
@@ -62,9 +62,37 @@ The same URL and command also appear in the dashboard under **Settings**, in the
      }
      ```
 
-     The `url` key tells Cursor to use HTTP transport.
+     The `url` key tells Cursor to use HTTP transport. Or add the server in one step with the [Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=promptless\&config=eyJ0eXBlIjoiaHR0cCIsInVybCI6Imh0dHBzOi8vYXBpLmdvcHJvbXB0bGVzcy5haS9tY3AifQ%3D%3D) deep link, which registers the `promptless` server for you.
 
   2. Click **Needs login**.
+
+  3. Authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
+</Steps>
+
+### VS Code
+
+<Steps>
+  1. Add the `promptless` server with the `code` CLI:
+
+     ```bash
+     code --add-mcp "{\"name\":\"promptless\",\"type\":\"http\",\"url\":\"https://api.gopromptless.ai/mcp\"}"
+     ```
+
+  2. Run **MCP: List Servers** from the Command Palette and start **promptless**.
+
+  3. Authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
+</Steps>
+
+### Codex CLI
+
+<Steps>
+  1. Add the `promptless` server; Codex infers HTTP transport from the `--url` flag:
+
+     ```bash
+     codex mcp add promptless --url https://api.gopromptless.ai/mcp
+     ```
+
+  2. Run `codex mcp login promptless` to start authorization.
 
   3. Authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
 </Steps>
@@ -88,24 +116,45 @@ Your editor handles authorization automatically over OAuth; you approve the conn
 </Steps>
 
 <Aside type="note">
-  There's no permission picker: an approved client acts with the same access its approver has. An approved connection can start tasks, list your collections, and search suggestions. It can also read the status of any task in your organization. That includes tasks started from Slack, a GitHub pull request, the dashboard, and the API. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
+  There's no permission picker: an approved client acts with the same access its approver has. An approved connection can:
+
+  - start tasks;
+  - list your collections;
+  - read the status of any task in your organization, and follow a running one to its outcome. That covers tasks started from Slack, a GitHub pull request, the dashboard, and the API;
+  - revise a suggestion Promptless already produced;
+  - send an additional instruction into a running task;
+  - update a suggestion's labels, assignees, and title and open its docs pull request;
+  - close a suggestion (which also closes its docs pull request);
+  - list your recent tasks;
+  - search suggestions.
+
+  Like the read tools, the write actions (revise, update, and close) act on any suggestion in your organization, not only ones you created. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
 A token is tied to one organization. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
 
 ## Available tools
 
-Your editor surfaces these four tools by name and calls them for you.
+Through your editor, these 10 tools let you check on your collections, tasks, and suggestions, or queue and change your documentation work. Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Five tools queue or change work: `submit_documentation_task`, `send_task_message`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run. When your organization has the clarifying-questions feature enabled, an additional work-changing tool, `answer_task_question`, also appears in your editor.
+
+<Aside type="note">
+  If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message` and `wait_for_task_update` tools and the updated tool descriptions. Where your organization has the clarifying-questions feature enabled, reconnecting also loads `answer_task_question`. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
+</Aside>
 
 ### `submit_documentation_task`
 
-Starts a documentation task and returns a task ID (the `trigger_event_id`) you can check with `get_task_status`.
+Starts a documentation task and returns a task ID (the `trigger_event_id`) you can check with `get_task_status`. It also returns a `next_call`, the next tool call your editor should make. It names `wait_for_task_update` with its arguments, so your editor can follow the task automatically.
 
-| Argument            | Required | Description                                                            |
-| ------------------- | -------- | ---------------------------------------------------------------------- |
-| `instructions`      | Yes      | What you want documented.                                              |
-| `doc_collection_id` | No       | Target one collection. Omit to route across all your collections.      |
-| `context`           | No       | Optional metadata attached to the request; appears in trigger history. |
+| Argument            | Required | Description                                                                                                                                                                                                                 |
+| ------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions`      | Yes      | What you want documented.                                                                                                                                                                                                   |
+| `doc_collection_id` | No       | Target one collection. Omit to route across all your collections.                                                                                                                                                           |
+| `context`           | No       | Optional metadata attached to the request; appears in trigger history.                                                                                                                                                      |
+| `attachments`       | No       | Links to material that explains the change, such as a screenshot, design file, or spec. Each attachment is a URL (required) with an optional description; nothing is uploaded, so a link Promptless can't reach is skipped. |
+
+When you omit `doc_collection_id`, the request routes across all your collections, and your [relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering) still applies per collection; pass a `doc_collection_id` (from `list_doc_collections`) to target one collection.
+
+A run takes several minutes. The submission returns a `next_call`, and your editor follows the task with `wait_for_task_update` until `next_call` is null. The outcome surfaces in the same conversation. To check status at a point in time instead, call `get_task_status` on request. There's no separate call to list your tasks. Use `list_recent_tasks`, which also surfaces tasks you didn't start over MCP.
 
 ### `list_doc_collections`
 
@@ -115,17 +164,199 @@ Lists your documentation collections. Use it to get a `doc_collection_id` to pas
 
 Checks the status of any documentation task in your organization by its `trigger_event_id`, not only tasks you submitted over MCP. Tasks started from Slack, a GitHub pull request, the dashboard, or the API are all readable. The task's submitted instructions and context appear in its trigger history.
 
+It also returns the suggestions the task produced. Each comes with its docs pull request link and review status, using the same `draft`, `open`, `merged`, or `closed` values `search_suggestions` uses. The response also says whether the task has finished. Together those let you tell three outcomes apart. A task that hasn't finished yet is still working. A finished task with no suggestions needs no documentation change. A finished task with one or more suggestions has documentation changes ready to review. A `resolution` note flags a deliberate no-op, which finishes with nothing to document. That distinguishes it from a run that couldn't finish.
+
+It also returns the task's conversation. The `messages` array is the persisted conversation between the customer and Promptless for that task, capped at the latest 100 messages and returned oldest-first. The `messages` array is populated for tasks submitted over the API or MCP and for tasks created by calling `request_changes` over MCP. An empty `messages` array means either the task has no messages yet or its source doesn't carry a conversation. Reading the conversation never consumes it.
+
+Each message carries a stable, immutable `id`, a `sequence` number, an `author` object, a `created_at`, and the `message` text. The `id` lets a caller dedupe, relaying each new message only once. Your editor tracks these `id`s for you, so it doesn't relay the same message twice. Incremental message delivery comes from `wait_for_task_update`'s `cursor`. `get_task_status` reads the conversation so far at a single point in time. The `author` object's `type` is `promptless` or `customer`, and its `name` is the customer's email when available, otherwise null.
+
+A `status_guidance` field is a short text string carrying server-generated advice about following the task and interpreting its outcome. That advice is distinct from the conversation itself, which `messages` carries.
+
+### `wait_for_task_update`
+
+Follows a running task in the same conversation. It waits for new messages, a changed result, or completion. You get the outcome without checking status by hand. It's read-only, and your editor can auto-approve it.
+
+| Argument           | Required | Description                                                                                                 |
+| ------------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `trigger_event_id` | Yes      | The task to follow.                                                                                         |
+| `cursor`           | No       | Omit for an immediate initial snapshot. Reuse the `cursor` a prior call returned to receive later messages. |
+| `wait_seconds`     | No       | How long one wait lasts, from 0 to a server maximum of 30 seconds. Defaults to 30 when omitted.             |
+
+Each call returns a page of new conversation messages in `messages`, plus a `cursor` to pass to the next call. Each `messages` entry has the same shape as the ones `get_task_status` returns, with a stable `id`, a `sequence`, an `author`, and the message text. Reads never consume messages. Retrying the same call with the same `cursor` is safe. It may repeat messages your editor already saw, which your editor dedupes by `id`. A `has_more_messages` flag is true when more pages are ready. The `update_type` is `snapshot` on the first call for a cursor, which is when you omit `cursor`. It's `changed` when new messages or a new result arrived, and `timeout` when nothing changed during the wait. The `result` and `finished` fields report the task's outcome and whether it has finished. The `result` mirrors the outcome payload `get_task_status` returns. It carries the task's `resolution` note and its `suggestions`, each with its docs pull request link and review status. Every call also returns a `next_call`, which names `wait_for_task_update` and its arguments.
+
+Follow `next_call` until it's null. `next_call` stays set while `has_more_messages` is true or the task isn't finished. It becomes null only once the task is `finished` and `has_more_messages` is false. Your editor never stops on `finished` alone, so it never drops a trailing message page. A `timeout` is normal: your editor keeps waiting through the next `next_call` without a separate sleep and without narrating unchanged state. Your editor keeps calling `wait_for_task_update` while `has_more_messages` is true, even after `finished` is true, so it doesn't miss a trailing message. Waiting doesn't cancel the cloud work.
+
+You stay in control of following. Ask your editor to follow just once, or to stop at any time. `get_task_status` stays available to check a long-running task on demand.
+
+### `send_task_message`
+
+Use `send_task_message` to add an instruction to a task that's still running. Use `submit_documentation_task` to start a new task, and `request_changes` to revise a suggestion Promptless already produced.
+
+Sends an additional instruction into a task that's already running. The instruction folds into that running task's work, and no new task starts. A task stops accepting messages once it finishes, including one that finished by asking a clarifying question or reporting a blocker. When your organization has the clarifying-questions feature enabled and the finished task marked a clarifying question, answer it with [`answer_task_question`](#answer-a-clarifying-question). That call continues the work in a new task and leaves this one finished.
+
+| Argument           | Required | Description                                                                                                                                                                  |
+| ------------------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trigger_event_id` | Yes      | The original task's ID (the one returned at submission). Reusing it keeps the reply on the same task; it does not create another task.                                       |
+| `message`          | Yes      | The instruction to add. Up to 20,000 characters after trimming.                                                                                                              |
+| `idempotency_key`  | No       | A safe-retry key. Retrying with the same key and the same text returns the original message marked deduplicated. The same key with different text is rejected as a conflict. |
+
+It returns the stored `message` plus a `deduplicated` boolean. When the message is newly stored, `deduplicated` is `false`; it comes back `true` only when an `idempotency_key` retry matches an already-stored message. That stored `message` has the same shape as an entry in `get_task_status`'s `messages` array.
+
+Like reading a task's status, sending isn't limited to tasks you started. You can send to an eligible task in your organization by its `trigger_event_id`. Task conversations apply to tasks submitted over the API or MCP, and to tasks created by calling `request_changes` over MCP. Reading a task's status with `get_task_status` stays available for every task source.
+
+Like the other work-changing tools, it prompts before it runs and isn't auto-approved.
+
+### `answer_task_question`
+
+Use `answer_task_question` to answer a clarifying question a finished task marked. Use `send_task_message` to add an instruction to a task that's still running.
+
+<Aside type="note">
+  This tool is present only when your organization has the clarifying-questions feature enabled, so it may not appear in yours. Contact your Promptless admin or [help@gopromptless.ai](mailto\:help@gopromptless.ai) to enable it. See [Answer a clarifying question](#answer-a-clarifying-question).
+</Aside>
+
+Answers the one clarifying question a finished task marked, so Promptless continues the work.
+
+| Argument              | Required | Description                                                                                                                                      |
+| --------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `trigger_event_id`    | Yes      | The finished task whose question you're answering (UUID).                                                                                        |
+| `question_message_id` | Yes      | The marked question's message ID (UUID).                                                                                                         |
+| `answer`              | No       | The answer text, 1–8000 characters. Omit it to have your editor open its native input form. Supply it only when you've already given the answer. |
+
+Supply `answer` only when you've already given the answer. Otherwise, omit it so your editor collects it.
+
+It returns the `question` text, an `outcome`, an optional continuation `trigger_event_id`, an optional `next_call`, and a `message`. The `outcome` is one of five values:
+
+- `submitted`. The answer is accepted and a continuation task is created. Follow it via `next_call`.
+- `already_answered`. This question was already answered. The returned `trigger_event_id` points at the continuation already created, so follow that one.
+- `unavailable`. Your editor can't show a native form, so it asks the question in chat and calls `answer_task_question` again with the answer.
+- `decline` or `cancel`. You declined or canceled the question. No continuation is created, and following stops.
+
+Like the other work-changing tools, it prompts before it runs and isn't auto-approved.
+
+### `request_changes`
+
+Use `request_changes` when you want Promptless to make the change for you. Use `update_suggestion` to set the suggestion's labels, assignees, or title, or to open its pull request yourself. Use `close_suggestion` to end a review without shipping it.
+
+Asks Promptless to revise a suggestion it already produced. This is the revision loop.
+
+| Argument        | Required | Description                                                                          |
+| --------------- | -------- | ------------------------------------------------------------------------------------ |
+| `suggestion_id` | Yes      | The ID of the suggestion to change (from `search_suggestions` or `get_task_status`). |
+| `instructions`  | Yes      | What to change about the suggestion.                                                 |
+
+Promptless updates that suggestion's existing docs pull request instead of opening a second one. It returns a task ID you check with `get_task_status`, plus a `next_call` that follows the revision task with `wait_for_task_update`. If the suggestion's pull request is no longer one Promptless can revise, the tool reports that back; start a new task with `submit_documentation_task` instead.
+
+### `update_suggestion`
+
+Sets a suggestion's metadata (its labels, assignees, and title) yourself, and optionally opens its docs pull request. This is the path where you make the change yourself. By contrast, `request_changes` has Promptless make it, and `close_suggestion` ends a review without shipping it. Pass the suggestion's ID (from `search_suggestions` or `get_task_status`).
+
+| Argument            | Required | Description                                                                                                                          |
+| ------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `suggestion_id`     | Yes      | The suggestion to update.                                                                                                            |
+| `labels`            | No       | Replaces the suggestion's stored labels. Omit to leave them alone; pass an empty list to clear them.                                 |
+| `assignees`         | No       | Replaces the suggestion's stored assignees. Omit to leave them alone; pass an empty list to clear them.                              |
+| `title`             | No       | Sets the suggestion's title.                                                                                                         |
+| `open_pull_request` | No       | Pass `true` to open the suggestion's docs pull request in this call. Any `labels` or `assignees` edits in the same call apply first. |
+
+The title can be set here, but a suggestion's description can't. Labels and assignees are applied before the title. The title edit is pushed to the host GitHub or GitLab pull request before it's stored. While a suggestion's pull request is open, the host owns its title. So a title edit has to reach the pull request to stick. If the suggestion has no open pull request yet, the title is stored directly, since there's no pull request to push to. If the host rejects the push, the call fails and the stored title is left unchanged. Any labels or assignees applied in the same call stay applied. The call is idempotent, so repeating it with the same arguments leaves the suggestion unchanged.
+
+It returns the updated `labels`, `assignees`, and `title`. It also returns the docs pull request URL (`docs_pr_url`), which is null when the suggestion has no open pull request. Finally, it reports whether this call opened the pull request (`pull_request_opened`).
+
+Because `labels` and `assignees` each replace the stored list, adding one without dropping the others means sending the full desired list. Read the current values first with `search_suggestions`, which returns each suggestion's `labels` and `assignees`. Setting them tags this one suggestion; it isn't a standing rule that auto-assigns or auto-labels future suggestions.
+
+Opening the pull request is idempotent too. If the suggestion's docs pull request is already open, setting `open_pull_request` to `true` returns the existing pull request. It then reports `pull_request_opened` as false rather than opening a second one.
+
+### `close_suggestion`
+
+Ends a review without shipping it. This is the close path. It contrasts with revising the suggestion using `request_changes`, or opening its pull request yourself with `update_suggestion`.
+
+| Argument        | Required | Description                            |
+| --------------- | -------- | -------------------------------------- |
+| `suggestion_id` | Yes      | The suggestion to close.               |
+| `reason`        | No       | An optional note saved with the close. |
+
+Closing the suggestion closes its docs pull request on the host first. If the host refuses to close the pull request, the suggestion stays open and the call reports why. A pull request that already merged, or otherwise shipped, can't be closed. If there's no open pull request to close, the close still succeeds. There's simply nothing to close on the host, and the suggestion closes normally.
+
+Closing can't be undone from your editor: no MCP tool reopens a closed suggestion. To pursue the change again, start a new task with `submit_documentation_task`.
+
+The close is attributed to your MCP client, so it's distinguishable from a close done in the dashboard. It also records who closed it: you, plus your editor's registered client name. Any `reason` you pass is saved with the close.
+
+Closing over MCP never checks the dashboard's **Remember this feedback for future suggestions** option. The close dialog offers that opt-in. This tool exposes no such option. So don't expect a follow-up task from a close over MCP.
+
+The call returns the `suggestion_id`, the resulting `status`, and a `message`. Like the other work-changing tools, it prompts before it runs. It's destructive and can't be auto-approved.
+
+### `list_recent_tasks`
+
+Lists your organization's recent documentation tasks, newest first, each with the `trigger_event_id` you pass to `get_task_status`. Use it when you've lost a task's ID, or to see what Promptless has been working on. Like `get_task_status`, it surfaces tasks started from Slack, a GitHub pull request, or the dashboard, not only tasks submitted over MCP. A task submitted over the API is read by ID with `get_task_status`.
+
 ### `search_suggestions`
 
-Searches your existing suggestions by keyword and status, so you can check whether a change is already covered before starting a new task. `query` (optional) matches a suggestion's title and description; `status` (optional) restricts results to one of `draft`, `open`, `merged`, or `closed`. Both are optional. Calling with neither returns all your suggestions. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved.
+Searches your existing suggestions by keyword and status. Use it to check whether a change is already covered before starting a new task, or to find a suggestion to revise.
+
+| Argument | Required | Description                                                                                                                                                                                                                                                                                                                                                                                  |
+| -------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `query`  | No       | Matches a suggestion's title and description.                                                                                                                                                                                                                                                                                                                                                |
+| `status` | No       | Restricts results to one of `draft`, `open`, `merged`, or `closed`.                                                                                                                                                                                                                                                                                                                          |
+| `labels` | No       | A list of label strings. Returns only suggestions carrying at least one of the given labels. This is an any-of match. Omit it or pass an empty list to apply no label filter, so results come back across all labels. Matches exactly, including case, so a label in the wrong case returns nothing; call `search_suggestions` without `labels` first to see the exact stored label strings. |
+| `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100.                                                                                                                                                                                                                                                                                                                          |
+
+When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the suggestion-triage workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
+
+## Answer a clarifying question
+
+When your organization has the clarifying-questions feature enabled, a task can finish by asking one clarifying question in your editor. This applies to a task you started over MCP. You answer the clarification there, and Promptless continues the work in a new task. That continuation carries the original request, the original context, the clarification history, and links to any results already produced. You pick up directly from the clarification.
+
+To answer a clarifying question, you need:
+
+- Your organization's clarifying-questions feature enabled. If you're unsure whether yours has it, contact your Promptless admin or [help@gopromptless.ai](mailto\:help@gopromptless.ai).
+- For the native form, an MCP client that negotiates a recent protocol version and declares an elicitation capability. That capability is the MCP feature that lets a server show an input form inside your editor.
+
+A clarifying question reaches you through the same task-following loop this page documents. As your editor follows the task with `wait_for_task_update`, or as you check it with `get_task_status`, the response surfaces the marked `question` and a `next_call` pointing at `answer_task_question`. Your editor follows that `next_call` the same way it follows any other task.
+
+How you answer depends on your MCP client:
+
+- A client that declares an elicitation capability shows a native single free-text field titled **Your answer**, with the question as its prompt. The answer runs 1–8000 characters.
+- A client without that capability receives `outcome: unavailable`. Your editor posts the question as a chat message. Reply in the same conversation, and your editor relays your answer by calling `answer_task_question` again.
+
+An accepted answer starts a new task, which your editor follows via its `next_call`. Answering the same question twice returns `already_answered` pointing at the continuation already created, since the first committed answer wins. If you decline or cancel the question, no continuation is created and following stops. The original finished task and anything it already produced, such as suggestions, remain. To pursue the change, start a new task with `submit_documentation_task`.
+
+## Workflow skills
+
+If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. This is guidance for the [tools above](#available-tools), not a new set of tools. The catalog is unchanged. The editor decides when to load a skill; you ask for what you want as usual.
+
+One skill ships today: `suggestion-triage`, a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. That sequence is the point. It keeps the editor from treating a truncated result set as your whole backlog. And it gives each suggestion exactly one outcome, instead of you prompting each step and risking a missed part of the queue.
+
+A skill doesn't change how the tools behave. This skill's work-changing tools are `update_suggestion`, `request_changes`, and `close_suggestion`. They still prompt before each run, just as they do when you call them directly. A skill only guides the sequence; it doesn't bypass those confirmations.
+
+<Aside type="note">
+  If your editor doesn't support skills, you lose nothing, since it calls the same tools directly. Skills reach it over the draft **Skills extension (SEP-2640)**. The MCP endpoint declares this as the `io.modelcontextprotocol/skills` capability in its `initialize` response. Many clients don't support it yet, so they won't surface skills at all. To check whether yours does, see its MCP settings or release notes. And because the extension is still a draft, its shape can change.
+</Aside>
+
+Skills are purely additive. A client that doesn't support the extension, or ignores it, sees exactly the same tools; the guidance costs nothing when it goes unused.
 
 ## Ask your editor
 
-Ask in plain language. For example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection." Your editor maps that to `list_doc_collections`, then `submit_documentation_task`, and returns a task ID you can pass to `get_task_status`.
+Ask in plain language. For example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection." Your editor maps that to `list_doc_collections`, then `submit_documentation_task`. It follows the task automatically in the same conversation, using the `next_call` it gets back. It reports the outcome and docs pull request link back to you, without you checking status by hand.
 
 To avoid duplicating work, search before you submit. Your editor runs `search_suggestions` first, and if nothing live comes back, submits the task. For example: "Before I ask Promptless to document the new webhook retries, search existing suggestions for 'webhook retries.'"
 
-To check on a task you already started, ask by its ID: "What's the status of Promptless task `<id>`?" Your editor calls `get_task_status` and reports back.
+To check a task at a point in time, ask by its ID: "What's the status of Promptless task `<id>`?" Your editor calls `get_task_status` and reports the outcome and any docs pull request link. This is the on-request check, not the primary way you get an outcome. Reach for it for a task you didn't follow to completion, or to look in again later or from another session. It works for any task.
+
+To read a task's conversation, ask for it: "What has Promptless said so far about task `<id>`?" Your editor calls `get_task_status` and reports the conversation.
+
+To add to a task that's still running, tell Promptless what else to cover: "Tell Promptless task `<id>` to also cover the error responses." Your editor maps that to `send_task_message`, and the instruction folds into the running task. This works for tasks you started over the API or MCP, or created with `request_changes` over MCP. Check back with `get_task_status` to see the message added to the conversation.
+
+When your organization has the clarifying-questions feature enabled, a task can finish by asking one. Answer it in plain language: "Answer Promptless task `<id>`'s clarifying question: yes, cover the deprecation notice." Your editor calls `answer_task_question`, and Promptless continues the work in a new task your editor follows via its `next_call`.
+
+To change a suggestion Promptless already made, ask for a revision: "Revise Promptless suggestion `<id>` to also cover single sign-on." Your editor calls `request_changes`, and Promptless updates that suggestion's existing pull request instead of opening a new one. Your editor follows the revision task via `next_call` until it's done, the same way it follows a new task.
+
+To set a suggestion's labels, assignees, or title, or open its docs pull request yourself, ask for that. For example: "Assign Promptless suggestion `<id>` to @alex, retitle it 'SSO setup,' and open its docs PR." Your editor calls `update_suggestion`, which applies the change and opens the pull request in the same step. To just retitle it without opening a pull request, leave that part out: "Retitle Promptless suggestion `<id>` to 'SSO setup.'"
+
+To close a suggestion you won't ship, ask for that: "Close Promptless suggestion `<id>`. We decided not to document this." Your editor calls `close_suggestion` and saves your reason with the close; closing also closes the suggestion's docs pull request.
+
+If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
+
+To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `suggestion-triage` steps; if not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
 
 ## See your MCP tasks in the dashboard
 
@@ -143,14 +374,25 @@ Promptless re-checks your organization membership on every call; if you lose act
 
 ## Troubleshooting
 
-Tool failures come back as errors your editor's model sees. Common ones:
+Tool failures come back as errors your editor's model sees, each surfaced as `code: message`. Common ones:
 
 - **Empty `instructions`**: resubmit with a specific `instructions` string.
 - **A `doc_collection_id` that isn't a valid ID (UUID)**: call `list_doc_collections` and pass an `id` from the returned list.
 - **An unrecognized `search_suggestions` status**: use one of `draft`, `open`, `merged`, or `closed`.
-- **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask your Promptless admin to finish it.
+- **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask a member with admin access to finish it.
 - **A requested collection isn't configured**: the tool returns "The requested doc collection is not configured." Call `list_doc_collections` for a valid `id`, or configure the collection first.
-- **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again; in Cursor, click **Needs login** again.
+- **A suggestion that can no longer be revised**: `request_changes` reports that the suggestion is no longer one Promptless can revise. Its pull request has moved beyond where a revision applies. Start a new task with `submit_documentation_task` instead.
+- **An `update_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. Setting a suggestion's labels, assignees, or title still succeeds even on a closed or merged suggestion. Only opening a pull request is refused for a closed suggestion that hasn't merged, and the tool reports why. If the host rejects the title push, the call fails and the stored title is left unchanged. Any labels or assignees from the same call stay applied. No MCP tool retracts a pull request while keeping the suggestion open for further editing. Closing over MCP with `close_suggestion` closes the suggestion and its pull request together. If you opened a pull request by mistake and want to keep working the suggestion, close the pull request on the host directly. The host is GitHub or GitLab.
+- **A `close_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. If the host refuses to close the pull request, the suggestion stays open and the tool reports why. A pull request that already merged can't be closed. A suggestion that's already closed can't be closed again, and the tool reports so.
+- **Sending to a finished task**: the tool rejects it with `task_finished`. A task that finished by reporting a blocker or a clarification request has still finished, so it also rejects messages. Start a new task with `submit_documentation_task` to continue. When your organization has the clarifying-questions feature enabled and the finished task marked a clarifying question, answer it with [`answer_task_question`](#answer-a-clarifying-question). That continues the work in a new task.
+- **Sending to a task that isn't API- or MCP-sourced**: the tool rejects it with `unsupported_task_source`. Task conversations are scoped to API and MCP submissions and to tasks created by calling `request_changes` over MCP. Read the task's status instead, or start an API or MCP task to converse.
+- **An empty or over-length message**: the tool rejects it with `invalid_message`. The limit is 20,000 characters after trimming.
+- **A retried message that conflicts with a stored one**: the tool rejects it with `idempotency_conflict`. The retry reused the same `idempotency_key` with different text. Resend with a new `idempotency_key`, or with the original text.
+- **A `wait_for_task_update` cursor that's invalid or from another task**: the tool rejects it with `invalid_cursor`. Omit the cursor to read from the beginning. If task storage doesn't respond in time, the tool returns `task_read_timeout`; retry the same task and cursor. Set `wait_seconds` between 0 and 30, the server maximum.
+- **`answer_task_question` returns `unavailable`**: your editor can't show a native form. It asks the clarifying question in chat and calls `answer_task_question` again with your answer.
+- **`answer_task_question` returns `already_answered`**: the question was already answered elsewhere. The returned `trigger_event_id` points at the continuation already created, so follow that task.
+- **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No continuation is created and following stops. The original finished task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
+- **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
 
