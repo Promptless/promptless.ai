@@ -177,9 +177,10 @@ second source-based index.
   share a 32,000-character budget per answer.
 - The browser sends text history only. Tool transcripts are not accepted from
   clients or stored as conversation history. Follow-ups can search and read again.
-- `sessionStorage` holds conversation text, source links, interruption status
+- `sessionStorage` holds conversation text, source links, answer trace IDs, interruption status
   and panel state in the current tab. No automatic resumption, accounts or
-  server-side conversation storage. Clear deletes the conversation. Clear, retry,
+  server-side conversation state. Clear deletes the tab's conversation and starts
+  a new conversation ID; it does not delete traces from a configured exporter. Clear, retry,
   stop and replacement questions wait for the previous SDK request to settle;
   callbacks from superseded requests cannot restore an interruption or error.
   Storage
@@ -211,17 +212,53 @@ Listen for `window`'s `starport:analytics` event. Its `detail` is
 | `assistant_error` | `code` |
 | `assistant_feedback` | `message_id`, `value` (`up` or `down`) |
 
-No full answer text or tool-result transcripts are emitted. Query/question
+Browser events omit full answer text and tool-result transcripts. Query/question
 events contain visitor input; connect them only through the site's existing
 analytics/consent setup. Remove old Pagefind input observers to avoid duplicates.
 Recent and starter destinations emit an empty `query`; opening the dialog alone
 does not emit a search query event.
 
+Assistant events carry `conversation_id` and `attempt_id`. After the server
+starts a trace, latency, source-click and feedback events also carry `trace_id`.
+Feedback uses the IDs saved with that answer, including after navigation or a retry.
+
+### Optional server tracing
+
+Set `assistantTelemetry: './src/lib/assistant-telemetry.ts'` to load a
+site-owned server module. Its default export implements `StartAssistantTrace`
+from `src/server/telemetry.ts`. The hook receives bounded text history, page,
+locale, conversation and attempt IDs, browser analytics context, and the corpus
+build timestamp. It returns an AI SDK v7 telemetry configuration, a trace ID,
+a context wrapper, a finish callback, and a hosting lifecycle callback.
+Trace IDs accept 1–256 printable ASCII characters, including UUIDs and
+OpenTelemetry's hexadecimal IDs. Invalid IDs are omitted from client metadata.
+
+The site chooses its exporter and whether to record full inputs and outputs.
+Tracing is disabled when no hook is configured. The plugin adds no exporter
+dependencies or analytics account. Sites using PostHog can use its
+[AI SDK v7 OpenTelemetry integration](https://posthog.com/docs/ai-observability/installation/vercel-ai).
+
+To supply attribution, listen synchronously for `starport:assistant-context`
+and set `event.detail.context` to `{ distinctId, sessionId? }`. Use the current
+browser analytics ID; leave context unset when capture is disabled or the SDK
+is unavailable. These client-provided fields are analytics metadata and do not
+authenticate the visitor.
+
+Every request gets a new attempt ID; follow-ups and retries share the tab's
+conversation ID. The server streams the trace ID as message metadata and an
+`X-Starport-Trace-Id` response header. The finish callback receives `finished`,
+`error`, or `aborted`, the generated text (partial on interruption), and the
+finish reason when available. It runs after the SDK stream settles. Register
+the completion promise with the host's `waitUntil` equivalent and flush the
+exporter from `finish`. Initialization and export failures are logged without
+interrupting the answer.
+
 ## Validation
 
 `npm run test:search` covers rendered extraction, exclusions, shared search,
 history, storage, request limits, throttling, SDK tool streaming, provider errors,
-and cancellation. `npm run check` includes these tests and the production build.
+cancellation, answer metadata, and exporter failure isolation. `npm run check`
+includes these tests and the production build.
 
 Before release, inspect the Vercel output for bundled artifacts and test a real
 model on a deployed preview. Check desktop/mobile focus, both themes, Spanish,

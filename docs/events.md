@@ -201,8 +201,9 @@ this event.
 
 ## Search and assistant events
 
-The Starport plugin emits these through the existing PostHog setup. All events
-include `page_url`; no full answer text or tool-result transcripts are recorded.
+The Starport plugin emits these browser events through the existing PostHog
+setup. All events include `page_url`. The server exports full conversations
+separately through the [AI tracing integration](analytics.md#ask-ai-traces).
 
 | Event | Additional properties |
 | --- | --- |
@@ -215,5 +216,8 @@ include `page_url`; no full answer text or tool-result transcripts are recorded.
 | `docs_assistant_feedback` | `message_id`, `value` (`up` or `down`) |
 
 Question and query events contain visitor input. They follow the site's existing
-PostHog configuration and consent behavior. Feedback IDs are browser message IDs,
-not stored server conversations.
+PostHog configuration and consent behavior. Assistant events include
+`conversation_id`, `$ai_session_id`, and `attempt_id`. Once a trace is available,
+latency, source-click and feedback events also include `trace_id` and
+`$ai_trace_id`. Question events precede trace creation; join them by `attempt_id`.
+Feedback uses the IDs stored on the rated answer, including after navigation.

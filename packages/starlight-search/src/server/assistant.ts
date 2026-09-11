@@ -1,10 +1,11 @@
-import { streamText, tool, isStepCount, type LanguageModel } from 'ai';
+import { streamText, tool, isStepCount, type LanguageModel, type TelemetryOptions } from 'ai';
 import { z } from 'zod';
 import type { Corpus } from './corpus';
 import type { HistoryMessage } from '../core/conversation';
 
-export function answerQuestion({ model, corpus, messages, pageId, locale, signal }: {
+export function answerQuestion({ model, corpus, messages, pageId, locale, signal, telemetry }: {
   model: LanguageModel; corpus: Corpus; messages: HistoryMessage[]; pageId?: string; locale: string; signal: AbortSignal;
+  telemetry?: TelemetryOptions;
 }) {
   let remainingContent = 32_000;
   const withinBudget = <T>(value: T): T | { error: string } => {
@@ -40,6 +41,8 @@ export function answerQuestion({ model, corpus, messages, pageId, locale, signal
   };
   return streamText({
     model, tools,
+    // Other SDK consumers must not implicitly enable capture for this assistant.
+    telemetry: telemetry ?? { isEnabled: false },
     system: `You are the helpful assistant for this documentation site. Answer in the user's language (page locale: ${locale}).
 Use search and readPage to ground factual claims in the published site. Read supporting content before answering. For "this page", read the current page: ${pageId ?? '(not indexed; explain that it is unavailable)'}.
 Write a direct, concise answer, usually 1–3 short paragraphs or a few steps. Use Markdown links to the exact URLs returned by the tools as inline citations. Never invent URLs, features, configuration names, or facts. If the documentation does not answer the question, say what is missing. You may explain code using the documented examples. Ask a focused follow-up only when needed.

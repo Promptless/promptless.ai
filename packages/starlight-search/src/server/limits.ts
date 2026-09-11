@@ -12,6 +12,9 @@ const inputSchema = z.object({
   })).min(1).max(MAX_HISTORY_MESSAGES),
   pageId: z.string().max(1_000).startsWith('/'),
   locale: z.string().max(30).default('en'),
+  conversationId: z.uuid().optional(),
+  attemptId: z.uuid().optional(),
+  analytics: z.object({ distinctId: z.string().min(1).max(256), sessionId: z.string().min(1).max(256).optional() }).optional(),
 });
 
 export async function parseRequest(request: Request, signal = request.signal) {

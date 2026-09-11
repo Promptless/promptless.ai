@@ -13,6 +13,7 @@ export async function loadCorpus(dir: string) {
   const index = loadIndex(artifact);
   const pages = new Map(content.pages.map((page) => [page.id, page]));
   return {
+    contentVersion: artifact.generatedAt,
     search: (query: string, filters?: SearchFilters) => search(index, query, filters),
     readPage: (pageId: string, sectionId?: string) => readPage(pages, pageId, sectionId),
     pageId: (path: string) => [path, path + '/', path.replace(/\/$/, '')].find((id) => pages.has(id)),

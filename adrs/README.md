@@ -42,3 +42,4 @@ New, non-migration architecture decisions go here in `adrs/` using the MADR temp
 - [0002 — Split documentation by product](0002-split-documentation-by-product.md) — accepted
 
 - [0003 — Adopt Starport search and assistant](0003-starport-search-assistant.md) — accepted
+- [0004 — Capture Ask AI conversations in PostHog](0004-assistant-tracing.md) — accepted

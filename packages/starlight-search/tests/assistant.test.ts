@@ -9,6 +9,7 @@ import type { Corpus } from '../src/server/corpus';
 const usage = { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 20, text: 20, reasoning: 0 } };
 const finish = (reason: 'stop' | 'tool-calls'): LanguageModelV4StreamPart => ({ type: 'finish', usage, finishReason: { unified: reason, raw: reason } });
 const corpus: Corpus = {
+  contentVersion: 'test-build',
   search: () => [], pageId: (path) => path === '/docs/' ? path : undefined,
   readPage: (pageId) => pageId === '/docs/' ? { pageId, url: '/docs/', title: 'Setup', locale: 'en', sections: [{ id: 'setup', heading: 'Setup', markdown: 'Run `npm install`.' }] } : null,
 };

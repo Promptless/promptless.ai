@@ -54,12 +54,13 @@ the assistant. Use Starport’s `claude-sonnet-5` default with low effort and
 thinking disabled for concise answers. Without a key, only search is shown.
 Pass generated artifacts to the existing Vercel adapter through `includeFiles`. Replace Pagefind's PostHog
 observer with the plugin event bridge; keep `site_searched` and document the
-additional events without storing full answers or tool transcripts.
+additional events. Configure server conversation capture through
+[the PostHog tracing integration](0004-assistant-tracing.md).
 
 ### Consequences
 
 - Future customer sites receive the same feature from Starport.
-- Promptless owns only configuration, header integration and the analytics bridge.
+- Promptless owns configuration, header integration, the analytics bridge and its trace exporter.
 - The assistant adds no shared backend, accounts or conversation database.
 - Provider credentials and spending limits remain a deployment responsibility.
 - Real-model preview validation is required before release. Architecture review

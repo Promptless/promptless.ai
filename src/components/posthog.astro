@@ -63,7 +63,16 @@
       window.addEventListener('scroll', scrollHandler, { passive: true }); // passive for perf
     }
 
-    // The Starport plugin emits metadata only: no answer text or tool transcripts.
+    // Supply the live browser identity only when the SDK is ready and capture is allowed.
+    window.addEventListener('starport:assistant-context', function(event) {
+      if (typeof posthog.get_distinct_id !== 'function' || posthog.has_opted_out_capturing()) return;
+      var distinctId = posthog.get_distinct_id();
+      if (!distinctId) return;
+      event.detail.context = { distinctId: distinctId };
+      if (typeof posthog.get_session_id === 'function') event.detail.context.sessionId = posthog.get_session_id();
+    });
+
+    // Browser events carry answer IDs; the server sends full AI traces separately.
     // Preserve the existing site_searched event for dashboards.
     window.addEventListener('starport:analytics', function(event) {
       var detail = event.detail;
@@ -79,7 +88,12 @@
         assistant_feedback: 'docs_assistant_feedback'
       };
       var name = eventNames[detail.name];
-      if (name) posthog.capture(name, detail.properties);
+      if (name) {
+        var properties = Object.assign({}, detail.properties);
+        if (properties.trace_id) properties.$ai_trace_id = properties.trace_id;
+        if (properties.conversation_id) properties.$ai_session_id = properties.conversation_id;
+        posthog.capture(name, properties);
+      }
     });
   }
 </script>

@@ -15,6 +15,7 @@ export function searchIntegration(options: SearchOptions, siteTitle: string): As
         artifactDir = fileURLToPath(new URL('.starport/search/', config.root));
         base = config.base;
         const dev = command === 'dev';
+        const telemetryModule = options.assistantTelemetry && fileURLToPath(new URL(options.assistantTelemetry, config.root));
         const clientConfig: ClientConfig = {
           starterLinks: starterLinks(options.starterLinks, base),
           assistant: options.assistant === true,
@@ -27,7 +28,10 @@ export function searchIntegration(options: SearchOptions, siteTitle: string): As
           resolveId(id) { if (id === 'virtual:starport-search' || id === 'virtual:starport-search/server') return '\0' + id; },
           load(id) {
             if (id === '\0virtual:starport-search') return `export default ${JSON.stringify(clientConfig)}`;
-            if (id === '\0virtual:starport-search/server') return `export const artifactDir = ${dev ? JSON.stringify(artifactDir) : "process.cwd() + '/.starport/search'"}`;
+            if (id === '\0virtual:starport-search/server') return `
+              export const artifactDir = ${dev ? JSON.stringify(artifactDir) : "process.cwd() + '/.starport/search'"};
+              ${telemetryModule ? `export { default as startTrace } from ${JSON.stringify(telemetryModule)};` : 'export const startTrace = undefined;'}
+            `;
           },
           configureServer(server) {
             let stale = false;

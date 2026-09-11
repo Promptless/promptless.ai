@@ -4,6 +4,7 @@ declare module 'virtual:starport-search' {
 }
 declare module 'virtual:starport-search/server' {
   export const artifactDir: string;
+  export const startTrace: import('./server/telemetry').StartAssistantTrace | undefined;
 }
 declare module 'turndown-plugin-gfm' {
   export const gfm: import('turndown').Plugin;

@@ -6,8 +6,8 @@ import remarkGfm from 'remark-gfm';
 import type { ClientConfig } from '../core/types';
 import { MAX_QUESTION_CHARS } from '../core/conversation';
 import type { Labels } from './i18n';
-import { track } from './events';
-import { loadChat, messageText, requestHistory, saveChat, sourcesFor } from './session';
+import { assistantAnalyticsContext, track } from './events';
+import { assistantMetadataSchema, assistantProperties, loadChat, messageText, requestHistory, saveChat, sourcesFor, type AssistantMessage, type AssistantMetadata } from './session';
 import { ChatActions } from './chat-actions';
 
 function Activity({ message, t }: { message: UIMessage; t: Labels }) {
@@ -27,6 +27,8 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   config: ClientConfig; t: Labels; open: boolean; onClose: () => void; initialQuestion?: { text: string; id: number };
 }) {
   const [saved] = useState(loadChat);
+  const conversationId = useRef(saved.conversationId);
+  const attempt = useRef<AssistantMetadata | undefined>(undefined);
   const [actions] = useState(() => new ChatActions());
   const [interrupted, setInterrupted] = useState(saved.interrupted);
   const [input, setInput] = useState('');
@@ -41,35 +43,38 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   const startedAt = useRef(0);
   const firstText = useRef(false);
   const lastSubmitted = useRef<number | undefined>(undefined);
-  const transport = useMemo(() => new DefaultChatTransport({
+  const transport = useMemo(() => new DefaultChatTransport<AssistantMessage>({
     api: config.endpoint,
     prepareSendMessagesRequest: ({ messages }) => ({ body: {
       messages: requestHistory(messages), pageId: location.pathname, locale: document.documentElement.lang || 'en',
+      conversationId: conversationId.current, attemptId: attempt.current?.attemptId, analytics: assistantAnalyticsContext(),
     } }),
     fetch: async (url, init) => {
       const response = await fetch(url, init);
       if (!response.ok) throw new Error(response.status === 429 ? 'RATE_LIMIT' : response.status === 503 ? 'UNAVAILABLE' : 'REQUEST_FAILED');
+      const traceId = response.headers.get('X-Starport-Trace-Id');
+      if (traceId && attempt.current) attempt.current = { ...attempt.current, traceId };
       return response;
     },
   }), [config.endpoint]);
-  const { messages, sendMessage, regenerate, stop, status, error, setMessages, clearError } = useChat({
-    messages: saved.messages, transport, throttle: 40,
-    onFinish: ({ isAbort, isDisconnect, isError, finishReason }) => {
+  const { messages, sendMessage, regenerate, stop, status, error, setMessages, clearError } = useChat<AssistantMessage>({
+    messages: saved.messages, transport, throttle: 40, messageMetadataSchema: assistantMetadataSchema,
+    onFinish: ({ message, isAbort, isDisconnect, isError, finishReason }) => {
       if (actions.acceptsEvents) setInterrupted(isAbort || isDisconnect || isError || finishReason === 'length');
-      if (startedAt.current) track('assistant_latency', { stage: 'complete', latency_ms: Math.round(performance.now() - startedAt.current), interrupted: isAbort || isDisconnect || isError });
+      if (startedAt.current) track('assistant_latency', { ...assistantProperties(message.metadata ?? attempt.current), stage: 'complete', latency_ms: Math.round(performance.now() - startedAt.current), interrupted: isAbort || isDisconnect || isError });
     },
     onError: (error) => {
       if (!actions.acceptsEvents) return;
-      setInterrupted(true); track('assistant_error', { code: error.message === 'RATE_LIMIT' ? 'rate_limit' : 'request_failed' });
+      setInterrupted(true); track('assistant_error', { ...assistantProperties(attempt.current), code: error.message === 'RATE_LIMIT' ? 'rate_limit' : 'request_failed' });
     },
   });
   const busy = status === 'streaming' || status === 'submitted';
 
-  useEffect(() => { setStorageAvailable(saveChat(messages, busy || interrupted)); }, [messages, busy, interrupted]);
+  useEffect(() => { setStorageAvailable(saveChat(messages, busy || interrupted, conversationId.current)); }, [messages, busy, interrupted]);
   useEffect(() => {
     if (busy && !firstText.current && messages.at(-1)?.role === 'assistant' && messageText(messages.at(-1)!).trim()) {
       firstText.current = true;
-      track('assistant_latency', { stage: 'first_text', latency_ms: Math.round(performance.now() - startedAt.current) });
+      track('assistant_latency', { ...assistantProperties(attempt.current), stage: 'first_text', latency_ms: Math.round(performance.now() - startedAt.current) });
     }
     if (atBottom.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
   }, [messages, busy]);
@@ -86,17 +91,17 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
     return () => { if (site) site.inert = false; };
   }, [open, mobile]);
   useEffect(() => {
-    const abort = () => { if (busy) { saveChat(messages, true); void stop(); } };
+    const abort = () => { if (busy) { saveChat(messages, true, conversationId.current); void stop(); } };
     window.addEventListener('pagehide', abort);
     return () => window.removeEventListener('pagehide', abort);
   }, [busy, messages, stop]);
 
-  const begin = () => { setInterrupted(false); clearError(); setNotice(''); startedAt.current = performance.now(); firstText.current = false; atBottom.current = true; };
+  const begin = () => { attempt.current = { conversationId: conversationId.current, attemptId: crypto.randomUUID() }; setInterrupted(false); clearError(); setNotice(''); startedAt.current = performance.now(); firstText.current = false; atBottom.current = true; };
   const submit = async (question: string) => {
     if (!question.trim()) return;
     await actions.run(stop, async () => {
       begin(); setInput('');
-      track('assistant_question', { question: question.trim(), question_length: question.trim().length });
+      track('assistant_question', { ...assistantProperties(attempt.current), question: question.trim(), question_length: question.trim().length });
       await sendMessage({ text: question.trim() });
     });
   };
@@ -108,12 +113,13 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
   }, [initialQuestion]);
   const retry = (messageId?: string) => actions.run(stop, async () => { begin(); await regenerate({ messageId }); });
   const reset = () => actions.run(stop, () => {
+    conversationId.current = crypto.randomUUID(); attempt.current = undefined;
     setMessages([]); clearError(); setInterrupted(false); setFeedback({}); setNotice(''); setInput('');
-    saveChat([], false); composer.current?.focus();
+    saveChat([], false, conversationId.current); composer.current?.focus();
   });
   const cancel = () => actions.run(stop, () => { setInterrupted(true); });
-  const sourceClick = (url: string) => {
-    saveChat(messages, busy || interrupted); track('assistant_source_click', { url });
+  const sourceClick = (url: string, message: AssistantMessage) => {
+    saveChat(messages, busy || interrupted, conversationId.current); track('assistant_source_click', { ...assistantProperties(message.metadata), url });
   };
   const errorText = error?.message === 'RATE_LIMIT' ? t.rateLimit : error?.message === 'UNAVAILABLE' ? t.unavailable : error ? t.failed : interrupted ? t.interrupted : '';
 
@@ -140,15 +146,15 @@ export default function Assistant({ config, t, open, onClose, initialQuestion }:
           a: ({ href, children }) => {
             const sources = sourcesFor(message);
             const allowed = href && /^\/(?!\/)/.test(href) && sources.some((source) => source.url.split('#')[0] === href.split('#')[0]);
-            return allowed ? <a href={href} onClick={() => sourceClick(href)}>{children}</a> : <span>{children}</span>;
+            return allowed ? <a href={href} onClick={() => sourceClick(href, message)}>{children}</a> : <span>{children}</span>;
           },
         }}>{messageText(message)}</Markdown></div>
-        {sourcesFor(message).length > 0 && <div className="sp-sources" aria-label={t.sources}>{sourcesFor(message).map((source) => <a key={source.url} href={source.url} onClick={() => sourceClick(source.url)}><span aria-hidden="true">↗</span> {source.title}</a>)}</div>}
+        {sourcesFor(message).length > 0 && <div className="sp-sources" aria-label={t.sources}>{sourcesFor(message).map((source) => <a key={source.url} href={source.url} onClick={() => sourceClick(source.url, message)}><span aria-hidden="true">↗</span> {source.title}</a>)}</div>}
         {messageText(message) && !(busy && i === messages.length - 1) && <div className="sp-answer-actions">
           <button className="sp-icon-button" aria-label={t.copy} title={t.copy} onClick={() => { void navigator.clipboard.writeText(messageText(message)).then(() => setNotice(t.copied)).catch(() => setNotice(t.copyError)); }}>⧉</button>
           <button className="sp-icon-button" aria-label={t.retry} title={t.retry} disabled={busy} onClick={() => void retry(message.id)}>↻</button>
           {(['up', 'down'] as const).map((value) => <button key={value} className="sp-icon-button" aria-label={value === 'up' ? t.helpful : t.unhelpful} title={value === 'up' ? t.helpful : t.unhelpful} aria-pressed={feedback[message.id] === value} onClick={() => {
-            setFeedback((old) => ({ ...old, [message.id]: value })); setNotice(t.feedback); track('assistant_feedback', { message_id: message.id, value });
+            setFeedback((old) => ({ ...old, [message.id]: value })); setNotice(t.feedback); track('assistant_feedback', { ...assistantProperties(message.metadata), message_id: message.id, value });
           }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true" style={value === 'down' ? { transform: 'rotate(180deg)' } : undefined}><path d="M7 10 11 3c2 0 3 1 2 4l-1 3h6c2 0 3 1 2 3l-2 7H7zM3 10h4v10H3z" /></svg></button>)}
         </div>}
       </article>)}

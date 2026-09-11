@@ -31,6 +31,44 @@ Search result clicks identify their `source` as `search`, `recent`, or `starter`
 Recent and starter destinations use an empty `query`; simply opening the search
 dialog does not emit `site_searched`.
 
+### Ask AI traces
+
+`astro.config.mjs` opts into full server capture through
+`src/lib/assistant-telemetry.ts`. The official PostHog trace exporter sends
+AI SDK v7 spans to the same project as browser analytics. Configure
+`PUBLIC_POSTHOG_PROJECT_TOKEN` and `PUBLIC_POSTHOG_HOST` alongside the
+assistant's `ANTHROPIC_API_KEY`; Node 22.22 or newer is required.
+
+In PostHog AI Observability, a trace is one answer attempt and an AI session is
+one tab conversation. Follow-ups and retries have separate traces; Clear
+starts a new conversation. The trace contains system instructions, bounded
+message history, exact search/read tool inputs and outputs, generated text,
+model usage and the outcome (`finished`, `error`, or `aborted`). An aborted
+trace retains the partial answer. Clear removes browser state but does not
+delete exported traces.
+
+The browser supplies its current PostHog distinct ID and replay session ID.
+Requests without that context, including when capture is opted out or the SDK
+has not loaded, are not traced. A distinct ID is analytics attribution, not
+proof of the visitor's identity. Trace properties include `environment`,
+`deployment_id`, `release`, `content_version`, `page_url`, and `attempt_id`.
+Filter `environment = production` when reviewing visitor usage.
+
+The [assistant browser events](events.md#search-and-assistant-events) connect
+questions and feedback to traces. `docs_assistant_feedback` carries
+`$ai_trace_id` for the rated answer; it does not populate PostHog's native
+Survey Feedback tab. Use the event to query positive and negative feedback.
+
+The exporter initializes once per process. Vercel `waitUntil` keeps completion
+work alive while the SDK closes its spans and the exporter flushes, including
+earlier batches still in flight. Export
+failures appear in server logs and do not fail an otherwise usable answer.
+
+Run `npm run test:assistant-telemetry` to check real SDK span structure,
+attribution, follow-ups, retries and cancellation against an in-memory exporter.
+Before release, exercise those actions and thumbs feedback on a deployed
+preview, then verify their IDs and captured content in PostHog.
+
 ### Poorly-instrumented events
 
 | Event | Problem |
