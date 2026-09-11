@@ -15,7 +15,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. Then, from the editor you already have open, start a documentation task and get its outcome and docs pull request link back. You can also ask Promptless to revise a suggestion it already made. You can send a follow-up instruction into a running task and read that task's conversation. You can set a suggestion's labels, assignees, and title, open its pull request, or close it yourself. There's no API key to create, store, or rotate: you authorize once in a browser instead.
+Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. Then, from the editor you already have open, start a documentation task and follow it to its outcome in the same conversation. Its docs pull request link comes back too. You can also ask Promptless to revise a suggestion it already made. You can send a follow-up instruction into a running task and read that task's conversation. You can set a suggestion's labels, assignees, and title, open its pull request, or close it yourself. There's no API key to create, store, or rotate: you authorize once in a browser instead.
 
 [MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools; any editor with an "MCP servers" setting can connect to Promptless. It's a built-in surface that's always available. It needs no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
 
@@ -120,7 +120,7 @@ Your editor handles authorization automatically over OAuth; you approve the conn
 
   - start tasks;
   - list your collections;
-  - read the status of any task in your organization (including tasks started from Slack, a GitHub pull request, the dashboard, and the API);
+  - read the status of any task in your organization, and follow a running one to its outcome. That covers tasks started from Slack, a GitHub pull request, the dashboard, and the API;
   - revise a suggestion Promptless already produced;
   - send an additional instruction into a running task;
   - update a suggestion's labels, assignees, and title and open its docs pull request;
@@ -135,15 +135,15 @@ A token is tied to one organization. To connect a second organization, authorize
 
 ## Available tools
 
-Through your editor, these nine tools let you check on your collections, tasks, and suggestions, or queue and change your documentation work. Four tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, and `search_suggestions`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Five tools queue or change work: `submit_documentation_task`, `send_task_message`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
+Through your editor, these 10 tools let you check on your collections, tasks, and suggestions, or queue and change your documentation work. Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Five tools queue or change work: `submit_documentation_task`, `send_task_message`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
 
 <Aside type="note">
-  If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message` tool and its updated tool description. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
+  If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message` and `wait_for_task_update` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
 </Aside>
 
 ### `submit_documentation_task`
 
-Starts a documentation task and returns a task ID (the `trigger_event_id`) you can check with `get_task_status`.
+Starts a documentation task and returns a task ID (the `trigger_event_id`) you can check with `get_task_status`. It also returns a `next_call`, the next tool call your editor should make. It names `wait_for_task_update` with its arguments, so your editor can follow the task automatically.
 
 | Argument            | Required | Description                                                                                                                                                                                                                 |
 | ------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -154,7 +154,7 @@ Starts a documentation task and returns a task ID (the `trigger_event_id`) you c
 
 When you omit `doc_collection_id`, the request routes across all your collections, and your [relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering) still applies per collection; pass a `doc_collection_id` (from `list_doc_collections`) to target one collection.
 
-A run takes several minutes, so submit the request and then poll for the outcome with `get_task_status` rather than expecting an immediate result. There's no separate call to list your tasks. Use `list_recent_tasks`, which also surfaces tasks you didn't start over MCP.
+A run takes several minutes. The submission returns a `next_call`, and your editor follows the task with `wait_for_task_update` until `next_call` is null. The outcome surfaces in the same conversation. To check status at a point in time instead, call `get_task_status` on request. There's no separate call to list your tasks. Use `list_recent_tasks`, which also surfaces tasks you didn't start over MCP.
 
 ### `list_doc_collections`
 
@@ -168,9 +168,25 @@ It also returns the suggestions the task produced. Each comes with its docs pull
 
 It also returns the task's conversation. The `messages` array is the persisted conversation between the customer and Promptless for that task, capped at the latest 100 messages and returned oldest-first. The `messages` array is populated for tasks submitted over the API or MCP and for tasks created by calling `request_changes` over MCP. An empty `messages` array means either the task has no messages yet or its source doesn't carry a conversation. Reading the conversation never consumes it.
 
-Each message carries a stable, immutable `id`, a `sequence` number, an `author` object, a `created_at`, and the `message` text. A caller that polls repeatedly uses the `id` to dedupe, relaying each new message only once. Your editor tracks these `id`s for you, so it doesn't relay the same message twice. The `author` object's `type` is `promptless` or `customer`, and its `name` is the customer's email when available, otherwise null.
+Each message carries a stable, immutable `id`, a `sequence` number, an `author` object, a `created_at`, and the `message` text. The `id` lets a caller dedupe, relaying each new message only once. Your editor tracks these `id`s for you, so it doesn't relay the same message twice. Incremental message delivery comes from `wait_for_task_update`'s `cursor`. `get_task_status` reads the conversation so far at a single point in time. The `author` object's `type` is `promptless` or `customer`, and its `name` is the customer's email when available, otherwise null.
 
-A `status_guidance` field is a short text string carrying server-generated advice about polling the task and interpreting its outcome. That advice is distinct from the conversation itself, which `messages` carries.
+A `status_guidance` field is a short text string carrying server-generated advice about following the task and interpreting its outcome. That advice is distinct from the conversation itself, which `messages` carries.
+
+### `wait_for_task_update`
+
+Follows a running task in the same conversation. It waits for new messages, a changed result, or completion. You get the outcome without checking status by hand. It's read-only, and your editor can auto-approve it.
+
+| Argument           | Required | Description                                                                                                 |
+| ------------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
+| `trigger_event_id` | Yes      | The task to follow.                                                                                         |
+| `cursor`           | No       | Omit for an immediate initial snapshot. Reuse the `cursor` a prior call returned to receive later messages. |
+| `wait_seconds`     | No       | How long one wait lasts, from 0 to a server maximum of 30 seconds. Defaults to 30 when omitted.             |
+
+Each call returns a page of new conversation messages in `messages`, plus a `cursor` to pass to the next call. Each `messages` entry has the same shape as the ones `get_task_status` returns, with a stable `id`, a `sequence`, an `author`, and the message text. Reads never consume messages. Retrying the same call with the same `cursor` is safe. It may repeat messages your editor already saw, which your editor dedupes by `id`. A `has_more_messages` flag is true when more pages are ready. The `update_type` is `snapshot` on the first call for a cursor, which is when you omit `cursor`. It's `changed` when new messages or a new result arrived, and `timeout` when nothing changed during the wait. The `result` and `finished` fields report the task's outcome and whether it has finished. The `result` mirrors the outcome payload `get_task_status` returns. It carries the task's `resolution` note and its `suggestions`, each with its docs pull request link and review status. Every call also returns a `next_call`, which names `wait_for_task_update` and its arguments.
+
+Follow `next_call` until it's null. `next_call` stays set while `has_more_messages` is true or the task isn't finished. It becomes null only once the task is `finished` and `has_more_messages` is false. Your editor never stops on `finished` alone, so it never drops a trailing message page. A `timeout` is normal: your editor keeps waiting through the next `next_call` without a separate sleep and without narrating unchanged state. Your editor keeps calling `wait_for_task_update` while `has_more_messages` is true, even after `finished` is true, so it doesn't miss a trailing message. Waiting doesn't cancel the cloud work.
+
+You stay in control of following. Ask your editor to follow just once, or to stop at any time. `get_task_status` stays available to check a long-running task on demand.
 
 ### `send_task_message`
 
@@ -201,7 +217,7 @@ Asks Promptless to revise a suggestion it already produced. This is the revision
 | `suggestion_id` | Yes      | The ID of the suggestion to change (from `search_suggestions` or `get_task_status`). |
 | `instructions`  | Yes      | What to change about the suggestion.                                                 |
 
-Promptless updates that suggestion's existing docs pull request instead of opening a second one, and returns a task ID you check with `get_task_status`. If the suggestion's pull request is no longer one Promptless can revise, the tool reports that back; start a new task with `submit_documentation_task` instead.
+Promptless updates that suggestion's existing docs pull request instead of opening a second one. It returns a task ID you check with `get_task_status`, plus a `next_call` that follows the revision task with `wait_for_task_update`. If the suggestion's pull request is no longer one Promptless can revise, the tool reports that back; start a new task with `submit_documentation_task` instead.
 
 ### `update_suggestion`
 
@@ -261,7 +277,7 @@ When more suggestions match than were returned, the result sets a `truncated` fl
 
 ## Workflow skills
 
-If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. This is guidance for the [nine tools above](#available-tools), not a new set of tools. The catalog is unchanged. The editor decides when to load a skill; you ask for what you want as usual.
+If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. This is guidance for the [10 tools above](#available-tools), not a new set of tools. The catalog is unchanged. The editor decides when to load a skill; you ask for what you want as usual.
 
 One skill ships today: `suggestion-triage`, a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. That sequence is the point. It keeps the editor from treating a truncated result set as your whole backlog. And it gives each suggestion exactly one outcome, instead of you prompting each step and risking a missed part of the queue.
 
@@ -271,21 +287,21 @@ A skill doesn't change how the tools behave. This skill's work-changing tools ar
   If your editor doesn't support skills, you lose nothing, since it calls the same tools directly. Skills reach it over the draft **Skills extension (SEP-2640)**. The MCP endpoint declares this as the `io.modelcontextprotocol/skills` capability in its `initialize` response. Many clients don't support it yet, so they won't surface skills at all. To check whether yours does, see its MCP settings or release notes. And because the extension is still a draft, its shape can change.
 </Aside>
 
-Skills are purely additive. A client that doesn't support the extension, or ignores it, sees exactly the same nine tools; the guidance costs nothing when it goes unused.
+Skills are purely additive. A client that doesn't support the extension, or ignores it, sees exactly the same 10 tools; the guidance costs nothing when it goes unused.
 
 ## Ask your editor
 
-Ask in plain language. For example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection." Your editor maps that to `list_doc_collections`, then `submit_documentation_task`, and returns a task ID you can pass to `get_task_status`.
+Ask in plain language. For example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection." Your editor maps that to `list_doc_collections`, then `submit_documentation_task`. It follows the task automatically in the same conversation, using the `next_call` it gets back. It reports the outcome and docs pull request link back to you, without you checking status by hand.
 
 To avoid duplicating work, search before you submit. Your editor runs `search_suggestions` first, and if nothing live comes back, submits the task. For example: "Before I ask Promptless to document the new webhook retries, search existing suggestions for 'webhook retries.'"
 
-To check on a task you already started, ask by its ID: "What's the status of Promptless task `<id>`?" Your editor calls `get_task_status` and reports back the outcome and any docs pull request link.
+To check a task at a point in time, ask by its ID: "What's the status of Promptless task `<id>`?" Your editor calls `get_task_status` and reports the outcome and any docs pull request link. This is the on-request check, not the primary way you get an outcome. Reach for it for a task you didn't follow to completion, or to look in again later or from another session. It works for any task.
 
 To read a task's conversation, ask for it: "What has Promptless said so far about task `<id>`?" Your editor calls `get_task_status` and reports the conversation.
 
 To add to a task that's still running, tell Promptless what else to cover: "Tell Promptless task `<id>` to also cover the error responses." Your editor maps that to `send_task_message`, and the instruction folds into the running task. This works for tasks you started over the API or MCP, or created with `request_changes` over MCP. Check back with `get_task_status` to see the message added to the conversation.
 
-To change a suggestion Promptless already made, ask for a revision: "Revise Promptless suggestion `<id>` to also cover single sign-on." Your editor calls `request_changes`, and Promptless updates that suggestion's existing pull request instead of opening a new one.
+To change a suggestion Promptless already made, ask for a revision: "Revise Promptless suggestion `<id>` to also cover single sign-on." Your editor calls `request_changes`, and Promptless updates that suggestion's existing pull request instead of opening a new one. Your editor follows the revision task via `next_call` until it's done, the same way it follows a new task.
 
 To set a suggestion's labels, assignees, or title, or open its docs pull request yourself, ask for that. For example: "Assign Promptless suggestion `<id>` to @alex, retitle it 'SSO setup,' and open its docs PR." Your editor calls `update_suggestion`, which applies the change and opens the pull request in the same step. To just retitle it without opening a pull request, leave that part out: "Retitle Promptless suggestion `<id>` to 'SSO setup.'"
 
@@ -325,6 +341,7 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **Sending to a task that isn't API- or MCP-sourced**: the tool rejects it with `unsupported_task_source`. Task conversations are scoped to API and MCP submissions and to tasks created by calling `request_changes` over MCP. Read the task's status instead, or start an API or MCP task to converse.
 - **An empty or over-length message**: the tool rejects it with `invalid_message`. The limit is 20,000 characters after trimming.
 - **A retried message that conflicts with a stored one**: the tool rejects it with `idempotency_conflict`. The retry reused the same `idempotency_key` with different text. Resend with a new `idempotency_key`, or with the original text.
+- **A `wait_for_task_update` cursor that's invalid or from another task**: the tool rejects it with `invalid_cursor`. Omit the cursor to read from the beginning. If task storage doesn't respond in time, the tool returns `task_read_timeout`; retry the same task and cursor. Set `wait_seconds` between 0 and 30, the server maximum.
 - **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
