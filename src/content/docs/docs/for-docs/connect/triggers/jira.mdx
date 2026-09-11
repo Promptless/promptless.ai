@@ -36,6 +36,26 @@ A single delivery can carry more than one built-in path. Three rules resolve tha
 - A `promptless` label still starts a session even when the same delivery's mention or assignment was dropped. The label path is never dropped merely because another path on the delivery was.
 - With a service account attached, a delivery that both assigns the issue and adds a `promptless` label dispatches as the assignment, since assignment outranks the label.
 
+## Confirm receipt on the ticket
+
+As soon as any of the paths above dispatches a session, Promptless posts an eyes emoji (👀) comment on the issue. The comment signals that the request arrived and that Promptless has picked it up.
+
+The confirmation posts automatically on every dispatched Jira trigger and is not something you configure. That covers the built-in label, mention, and assignment paths and the configured triggers alike (see [How a Jira ticket starts a session](#how-a-jira-ticket-starts-a-session)). Because it posts on every dispatched trigger, a broadly scoped trigger produces a confirmation comment on every issue it matches (see [Scoping to projects](#scoping-to-projects)).
+
+Promptless posts the confirmation only when a session dispatches. A delivery that starts no session receives no confirmation:
+
+- A delivery with no matching trigger.
+- A mention or assignment dropped because no service account is attached (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)).
+- A delivery Promptless recognizes as a duplicate of one already processed.
+
+The comment acknowledges receipt. Promptless still answers on the ticket with its substantive reply. It still flags the issue for follow-up if that reply goes unanswered (see [Reply on the ticket](#reply-on-the-ticket)).
+
+The confirmation posts under the same identity as other Jira writes (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)). That is the attached Atlassian service account when one is attached, and the connecting account otherwise. Because the body is just the emoji, the authoring account identifies the source. A service account posts as the Promptless bot, and the connecting account posts under a person's Jira identity.
+
+Posting the confirmation is best-effort. If posting the confirmation does not succeed, no comment appears on the issue, and the session that already started proceeds without interruption.
+
+The comment's body is a single eyes emoji (👀), a lightweight acknowledgement of the request.
+
 ## Reply on the ticket
 
 Promptless answers on the ticket and attaches the documentation PR as a remote link (a linked reference on the Jira issue). The link is deduplicated by a stable identifier, so re-posting never adds a duplicate link.
@@ -127,7 +147,7 @@ Attach the service account from the Atlassian integration card by entering its *
 
 ## Example
 
-A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected. It then comments on the ticket with that scope, the same way the built-in paths comment on the ticket. Because this run is do-not-publish, there's no PR to link.
+A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Each time a trigger dispatches in this walkthrough, Promptless posts the 👀 receipt confirmation before the scope or reply comment that follows. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected. It then comments on the ticket with that scope, the same way the built-in paths comment on the ticket. Because this run is do-not-publish, there's no PR to link.
 
 Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once. It matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless dispatches once, tagged with both keys.
 
