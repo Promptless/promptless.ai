@@ -14,22 +14,22 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-The trace analyzer connects the instructions your team publishes with what happens when agents use them. It receives traces from enrolled hosts, stores them in your infrastructure, and investigates instruction problems using your configured model provider. Technical writers and developers can set up an instruction hub before you deploy trace analysis.
+The trace analyzer connects the instructions your team publishes with what happens when agents use them. It receives traces from enrolled hosts, stores them in your infrastructure, and investigates instruction problems using your configured model provider. Technical writers and developers can set up an Instruction Hub before you deploy trace analysis.
 
 This guide helps your platform team prepare the environment. Use it to agree on ownership, access, and recovery before installing anything.
 
 <Aside type="note" title="Supervisor availability">
-  The supervisor is pending implementation. These public guides describe its proposed installation and operating contract; supervisor commands and configuration are not available interfaces today. To deploy the current service, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+  The supervisor is pending implementation. These public guides describe its proposed interface and operating contract; you cannot run its commands or apply its configuration against today's service. To deploy the current analyzer, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 </Aside>
 
 ## Choose an installation path
 
 | Path               | What your team does                                                                             | Availability                           |
 | ------------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Supervisor         | Install a controller once, declare a PIG deployment, and receive stable releases automatically. | Planned; documented in this guide set. |
+| Supervisor         | Install a controller once, declare a PIG deployment, and receive stable releases automatically. | Pending implementation; documented in this guide set. |
 | Current Helm chart | Install and upgrade the `instruction-hub-worker` chart, including its database migration hook.  | Available from the Promptless team.    |
 
-The supervisor is intended to manage the trace analyzer, its migrations, and dedicated PIG resources. It will also update itself. You will retain control over release pauses, version pins, credentials, and the infrastructure it is allowed to manage.
+The supervisor is intended to manage the trace analyzer, its migrations, and dedicated PIG resources, and to update itself. You retain control over release pauses, version pins, credentials, and the infrastructure it is allowed to manage.
 
 ## Assemble the deployment
 
@@ -41,7 +41,7 @@ Begin with an existing Kubernetes cluster. The examples use the organization **A
 | PostgreSQL                 | Stores host identity, trace metadata, ingestion progress, and analysis state. | Create a dedicated database and database owner; configure private connectivity and backups. |
 | AWS S3                     | Stores raw trace chunks, canonical trace objects, and analysis context.       | Create a private bucket and grant access to the selected prefix.                            |
 | Promptless organization    | Registers the deployment, authorizes hosts, and receives findings and status. | Obtain the runtime URL, deployment identity, and install token from Promptless.             |
-| Instruction hub repository | Gives the analyzer the instructions to investigate.                           | Supply its canonical GitHub HTTPS URL, numeric repository ID, and `owner/name`.             |
+| Instruction Hub repository | Gives the analyzer the instructions to investigate.                           | Supply its canonical GitHub HTTPS URL, numeric repository ID, and `owner/name`.             |
 | Model endpoint             | Performs trace analysis.                                                      | Select a supported provider, model, and authentication method; confirm access and quota.    |
 | HTTPS endpoint             | Receives policy requests, host check-ins, and trace uploads.                  | Reserve a hostname and certificate reachable from enrolled devices.                         |
 
@@ -49,7 +49,7 @@ All three cloud recipes use S3. An AKS or GKE installation therefore has an AWS 
 
 ### Select repository and model access
 
-The current analyzer verifies a GitHub repository and analyzes its `main` branch. Obtain the immutable repository ID rather than deriving identity from its name. A public repository does not need a read token; a private repository needs a token that can verify and read it. GitLab publishing for the instruction hub does not currently imply GitLab support for the analyzer's repository binding.
+The current analyzer verifies a GitHub repository and analyzes its `main` branch. Obtain the immutable repository ID rather than deriving identity from its name. A public repository does not need a read token; a private repository needs a token that can verify and read it. GitLab publishing for the Instruction Hub does not currently imply GitLab support for the analyzer's repository binding.
 
 The analyzer supports `openai`, `azure_openai`, and `aws_bedrock` model providers. OpenAI and Azure use API keys. Bedrock can use an API key or AWS Signature Version 4 with ambient AWS credentials. Select an endpoint and model that support the Responses API. The cloud running Kubernetes does not determine the model provider: for example, a GKE installation can use OpenAI. See the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for current settings.
 
@@ -62,7 +62,7 @@ Set an analysis activation timestamp when you are ready to begin. Analysis norma
 | Enrolled devices → analyzer          | HTTPS on the deployment hostname. Private access is suitable when every device can reach it, such as through a VPN. |
 | Analyzer → PostgreSQL                | TCP 5432 over your private network, with database TLS.                                                              |
 | Analyzer → S3                        | HTTPS to the bucket's regional AWS endpoint.                                                                        |
-| Analyzer → hosted Promptless         | HTTPS for policy, credential checks, findings, and status.                                                          |
+| Analyzer → Hosted Promptless         | HTTPS for policy, credential checks, findings, and status.                                                          |
 | Analyzer → GitHub and model provider | HTTPS for repository verification/download and analysis requests.                                                   |
 | Cluster → release artifacts          | Access to the registries and release endpoints supplied with the installation materials.                            |
 | Supervisor → cloud management        | Token exchange and HTTPS to each provider's management APIs, when cloud operations are delegated.                   |
@@ -73,7 +73,9 @@ A private endpoint keeps inbound traffic off the public internet; it does not re
 
 ## Assign ownership before enabling updates
 
-The planned supervisor follows every stable release by default, including releases that change application behavior, schemas, or dedicated PIG infrastructure. This is broader than patch-only updates. An update must still pass compatibility, permission, and data-preservation checks.
+This ownership model applies only to the proposed supervisor path. A Helm-only deployment has no separate ownership boundary to configure.
+
+The proposed supervisor follows every stable release by default, including releases that change application behavior, schemas, or dedicated PIG infrastructure. This is broader than patch-only updates. An update must still pass compatibility, permission, and data-preservation checks.
 
 | Owner                  | Responsibilities                                                                                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -98,7 +100,7 @@ Keep PostgreSQL backups and S3 retention aligned: restoring metadata without its
 
 Start the analyzer with one replica, matching the current chart. Reserve enough CPU and memory for analysis child processes and enough temporary storage for repository checkouts and trace workspaces. Measure ingestion volume, queue delay, database growth, and model usage before increasing capacity; no universal production sizing is assumed by these guides.
 
-The supervisor contract retains the database and trace objects when a deployment is removed. Removing a Kubernetes resource is not a request to erase customer data. Perform any later storage deletion through a separate, reviewed infrastructure change.
+On the proposed supervisor path, its contract retains the database and trace objects when a deployment is removed. Removing a Kubernetes resource is not a request to erase customer data. A Helm-only deployment today has no such contract, so your own backup and retention controls govern what persists. Either way, perform any later storage deletion through a separate, reviewed infrastructure change.
 
 ## Choose your cloud recipe
 
@@ -107,3 +109,5 @@ The supervisor contract retains the database and trace objects when a deployment
 - [Deploy on Google Cloud](/docs/governance/deploy-the-worker/deploy-on-gcp): GKE, Cloud SQL for PostgreSQL, and S3 with separate AWS authentication.
 
 Each recipe feeds into the same [supervisor installation](/docs/governance/deploy-the-worker/install-the-supervisor) and verifies a first trace through completed analysis.
+
+To deploy the currently available analyzer instead of the proposed supervisor path, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).

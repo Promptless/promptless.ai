@@ -13,7 +13,7 @@ sidebar:
   order: 2
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 The supervisor is designed to install and maintain PIG trace analysis in your cluster. You provide storage, access, and deployment settings once. The supervisor then manages application releases, migrations, and its own updates.
 
@@ -29,18 +29,45 @@ If you are following a cloud recipe, use this page for the common bootstrap and 
 
 The proposed installation materials from Promptless consist of a versioned supervisor chart, release artifact identities, a resource/permission inventory, and deployment registration values. In this guide, `./pig-supervisor` means the unpacked chart supplied by the team. It is not a public registry address.
 
-Use one supervisor installation for the `pig` namespace in this example. Install it in `pig-system`. Cluster administrators perform the bootstrap because it installs the `PIGDeployment` custom resource definition and the controller's scoped RBAC. Routine releases should not require cluster-admin access.
+Use one supervisor installation to manage the `pig` namespace in this example. Install the supervisor itself in `pig-system`. Cluster administrators perform the bootstrap because it installs the `PIGDeployment` custom resource definition and the controller's scoped RBAC. Routine releases should not require cluster-admin access.
 
 ## 1. Prepare secrets and the analyzer identity
 
-Create namespace `pig` and a ServiceAccount named `pig-analyzer`. Reuse either resource if your cloud preparation already created it; run only the missing create commands below. Apply the cloud-specific identity configuration from your recipe to that ServiceAccount.
+<Aside type="caution">
+  The supervisor is pending implementation. If you need to deploy today, stop here and use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) instead.
+</Aside>
 
-```bash
-kubectl create namespace pig
-kubectl create serviceaccount pig-analyzer --namespace pig
-```
+<Steps>
+  1. **Create the namespace and analyzer ServiceAccount.** Create namespace `pig` and a ServiceAccount named `pig-analyzer`. Reuse either resource if your cloud preparation already created it; run only the missing create commands. Apply the cloud-specific identity configuration from your recipe to that ServiceAccount.
 
-Use your secret manager to deliver a Kubernetes Secret named `pig-credentials` in `pig`. The examples reference these keys:
+     ```bash
+     kubectl create namespace pig
+     kubectl create serviceaccount pig-analyzer --namespace pig
+     ```
+
+  2. **Deliver the `pig-credentials` Secret.** Use your secret manager to deliver a Kubernetes Secret named `pig-credentials` in `pig`, using the keys in the table below. Keep plaintext secrets out of Git and Helm command arguments. To create a Secret from protected local files during a pilot, use:
+
+     ```bash
+     kubectl create secret generic pig-credentials --namespace pig \
+       --from-file=install-token=/secure/pig/install-token \
+       --from-file=postgres-dsn=/secure/pig/postgres-dsn \
+       --from-file=model-api-key=/secure/pig/model-api-key \
+       --from-file=repository-token=/secure/pig/repository-token
+     ```
+
+     The file paths are placeholders for files your team prepares; file contents must not include a trailing newline. Omit the repository argument if the repository is public. For ongoing operation, configure your secret manager to rotate the same keys.
+
+  3. **Provide the database CA bundle, if your database needs one.** Create `pig-postgres-ca` with key `ca.pem` from your provider's certificate bundle. The proposed supervisor mounts it at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers.
+
+     ```bash
+     kubectl create configmap pig-postgres-ca --namespace pig \
+       --from-file=ca.pem=/secure/pig/postgres-ca.pem
+     ```
+
+  4. **Create the `pig-tls` Secret.** Create the TLS Secret `pig-tls` in `pig` using your certificate manager. Its certificate must cover the hostname used below. Keep certificate renewal in your existing certificate-management workflow.
+</Steps>
+
+The `pig-credentials` Secret uses these keys:
 
 | Key                | Value                                                                              |
 | ------------------ | ---------------------------------------------------------------------------------- |
@@ -49,64 +76,85 @@ Use your secret manager to deliver a Kubernetes Secret named `pig-credentials` i
 | `model-api-key`    | The key for the selected model endpoint; omit for Bedrock Signature Version 4.     |
 | `repository-token` | Read access to the private GitHub hub; omit for a public repository.               |
 
-Keep plaintext secrets out of Git and Helm command arguments. To create a Secret from protected local files during a pilot, use:
-
-```bash
-kubectl create secret generic pig-credentials --namespace pig \
-  --from-file=install-token=/secure/pig/install-token \
-  --from-file=postgres-dsn=/secure/pig/postgres-dsn \
-  --from-file=model-api-key=/secure/pig/model-api-key \
-  --from-file=repository-token=/secure/pig/repository-token
-```
-
-The file paths are placeholders for files your team prepares; file contents must not include a trailing newline. Omit the repository argument if the repository is public. For ongoing operation, configure your secret manager to rotate the same keys.
-
-If your database needs a supplied CA bundle, create `pig-postgres-ca` with key `ca.pem` from your provider's certificate bundle. The proposed supervisor mounts it at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers.
-
-```bash
-kubectl create configmap pig-postgres-ca --namespace pig \
-  --from-file=ca.pem=/secure/pig/postgres-ca.pem
-```
-
-Create the TLS Secret `pig-tls` in `pig` using your certificate manager. Its certificate must cover the hostname used below. Keep certificate renewal in your existing certificate-management workflow.
-
 ## 2. Bootstrap the supervisor
+
+Bootstrapping installs the proposed interface; it does not install a shipping product today.
 
 ### Declare the management boundary
 
 The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its cloud management identities are separate from the analyzer's data-access identities. Keep this account, its identity bindings, and its resource inventory in your platform team's GitOps configuration.
 
-Save this proposed bootstrap configuration as `supervisor-infrastructure.yaml`. The empty inventory authorizes Kubernetes application updates and PostgreSQL schema migrations, but no cloud resource operations. A stable release that requires a cloud change will block until the necessary resource and permission are explicitly delegated.
+<Aside type="caution">
+  The supervisor is pending implementation. These bootstrap commands configure a proposed interface and do not install a shipping product today.
+</Aside>
 
-```yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: pig-system
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: pig-supervisor
-  namespace: pig-system
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: acme-infrastructure
-  namespace: pig-system
-data:
-  inventory.yaml: |
-    version: 1
-    deployments:
-      pig/acme:
-        identities: {}
-        resources: []
-```
+<Steps>
+  1. **Save the bootstrap infrastructure as `supervisor-infrastructure.yaml`.** The empty inventory authorizes Kubernetes application updates and PostgreSQL schema migrations, but no cloud resource operations. A stable release that requires a cloud change blocks until the necessary resource and permission are explicitly delegated.
 
-For cloud management, replace the inner `inventory.yaml` value and add the ServiceAccount bindings from your cloud recipe. Use the exact provisioned resource IDs. The examples delegate database sizing and permit inspection of the S3 bucket; they leave backup, retention, deletion, IAM, and networking changes outside supervisor authority.
+     ```yaml title="supervisor-infrastructure.yaml"
+     apiVersion: v1
+     kind: Namespace
+     metadata:
+       name: pig-system
+     ---
+     apiVersion: v1
+     kind: ServiceAccount
+     metadata:
+       name: pig-supervisor
+       namespace: pig-system
+     ---
+     apiVersion: v1
+     kind: ConfigMap
+     metadata:
+       name: acme-infrastructure
+       namespace: pig-system
+     data:
+       inventory.yaml: |
+         version: 1
+         deployments:
+           pig/acme:
+             identities: {}
+             resources: []
+     ```
 
-The proposed inventory contract is:
+     For cloud management, replace the inner `inventory.yaml` value and add the ServiceAccount bindings from your cloud recipe. Use the exact provisioned resource IDs. The examples delegate database sizing and permit inspection of the S3 bucket; they leave backup, retention, deletion, IAM, and networking changes outside supervisor authority. The [inventory contract](#the-proposed-inventory-contract) below defines each field.
+
+  2. **Save the chart values as `supervisor-values.yaml`.**
+
+     ```yaml title="supervisor-values.yaml"
+     watchNamespace: pig
+     serviceAccount:
+       create: false
+       name: pig-supervisor
+     infrastructure:
+       inventoryConfigMapRef:
+         name: acme-infrastructure
+         key: inventory.yaml
+       credentialSecretNames: []
+     ```
+
+     Both references resolve in `pig-system`. The chart grants read access to this inventory and only the management Secrets named in `credentialSecretNames`. Cloud recipes add their required Secret names and pod labels here. The controller must not modify the inventory, credential bindings, or its own permission grants.
+
+  3. **Apply the bootstrap resources.** Create them through GitOps, or for a direct installation:
+
+     ```bash
+     kubectl apply -f supervisor-infrastructure.yaml
+     ```
+
+  4. **Install the supervisor chart.** Deliver any cloud management Secrets before installing the chart. Review its rendered permissions against the inventory, then use the proposed bootstrap command:
+
+     ```bash
+     helm upgrade --install pig-supervisor ./pig-supervisor \
+       --namespace pig-system \
+       --create-namespace \
+       --values supervisor-values.yaml \
+       --wait
+     ```
+
+     `watchNamespace` restricts customer deployment reconciliation to `pig`. The controller also needs the permissions declared by the chart to maintain its own resources in `pig-system` and its custom resource definition. It must reject a missing inventory entry and report unavailable management identities or permissions before changing cloud resources.
+</Steps>
+
+#### The proposed inventory contract
 
 | Field                       | Meaning                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -119,107 +167,77 @@ The proposed inventory contract is:
 
 Before enabling `update`, remove competing reconciliation for those fields from your infrastructure workflow. Preserve customer ownership of the remaining fields. Apply the reviewed cloud permission policy supplied with the installation materials to each named principal. The inventory constrains supervisor behavior; it does not create IAM grants or make a broad provider role safe.
 
-Save the following proposed chart values as `supervisor-values.yaml`:
-
-```yaml
-watchNamespace: pig
-serviceAccount:
-  create: false
-  name: pig-supervisor
-infrastructure:
-  inventoryConfigMapRef:
-    name: acme-infrastructure
-    key: inventory.yaml
-  credentialSecretNames: []
-```
-
-Both references resolve in `pig-system`. The chart grants read access to this inventory and only the management Secrets named in `credentialSecretNames`. Cloud recipes add their required Secret names and pod labels here. The controller must not modify the inventory, credential bindings, or its own permission grants.
-
-Create the bootstrap resources through GitOps, or for a direct installation:
-
-```bash
-kubectl apply -f supervisor-infrastructure.yaml
-```
-
-Deliver any cloud management Secrets before installing the chart. Review its rendered permissions against the inventory, then use the proposed bootstrap command:
-
-```bash
-helm upgrade --install pig-supervisor ./pig-supervisor \
-  --namespace pig-system \
-  --create-namespace \
-  --values supervisor-values.yaml \
-  --wait
-```
-
-`watchNamespace` restricts customer deployment reconciliation to `pig`. The controller also needs the permissions declared by the chart to maintain its own resources in `pig-system` and its custom resource definition. It must reject a missing inventory entry and report unavailable management identities or permissions before changing cloud resources.
-
 ### Hand off bootstrap ownership
 
 If your cluster already uses Flux, use this sequence instead of running the Helm command above. Flux installs the bootstrap release, then you suspend that release before creating a `PIGDeployment`. GitOps continues to reconcile your deployment specification and secret-delivery resources.
 
 This is part of the proposed supervisor contract. Until a `PIGDeployment` exists in its watched namespace, the supervisor must report health and wait without starting release transitions or updating itself. Creating that resource after the handoff enables its release policy.
 
-Prepare this manifest in a path reconciled by your existing Flux installation. Reconcile `supervisor-infrastructure.yaml` and secret delivery before the Helm release. Use Flux controllers that support `OCIRepository` API `v1` and `HelmRelease` API `v2`. Replace the registry URL and digest with the bootstrap chart identity supplied by Promptless. The illustrative registry below is not a published PIG registry.
+<Aside type="caution">
+  The supervisor is pending implementation. This Flux handoff describes the proposed contract; it does not manage a shipping product today.
+</Aside>
 
-```yaml
-apiVersion: source.toolkit.fluxcd.io/v1
-kind: OCIRepository
-metadata:
-  name: pig-supervisor
-  namespace: pig-system
-spec:
-  interval: 1h
-  url: oci://registry.example.com/promptless/pig-supervisor
-  ref:
-    digest: sha256:REPLACE_WITH_SUPPLIED_CHART_DIGEST
-  layerSelector:
-    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
-    operation: copy
----
-apiVersion: helm.toolkit.fluxcd.io/v2
-kind: HelmRelease
-metadata:
-  name: pig-supervisor
-  namespace: pig-system
-spec:
-  interval: 1h
-  timeout: 10m
-  releaseName: pig-supervisor
-  suspend: false
-  chartRef:
-    kind: OCIRepository
-    name: pig-supervisor
-  values:
-    watchNamespace: pig
-    serviceAccount:
-      create: false
-      name: pig-supervisor
-    infrastructure:
-      inventoryConfigMapRef:
-        name: acme-infrastructure
-        key: inventory.yaml
-      credentialSecretNames: []
-```
+<Steps>
+  1. **Prepare the Flux manifest.** Prepare it in a path reconciled by your existing Flux installation. Reconcile `supervisor-infrastructure.yaml` and secret delivery before the Helm release. Use Flux controllers that support `OCIRepository` API `v1` and `HelmRelease` API `v2`. Replace the registry URL and digest with the bootstrap chart identity supplied by Promptless. The illustrative registry below is not a published PIG registry.
 
-Keep `HelmRelease.spec.values` identical to your prepared `supervisor-values.yaml`, including the cloud recipe's additions. These values select the customer-owned inventory and management identity for both installation paths.
+     ```yaml
+     apiVersion: source.toolkit.fluxcd.io/v1
+     kind: OCIRepository
+     metadata:
+       name: pig-supervisor
+       namespace: pig-system
+     spec:
+       interval: 1h
+       url: oci://registry.example.com/promptless/pig-supervisor
+       ref:
+         digest: sha256:REPLACE_WITH_SUPPLIED_CHART_DIGEST
+       layerSelector:
+         mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+         operation: copy
+     ---
+     apiVersion: helm.toolkit.fluxcd.io/v2
+     kind: HelmRelease
+     metadata:
+       name: pig-supervisor
+       namespace: pig-system
+     spec:
+       interval: 1h
+       timeout: 10m
+       releaseName: pig-supervisor
+       suspend: false
+       chartRef:
+         kind: OCIRepository
+         name: pig-supervisor
+       values:
+         watchNamespace: pig
+         serviceAccount:
+           create: false
+           name: pig-supervisor
+         infrastructure:
+           inventoryConfigMapRef:
+             name: acme-infrastructure
+             key: inventory.yaml
+           credentialSecretNames: []
+     ```
 
-The digest fixes the bootstrap artifact. It does not pin later PIG releases. For a private registry, deliver a registry authentication Secret in `pig-system` and reference it through `OCIRepository.spec.secretRef.name`. See Flux's [OCIRepository reference](https://fluxcd.io/flux/components/source/ocirepositories/#secret-reference) for the required Secret format.
+     Keep `HelmRelease.spec.values` identical to your prepared `supervisor-values.yaml`, including the cloud recipe's additions. These values select the customer-owned inventory and management identity for both installation paths. The digest fixes the bootstrap artifact; it does not pin later PIG releases. For a private registry, deliver a registry authentication Secret in `pig-system` and reference it through `OCIRepository.spec.secretRef.name`. See Flux's [OCIRepository reference](https://fluxcd.io/flux/components/source/ocirepositories/#secret-reference) for the required Secret format.
 
-Commit the bootstrap manifest and let Flux install it. Keep the `PIGDeployment` out of the reconciled path until the following handoff is complete. Wait for the initial installation:
+  2. **Commit the manifest and wait for the release.** Let Flux install it, and keep the `PIGDeployment` out of the reconciled path until the handoff is complete.
 
-```bash
-kubectl wait helmrelease/pig-supervisor --namespace pig-system \
-  --for=condition=ready --timeout=10m
-```
+     ```bash
+     kubectl wait helmrelease/pig-supervisor --namespace pig-system \
+       --for=condition=ready --timeout=10m
+     ```
 
-Next, change only the `HelmRelease` object's `spec.suspend` to `true` in Git and let Flux apply that commit. Leave the rest of the bootstrap manifest in place. Verify the live value:
+  3. **Suspend the release.** Change only the `HelmRelease` object's `spec.suspend` to `true` in Git and let Flux apply that commit. Leave the rest of the bootstrap manifest in place. Verify the live value:
 
-```bash
-kubectl get helmrelease pig-supervisor --namespace pig-system \
-  -o jsonpath='{.spec.suspend}{"\n"}'
-```
+     ```bash
+     kubectl get helmrelease pig-supervisor --namespace pig-system \
+       -o jsonpath='{.spec.suspend}{"\n"}'
+     ```
 
-The result must be `true` before you create the `PIGDeployment` in step 3. Flux's [suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend) stops Helm release reconciliation. Suspending only the `OCIRepository` would not stop reconciliation of the installed release.
+     The result must be `true` before you create the `PIGDeployment` in step 3. Flux's [suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend) stops Helm release reconciliation. Suspending only the `OCIRepository` would not stop reconciliation of the installed release.
+</Steps>
 
 After the handoff, ownership is:
 
@@ -236,65 +254,87 @@ For a direct Helm bootstrap, there is no continuously running Helm controller to
 
 ## 3. Declare your PIG deployment
 
-Save the following proposed resource as `pig-deployment.yaml`. Replace every Acme URL, repository ID, bucket, and registration value with your own. `runtimeURL` and `deploymentID` come from Promptless; the examples do not designate a live Promptless endpoint.
+<Aside type="caution">
+  The supervisor is pending implementation. Declaring the `PIGDeployment` is part of the proposed interface; the resource does not register with a shipping product today.
+</Aside>
 
-```yaml
-apiVersion: governance.promptless.ai/v1alpha1
-kind: PIGDeployment
-metadata:
-  name: acme
-  namespace: pig
-spec:
-  release:
-    channel: stable
-    paused: false
-    pinnedVersion: ""
-  serviceAccountName: pig-analyzer
-  hosted:
-    runtimeURL: https://runtime.example.com
-    deploymentID: acme-prod
-    installTokenSecretRef:
-      name: pig-credentials
-      key: install-token
-  endpoint:
-    hostname: traces.acme.example
-    ingressClassName: nginx
-    tlsSecretName: pig-tls
-    ingressAnnotations:
-      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-  storage:
-    postgres:
-      dsnSecretRef:
-        name: pig-credentials
-        key: postgres-dsn
-      caConfigMapRef:
-        name: pig-postgres-ca
-        key: ca.pem
-    s3:
-      region: us-west-2
-      bucket: acme-pig-traces
-      prefix: acme/traces
-  analysis:
-    activationAt: "2026-09-14T00:00:00Z"
-    quietWindowHours: 0.5
-    repository:
-      url: https://github.com/acme/acme-instruction-hub.git
-      id: 123456789
-      fullName: acme/acme-instruction-hub
-      tokenSecretRef:
-        name: pig-credentials
-        key: repository-token
-    model:
-      provider: openai
-      authentication: api_key
-      baseURL: https://api.openai.com/v1
-      name: REPLACE_MODEL_NAME
-      apiKeySecretRef:
-        name: pig-credentials
-        key: model-api-key
-```
+<Steps>
+  1. **Save the deployment resource as `pig-deployment.yaml`.** Replace every Acme URL, repository ID, bucket, and registration value with your own. `runtimeURL` and `deploymentID` come from Promptless; the examples do not designate a live Promptless endpoint.
 
-The proposed resource uses the current worker's repository and model requirements. It does not add support for new storage or model providers. Set the activation time to your intended collection rollout; use the model your account can access. Remove `tokenSecretRef` for a public hub. Remove `caConfigMapRef` only when the database certificate is already trusted by the container's system trust store.
+     ```yaml title="pig-deployment.yaml"
+     apiVersion: governance.promptless.ai/v1alpha1
+     kind: PIGDeployment
+     metadata:
+       name: acme
+       namespace: pig
+     spec:
+       release:
+         channel: stable
+         paused: false
+         pinnedVersion: ""
+       serviceAccountName: pig-analyzer
+       hosted:
+         runtimeURL: https://runtime.example.com
+         deploymentID: acme-prod
+         installTokenSecretRef:
+           name: pig-credentials
+           key: install-token
+       endpoint:
+         hostname: traces.acme.example
+         ingressClassName: nginx
+         tlsSecretName: pig-tls
+         ingressAnnotations:
+           nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+       storage:
+         postgres:
+           dsnSecretRef:
+             name: pig-credentials
+             key: postgres-dsn
+           caConfigMapRef:
+             name: pig-postgres-ca
+             key: ca.pem
+         s3:
+           region: us-west-2
+           bucket: acme-pig-traces
+           prefix: acme/traces
+       analysis:
+         activationAt: "2026-09-14T00:00:00Z"
+         quietWindowHours: 0.5
+         repository:
+           url: https://github.com/acme/acme-instruction-hub.git
+           id: 123456789
+           fullName: acme/acme-instruction-hub
+           tokenSecretRef:
+             name: pig-credentials
+             key: repository-token
+         model:
+           provider: openai
+           authentication: api_key
+           baseURL: https://api.openai.com/v1
+           name: REPLACE_MODEL_NAME
+           apiKeySecretRef:
+             name: pig-credentials
+             key: model-api-key
+     ```
+
+     The proposed resource uses the current worker's repository and model requirements. It does not add support for new storage or model providers. Set the activation time to your intended collection rollout; use the model your account can access. Remove `tokenSecretRef` for a public hub. Remove `caConfigMapRef` only when the database certificate is already trusted by the container's system trust store.
+
+  2. **On Azure or GCP, add object-storage credentials.** After preparing `pig-s3-credentials` as described in the cloud recipe, add the following under `spec.storage.s3`:
+
+     ```yaml
+     credentialsSecretRef:
+       name: pig-s3-credentials
+     ```
+
+  3. **Apply the resource** after the custom resource definition is installed:
+
+     ```bash
+     kubectl apply -f pig-deployment.yaml
+     kubectl get pigdeployment acme --namespace pig --watch
+     ```
+
+     The supervisor should preflight connections and permissions, initialize or migrate the database, start the analyzer, and publish status. The resource name becomes the generated analyzer Deployment and Service prefix: `acme-analyzer`.
+</Steps>
 
 The supervisor maps `hosted.deploymentID` to the current worker's `deploymentInstanceId` and uses the resource name as the deployment name. It resolves the registered configuration hash from the effective deployment configuration and hosted registration. You do not invent a `configHash` or reuse a host enrollment credential as the install token. The current Helm path still requires the configuration values supplied by Promptless.
 
@@ -302,53 +342,51 @@ The supervisor maps `hosted.deploymentID` to the current worker's `deploymentIns
 
 The proposed supervisor copies `ingressAnnotations` to the generated Ingress metadata. The example raises ingress-nginx's [request-body limit](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-max-body-size) to 10 MiB, matching the collector's maximum encoded upload request. For another controller, replace that annotation with its equivalent. Every load balancer and proxy on the upload path must also allow at least 10 MiB; the default ingress-nginx limit is too small.
 
-On Azure or GCP, add the following under `spec.storage.s3` after preparing `pig-s3-credentials` as described in the cloud recipe:
-
-```yaml
-credentialsSecretRef:
-  name: pig-s3-credentials
-```
-
 The proposed supervisor injects `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and, when supplied, `AWS_SESSION_TOKEN` from that Secret into the analyzer. It sets the AWS region from `storage.s3.region`. With no credential Secret, the analyzer uses the ambient AWS SDK credential chain, as in the EKS recipe. The supervisor must reconcile Secret changes into the workload so rotated credentials take effect.
-
-Apply the resource after the custom resource definition is installed:
-
-```bash
-kubectl apply -f pig-deployment.yaml
-kubectl get pigdeployment acme --namespace pig --watch
-```
-
-The supervisor should preflight connections and permissions, initialize or migrate the database, start the analyzer, and publish status. The resource name becomes the generated analyzer Deployment and Service prefix: `acme-analyzer`.
 
 ## 4. Check deployment status
 
-The proposed status interface reports the installed and target release and Kubernetes conditions named `Ready`, `Updating`, and `Blocked`:
+The proposed status interface reports the installed and target release and Kubernetes conditions named `Ready`, `Updating`, and `Blocked`.
 
-```bash
-kubectl get pigdeployment acme --namespace pig \
-  -o jsonpath='{.status.currentVersion}{" -> "}{.status.targetVersion}{"\n"}'
-kubectl describe pigdeployment acme --namespace pig
-kubectl logs deployment/pig-supervisor --namespace pig-system --tail=100
-kubectl logs deployment/acme-analyzer --namespace pig --tail=100
-```
+<Aside type="caution">
+  The supervisor is pending implementation. These status commands read a proposed interface and return nothing from a shipping product today.
+</Aside>
 
-`Ready=True` means the supervisor has reconciled the configuration and its deployment checks passed. It is not proof that a user trace has completed analysis. A `Blocked=True` condition must identify the failing dependency or required operator action. Do not paste Secrets or raw traces into a support request; include the deployment ID, release, condition, and relevant redacted error.
+<Steps>
+  1. **Read the status and logs.**
 
-Point your hostname at the ingress endpoint and check HTTPS from an enrolled device's network:
+     ```bash
+     kubectl get pigdeployment acme --namespace pig \
+       -o jsonpath='{.status.currentVersion}{" -> "}{.status.targetVersion}{"\n"}'
+     kubectl describe pigdeployment acme --namespace pig
+     kubectl logs deployment/pig-supervisor --namespace pig-system --tail=100
+     kubectl logs deployment/acme-analyzer --namespace pig --tail=100
+     ```
 
-```bash
-curl --fail https://traces.acme.example/healthz
-```
+     `Ready=True` means the supervisor has reconciled the configuration and its deployment checks passed. It is not proof that a user trace has completed analysis. A `Blocked=True` condition must identify the failing dependency or required operator action. Do not paste Secrets or raw traces into a support request; include the deployment ID, release, condition, and relevant redacted error.
 
-This checks routing and the service's health response. Continue with a real trace to verify storage and analysis.
+  2. **Check HTTPS from an enrolled device's network.** Point your hostname at the ingress endpoint, then:
+
+     ```bash
+     curl --fail https://traces.acme.example/healthz
+     ```
+
+     This checks routing and the service's health response. Continue with a real trace to verify storage and analysis.
+</Steps>
 
 ## 5. Verify the complete workflow
 
-1. Confirm the deployment's endpoint and identity with Promptless, then follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device.
-2. Start a new agent session after the activation time. Use an installed Acme hub skill and complete the session normally.
-3. Confirm the host checks in and the trace appears in Promptless. Check customer storage for that trace's recorded object references and successful ingestion; the hosted trace row alone does not prove every local dependency works.
-4. Wait for analysis to complete. A completed analysis with no finding is a successful result. Investigate queued or failed analysis through logs and the hosted status.
-5. If a finding is produced, open its evidence and confirm that the installed instructions and relevant host are attributed correctly. Review any proposed remediation before applying it.
+<Aside type="caution">
+  The supervisor is pending implementation. This verification exercises the proposed interface end to end; it does not run against a shipping product today.
+</Aside>
+
+<Steps>
+  1. Confirm the deployment's endpoint and identity with Promptless. Then follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device.
+  2. Start a new agent session after the activation time. Use an installed Acme hub skill and complete the session normally.
+  3. Confirm the host checks in and the trace appears in Promptless. Check customer storage for that trace's recorded object references and successful ingestion; the hosted trace row alone does not prove every local dependency works.
+  4. Wait for analysis to complete. A completed analysis with no finding is a successful result. Investigate queued or failed analysis through logs and the hosted status.
+  5. If a finding is produced, open its evidence and confirm that the installed instructions and relevant host are attributed correctly. Review any proposed remediation before applying it.
+</Steps>
 
 Record the session and deployment identity as your installation acceptance evidence. Use [Observability](/docs/governance/deploy-the-worker/observability) to monitor subsequent traffic.
 
@@ -356,7 +394,7 @@ Record the session and deployment identity as your installation acceptance evide
 
 | Symptom                                 | Check                                                                                                             |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `PIGDeployment` is unknown              | The planned supervisor is not available yet, or its chart/CRD has not been installed in this cluster.             |
+| `PIGDeployment` is unknown              | The supervisor is pending implementation, or its chart and CRD have not been installed in this cluster. To deploy today, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). |
 | Database preflight is blocked           | Private routing, DNS, database credentials, CA bundle, and schema-owner permissions.                              |
 | S3 access is denied                     | Bucket/prefix policy, IAM trust or credential Secret, and KMS key permissions when using a customer-managed key.  |
 | Hosts cannot enroll or upload           | Host-network reachability, TLS, deployment registration, policy, credential validity, and ingress body limits.    |

@@ -13,7 +13,7 @@ sidebar:
   order: 1
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 An Instruction Hub is a Git repository containing your team's shared instructions and the plugins that distribute them. Authors edit ordinary Markdown and configuration files, review changes in pull requests, and publish a version that colleagues can install in their agents.
 
@@ -34,155 +34,159 @@ pig --help
 
 These are macOS/Linux shell commands. On Windows, activate the environment with its `Scripts/Activate.ps1` script. Activate this environment again when you return to authoring. Your teammates only need the toolchain if they edit or validate hub source; installing a published plugin does not require it.
 
-## Create the repository
+<Steps>
 
-```bash
-mkdir acme-instruction-hub
-cd acme-instruction-hub
-git init -b main
-pig init --hub . --org Acme \
-  --marketplace-id acme-instruction-hub \
-  --marketplace-name "Acme Instruction Hub" \
-  --version 0.1.0
-```
+1. **Create the repository**
 
-The command writes `hub.yaml`, creates `plugins/pig.yaml`, and prepares the asset directories. Keep the `pig` plugin: the toolchain requires that literal ID and adds the hub's update skill to its Claude and Codex versions.
+   ```bash
+   mkdir acme-instruction-hub
+   cd acme-instruction-hub
+   git init -b main
+   pig init --hub . --org Acme \
+     --marketplace-id acme-instruction-hub \
+     --marketplace-name "Acme Instruction Hub" \
+     --version 0.1.0
+   ```
 
-## Write your first skills
+   The command writes `hub.yaml`, creates `plugins/pig.yaml`, and prepares the asset directories. Keep the `pig` plugin: the toolchain requires that literal ID and adds the hub's update skill to its Claude and Codex versions.
 
-A skill explains when to use a repeatable task, what to do, and what to return. Start with a small procedure that you can try against real work.
+2. **Write your first skills**
 
-Create the directories:
+   A skill explains when to use a repeatable task, what to do, and what to return. Start with a small procedure that you can try against real work.
 
-```bash
-mkdir -p assets/skills/review-docs assets/skills/review-code
-```
+   Create the directories:
 
-Save this as `assets/skills/review-docs/SKILL.md`:
+   ```bash
+   mkdir -p assets/skills/review-docs assets/skills/review-code
+   ```
 
-```markdown
----
-name: review-docs
-description: Review an Acme documentation draft for clear steps, complete prerequisites, and accurate examples.
----
+   Save this as `assets/skills/review-docs/SKILL.md`:
 
-# Review documentation
+   ```markdown title="assets/skills/review-docs/SKILL.md"
+   ---
+   name: review-docs
+   description: Review an Acme documentation draft for clear steps, complete prerequisites, and accurate examples.
+   ---
 
-Use this skill when reviewing a user-facing guide before publication.
+   # Review documentation
 
-1. Identify the reader's goal and the result the guide promises.
-2. Check that prerequisites appear before the steps that need them.
-3. Check commands, links, and product behavior against the supplied sources.
-4. Flag missing steps, unexplained terms, and ambiguous expected results.
+   Use this skill when reviewing a user-facing guide before publication.
 
-Return a short list of actionable findings with the affected passage and a
-suggested correction. State what you could not verify. Do not publish changes.
-```
+   1. Identify the reader's goal and the result the guide promises.
+   2. Check that prerequisites appear before the steps that need them.
+   3. Check commands, links, and product behavior against the supplied sources.
+   4. Flag missing steps, unexplained terms, and ambiguous expected results.
 
-Save a second skill as `assets/skills/review-code/SKILL.md`:
+   Return a short list of actionable findings with the affected passage and a
+   suggested correction. State what you could not verify. Do not publish changes.
+   ```
 
-```markdown
----
-name: review-code
-description: Review an Acme code change for correctness and useful regression coverage before a pull request.
----
+   Save a second skill as `assets/skills/review-code/SKILL.md`:
 
-# Review code
+   ```markdown title="assets/skills/review-code/SKILL.md"
+   ---
+   name: review-code
+   description: Review an Acme code change for correctness and useful regression coverage before a pull request.
+   ---
 
-Read the repository's local instructions before reviewing a change.
+   # Review code
 
-1. Describe the behavior that changed and inspect its callers.
-2. Check failure handling and inputs at the changed boundary.
-3. Identify a regression scenario and check whether existing tests cover it.
+   Read the repository's local instructions before reviewing a change.
 
-Return actionable findings with file locations and an explanation of the
-user-visible failure. If there are none, say so and list verification limits.
-```
+   1. Describe the behavior that changed and inspect its callers.
+   2. Check failure handling and inputs at the changed boundary.
+   3. Identify a regression scenario and check whether existing tests cover it.
 
-Keep reusable reference material and helper scripts beside a skill in `references/` and `scripts/`. Use relative links inside the skill so those files remain usable after installation. Keep project-specific build commands and directory conventions in each project's own instructions.
+   Return actionable findings with file locations and an explanation of the
+   user-visible failure. If there are none, say so and list verification limits.
+   ```
 
-## Group skills into plugins
+   Keep reusable reference material and helper scripts beside a skill in `references/` and `scripts/`. Use relative links inside the skill so those files remain usable after installation. Keep project-specific build commands and directory conventions in each project's own instructions.
 
-A plugin is the unit a teammate installs. Group instructions by the work people do, so a writer can install `docs` and a developer can install `dev`, or both.
+3. **Group skills into plugins**
 
-Create `plugins/docs.yaml`:
+   A plugin is the unit a teammate installs. Group instructions by the work people do, so a writer can install `docs` and a developer can install `dev`, or both.
 
-```yaml
-id: docs
-name: Acme Docs
-owners:
-  - docs-team
-includes:
-  - skill:review-docs
-```
+   Create `plugins/docs.yaml`:
 
-Create `plugins/dev.yaml`:
+   ```yaml title="plugins/docs.yaml"
+   id: docs
+   name: Acme Docs
+   owners:
+     - docs-team
+   includes:
+     - skill:review-docs
+   ```
 
-```yaml
-id: dev
-name: Acme Dev
-owners:
-  - engineering
-includes:
-  - skill:review-code
-  - skill:review-docs
-```
+   Create `plugins/dev.yaml`:
 
-The `owners` field records ownership; configure repository review rules separately if you want enforced approvals. An `includes` entry has the form `kind:id` and must name an asset that exists in the hub.
+   ```yaml title="plugins/dev.yaml"
+   id: dev
+   name: Acme Dev
+   owners:
+     - engineering
+   includes:
+     - skill:review-code
+     - skill:review-docs
+   ```
 
-Update `hub.yaml` to publish all three plugins:
+   The `owners` field records ownership; configure repository review rules separately if you want enforced approvals. An `includes` entry has the form `kind:id` and must name an asset that exists in the hub.
 
-```yaml
-org: Acme
-marketplace:
-  id: acme-instruction-hub
-  name: Acme Instruction Hub
-version: 0.1.0
-stable_plugins: [pig, docs, dev]
-targets: [claude, codex, gemini, cursor]
-trace_ingestion:
-  enabled: false
-```
+   Update `hub.yaml` to publish all three plugins:
 
-`marketplace.id` identifies the catalog, while each plugin has its own literal ID. The compiler does not add an organization prefix. Choose stable names; renaming an installed plugin creates a different identity. If your team installs multiple hubs, use explicit IDs such as `acme-docs` for customer plugins to avoid confusing namespaces. The required `pig` ID stays unchanged.
+   ```yaml title="hub.yaml"
+   org: Acme
+   marketplace:
+     id: acme-instruction-hub
+     name: Acme Instruction Hub
+   version: 0.1.0
+   stable_plugins: [pig, docs, dev]
+   targets: [claude, codex, gemini, cursor]
+   trace_ingestion:
+     enabled: false
+   ```
 
-`version` is shared by the generated plugins. Publishing advances it when the output changes; you do not need to bump it for each edit. See [Publishing and updates](/docs/governance/get-started/publish-and-install-plugins).
+   `marketplace.id` identifies the catalog, while each plugin has its own literal ID. The compiler does not add an organization prefix. Choose stable names; renaming an installed plugin creates a different identity. If your team installs multiple hubs, use explicit IDs such as `acme-docs` for customer plugins to avoid confusing namespaces. The required `pig` ID stays unchanged.
 
-## Understand the layout
+   `version` is shared by the generated plugins. Publishing advances it when the output changes; you do not need to bump it for each edit. See [Publishing and updates](/docs/governance/get-started/publish-and-install-plugins).
 
-```text
-hub.yaml                          # Marketplace, version, plugins, and targets
-plugins/
-  pig.yaml                        # Required shared PIG plugin
-  docs.yaml                       # Documentation team's selection
-  dev.yaml                        # Development team's selection
-assets/
-  skills/review-docs/SKILL.md      # Reusable documentation procedure
-  skills/review-code/SKILL.md      # Reusable development procedure
-  rules/                          # Rules with target support metadata
-  agents/                         # Specialist agent definitions
-  commands/                       # Agent commands
-  hooks/                          # Lifecycle actions
-  mcps/                           # MCP server configuration
-```
+4. **Understand the layout**
 
-Skills are the simplest starting point. The toolchain also supports rules, agents, commands, hooks, and MCP configurations. These capabilities differ by host; see [Supported agents](/docs/governance/reference/supported-agents) before adding an instruction that depends on a particular agent feature.
+   ```text
+   hub.yaml                          # Marketplace, version, plugins, and targets
+   plugins/
+     pig.yaml                        # Required shared PIG plugin
+     docs.yaml                       # Documentation team's selection
+     dev.yaml                        # Development team's selection
+   assets/
+     skills/review-docs/SKILL.md      # Reusable documentation procedure
+     skills/review-code/SKILL.md      # Reusable development procedure
+     rules/                          # Rules with target support metadata
+     agents/                         # Specialist agent definitions
+     commands/                       # Agent commands
+     hooks/                          # Lifecycle actions
+     mcps/                           # MCP server configuration
+   ```
 
-## Validate and save your work
+   Skills are the simplest starting point. The toolchain also supports rules, agents, commands, hooks, and MCP configurations. These capabilities differ by host; see [Supported agents](/docs/governance/reference/supported-agents) before adding an instruction that depends on a particular agent feature.
 
-```bash
-pig validate --hub .
-pig verify --hub .
-git add hub.yaml plugins assets
-git commit -m "Create Acme instruction hub"
-```
+5. **Validate and save your work**
 
-`validate` checks the source configuration, references, and asset declarations. `verify` also compiles every stable plugin for every configured target in a temporary directory. It prints a verified release ID and leaves generated files out of your source checkout.
+   ```bash
+   pig validate --hub .
+   pig verify --hub .
+   git add hub.yaml plugins assets
+   git commit -m "Create Acme Instruction Hub"
+   ```
 
-<Aside type="note">
-  Validation catches several unsafe configuration patterns, including literal secrets in MCP settings and symlinks in assets. It is not a general secret scan. Review imported files, scripts, and examples before committing them.
-</Aside>
+   `validate` checks the source configuration, references, and asset declarations. `verify` also compiles every stable plugin for every configured target in a temporary directory. It prints a verified release ID and leaves generated files out of your source checkout.
 
-If validation reports a missing asset, check both the directory name and the plugin's `includes` entry. If a capability is unsupported, either adapt its instructions to a portable skill or declare its target support explicitly. Do not treat a successful build as proof that an agent followed the procedure; test that after installation.
+   <Aside type="note">
+     Validation catches several unsafe configuration patterns, including literal secrets in MCP settings and symlinks in assets. It is not a general secret scan. Review imported files, scripts, and examples before committing them.
+   </Aside>
+
+   If validation reports a missing asset, check both the directory name and the plugin's `includes` entry. If a capability is unsupported, either adapt its instructions to a portable skill or declare its target support explicitly. Do not treat a successful build as proof that an agent followed the procedure; test that after installation.
+
+</Steps>
 
 You now have a versioned source hub ready for review. Continue to [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins). When you want feedback from real agent sessions, [deploy trace analysis](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) and then [enable collection and enroll hosts](/docs/governance/get-started/enroll-your-hosts).
