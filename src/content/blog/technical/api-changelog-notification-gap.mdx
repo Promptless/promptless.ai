@@ -1,0 +1,85 @@
+---
+title: 'API Changelog Notification: Why Publishing Doesn't Mean Developers Were Told'
+subtitle: Published September 2026
+description: >-
+  52% of developers cite breaking changes as their top API concern. Most teams fix the writing. Almost none fix the delivery. Here's how to close the notification gap.
+date: '2026-09-14T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer posts in your community forum: "`client.name` is returning null." Their integration has been failing silently for three days. You shipped a changelog entry. You updated the reference doc. The answer was there. But the developer doesn't check your changelog page. They found out from bad data downstream.
+
+The entry was clear. The failure is in delivery.
+
+52% of developers cite breaking changes as their top API integration concern, according to Postman's 2025 State of the API report. Teams spend real effort improving changelog clarity, and those improvements matter. A well-written changelog that nobody reads produces the same result as no changelog. The issue most teams face is the assumption that publishing an entry is the same as delivering it.
+
+## Why changelog pages don't work on their own
+
+API consumers don't poll changelog pages. They're building features, resolving bugs, managing dependencies. Your changelog is not in their workflow unless something breaks.
+
+The dynamic is predictable. A developer integrates your API in Q1. Your changelog entry announcing a deprecation goes live in Q2. The developer has no reason to check the changelog in Q2. Their integration isn't breaking yet. The sunset date arrives in Q4. The integration breaks. A support ticket appears.
+
+At no point did the developer do anything wrong. Your deprecation policy was correct. Your changelog entry was well-written. The notification system failed.
+
+Publishing a changelog page creates a destination. It doesn't create contact. The fix is active notification, not a better-designed page.
+
+## The category of change that never appears in changelogs
+
+There's a specific failure mode worse than an entry that nobody reads: the change that generates no entry at all.
+
+Harvest renamed `client.name` to `client.display_name` in an API response in early 2024. By their definition, this was not a breaking change because both fields coexisted temporarily. Teams relying on `client.name` got null data with no error. Nothing flagged the failure. Downstream data pipelines processed the nulls silently for days.
+
+This category is common: a field that becomes optional, a response property that starts returning a different format, an endpoint that starts requiring a header it previously ignored. These changes aren't labeled breaking. They often skip the changelog entirely. They break integrations quietly, after they ship.
+
+The way to catch these is monitoring at the consumer side. Contract testing (writing tests that verify the shape of API responses your integration depends on) gives you an automated signal when the upstream behavior shifts. Postman's 2025 report found only 17% of organizations use contract testing. The other 83% find out about silent changes the same way the developer in the forum did.
+
+<BlogNewsletterCTA />
+
+## The HTTP deprecation header is underused
+
+Most API providers announce deprecations in two places: the changelog and the reference documentation. Both require a developer to seek out the information.
+
+The `Deprecation` and `Sunset` HTTP headers, defined in RFC 8594, work differently. They travel with the API response to every active consumer. A developer who calls a deprecated endpoint receives the deprecation notice in the response headers, whether or not they've read your changelog.
+
+The `Sunset` header carries a specific date:
+
+```
+Sunset: Sat, 01 Jan 2028 00:00:00 GMT
+```
+
+Any developer monitoring their integration's response headers will see it. Any client library that handles the header can surface a warning. The notice arrives at the exact moment the developer is using the deprecated resource, which is the most actionable moment to receive it.
+
+A small number of API providers use these headers consistently. The pattern has existed for years. The adoption gap is a missed notification channel, not a tooling gap.
+
+## A notification structure that actually reaches developers
+
+The 6-to-12-month deprecation window most style guides recommend is a minimum, not a strategy. What matters within that window is how many distinct touchpoints reach the developer.
+
+**At announcement:** Post the changelog entry and email all registered API consumers. Add a developer dashboard banner that persists until sunset. Some developers will act immediately.
+
+**30 days in:** Follow up with developers whose usage data shows they're actively calling the deprecated endpoint. "You called `POST /v1/authorize` 14 times last week. This endpoint is being removed on [date]. Here's the migration guide." Generic emails get ignored. Targeted ones get opened.
+
+**Ongoing through the window:** Add `Deprecation` and `Sunset` headers on every response from the deprecated endpoint. This requires no developer action to deliver.
+
+**60 days before sunset:** Send a final direct email to any active consumers still hitting the endpoint. At this point you have usage data. You know exactly who hasn't migrated. Contact them specifically.
+
+This structure requires usage data and the ability to segment emails by API behavior. Those are engineering investments with a clear return: a deprecation that lands smoothly costs far less than a support spike the week of sunset.
+
+## The prerequisite your notification system depends on
+
+Delivery only works if the destination is accurate.
+
+When a developer receives your deprecation notice and clicks through to the migration guide, that guide has to describe what the product actually does. If the reference doc hasn't been updated, the developer gets notified and arrives at documentation describing the thing being removed. The notification created contact. The contact produced confusion.
+
+[Documentation drift](https://promptless.ai/blog/technical/documentation-drift-detection-problem/) (the gap between what your docs say and what your product does) degrades every notification you send. A changelog entry pointing to a stale reference page gives developers nowhere to go. An email with a migration guide link that describes old behavior is worse than no email.
+
+Teams shipping developer-facing products need to keep change detection close to the source. When a PR changes a public endpoint, the reference documentation needs updating in the same cycle. The changelog entry and the reference doc update are two separate tasks. Publishing the entry without updating the docs is half a delivery.
+
+[Getting the writing right](https://promptless.ai/blog/technical/api-changelog-best-practices/) is necessary but not sufficient. The notification structure is what closes the gap between a published entry and a developer who knows what to do.
+
+<BlogRequestDemo />
