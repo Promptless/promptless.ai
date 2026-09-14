@@ -392,6 +392,8 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **`answer_task_question` returns `unavailable`**: your editor can't show a native form. It asks the clarifying question in chat and calls `answer_task_question` again with your answer.
 - **`answer_task_question` returns `already_answered`**: the question was already answered elsewhere. The returned `trigger_event_id` points at the continuation already created, so follow that task.
 - **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No continuation is created and following stops. The original finished task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
+- **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
+- **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
 - **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
