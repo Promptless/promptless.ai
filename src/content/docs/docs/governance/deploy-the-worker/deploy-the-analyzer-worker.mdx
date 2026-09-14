@@ -1,6 +1,6 @@
 ---
-title: Deploy the analyzer worker
-description: Install the instruction-hub-worker into your own Kubernetes cluster with Helm, using an existing Secret, and verify it ingests and syncs.
+title: Install with Helm
+description: Deploy the current PIG trace analyzer into Kubernetes with Helm, then verify host enrollment, durable trace storage, and completed analysis.
 slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
 type: guide
 tags:
@@ -8,256 +8,231 @@ tags:
   - governance
   - kubernetes
   - helm
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
-  order: 1
+  order: 6
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
 
-The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
+The trace analyzer runs as the `instruction-hub-worker` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and AWS S3 bucket, and analyzes sessions using your chosen model provider.
 
-This guide installs the worker into an existing Kubernetes cluster with Helm and verifies the connections it needs. You deploy the 0.2.0 chart with the `ghcr.io/promptless/instruction-hub-worker:0.2.0` image. You supply secret material through a Kubernetes Secret you create, and route traffic to the worker on Service port 8080.
-
-<Aside type="note">
-  A self-service **Add deployment** setup page in hosted Promptless is forthcoming. It will issue the install token, generate a values file, and publish the chart to a Helm repository. Until it ships, Promptless provides your `plih_` install token and the chart directly, and you install the chart as shown below.
-</Aside>
-
-## What runs where
-
-| Hosted Promptless                                                              | Your infrastructure                                                            |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Deployment registration, configuration sync, and host credential introspection | The worker Deployment and its Kubernetes credentials                           |
-| Trace metadata, findings, and remediation workflow                             | Raw traces and canonical trace objects in your S3 bucket and Postgres database |
-| Deployment and analysis status                                                 | Trace analysis through the model provider and endpoint you configure           |
-
-Hosted Promptless never receives raw trace content. Findings can contain model-authored descriptions of a session. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for the complete boundary.
+This is the installation path available today. It uses the worker chart and image version `0.2.0`, provided by Promptless. With Helm, your operations team schedules and applies upgrades. The [planned supervisor](/docs/governance/deploy-the-worker/install-the-supervisor) will automate those updates.
 
 ## Before you begin
 
-You need:
+Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/plan-your-deployment). You need:
 
-- A Promptless organization with Agent Instructions enabled, and a `plih_` install token for this deployment.
-- An existing Kubernetes cluster and the 0.2.0 worker chart from Promptless.
-- Helm 3 and `kubectl` installed locally, with `kubectl` connected to the target cluster.
-- Permission to create a namespace, Deployment, Service, ServiceAccount, Secret, migration Job, and optional ingress resources.
-- A Postgres database you control for trace and host metadata.
-- An S3 bucket you control for raw traces and canonical trace objects.
-- An IAM role or equivalent workload identity that lets the worker read and write objects in that bucket.
-- A hostname and TLS certificate that enrolled hosts can reach. The endpoint can be private if all hosts are on the same private network.
+- An existing Kubernetes cluster, Helm 3, and `kubectl` configured for that cluster.
+- The worker chart directory, a deployment install token beginning with `plih_`, a deployment instance ID, and a configuration hash from Promptless. Contact [the team](mailto\:help@gopromptless.ai) for these values.
+- A dedicated PostgreSQL database with a TLS connection string and a user permitted to create and update its schema.
+- An AWS S3 bucket and an AWS identity available to the worker with read and write access to its trace prefix.
+- A reachable HTTPS hostname, a certificate, and an existing ingress controller or equivalent route to the worker Service on port 8080.
+- A GitHub instruction hub, its numeric repository ID, and credentials for repository access and your analysis model.
 
-The worker and installation machine need these network paths:
+The complete example below uses Acme's private GitHub hub and an EKS service account with an IAM role for S3. On other clusters, arrange AWS credential delivery with your platform team before installing. Chart `0.2.0` has no generic `env`, `envFrom`, or S3 credential-Secret setting; the supervisor's proposed `credentialsSecretRef` is not a current Helm value.
 
-| Source         | Destination                   | Port | Purpose                                                    |
-| -------------- | ----------------------------- | ---- | ---------------------------------------------------------- |
-| Enrolled hosts | Worker hostname               | 443  | Enrollment, check-ins, and trace uploads                   |
-| Worker         | Hosted Promptless Runtime     | 443  | Configuration sync, credential introspection, and findings |
-| Worker         | Postgres                      | 5432 | Trace and host metadata                                    |
-| Worker         | S3                            | 443  | Raw and canonical trace objects                            |
-| Worker         | Your model provider           | 443  | Trace analysis, once analysis is enabled                   |
-| Cluster nodes  | Promptless container registry | 443  | Worker image pull                                          |
+Allow worker egress to PostgreSQL, S3, hosted Promptless, GitHub, and the model endpoint. Nodes also need container-registry access. See [network and data boundaries](/docs/governance/deploy-the-worker/plan-your-deployment).
 
-Confirm the target cluster before continuing:
+## 1. Prepare the namespace and secrets
+
+Confirm the cluster you intend to change:
 
 ```bash
 kubectl config current-context
+kubectl create namespace pig --dry-run=client -o yaml | kubectl apply -f -
 ```
+
+Create a Secret named `acme-pig-worker` in `pig` through your secret-management system. It must contain these keys:
+
+| Key                         | Value                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------- |
+| `install-token`             | Deployment credential supplied by Promptless. This is separate from a host enrollment credential. |
+| `customer-postgres-dsn`     | PostgreSQL connection string, including the TLS settings your database requires.                  |
+| `analysis-model-api-key`    | API key for the model endpoint in the next step.                                                  |
+| `analysis-repository-token` | GitHub credential scoped to the instruction hub.                                                  |
+
+For a manual pilot, run the following in Bash. It prompts without echoing credentials, creates the Secret, and removes its temporary file. Keep credentials out of committed manifests and values files.
+
+```bash
+bash <<'BASH'
+set -eu
+umask 077
+secret_file=$(mktemp)
+trap 'rm -f "$secret_file"' EXIT
+for key in install-token customer-postgres-dsn analysis-model-api-key analysis-repository-token; do
+  read -r -s -p "$key: " secret_value </dev/tty
+  printf '\n' >/dev/tty
+  printf '%s=%s\n' "$key" "$secret_value" >>"$secret_file"
+done
+unset secret_value
+kubectl --namespace pig create secret generic acme-pig-worker \
+  --from-env-file="$secret_file" --dry-run=client -o yaml | kubectl apply -f -
+BASH
+```
+
+For a private hub, the analysis repository token needs read access so the worker can clone and refresh its mirror. Hosted Promptless separately needs a repository connection for finding issues. It provides a scoped GitHub credential when a remediation task must push a branch and open a pull request. Coordinate that connection during deployment registration; a working clone alone does not prove both paths are configured.
+
+## 2. Configure the worker
+
+Save this as `values.yaml`. Replace every `REPLACE_` value, the example AWS account, and the hostname with your environment's values. Get the numeric repository ID with `gh api repos/acme/acme-instruction-hub --jq .id` using an account that can read the hub. Choose a model name your provider account can use.
+
+```yaml title="values.yaml"
+secrets:
+  existingSecretName: acme-pig-worker
+  installTokenKey: install-token
+  customerPostgresDsnKey: customer-postgres-dsn
+  analysisModelApiKeyKey: analysis-model-api-key
+  analysisRepositoryTokenKey: analysis-repository-token
+
+instructionHub:
+  runtimeBaseUrl: https://runtime.gopromptless.ai
+  deploymentName: acme-production
+  deploymentInstanceId: REPLACE_DEPLOYMENT_INSTANCE_ID
+  configHash: REPLACE_CONFIG_HASH
+  traceObjectS3Bucket: REPLACE_GLOBALLY_UNIQUE_BUCKET
+  traceObjectS3Prefix: acme/traces
+  analysis:
+    activationAt: "2026-09-14T00:00:00Z"
+    quietWindowHours: 0.5
+    modelApi:
+      provider: openai
+      authentication: api_key
+      baseUrl: https://api.openai.com/v1
+      model: REPLACE_MODEL_NAME
+    repository:
+      url: https://github.com/acme/acme-instruction-hub.git
+      id: 123456789
+      fullName: acme/acme-instruction-hub
+      tokenSecretEnabled: true
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-worker
+
+gateway:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: traces.acme.example
+  tls:
+    - secretName: acme-pig-tls
+      hosts:
+        - traces.acme.example
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    memory: 2Gi
+```
+
+Replace `repository.id: 123456789` with Acme's actual repository ID. Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
+
+The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `instruction-hub-worker` in `pig` on port 8080.
+
+The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
+
+For an ingestion-only pilot, leave `instructionHub.analysis.activationAt` empty. The chart then omits model and repository settings from the worker. Complete all analysis settings before enabling it. See the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for supported providers and value mappings.
+
+## 3. Render and install
+
+Use the chart directory supplied by Promptless. Render it first to catch missing required values without changing the cluster:
+
+```bash
+helm lint ./instruction-hub-worker --values values.yaml
+helm template instruction-hub-worker ./instruction-hub-worker \
+  --namespace pig --values values.yaml > rendered-worker.yaml
+```
+
+Review the image, ingress, service account, and Secret references. Then install:
+
+```bash
+helm upgrade --install instruction-hub-worker ./instruction-hub-worker \
+  --namespace pig \
+  --values values.yaml \
+  --atomic --wait --timeout 10m
+```
+
+A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. It uses the namespace's `default` service account unless you set `migrationJob.serviceAccountName` to an existing one. If network access or database authentication depends on a service account, configure that account for the migration Job too.
 
 <Aside type="caution">
-  The commands below change the cluster in your current `kubectl` context. Switch contexts first if this is not the cluster where the worker should run.
+  Helm's `--atomic` handles failed Kubernetes release changes. It does not undo database migrations or restore S3 objects. Back up your database before upgrades and confirm the previous application version supports the resulting schema before rolling it back.
 </Aside>
 
-## Install the worker
+## 4. Verify a complete session
 
-<Steps>
-  1. **Create the namespace and Secret.**
+Use all three checkpoints. Pod readiness alone is insufficient.
 
-     The worker reads its secret material from a Kubernetes Secret you create. The chart looks up fixed keys — `install-token` and `customer-postgres-dsn` — so use those key names, not the environment-variable names:
-
-     ```bash
-     kubectl create namespace instruction-hub \
-       --dry-run=client -o yaml | kubectl apply -f -
-
-     printf "Worker install token: "
-     read -r -s INSTALL_TOKEN
-     printf "\nPostgres DSN: "
-     read -r -s CUSTOMER_POSTGRES_DSN
-     printf "\n"
-
-     kubectl --namespace instruction-hub create secret generic instruction-hub-worker-env \
-       --from-literal=install-token="$INSTALL_TOKEN" \
-       --from-literal=customer-postgres-dsn="$CUSTOMER_POSTGRES_DSN" \
-       --dry-run=client -o yaml | kubectl apply -f -
-
-     unset INSTALL_TOKEN
-     unset CUSTOMER_POSTGRES_DSN
-     ```
-
-     Keep both values only in the Secret — the worker uses them at runtime. When you enable analysis, add the `analysis-model-api-key` and `analysis-repository-token` keys to the same Secret. Do not commit any of these values to source control.
-
-  2. **Write your values file.**
-
-     Create a `values.yaml` with the settings specific to your cluster. Point the chart at your existing Secret with `secrets.existingSecretName`, and note that `gateway.hosts` and `gateway.tls` are lists:
-
-     ```yaml title="values.yaml"
-     secrets:
-       existingSecretName: instruction-hub-worker-env
-       # Each *Key maps a worker secret to a key in the Secret above.
-       installTokenKey: install-token
-       customerPostgresDsnKey: customer-postgres-dsn
-
-     # Non-secret required settings live under instructionHub.*
-     instructionHub:
-       runtimeBaseUrl: https://runtime.gopromptless.ai
-       deploymentName: prod-us-east
-       deploymentInstanceId: <deployment-instance-id>
-       configHash: <config-hash>
-       traceObjectS3Bucket: my-org-instruction-hub-traces
-       # Analysis settings live under instructionHub.analysis.*
-       analysis:
-         activationAt: "2026-07-29T00:00:00Z"
-         modelApi:
-           provider: openai
-           model: gpt-5.6-sol
-
-     # On EKS, annotate the ServiceAccount for IRSA:
-     serviceAccount:
-       annotations:
-         eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/instruction-hub-worker
-
-     gateway:
-       enabled: true
-       className: nginx
-       hosts:
-         - host: traces.example.com
-       tls:
-         - secretName: instruction-hub-worker-tls
-           hosts: [traces.example.com]
-
-     resources:
-       requests:
-         cpu: 500m
-         memory: 1Gi
-       limits:
-         memory: 2Gi
-     ```
-
-     Replace the role ARN, hostname, and TLS Secret with values for your environment. The chart exposes a typed values key for every worker setting. There is no generic `env` or `envFrom` key, so you cannot inject arbitrary environment variables. Each setting lives in a fixed place in the values tree:
-
-     - The worker's non-secret required configuration lives directly under `instructionHub.*`: `runtimeBaseUrl`, `deploymentName`, `deploymentInstanceId`, `configHash`, and `traceObjectS3Bucket`.
-     - Analysis settings live under `instructionHub.analysis.*`: `quietWindowHours` and `activationAt` sit directly under `analysis`, the provider, authentication, base URL, and model settings under `instructionHub.analysis.modelApi.*`, and the repository and mirror settings under `instructionHub.analysis.repository.*`.
-     - Observability lives under `observability.datadog.*` and `observability.sentry.*`.
-
-     The example above shows one required setting and one analysis setting as the pattern; see the [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for the complete variable list.
-
-     The four secret values (the install token, Postgres DSN, analysis model API key, and analysis repository token) plus the Sentry DSN never go in `values.yaml`. The chart reads those four values from the Kubernetes Secret named by `secrets.existingSecretName`, mapping each `secrets.*Key` value to the matching Secret key. The Sentry DSN is read separately, from the Secret named by `observability.sentry.existingSecretName` using the key set in `observability.sentry.dsnKey` (default `SENTRY_DSN`); see the [Observability](/docs/governance/deploy-the-worker/observability) page.
-
-     The `serviceAccount` annotation shown is the AWS/EKS path. On EKS, annotate the ServiceAccount for IRSA so the worker assumes the IAM role that grants bucket access. The `gateway` block renders a standard Kubernetes Ingress (`networking.k8s.io/v1` Ingress), so a compatible ingress controller must already run in the cluster, and `gateway.className` sets the IngressClass. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
-
-  3. **Install the chart.**
-
-     Install the chart directly from the directory Promptless provided:
-
-     ```bash
-     helm upgrade --install instruction-hub-worker \
-       ./instruction-hub-worker \
-       --namespace instruction-hub \
-       --values values.yaml \
-       --atomic \
-       --wait \
-       --timeout 10m
-     ```
-
-     The chart runs its database migration Job as a pre-install and pre-upgrade hook, before the worker starts. With `--atomic`, a failed migration or readiness check rolls the release back instead of leaving a partial installation.
-
-  4. **Confirm the Deployment is available.**
-
-     ```bash
-     kubectl wait --namespace instruction-hub \
-       --for=condition=available deployment/instruction-hub-worker \
-       --timeout=5m
-     ```
-
-     The worker exposes `/healthz` liveness and readiness probes, so a pod only reports available once it has started and can reach its dependencies and hosted Promptless.
-
-  5. **Test the host-facing endpoint.**
-
-     From a machine on the same network as your agent hosts, check the worker's health endpoint:
-
-     ```bash
-     curl --fail --silent --show-error \
-       https://traces.example.com/healthz
-     ```
-
-     Replace the example hostname with your worker hostname. This confirms that DNS, TLS, and routing work from the network where hosts run. If the gateway is off, target the worker Service on port 8080 from inside the cluster instead.
-</Steps>
-
-The worker is ready when its Deployment reports available and its host-facing `/healthz` endpoint responds. Next, [enroll a host](/docs/governance/get-started/enroll-your-hosts) and confirm that its first new session appears.
-
-## Enable trace analysis
-
-Installation proves that trace ingestion and storage work. To run the Friction Analyzer, add the `INSTRUCTION_HUB_ANALYSIS_*` settings for:
-
-- The model provider and endpoint that receive trace-derived analysis input.
-- The analysis model and its credentials.
-- The Instruction Hub repository and repository-scoped token.
-- The quiet window after which a session is eligible for analysis.
-
-Add the API key under the `analysis-model-api-key` key and the repository token under `analysis-repository-token` in the existing Secret. Put the non-sensitive analysis settings in `values.yaml`, then rerun the same `helm upgrade --install` command. For a private Instruction Hub repository, set `instructionHub.analysis.repository.tokenSecretEnabled: true` so the chart wires the `analysis-repository-token` Secret key into the worker. See the [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
-
-## Manage the deployment with GitOps
-
-For a GitOps-managed cluster:
-
-- Commit your non-sensitive `values.yaml` and pin the chart version rather than tracking a moving one.
-- Create `instruction-hub-worker-env` through your existing External Secrets, Sealed Secrets, or equivalent controller.
-- Preserve Postgres and S3 independently of the Helm release, and back them up under your normal policies.
-- Test an upgrade in a staging deployment before applying it to production.
-
-## Troubleshoot installation
-
-### The pod fails to start
-
-The worker validates its configuration at boot. A missing or malformed required setting raises during startup and crashes the process uncaught, so the pod fails to start rather than degrading gracefully. Check the pod's logs for the startup error, then confirm every required setting and Secret key is present:
+### Check connectivity
 
 ```bash
-kubectl logs --namespace instruction-hub \
-  --selector app.kubernetes.io/name=instruction-hub-worker \
-  --since=15m
+kubectl --namespace pig rollout status deployment/instruction-hub-worker --timeout=5m
+curl --fail --silent --show-error https://traces.acme.example/healthz
 ```
 
-Confirm the Secret carries the `install-token` and `customer-postgres-dsn` keys and that `secrets.existingSecretName` names it.
+Run the HTTPS request from a network where agent hosts run. A successful response checks DNS, TLS, routing, and basic service health. The health endpoint does not test every storage or model dependency.
 
-### The migration job fails
+### Enroll a host and confirm storage
 
-Review the migration logs and confirm that the database is reachable and that the Postgres DSN, credentials, network path, and database permissions are correct:
+Follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one pilot machine. Start a new supported agent session, use an Acme hub skill, then let the host collector upload it. Record the session ID.
+
+In your worker database, use a read-only connection to check that exact session. Replace `REPLACE_SESSION_ID`; set `source` to `claude`, `codex`, or `claude-desktop` as appropriate:
+
+```sql
+BEGIN READ ONLY;
+SELECT id, source, session_id, trace_object_status,
+       trace_object_s3_uri, last_ingested_at, trace_object_last_error
+FROM agent_traces
+WHERE source = 'codex' AND session_id = 'REPLACE_SESSION_ID';
+COMMIT;
+```
+
+Confirm `trace_object_status` is `written` and the canonical object is readable at the returned S3 URI using your normal S3 inspection tools. Check that ingestion timestamps correspond to your pilot session. An enrolled host without stored trace data has not completed this checkpoint.
+
+### Confirm completed analysis
+
+Allow the quiet window to pass after session activity stops. Inspect recent logs:
 
 ```bash
-kubectl logs --namespace instruction-hub \
-  --selector app.kubernetes.io/component=migration
+kubectl --namespace pig logs deployment/instruction-hub-worker --since=1h
 ```
 
-### The pod restarts after running
+Find `Trace analysis run succeeded` for the pilot trace's `trace_record_id`. The log includes `analysis_run_id`, `repository_sha`, and `successful_finding_write_count`. For a database check:
 
-If the worker's periodic sync with hosted Promptless stops, `/healthz` fails and Kubernetes replaces the pod. Confirm outbound HTTPS access to the runtime URL and that the install token is still valid. If the token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
-
-### Hosts cannot reach the worker
-
-Run the health check from a host network, then inspect the ingress or gateway address and certificate:
-
-```bash
-kubectl get service,ingress --namespace instruction-hub
+```sql
+BEGIN READ ONLY;
+SELECT r.id, r.status, r.error_category, r.repository_sha,
+       r.successful_finding_write_count, r.completed_at
+FROM agent_analysis_runs AS r
+JOIN agent_traces AS t ON t.id = r.agent_trace_id
+WHERE t.source = 'codex' AND t.session_id = 'REPLACE_SESSION_ID'
+ORDER BY r.queued_at DESC
+LIMIT 5;
+COMMIT;
 ```
 
-If the deployment still fails, send the worker logs to [help@gopromptless.ai](mailto\:help@gopromptless.ai). Do not send Secret manifests, tokens, database connection strings, or model credentials.
+A run with `status = 'succeeded'` completes the analysis checkpoint. Zero findings is a valid result. If findings exist, also confirm they appear in hosted Promptless and the connected hub's issue workflow.
 
-## Remove the worker
+## Troubleshooting
 
-Uninstall the Helm release:
+| Symptom                                 | Check and next action                                                                                                                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `helm template` reports a missing value | Fill in the required deployment settings and all model and repository settings when `activationAt` is set.                                                                                                |
+| Migration fails                         | Read `kubectl -n pig logs job/instruction-hub-worker-migrate`. Check PostgreSQL reachability, TLS, schema permissions, and the migration service account. Successful hook Jobs are deleted automatically. |
+| Pod cannot start                        | Inspect pod events for missing Secret keys or image-pull failures, then worker logs for configuration validation errors.                                                                                  |
+| HTTPS fails                             | Check DNS, certificate coverage, IngressClass, and the route to Service port 8080.                                                                                                                        |
+| Host checks in but traces do not arrive | Check collector status, capture policy, and host-to-worker upload access. Preserve the host's local collection state.                                                                                     |
+| Trace object remains pending or failed  | Check S3 credentials, bucket/prefix permissions, encryption-key access, and `trace_object_last_error`.                                                                                                    |
+| Analysis never starts                   | Confirm activation time, a complete canonical trace, the quiet window, and repository/model configuration.                                                                                                |
+| Analysis fails                          | Use `analysis_run_id` and `error_category` to investigate repository access, provider authentication, rate limits, and worker resources.                                                                  |
 
-```bash
-helm uninstall instruction-hub-worker --namespace instruction-hub
-```
+Do not delete database rows, the S3 prefix, or collection watermarks to clear a stalled deployment. Preserve the evidence, fix the failing dependency, and use the [observability and recovery guidance](/docs/governance/deploy-the-worker/observability).
 
-The uninstall removes chart-managed Kubernetes resources. It does not delete your Postgres database, S3 objects, or hosted deployment history. Delete those separately, and only when your retention policy allows it.
+## Next steps
+
+Review [findings](/docs/governance/findings-and-remediation/understand-findings), configure [observability](/docs/governance/deploy-the-worker/observability), and record an upgrade owner. Until the supervisor is available, each Helm upgrade remains an operator-controlled release.

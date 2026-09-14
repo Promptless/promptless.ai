@@ -1,97 +1,188 @@
 ---
 title: Set up your Instruction Hub
-description: Create an Instruction Hub with pig init, fill in hub.yaml, import your existing skills and MCP configs, and validate before you publish.
+description: Create a shared instruction repository, organize skills into plugins, and validate a first release for your team.
 slug: docs/governance/get-started/set-up-your-instruction-hub
 type: guide
 tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside } from '@astrojs/starlight/components';
 
-You scaffold and manage an [Instruction Hub](/docs/governance/start-here/key-concepts) with the `pig` toolchain. This guide walks you through creating one, filling in its manifest, importing your existing skills and MCP configs, and validating the result. For the toolchain's package identity and full command surface, see [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+An Instruction Hub is a Git repository containing your team's shared instructions and the plugins that distribute them. Authors edit ordinary Markdown and configuration files, review changes in pull requests, and publish a version that colleagues can install in their agents.
 
-## Scaffold a hub
+This guide creates an Acme hub with a documentation review skill and a development review skill. You can use the hub without deploying trace analysis. If you already have instructions to consolidate, create the scaffold here, then follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
 
-<Steps>
-  1. **Create and enter an empty Git repository** for your hub.
+## Before you begin
 
-  2. **Run `pig init`** to write `hub.yaml`, the required `pig` package, and the asset and generated-output directories.
+You need Git, Python 3.11 or later, and permission to create a repository on GitHub or GitLab. Choose someone to maintain the hub and a reviewer for each instruction area. The examples use `Acme`, marketplace ID `acme-instruction-hub`, and plugin IDs `pig`, `docs`, and `dev`; replace the organization and repository URL with yours.
 
-     ```bash
-     pig init --org "YourOrg" \
-       --plugin-id your-instruction-hub \
-       --plugin-name "Your Instruction Hub"
-     ```
+Install the toolchain from its public Git repository in a dedicated virtual environment:
 
-  3. **Commit the scaffold** so your hub starts from a clean, versioned baseline.
-</Steps>
+```bash
+python3 -m venv ~/.venvs/pig
+source ~/.venvs/pig/bin/activate
+python -m pip install "git+https://github.com/Promptless/instruction-hub-toolchain.git@main"
+pig --help
+```
 
-`pig init` sets `plugin_version` to `0.1.0` unless you pass `--plugin-version`. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference) for every flag.
+These are macOS/Linux shell commands. On Windows, activate the environment with its `Scripts/Activate.ps1` script. Activate this environment again when you return to authoring. Your teammates only need the toolchain if they edit or validate hub source; installing a published plugin does not require it.
 
-## Configure hub.yaml
+## Create the repository
 
-`hub.yaml` is your hub's root manifest. Its schema forbids unknown keys, so a typo or an unsupported key fails validation instead of being ignored silently.
+```bash
+mkdir acme-instruction-hub
+cd acme-instruction-hub
+git init -b main
+pig init --hub . --org Acme \
+  --marketplace-id acme-instruction-hub \
+  --marketplace-name "Acme Instruction Hub" \
+  --version 0.1.0
+```
 
-| Key               | Required | Description                                                                                  |
-| ----------------- | -------- | -------------------------------------------------------------------------------------------- |
-| `org`             | Yes      | Your organization name.                                                                      |
-| `plugin_id`       | Yes      | A kebab-case identifier for the hub's plugins.                                               |
-| `plugin_name`     | Yes      | A human-readable display name.                                                               |
-| `plugin_version`  | Yes      | The hub's plugin version, in SemVer form.                                                    |
-| `stable_packages` | Yes      | The packages to compile. At least one, all unique, and the list must include `pig`.          |
-| `targets`         | No       | The compile targets: any of `claude`, `codex`, `gemini`, and `cursor`. Defaults to all four. |
+The command writes `hub.yaml`, creates `plugins/pig.yaml`, and prepares the asset directories. Keep the `pig` plugin: the toolchain requires that literal ID and adds the hub's update skill to its Claude and Codex versions.
 
-<Aside type="note">
-  `stable_packages` must always contain `pig`. The `pig` package carries the managed update skill and the host runtime that the toolchain injects at compile time.
-</Aside>
+## Write your first skills
 
-## Repo layout
+A skill explains when to use a repeatable task, what to do, and what to return. Start with a small procedure that you can try against real work.
 
-After you scaffold and start authoring, a hub looks like this:
+Create the directories:
+
+```bash
+mkdir -p assets/skills/review-docs assets/skills/review-code
+```
+
+Save this as `assets/skills/review-docs/SKILL.md`:
+
+```markdown
+---
+name: review-docs
+description: Review an Acme documentation draft for clear steps, complete prerequisites, and accurate examples.
+---
+
+# Review documentation
+
+Use this skill when reviewing a user-facing guide before publication.
+
+1. Identify the reader's goal and the result the guide promises.
+2. Check that prerequisites appear before the steps that need them.
+3. Check commands, links, and product behavior against the supplied sources.
+4. Flag missing steps, unexplained terms, and ambiguous expected results.
+
+Return a short list of actionable findings with the affected passage and a
+suggested correction. State what you could not verify. Do not publish changes.
+```
+
+Save a second skill as `assets/skills/review-code/SKILL.md`:
+
+```markdown
+---
+name: review-code
+description: Review an Acme code change for correctness and useful regression coverage before a pull request.
+---
+
+# Review code
+
+Read the repository's local instructions before reviewing a change.
+
+1. Describe the behavior that changed and inspect its callers.
+2. Check failure handling and inputs at the changed boundary.
+3. Identify a regression scenario and check whether existing tests cover it.
+
+Return actionable findings with file locations and an explanation of the
+user-visible failure. If there are none, say so and list verification limits.
+```
+
+Keep reusable reference material and helper scripts beside a skill in `references/` and `scripts/`. Use relative links inside the skill so those files remain usable after installation. Keep project-specific build commands and directory conventions in each project's own instructions.
+
+## Group skills into plugins
+
+A plugin is the unit a teammate installs. Group instructions by the work people do, so a writer can install `docs` and a developer can install `dev`, or both.
+
+Create `plugins/docs.yaml`:
+
+```yaml
+id: docs
+name: Acme Docs
+owners:
+  - docs-team
+includes:
+  - skill:review-docs
+```
+
+Create `plugins/dev.yaml`:
+
+```yaml
+id: dev
+name: Acme Dev
+owners:
+  - engineering
+includes:
+  - skill:review-code
+  - skill:review-docs
+```
+
+The `owners` field records ownership; configure repository review rules separately if you want enforced approvals. An `includes` entry has the form `kind:id` and must name an asset that exists in the hub.
+
+Update `hub.yaml` to publish all three plugins:
+
+```yaml
+org: Acme
+marketplace:
+  id: acme-instruction-hub
+  name: Acme Instruction Hub
+version: 0.1.0
+stable_plugins: [pig, docs, dev]
+targets: [claude, codex, gemini, cursor]
+trace_ingestion:
+  enabled: false
+```
+
+`marketplace.id` identifies the catalog, while each plugin has its own literal ID. The compiler does not add an organization prefix. Choose stable names; renaming an installed plugin creates a different identity. If your team installs multiple hubs, use explicit IDs such as `acme-docs` for customer plugins to avoid confusing namespaces. The required `pig` ID stays unchanged.
+
+`version` is shared by the generated plugins. Publishing advances it when the output changes; you do not need to bump it for each edit. See [Publishing and updates](/docs/governance/get-started/publish-and-install-plugins).
+
+## Understand the layout
 
 ```text
-hub.yaml                        # root manifest
-hub.repo-context.json           # inventory of context files (AGENTS.md, CLAUDE.md, GEMINI.md)
-packages/<id>.yaml              # one file per package
+hub.yaml                          # Marketplace, version, plugins, and targets
+plugins/
+  pig.yaml                        # Required shared PIG plugin
+  docs.yaml                       # Documentation team's selection
+  dev.yaml                        # Development team's selection
 assets/
-  skills/<id>/SKILL.md          # skill assets (with optional references/, scripts/, asset.yaml)
-  commands/<id>.md              # command assets
-  mcps/<id>.json                # MCP configs
-  # pig init also scaffolds assets/rules, assets/agents, and assets/hooks
-.github/workflows/              # hand-authored thin caller workflows for PR checks and publishing
-dist/<target>/<package>/        # toolchain-generated, committed plugin packages
-.claude-plugin/marketplace.json # toolchain-generated marketplace manifests (Claude, Codex, Cursor)
+  skills/review-docs/SKILL.md      # Reusable documentation procedure
+  skills/review-code/SKILL.md      # Reusable development procedure
+  rules/                          # Rules with target support metadata
+  agents/                         # Specialist agent definitions
+  commands/                       # Agent commands
+  hooks/                          # Lifecycle actions
+  mcps/                           # MCP server configuration
 ```
 
-Only `dist/` and the marketplace manifests are toolchain-generated. You author the manifest, the packages, the assets, and the thin `.github/workflows/` caller workflows.
+Skills are the simplest starting point. The toolchain also supports rules, agents, commands, hooks, and MCP configurations. These capabilities differ by host; see [Supported agents](/docs/governance/reference/supported-agents) before adding an instruction that depends on a particular agent feature.
 
-## Import existing instructions
-
-If you already have skills and MCP configs, `pig scan` brings them into the hub instead of making you recreate them by hand:
+## Validate and save your work
 
 ```bash
-pig scan --source /path/to/existing/repo
+pig validate --hub .
+pig verify --hub .
+git add hub.yaml plugins assets
+git commit -m "Create Acme instruction hub"
 ```
 
-`pig scan` imports skills from `.agents/skills` and your MCP configs, inventories your `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` context files into `hub.repo-context.json`, and adds references for the imported assets to the `pig` package. Review the result, then move the imported assets into the packages that should own them.
+`validate` checks the source configuration, references, and asset declarations. `verify` also compiles every stable plugin for every configured target in a temporary directory. It prints a verified release ID and leaves generated files out of your source checkout.
 
-## Validate your hub
+<Aside type="note">
+  Validation catches several unsafe configuration patterns, including literal secrets in MCP settings and symlinks in assets. It is not a general secret scan. Review imported files, scripts, and examples before committing them.
+</Aside>
 
-Before you publish, confirm the hub is well formed:
+If validation reports a missing asset, check both the directory name and the plugin's `includes` entry. If a capability is unsupported, either adapt its instructions to a portable skill or declare its target support explicitly. Do not treat a successful build as proof that an agent followed the procedure; test that after installation.
 
-- `pig validate` checks the configuration, packages, asset support modes, references, and MCP configs, and confirms there are no symlinks or literal secrets.
-- `pig verify` runs the same validation and then fully compiles the hub in a temporary directory, so you see a real build without touching your working tree.
-
-```bash
-pig validate
-pig verify
-```
-
-Once both pass, you are ready to [publish and install plugins](/docs/governance/get-started/publish-and-install-plugins). For the full command surface, see [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+You now have a versioned source hub ready for review. Continue to [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins). When you want feedback from real agent sessions, [deploy trace analysis](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) and then [enable collection and enroll hosts](/docs/governance/get-started/enroll-your-hosts).

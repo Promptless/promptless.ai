@@ -344,9 +344,19 @@ test('each documentation product gets only its own active topic and product meta
   assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
   assert.match(
     governanceHtml,
-    /collects evidence from real agent sessions, finds where those instructions fail, and opens reviewed pull requests that fix them\./i
+    /Promptless Instruction Governance \(PIG\)/i
   );
   assert.match(governanceHtml, /href="\/docs\/governance\/start-here\/how-it-works"/i);
+  for (const journey of [
+    'get-started/set-up-your-instruction-hub',
+    'get-started/migrate-existing-instructions',
+    'deploy-the-worker/plan-your-deployment',
+    'deploy-the-worker/install-the-supervisor',
+    'deploy-the-worker/deploy-the-analyzer-worker',
+  ]) {
+    assert.ok(governanceHtml.includes(`href="/docs/governance/${journey}"`));
+  }
+  assert.match(governanceHtml, /pending implementation/i);
 
   for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
     assert.match(

@@ -1,63 +1,108 @@
 ---
 title: Configuration reference
-description: Every environment variable that configures the instruction-hub-worker, covering the required deployment values and the analysis settings that turn on the Friction Analyzer.
+description: Configure the current trace analyzer's deployment, storage, model, repository, and secrets, and map Helm values to worker settings.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
-  order: 2
+  order: 8
 ---
 
 import { Aside } from '@astrojs/starlight/components';
 
-The worker is configured entirely through environment variables. This page lists the required deployment values and the analysis settings. For how to supply them during a deployment, see [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+This page describes the current worker chart, version `0.2.0`. Helm values become environment variables in the worker. Start with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) for a complete values file.
 
-## Required variables
-
-Set all seven of these for the worker to start and serve. A missing or malformed value raises at boot and crashes the worker, so the pod fails to start.
-
-| Variable                                 | Description                                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| `INSTRUCTION_HUB_RUNTIME_BASE_URL`       | Base URL of the hosted Promptless Runtime the worker syncs with.                      |
-| `INSTRUCTION_HUB_INSTALL_TOKEN`          | The `plih_` install token that authenticates this deployment to hosted Promptless.    |
-| `INSTRUCTION_HUB_DEPLOYMENT_NAME`        | A human-readable name for this worker deployment.                                     |
-| `INSTRUCTION_HUB_DEPLOYMENT_INSTANCE_ID` | The stable instance identifier used when hosted Promptless verifies host credentials. |
-| `INSTRUCTION_HUB_CONFIG_HASH`            | A hash of the deployment configuration.                                               |
-| `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`  | Connection string for the Postgres database you own.                                  |
-| `INSTRUCTION_HUB_TRACE_OBJECT_S3_BUCKET` | The S3 bucket you own, for raw traces and canonical trace objects.                    |
-
-<Aside type="caution">
-  Treat `INSTRUCTION_HUB_INSTALL_TOKEN` and `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN` as secrets. Supply them through your secret store rather than as plain values.
+<Aside type="note">
+  The [supervisor configuration](/docs/governance/deploy-the-worker/install-the-supervisor) is a planned interface, pending implementation. Its `PIGDeployment` fields are not Helm values and cannot be applied to today's worker chart.
 </Aside>
 
-## Analysis variables
+## Deployment and storage
 
-The `INSTRUCTION_HUB_ANALYSIS_*` variables turn on and configure the [Friction Analyzer](/docs/governance/start-here/key-concepts). Set them together, because the analyzer needs its model and repository configured before it runs.
+Unless noted, Helm keys in this table are under `instructionHub`. Environment-variable suffixes have the prefix `INSTRUCTION_HUB_`.
 
-| Variable                                        | Description                                                                                                                                                                                                                                                                          |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `INSTRUCTION_HUB_ANALYSIS_ACTIVATION_AT`        | When analysis becomes active for this deployment. An ISO-8601, timezone-aware timestamp, for example `2026-07-29T00:00:00Z`.                                                                                                                                                         |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | The model provider: `openai`, `azure_openai`, or `aws_bedrock`.                                                                                                                                                                                                                      |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | How the worker authenticates to the provider: `api_key` or `aws_sigv4`. `api_key` works with any provider; `aws_sigv4` requires the `aws_bedrock` provider and uses ambient AWS credentials, so it needs no API key.                                                                 |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | The provider's base URL.                                                                                                                                                                                                                                                             |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | The analysis model to use. Defaults to `gpt-5.6-sol`.                                                                                                                                                                                                                                |
-| `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`        | The API key, when the provider uses API-key authentication.                                                                                                                                                                                                                          |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_URL`       | The Instruction Hub repository the analyzer reads and remediates against.                                                                                                                                                                                                            |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_ID`        | The repository identifier.                                                                                                                                                                                                                                                           |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_FULL_NAME` | The repository's full `owner/name`.                                                                                                                                                                                                                                                  |
-| `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN`     | A repository-scoped token the remediation flow uses to open pull requests. The analyzer also uses it to clone and read your Instruction Hub for its local mirror. Optional for public repositories.                                                                                  |
-| `INSTRUCTION_HUB_ANALYSIS_QUIET_WINDOW_HOURS`   | How long a session stays quiet before it is eligible for analysis. Defaults to `0.5`.                                                                                                                                                                                                |
-| `INSTRUCTION_HUB_ANALYSIS_MIRROR_ROOT`          | Local root for the analyzer's repository mirror. Defaults to `/var/lib/instruction-hub/analysis-mirrors`. The chart backs it with ephemeral pod-local storage (an `emptyDir`), not a persistent volume. The mirror is re-cloned on pod restart, and no PersistentVolume is required. |
+| Helm key               | Environment-variable suffix | Meaning                                                                                        |
+| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `runtimeBaseUrl`       | `RUNTIME_BASE_URL`          | Hosted Promptless endpoint supplied during registration.                                       |
+| `deploymentName`       | `DEPLOYMENT_NAME`           | Human-readable deployment name; use `acme-production` in the Acme example.                     |
+| `deploymentInstanceId` | `DEPLOYMENT_INSTANCE_ID`    | Stable registered deployment identifier from Promptless.                                       |
+| `configHash`           | `CONFIG_HASH`               | Registered configuration hash from Promptless. Coordinate configuration changes with the team. |
+| `storageBackend`       | `STORAGE_BACKEND`           | Use `postgres_s3` for durable deployments. The `memory` backend is for testing.                |
+| `traceObjectS3Bucket`  | `TRACE_OBJECT_S3_BUCKET`    | Customer-owned AWS S3 bucket for raw ranges and canonical trace objects. Required.             |
+| `traceObjectS3Prefix`  | `TRACE_OBJECT_S3_PREFIX`    | Object prefix; defaults to `trace-objects`. Acme uses `acme/traces`.                           |
+| `maxTraceBatchBytes`   | `MAX_TRACE_BATCH_BYTES`     | Maximum decoded trace-batch size, in bytes. Default `268435456` (256 MiB); must be positive.   |
+| `logLevel`             | `LOG_LEVEL`                 | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default `INFO`.                            |
 
-<Aside type="caution">
-  `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` and `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` are credential material: the provider API key and the repository-scoped token the remediation flow uses. Supply them through your secret store rather than as plain values.
-</Aside>
+The install token and PostgreSQL DSN are also required. They come from Secret references, described below. Keep the database, bucket, and prefix stable across restarts and upgrades. Changing a storage location does not migrate existing data.
 
-## Observability variables
+The service listens on port 8080 by default. Use that value for `service.workerPort` and ingress routing in the current chart. The analysis repository mirror uses an ephemeral `emptyDir`; it can be rebuilt after a restart and does not require a persistent volume. Trace data and analysis state live in S3 and PostgreSQL.
 
-The worker also honors Datadog and Sentry environment variables to emit traces, logs, and errors. Those settings, the `DD_*` variables and `SENTRY_DSN`, are documented separately in [Observability](/docs/governance/deploy-the-worker/observability).
+The chart uses the AWS SDK's normal credential discovery. It has no generic environment-variable passthrough or explicit AWS credential-Secret setting. EKS workload identity can supply credentials through the service account. For other arrangements, coordinate credential injection with your platform team. Azure Blob Storage and Google Cloud Storage are not current storage backends; contact [Promptless](mailto\:help@gopromptless.ai) if you need them.
+
+## Analysis activation and repository
+
+All Helm keys below are under `instructionHub.analysis`. The environment-variable suffixes have the prefix `INSTRUCTION_HUB_ANALYSIS_`.
+
+| Helm key                        | Environment-variable suffix           | Meaning                                                                                                          |
+| ------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `activationAt`                  | `ACTIVATION_AT`                       | Timezone-aware ISO timestamp for enabling analysis. Empty disables analysis in the chart.                        |
+| `quietWindowHours`              | `QUIET_WINDOW_HOURS`                  | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
+| `repository.url`                | `REPOSITORY_URL`                      | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`.          |
+| `repository.id`                 | `REPOSITORY_ID`                       | Positive numeric GitHub repository ID.                                                                           |
+| `repository.fullName`           | `REPOSITORY_FULL_NAME`                | Matching owner and repository, such as `acme/acme-instruction-hub`.                                              |
+| `repository.tokenSecretEnabled` | Controls `REPOSITORY_TOKEN` injection | Set `true` for a private repository and supply the token Secret key.                                             |
+| `repository.mirrorRoot`         | `MIRROR_ROOT`                         | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
+
+When `activationAt` is nonempty, configure the complete repository identity and all model fields below. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
+
+The repository URL and `fullName` must describe the same GitHub repository. The current analyzer validates `github.com` URLs; GitLab publishing support in the hub toolchain does not imply GitLab analyzer or remediation support. See [Supported agents and platforms](/docs/governance/reference/supported-agents) for the separate compatibility boundaries.
+
+## Model provider
+
+These Helm keys are under `instructionHub.analysis.modelApi`:
+
+| Helm key         | Worker environment variable                     | Meaning                                                                                          |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `provider`       | `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | `openai`, `azure_openai`, or `aws_bedrock`.                                                      |
+| `authentication` | `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | `api_key`, or `aws_sigv4` for Bedrock only.                                                      |
+| `baseUrl`        | `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | Supported HTTPS Responses API endpoint.                                                          |
+| `model`          | `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | Model or deployment name available through that endpoint. Select it explicitly for your account. |
+
+| Provider       | Accepted endpoint shape                                                                             | Authentication        |
+| -------------- | --------------------------------------------------------------------------------------------------- | --------------------- |
+| `openai`       | `https://api.openai.com/v1`                                                                         | API key.              |
+| `azure_openai` | `https://RESOURCE.openai.azure.com/openai/v1` or `https://RESOURCE.services.ai.azure.com/openai/v1` | API key.              |
+| `aws_bedrock`  | `https://bedrock-mantle.REGION.api.aws/v1` or the same host with `/openai/v1`                       | API key or AWS SigV4. |
+
+Replace `RESOURCE` and `REGION`. URLs must not contain embedded credentials, an explicit port, query parameters, or a fragment. Ordinary Bedrock Runtime URLs and arbitrary OpenAI-compatible endpoints do not pass the current provider validation. GKE deployments can use one of the supported providers; there is no Vertex AI provider option.
+
+For `api_key`, supply `analysis-model-api-key` in the worker Secret. For `aws_sigv4`, select `aws_bedrock`, omit the model API key, and grant the worker's AWS identity access to the selected model. S3 and model authorization are separate permissions even when they use one identity.
+
+The analyzer sends session content and relevant instruction context to this provider. Choose its region and data-handling terms accordingly; see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+## Secret references
+
+Use `secrets.existingSecretName` to reference a Secret in the worker namespace. The chart defaults to these keys:
+
+| Helm mapping                         | Default Secret key          | Worker environment variable                 |
+| ------------------------------------ | --------------------------- | ------------------------------------------- |
+| `secrets.installTokenKey`            | `install-token`             | `INSTRUCTION_HUB_INSTALL_TOKEN`             |
+| `secrets.customerPostgresDsnKey`     | `customer-postgres-dsn`     | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`     |
+| `secrets.analysisModelApiKeyKey`     | `analysis-model-api-key`    | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`    |
+| `secrets.analysisRepositoryTokenKey` | `analysis-repository-token` | `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` |
+
+The model key is referenced only when analysis is enabled with `api_key`. The repository key is referenced when analysis is enabled with `repository.tokenSecretEnabled: true`.
+
+The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
+
+Sentry uses a separate Secret reference. See [Observability](/docs/governance/deploy-the-worker/observability) for the exact values.
+
+## Validate a configuration change
+
+Render the chart with your proposed values and review the generated references and endpoints. Apply through the deployment's single owner: Helm, GitOps, or the future supervisor. Do not let two controllers manage the same worker resources.
+
+After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#4-verify-a-complete-session). Configuration validation and a healthy pod do not prove that credentials can access the database, bucket, repository, or model.

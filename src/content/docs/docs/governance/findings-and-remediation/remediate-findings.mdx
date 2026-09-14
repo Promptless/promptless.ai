@@ -1,48 +1,72 @@
 ---
 title: Remediate findings
-description: How a high-confidence finding becomes a remediation pull request you review and merge, with human review as the only gate.
+description: Turn supported findings into focused instruction changes, review remediation pull requests, and verify the next published release.
 slug: docs/governance/findings-and-remediation/remediate-findings
 type: guide
 tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
   order: 2
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+Remediation turns a supported finding into a proposed response. When the instruction hub owns the cause, a remediation agent can prepare a focused pull request. Your team decides whether to merge it under the repository's review and CI rules.
 
-Remediation turns a [finding](/docs/governance/findings-and-remediation/understand-findings) into a proposed fix in your Instruction Hub. A remediation agent opens a pull request; a human reviews and merges it. That human review is the gate.
+For Acme, a missing product-version check might require a small change to the documentation skill. An expired deployment credential belongs to an infrastructure owner and should not become another paragraph in the skill.
 
-## When a remediation pull request opens
+## Before you begin
 
-Only high-confidence findings are eligible for remediation. That means a finding created at high confidence, or one promoted from low to high as evidence accumulates. For an eligible finding, an isolated remediation agent runs in your worker (the same worker that runs the Friction Analyzer) in its own workspace, and:
+You need a high-confidence [finding](/docs/governance/findings-and-remediation/understand-findings), a connected GitHub instruction hub, and someone authorized to review proposed changes. The worker must have working model access, and hosted Promptless must have the repository connection needed to issue remediation credentials.
 
-<Steps>
-  1. Checks out a fresh branch of your Instruction Hub repository.
-  2. Uses a repository-scoped token to draft a change that addresses the finding.
-  3. Opens a pull request against your hub that closes the finding's GitHub issue.
-</Steps>
+Remediation currently targets GitHub repositories. Publishing plugins from GitLab is a separate toolchain capability.
 
-The agent runs in isolation with only a repository-scoped token; it holds no other credentials for your systems. Hosted Promptless verifies that the recorded pull request is ready on the expected branch. It checks that the pull request exists, not that its change actually fixed the behavior. Whether the change lands is your decision.
+## How remediation chooses a response
 
-Remediation is unique per finding and repository: the agent opens at most one remediation pull request per finding, on a deterministic branch. A later analysis run adds evidence to the existing finding rather than opening a second, competing pull request for the same finding. An unreviewed pull request stays open until a human acts on it. Promptless does not auto-close or expire it.
+The remediation agent reads the finding and its evidence, then inspects the relevant hub assets in an isolated checkout. It determines whether the hub can address the supported cause.
 
-## Review and merge
+| Outcome                                                                       | What happens next                                                                                                |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| A narrow hub bug has one clear correction                                     | The agent prepares the focused change and checks it.                                                             |
+| The hub can address the problem, but the choice changes policy or capability  | The workflow can ask for a decision in Slack before editing. Review the options and their tradeoffs.             |
+| A tool, permission, credential, or instruction outside the hub owns the cause | The agent updates the finding notes with the external input and responsible owner. It does not invent a hub fix. |
+| The cause remains uncertain                                                   | The outcome explains the missing evidence and no pull request opens.                                             |
 
-A human reviews the pull request and merges it. Nothing merges automatically. This review is the gate that decides whether a change lands in your hub. Who may merge a remediation pull request is governed entirely by your own GitHub repository permissions and branch protections. Those include required reviewers, CODEOWNERS, and branch protection rules. Promptless neither grants nor restricts merge access; the remediation agent only opens the pull request.
+The agent receives a repository-scoped GitHub credential for the remediation task and uses the configured model. Isolation separates the checkout and task execution; it does not mean analysis has no model credentials or no access to session evidence.
 
-Merging into your hub's default branch is the same merge event that triggers the [publish workflow](/docs/governance/get-started/publish-and-install-plugins). The improved instructions recompile and redistribute through the normal publish path, closing the loop from finding to fix.
+## Review a proposed change
 
-Hosts pick up the new release when they refresh their plugins on startup. Fleet-wide adoption is eventual as hosts restart rather than an instantaneous, confirmable event. To check a single host's state, run `promptless-host-runtime status` on it. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+For a hub change, the agent works on a dedicated branch and runs relevant checks. It then opens a pull request against `main`. The workflow records the pull request against the finding. Repeated evidence and retried attempts should be followed through that recorded history rather than treated as independent fixes.
 
-<Aside type="note">
-  Review a remediation pull request as you would any change to your instructions. The remediation agent proposes; you decide.
-</Aside>
+Review the pull request in this order:
 
-## No automated evaluation gate
+1. **Match the change to the finding.** Confirm the proposed behavior addresses the observed failure and stays within the hub's ownership.
+2. **Check the scope.** Prefer a focused correction, simplification, or removal over an unrelated expansion of instructions.
+3. **Exercise a representative task.** For Acme's documentation example, try both the affected product version and a version that previously worked.
+4. **Review validation results.** Require the hub's validation and build checks, plus any repository-specific CI or evaluation you maintain.
+5. **Approve and merge through your normal controls.** CODEOWNERS, required reviews, and branch protection remain yours to configure.
 
-There is no automated evaluation gate before a remediation merges. Do not rely on an automated step judging whether a fix is safe to merge.
+A recorded pull request proves a proposal exists. It does not prove that the change fixes every affected session. PIG does not supply a universal behavior-evaluation gate or automatically merge the proposal for you.
+
+## Publish and verify adoption
+
+After merge, use the hub's [publish workflow](/docs/governance/get-started/publish-and-install-plugins) to release the updated plugin artifacts. A merged source change and a published release are separate checkpoints; confirm the release completed before asking users to update.
+
+Refresh the plugin through the supported agent's installation or update flow. Confirm the expected plugin version on a pilot host, then run a new representative session. For enrolled hosts, check collection and subsequent analysis as well.
+
+Adoption across the team depends on hosts refreshing their installed plugins. Do not assume every machine has the fix because the release succeeded. Preserve the finding and release links so reviewers can relate later evidence to the version users actually ran.
+
+## Troubleshooting
+
+| Situation                                              | Next action                                                                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The finding is high confidence but has no pull request | Read its outcome and notes. It may need an external owner, a decision, or more ownership evidence.                                               |
+| The workflow is waiting for a decision                 | Have the appropriate owner choose the intended behavior; avoid approving a policy change solely to unblock automation.                           |
+| Repository access fails                                | Ask the operator to check the hosted repository connection and remediation credential path. The analyzer's clone token is a separate credential. |
+| CI rejects the proposal                                | Review the failure and update the branch through the normal repository workflow. Do not bypass required checks.                                  |
+| The source change merged but users see old behavior    | Confirm publication, the installed plugin version, and whether a conflicting local instruction still applies.                                    |
+| The problem recurs after update                        | Compare new evidence with the release and installed version before concluding the fix failed or opening a duplicate change.                      |
+
+Next, use [observability](/docs/governance/deploy-the-worker/observability) to monitor continued analysis and keep the hub's review and publishing workflow healthy.

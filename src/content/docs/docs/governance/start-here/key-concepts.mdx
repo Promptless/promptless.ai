@@ -1,76 +1,148 @@
 ---
 title: Key concepts
-description: A glossary of the primitives the rest of the docs build on, including hub, pig, assets, packages, compile targets, plugins, host runtime, enrollment, traces, findings, and remediation.
+description: Definitions and examples for instruction hubs, assets, plugins, marketplaces, releases, hosts, traces, findings, and the trace analyzer.
 slug: docs/governance/start-here/key-concepts
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
   order: 2
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+Use this glossary while [setting up your hub](/docs/governance/get-started/set-up-your-instruction-hub) or [planning a deployment](/docs/governance/deploy-the-worker/plan-your-deployment). [How it works](/docs/governance/start-here/how-it-works) connects the terms into a complete workflow.
 
-This page defines the primitives the rest of the documentation refers to. Read it once end to end, then come back to it as a glossary.
+## Instruction hub
 
-## Instruction Hub
+An **instruction hub** is a Git repository containing the shared instructions your team maintains for AI agents. It holds authored assets, plugin definitions, and a `hub.yaml` configuration. Your team reviews changes in pull requests before publishing them.
 
-An Instruction Hub is a versioned Git repository that holds your governed agent instructions as source. It declares which packages to compile and which agent targets to compile for, and it receives remediation pull requests when a finding is fixed. To scaffold and configure one, see [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+A hub is the source of truth for shared guidance. Keep project context in each repository's `AGENTS.md` or `CLAUDE.md`, and move reusable procedures into shared assets.
+
+For example, Acme's hub contains one documentation-review skill used by both its writers and developers.
 
 ## Assets
 
-An asset is a single governed unit of instruction. There are six kinds: `skill`, `rule`, `agent`, `command`, `hook`, and `mcp`. Each asset lives under `assets/<kind>s/` and is referenced in the `kind:id` form, for example `skill:agent-slack` or `mcp:repo-mcp`. A skill is a directory with a `SKILL.md` file and optional `references/`, `scripts/`, and an `asset.yaml` sidecar.
+An **asset** is one unit of source content or configuration in the hub. Assets live under `assets/` and use references such as `skill:review-docs` in plugin definitions.
 
-## Packages
+| Kind      | Purpose                                                   | Example                                   |
+| --------- | --------------------------------------------------------- | ----------------------------------------- |
+| `skill`   | A reusable procedure with a description of when to use it | Review a documentation change             |
+| `rule`    | Guidance that applies in a defined context                | Follow the team's API terminology         |
+| `agent`   | Instructions for a specialist role                        | Investigate a failed documentation build  |
+| `command` | A named entry point for a task                            | Prepare release notes                     |
+| `hook`    | An action tied to an agent lifecycle event                | Run a check when a session ends           |
+| `mcp`     | Configuration for a Model Context Protocol server         | Connect to a documentation search service |
 
-A package groups assets for distribution. Each package is a `packages/<id>.yaml` file with an `id`, a `name`, a list of `owners`, and an `includes` list of `kind:id` asset references. Your hub declares which packages to compile in its `stable_packages` list.
-
-Every hub carries one required package named `pig` (display name `PIG`, an empty `includes` list). At compile time the toolchain injects a managed update skill and the host runtime into the `pig` package. It always ships even though you never add assets to it yourself. Every other package is your own. You define them around your teams and workflows.
-
-<Aside type="note">
-  There is no fixed set of packages you receive. A hub is scaffolded with the required `pig` package, and you add packages that group your own assets.
-</Aside>
-
-## The pig toolchain
-
-`pig` is the toolchain that validates an Instruction Hub and compiles it into target-native plugin packages. It is a Python command-line program (also invoked as `promptless-instruction-hub`) that runs in your continuous-integration pipeline rather than as a service. It lives in the public `Promptless/instruction-hub-toolchain` repository. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
-
-## Compile targets
-
-A compile target is an agent runtime that `pig` can compile a package for. There are four: Claude, Codex, Cursor, and Gemini. A hub compiles to all four by default; you can narrow the set in your hub configuration. See [Supported agents](/docs/governance/reference/supported-agents).
+A skill normally contains `SKILL.md` and can include supporting references, templates, or scripts. Asset metadata describes target support. Native formats and supported conversions vary by agent; the compiler does not make an unavailable tool or host feature exist. See [Supported agents](/docs/governance/reference/supported-agents).
 
 ## Plugins
 
-A plugin is the compiled, target-native form of a package. `pig` writes each one to `dist/<target>/<package>/`, for example `dist/claude/<package>/`. Your fleet installs plugins from a marketplace and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+A **plugin** is a named group of assets that a user installs. Its source definition lives in `plugins/<id>.yaml`; its compiled output lives in `dist/<target>/<id>/`.
 
-## The host runtime
+For example, `plugins/docs.yaml` can select the documentation skill:
 
-`promptless-host-runtime` is a command-line executable the toolchain injects into your Claude and Codex plugins at compile time. It enrolls each host with your worker and collects that host's native session traces. It runs through generated lifecycle hooks rather than as a daemon. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+```yaml
+id: docs
+name: Acme Docs
+includes:
+  - skill:review-docs
+```
 
-## Enrollment
+Acme can also include that asset in `plugins/dev.yaml`. The two plugins have different audiences but share the same authored procedure.
 
-Enrollment is how a host proves its identity to your worker. The host runtime opens a browser approval page. Any signed-in member of your organization approves the host; org-admin is not required. The approval is attributed to that user, and the runtime caches a one-time per-host credential (a `plihost_` token) locally. The worker holds no shared secret. It verifies each credential through hosted introspection. See [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+The ID is the plugin's literal identity. The toolchain does not automatically prefix `docs` with your organization or marketplace ID. Choose IDs deliberately, especially if users install plugins from several hubs.
+
+### The required pig plugin
+
+Every hub includes a plugin with the exact ID `pig`, listed in `stable_plugins`. It can contain shared instruction assets, including those added by `pig scan`.
+
+The toolchain adds the managed `update-instruction-hub` skill to this plugin for Claude and Codex. When trace ingestion is enabled, this same plugin receives the managed enrollment hooks and collection runtime. Other plugins such as `docs` and `dev` do not receive those managed collection hooks.
+
+## Marketplace
+
+A **marketplace** is the catalog through which supported agents discover your released plugins. Its identity belongs to the hub and is separate from individual plugin IDs.
+
+Acme's configuration could contain:
+
+```yaml
+org: Acme
+marketplace:
+  id: acme-instruction-hub
+  name: Acme Instruction Hub
+version: 0.1.0
+stable_plugins: [pig, docs, dev]
+targets: [claude, codex, cursor, gemini]
+trace_ingestion:
+  enabled: false
+```
+
+The example assumes matching definitions for all three plugins. The generated catalog and installation process depend on the agent; Gemini uses extensions. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+
+## The pig toolchain
+
+**`pig`** is the command-line tool that scaffolds, validates, scans, and compiles a hub. Its Python package is `promptless-instruction-hub`; the same CLI is also available under that longer command name.
+
+Authors run it locally, and CI runs it when checking and publishing changes. It is not a server. `pig verify` checks a build in a temporary directory; `pig build` writes generated output. Publishing is performed by the CI integration, not by a `pig publish` command. See the [CLI reference](/docs/governance/reference/pig-cli-reference).
+
+## Targets and releases
+
+A **target** is an agent format the toolchain builds: `claude`, `codex`, `cursor`, or `gemini`. A **hub release** is the versioned result of compiling the selected plugins for the selected targets.
+
+`version` in `hub.yaml` is the hub's semantic version. The release pipeline writes release metadata to `hub.release.json` and the stable pointer to `hub.stable.json`. A published release and an installed plugin are different states: users must install or refresh the plugin before an agent can load the new content.
+
+An **analyzer release** versions the deployed analysis service separately from the hub's instructions. Updating one does not automatically update the other.
+
+## Hosts and the host runtime
+
+A **host** is an enrolled agent environment on a workstation or other machine. Its identity lets PIG attribute traces and collection status to the right source.
+
+The **host runtime**, `promptless-host-runtime`, is the collector included in Claude and Codex versions of the `pig` plugin when `trace_ingestion.enabled` is `true`. Generated lifecycle hooks start collection work without blocking the agent session.
+
+Native trace sources are Claude Code, Claude Desktop, and Codex. Plugin-distribution support for Cursor or Gemini does not mean PIG collects their native traces.
+
+## Enrollment and policy
+
+**Enrollment** is the browser approval that associates a host with a Promptless organization and analyzer deployment. A signed-in organization member approves the request. The host receives its own credential, which it uses for authenticated requests to the analyzer.
+
+The **host policy** tells the collector which host types and collection settings are enabled. Installing a plugin, enabling collection in `hub.yaml`, and enrolling a host are separate steps. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
 
 ## Traces and sessions
 
-A trace is one agent session, reconstructed from the native session ledgers the agent CLI writes locally. The host runtime ingests from exactly three sources (Claude Code, Claude Desktop, and Codex) and uploads new byte ranges to your worker. The worker stores a canonical trace object per session. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+A **session** is a period of work recorded by an agent. A **trace** is PIG's representation of that session, reconstructed from the agent's native logs. It can include messages, tool activity, timestamps, and other source records.
+
+Raw uploads preserve the original records. The **canonical trace** organizes those records into a common representation for analysis. PostgreSQL records ingestion and analysis state; S3 holds raw chunks and trace objects. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
 
 ## The worker and Friction Analyzer
 
-The worker is the `instruction-hub-worker` service you deploy into your own infrastructure. It accepts trace uploads, stores them in your S3 bucket and Postgres database, and runs the Friction Analyzer. The Friction Analyzer is the analysis component inside the worker: it studies one session at a time and produces findings. See [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The **trace analyzer** is the customer-deployed `instruction-hub-worker` service. It accepts authenticated uploads, stores trace data, runs analysis, and coordinates results with hosted Promptless.
+
+The **Friction Analyzer** is the analysis component inside that service. It examines completed or quiet sessions using the configured model provider and instruction-hub context. There is no separate Friction Analyzer installation.
+
+The service requires PostgreSQL and AWS S3. Analysis also requires model configuration and a verified GitHub hub repository with a `main` branch. See [Plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment).
 
 ## Findings and evidence
 
-A finding is a specific instruction failure the Friction Analyzer records, with a severity, a confidence, and a supporting-evidence list. Every finding carries at least one piece of evidence (a cited range of a session digest and a summary of what happened there). Evidence is append-only, so recurrence accumulates rather than overwrites. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+A **finding** describes an instruction problem observed in session analysis. It includes an explanation, impact, confidence, and supporting evidence. An **evidence occurrence** connects the finding to a particular session and what happened there.
+
+Multiple sessions can support the same finding. Evidence helps a reviewer distinguish a recurring instruction problem from an isolated mistake. A session may complete analysis without producing a finding. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
 
 ## Remediation
 
-Remediation is the flow that turns a high-confidence finding into a fix. An isolated remediation agent branches your Instruction Hub repository and opens a pull request. A human reviews and merges it, and the merged change recompiles and redistributes. Only high-confidence findings are eligible, and human review is the gate. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+**Remediation** is the work to address a finding. When an instruction change is appropriate, PIG can prepare a pull request against your hub. Your team reviews the proposed fix and uses its normal checks and merge controls before publishing it.
+
+A finding may need a change to a tool, integration, or external system instead of a hub edit. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
 
 ## Hosted Promptless Runtime
 
-The hosted Promptless Runtime is the control plane Promptless operates. It issues and verifies host enrollment credentials through introspection, receives the finding mutations your worker authors and projects them to GitHub issues, and coordinates remediation. It receives only a limited metadata projection of each trace, never trace content. For what crosses that boundary, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+**Hosted Promptless Runtime** is Promptless's coordination service, sometimes called the control plane. It manages enrollment credentials and deployment coordination, stores findings, and coordinates their GitHub issues and remediation state.
+
+Its trace-status records exclude raw transcripts. Findings are a separate data flow and can describe session details. Analysis also sends session-derived input to your configured model provider. See [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+## Supervisor
+
+The **supervisor** is the planned component that manages PIG's deployment in your Kubernetes cluster after an initial installation. It will follow every stable release and coordinate updates to the analyzer, itself, database schema, and dedicated PIG resources within its granted permissions.
+
+The supervisor is pending implementation. Its [installation](/docs/governance/deploy-the-worker/install-the-supervisor) and [update and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) guides define the intended customer experience. The current deployment path uses Helm.

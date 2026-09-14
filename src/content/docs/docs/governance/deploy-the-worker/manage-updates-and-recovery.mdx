@@ -1,0 +1,173 @@
+---
+title: Manage updates and recovery
+description: Understand the planned supervisor's stable-release updates, pause and pin controls, migration safeguards, GitOps ownership, and recovery procedures.
+slug: docs/governance/deploy-the-worker/manage-updates-and-recovery
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - operations
+  - supervisor
+timestamp: "2026-09-14T00:00:00Z"
+sidebar:
+  order: 7
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The supervisor is intended to keep a PIG deployment current after a one-time installation. Routine releases should arrive without a platform engineer running a Helm upgrade each time. This guide describes how your team retains control and recovers when an update cannot complete.
+
+<Aside type="note" title="Supervisor availability">
+  The supervisor and the controls below are pending implementation. Examples use the proposed `PIGDeployment` interface from [Install the supervisor](/docs/governance/deploy-the-worker/install-the-supervisor). Current Helm installations still require operator-managed upgrades.
+</Aside>
+
+## What updates automatically
+
+The default policy follows **every stable release**. It includes the analyzer, supervisor, required database migrations, and dedicated PIG infrastructure changes within the authority granted at installation. A major version or schema change is not automatically excluded.
+
+```yaml
+release:
+  channel: stable
+  paused: false
+  pinnedVersion: ""
+```
+
+Stable releases must include a compatible transition for the installed version, hosted Promptless, and customer data. The supervisor must follow any required intermediate migrations instead of jumping directly to an incompatible version. The stable channel is a release policy, not permission to erase data or modify shared infrastructure.
+
+Your team continues to maintain shared clusters, networking, ingress controllers, externally managed secrets, and backup policies. New access requirements or a failed preflight produce a blocked update with a specific action. Once that blocker is resolved, the supervisor resumes the stable-release transition without a separate approval for each release.
+
+## Control cloud management authority
+
+The proposed [bootstrap inventory](/docs/governance/deploy-the-worker/install-the-supervisor#declare-the-management-boundary) is ConfigMap `pig-system/acme-infrastructure`, key `inventory.yaml`. It maps `pig/acme` to exact resource IDs, management identities, operations, and delegated fields. GitOps owns this inventory, both ServiceAccounts, cloud identity bindings, and management Secret delivery. The supervisor reads them; it cannot expand them.
+
+Every release must declare its required cloud operations, affected fields, migration sequence, and expected service interruptions. Before changing infrastructure, the supervisor checks each operation against the deployment's inventory, the selected principal's permissions, and existing field ownership. It must verify that the named database and bucket match the deployment's configured storage.
+
+An empty inventory permits Kubernetes updates and schema migrations only. It does not authorize cloud discovery, creation, deletion, retention changes, backup policy changes, or IAM updates. The cloud examples delegate only database sizing and S3 configuration inspection. A release requiring any additional operation blocks instead of silently skipping that step or widening authority.
+
+To inspect the customer-owned inventory without displaying credentials:
+
+```bash
+kubectl get configmap acme-infrastructure --namespace pig-system \
+  -o jsonpath='{.data.inventory\.yaml}{"\n"}'
+```
+
+For a blocked cloud update, status must identify the target resource, operation, field, and management identity. Proposed reasons include `CloudOperationNotAllowed`, `CloudIdentityUnavailable`, and `CloudOwnershipConflict`. A missing grant can block the target while the installed release remains healthy.
+
+If you choose to delegate the reported change, review its supplied permission policy and remove competing reconciliation for the specific field. Update the inventory and cloud grant through their customer-owned configuration. Adding a management Secret also requires an explicitly reviewed change to the controller's Secret-read RBAC. The controller must not apply that grant itself.
+
+Keep the bootstrap Flux `HelmRelease` suspended while making these external configuration changes. Do not resume Helm reconciliation to repair a cloud grant. The supervisor watches inventory and credential changes, reruns preflight, and resumes an unpaused transition when the required authority is present. It must never substitute the analyzer's credentials for a missing management identity.
+
+## Follow an update
+
+The proposed supervisor records the current release, target release, update stage, and a durable migration history. The update sequence is:
+
+1. Resolve and verify the stable release artifacts and its supported upgrade path.
+2. Check hosted compatibility, storage, model/repository requirements, available capacity, and the inventory's resource, field, identity, and permission limits.
+3. Verify required recovery points and run the release's coordinated migration and infrastructure steps.
+4. Roll out the analyzer and supervisor in the release's declared order.
+5. Verify health, storage access, and hosted synchronization before marking the target installed.
+
+Some transitions can keep ingestion running while analysis pauses. A release that needs an ingestion interruption must report that state. Hosts can retry from their retained native ledgers, so do not delete those ledgers during recovery; successful retries depend on the source still being available.
+
+Inspect the proposed status and events with:
+
+```bash
+kubectl get pigdeployment acme --namespace pig \
+  -o jsonpath='{.status.currentVersion}{" -> "}{.status.targetVersion}{"\n"}'
+kubectl describe pigdeployment acme --namespace pig
+kubectl logs deployment/pig-supervisor --namespace pig-system --tail=100
+```
+
+| Condition       | Meaning                                          | Operator response                                                   |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| `Ready=True`    | The current deployment passed supervisor checks. | Continue monitoring real ingestion and analysis.                    |
+| `Updating=True` | A release transition is in progress.             | Review the stage and elapsed time; avoid competing manual upgrades. |
+| `Blocked=True`  | A required operation cannot proceed.             | Read the reason and resolve the reported dependency or permission.  |
+
+Conditions can overlap: an old deployment can remain ready while its target release is blocked. Use `currentVersion`, `targetVersion`, condition messages, and recent events together. Status must never include secret values or raw trace content.
+
+## Pause release adoption
+
+In a GitOps deployment, commit this change to `spec.release` in the `PIGDeployment` manifest:
+
+```yaml
+release:
+  channel: stable
+  paused: true
+  pinnedVersion: ""
+```
+
+For an installation managed directly with `kubectl`, the equivalent proposed command is:
+
+```bash
+kubectl patch pigdeployment acme --namespace pig --type merge \
+  -p '{"spec":{"release":{"paused":true}}}'
+```
+
+A pause stops new release transitions, including supervisor updates. It keeps the installed service running and permits credential refresh and status reporting. An already-running migration must reach a documented safe checkpoint before the pause takes effect; deleting its Job is not a pause mechanism.
+
+A pause does not stop instruction-hub publishing or host plugin updates. Those have their own release workflow. It also does not suspend cloud charges or delete queued traces.
+
+## Pin a release and return to stable
+
+Set `pinnedVersion` to an exact release identity provided by Promptless. The supervisor should verify the transition before applying it. `paused: true` takes precedence: a pin does not start an update while paused.
+
+```yaml
+release:
+  channel: stable
+  paused: false
+  pinnedVersion: "REPLACE_WITH_SUPPORTED_RELEASE"
+```
+
+Pinning the installed version holds it while your team investigates an issue. Choosing an earlier release requests a downgrade; it is allowed only when that release supports the current schema and hosted interface. A pin cannot force an incompatible database downgrade.
+
+To resume automatic stable updates, clear the pin and pause in your source manifest. For a directly managed installation:
+
+```bash
+kubectl patch pigdeployment acme --namespace pig --type merge \
+  -p '{"spec":{"release":{"paused":false,"pinnedVersion":""}}}'
+```
+
+Do not patch a GitOps-managed object without updating its source; the GitOps controller can otherwise undo the change. Do not independently pin the supervisor Deployment image: the release policy coordinates supervisor and analyzer versions together.
+
+## Recover from a blocked or failed update
+
+### A dependency or permission check fails
+
+Keep the last healthy version running. Check the reported resource, action, and identity, then repair the underlying condition. Common causes include rotated tokens, unreachable databases, missing S3 permissions, insufficient capacity, and unavailable model endpoints. If a new permission is required, review the supplied change against the resource inventory before granting it.
+
+The supervisor must retry recoverable failures and preserve its progress. Avoid reinstalling under a different deployment ID; that creates a second identity instead of repairing the existing deployment.
+
+### A migration fails
+
+Record the source and target releases and failed migration identifier. Preserve the database, objects, logs, and migration Job evidence. The supervisor must not start application code that requires the incomplete schema, and it must prevent concurrent migration attempts.
+
+Retry only through the migration's documented resumable path after fixing the cause. If the failure leaves the schema incompatible with the last application release, use a supported forward repair or a coordinated restoration. Rolling back a Deployment or Helm release does not reverse committed PostgreSQL changes.
+
+### The application fails after migration
+
+Use the release's declared rollback compatibility to decide whether the prior application can run against the new schema. The supervisor may revert application resources only when that compatibility is known. Otherwise, hold the deployment and apply a supported forward repair with the Promptless team.
+
+After recovery, repeat the [first-trace verification](/docs/governance/deploy-the-worker/install-the-supervisor#5-verify-the-complete-workflow), including completed analysis. A healthy controller is not proof that the analyzer has recovered.
+
+### The cluster or supervisor is lost
+
+Restore the bootstrap configuration, customer-owned inventory, and original `PIGDeployment` specification into the recovery cluster. Re-establish the management ServiceAccount bindings and Secret delivery. Reconnect the same PostgreSQL database and S3 objects using the same deployment identity. Restore network paths and certificates before allowing hosts to upload again.
+
+Repeat the bootstrap ownership handoff before creating the restored `PIGDeployment`: for Flux, install the reviewed recovery bootstrap, then suspend its Helm release. The recovered supervisor must preflight the inventory and permissions before resuming cloud changes. Recovery does not authorize it to create replacement storage or change backup policy.
+
+If restoring storage from backups, use a coordinated recovery point for PostgreSQL and S3. Preserve source watermarks and object references together. Do not run two active deployments against the same database during cutover. Confirm the supported recovery release with Promptless before allowing the supervisor to resume migrations.
+
+## Monitor ongoing operation
+
+Alert on blocked updates, supervisor reconciliation failures, ingestion failures, growing analysis delay, unavailable model capacity, and backup failures. A normal release transition may temporarily delay analysis; a persistent backlog needs investigation even when `Ready=True`.
+
+Keep the deployment ID, current/target release, update history, and support contact in your runbook. The [observability guide](/docs/governance/deploy-the-worker/observability) covers the current service's logs and signals.
+
+## Retire a deployment without erasing traces
+
+Disable host enrollment and collection for the deployment in coordination with Promptless, and allow accepted work to finish or record what remains queued. Pause updates, then remove the `PIGDeployment` through its owning GitOps repository or Kubernetes workflow.
+
+Under the proposed contract, removing the deployment cleans up its generated application resources. It retains PostgreSQL, S3 objects, the customer-owned inventory, external Secrets, and backups. Remove the supervisor only after it has finished cleanup. Revoke unused analyzer and management credentials and remove endpoint routing separately.
+
+Delete retained customer data only through your organization's explicit retention/deletion procedure. Uninstalling PIG does not imply permission to delete it.

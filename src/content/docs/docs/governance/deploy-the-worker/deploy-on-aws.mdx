@@ -1,0 +1,207 @@
+---
+title: Deploy on AWS
+description: Prepare EKS, RDS PostgreSQL, S3, workload identity, and HTTPS for the proposed PIG supervisor deployment on AWS.
+slug: docs/governance/deploy-the-worker/deploy-on-aws
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - aws
+  - deployment
+timestamp: "2026-09-14T00:00:00Z"
+sidebar:
+  order: 3
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This recipe prepares PIG on an existing Amazon EKS cluster with Amazon RDS for PostgreSQL and Amazon S3. The analyzer uses its own IAM role to access trace objects. Acme's example places the cluster, database, and bucket in `us-west-2`.
+
+<Aside type="note" title="Supervisor availability">
+  The supervisor is pending implementation. The `PIGDeployment` examples below define its proposed interface and are not currently runnable installation instructions. The AWS infrastructure preparation also applies to the available [Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), which uses different configuration.
+</Aside>
+
+## Before you begin
+
+Have an existing EKS cluster, a connected `kubectl` context, Helm, and access to your AWS infrastructure workflow. You need permission to provision a dedicated database, bucket, IAM role, and DNS record, plus cluster permission to bootstrap the supervisor. Obtain the deployment registration values and proposed installation materials from Promptless.
+
+Choose these names before provisioning:
+
+| Resource                  | Acme example                      |
+| ------------------------- | --------------------------------- |
+| Namespace / deployment    | `pig` / `acme`                    |
+| Database / database owner | `pig` / `pig_analyzer`            |
+| S3 bucket / prefix        | `acme-pig-traces` / `acme/traces` |
+| Analyzer ServiceAccount   | `pig-analyzer`                    |
+| Analyzer IAM role         | `acme-pig-analyzer`               |
+| HTTPS hostname            | `traces.acme.example`             |
+
+S3 bucket names must be available in your account's intended namespace; replace the illustrative Acme name. Keep the registration's deployment ID unchanged across restarts and upgrades.
+
+## 1. Provision private PostgreSQL and trace storage
+
+Use your normal infrastructure-as-code workflow to create an RDS PostgreSQL instance in private subnets reachable from EKS. Disable public access. Allow TCP 5432 from the cluster's actual workload security-group path, not from the internet. Create the dedicated `pig` database and a database owner that can run PIG migrations; do not use an account shared with other applications.
+
+Enable backups and deletion protection, and record your restore procedure. Require TLS and provide the current RDS CA bundle to the analyzer and migration containers. RDS supports certificate verification with `sslmode=verify-full` and a supplied CA bundle. See [RDS PostgreSQL TLS configuration](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.SSL.html).
+
+Store a DSN with this shape in your secret manager, replacing the password and endpoint and URL-encoding reserved characters in credentials:
+
+```text
+postgresql://pig_analyzer:REPLACE_PASSWORD@acme-pig.REPLACE_REGION_ENDPOINT.rds.amazonaws.com:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
+```
+
+Create a private S3 bucket with public access blocked, encryption enabled, and a retention policy appropriate for agent traces. Reserve `acme/traces/` for PIG. Enable versioning if it is part of your recovery policy; coordinate object retention with database backups so restored metadata still points to available objects.
+
+## 2. Give the analyzer its own AWS identity
+
+Use IAM roles for service accounts (IRSA) to associate `pig/pig-analyzer` with a dedicated IAM role. Configure the EKS OIDC provider and scope the role's trust to that namespace and ServiceAccount. IRSA supplies temporary AWS credentials through the SDK's default credential chain. Follow [AWS's IRSA setup](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+
+The current trace store reads and writes objects. This example policy scopes those operations to the selected prefix:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::acme-pig-traces/acme/traces/*"
+    }
+  ]
+}
+```
+
+If the bucket uses a customer-managed KMS key, also authorize the needed encryption/decryption operations on that key and its key policy. Keep bucket administration and object deletion outside the analyzer role. Give your operations identity any separate listing or recovery permissions it needs.
+
+Prepare the namespace and ServiceAccount, substituting your AWS account ID:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pig
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pig-analyzer
+  namespace: pig
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-analyzer
+```
+
+Apply this with your normal Kubernetes workflow. The proposed `PIGDeployment.spec.serviceAccountName` selects this account. Do not put AWS access keys in `pig-credentials` or the deployment manifest for this path.
+
+The supervisor has a separate identity. Grant it only the dedicated resource-management operations listed in its reviewed installation inventory. An analyzer role that can write S3 objects does not authorize the supervisor to alter RDS, IAM, or bucket configuration.
+
+## 3. Wire secrets, networking, and model access
+
+Deliver `pig-credentials`, `pig-postgres-ca`, and `pig-tls` as described in [Install the supervisor](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity). Skip recreating the namespace and ServiceAccount prepared above. An AWS Secrets Manager integration can supply the Kubernetes Secret through your existing secret-delivery tooling; PIG does not assume a particular secrets controller.
+
+Use your installed ingress controller and a certificate for `traces.acme.example`. If using a private load balancer, make sure enrolled laptops can reach it through your corporate network. Permit HTTPS egress to hosted Promptless, GitHub, the model endpoint, S3, and release artifacts. Allow the AWS token-service path required by your workload identity, using private endpoints or controlled egress as appropriate.
+
+Retain the base manifest's 10 MiB ingress-nginx upload annotation, or replace it with your controller's equivalent. Every load balancer and proxy in front of the analyzer must accept at least 10 MiB request bodies.
+
+The base example uses OpenAI with an API key. You may choose Bedrock with `aws_sigv4` instead, provided the workload role has model access and the selected regional endpoint/model supports Responses. Use the exact current provider settings in the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference). Do not assume an arbitrary Bedrock model works with the analyzer.
+
+### Prepare supervisor cloud management
+
+The following inventory and chart settings are also proposed interfaces. Provision a separate IAM role, `acme-pig-supervisor`, for management operations. Trust only `system:serviceaccount:pig-system:pig-supervisor` through the EKS OIDC provider. Apply the reviewed management policy supplied with the installation materials; do not reuse the analyzer's role.
+
+In `supervisor-infrastructure.yaml` from [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), configure the supervisor ServiceAccount as follows:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pig-supervisor
+  namespace: pig-system
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-supervisor
+```
+
+Replace the ConfigMap's inner `inventory.yaml` value with this inventory. Substitute your exact account, region, RDS instance ARN, and bucket ARN:
+
+```yaml
+version: 1
+deployments:
+  pig/acme:
+    identities:
+      aws-management:
+        provider: aws
+        authentication: workload_identity
+        principal: arn:aws:iam::123456789012:role/acme-pig-supervisor
+        serviceAccountRef:
+          namespace: pig-system
+          name: pig-supervisor
+    resources:
+      - id: arn:aws:rds:us-west-2:123456789012:db:acme-pig
+        type: aws:rds:db-instance
+        identityRef: aws-management
+        operations: [inspect, update]
+        managedFields: [DBInstanceClass]
+      - id: arn:aws:s3:::acme-pig-traces
+        type: aws:s3:bucket
+        identityRef: aws-management
+        operations: [inspect]
+        managedFields: []
+```
+
+This example delegates only the dedicated RDS instance's [instance class](https://docs.aws.amazon.com/AmazonRDS/latest/APIReference/API_ModifyDBInstance.html) for updates. Transfer ownership of that field from your infrastructure reconciler before enabling the grant. S3 management is inspection only; object access remains with the analyzer. The supervisor cannot change backup policy, retention, deletion protection, IAM, or shared networking.
+
+Use the common bootstrap values unchanged: the management role uses IRSA, so `infrastructure.credentialSecretNames` remains empty. Allow the supervisor to reach AWS token and resource-management APIs. Keeping the common empty inventory instead limits updates to Kubernetes and schema changes; releases needing cloud operations will block.
+
+## 4. Configure the proposed supervisor deployment
+
+Bootstrap the team-supplied `./pig-supervisor` chart using [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), with the management inventory and ServiceAccount prepared above. Follow the Flux handoff if applicable. Save the complete example from step 3 as `pig-deployment.yaml` and replace its registration, GitHub repository, model, and hostname values. Keep `credentialsSecretRef` absent under S3 so the analyzer uses IRSA.
+
+For a repeatable cloud overlay, save this as `patch-aws.yaml` in the same directory:
+
+```yaml
+apiVersion: governance.promptless.ai/v1alpha1
+kind: PIGDeployment
+metadata:
+  name: acme
+  namespace: pig
+spec:
+  serviceAccountName: pig-analyzer
+  storage:
+    s3:
+      region: us-west-2
+      bucket: acme-pig-traces
+      prefix: acme/traces
+```
+
+Save the following as `kustomization.yaml`:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pig-deployment.yaml
+patches:
+  - path: patch-aws.yaml
+```
+
+Review the resolved manifest, then apply it once the planned supervisor is available:
+
+```bash
+kubectl kustomize .
+kubectl apply -k .
+```
+
+In GitOps, commit the same files and let your controller perform the apply. Keep the generated analyzer resources out of a second reconciler.
+
+## 5. Verify and operate the deployment
+
+Follow [installation verification](/docs/governance/deploy-the-worker/install-the-supervisor#4-check-deployment-status) through completed analysis of a test session. Confirm all of these outcomes:
+
+- The supervisor can reach RDS and complete migrations with the intended database owner.
+- Management preflight resolves `pig/acme` to the listed resource ARNs and the separate supervisor role, with no ownership conflict.
+- The analyzer uses the dedicated IAM role and can write and read trace objects under the configured S3 prefix.
+- A supported host can enroll and upload through the intended HTTPS network path.
+- A session created after activation appears and completes analysis; no finding is also a valid completed result.
+
+If S3 returns access denied, check the role trust, ServiceAccount annotation, bucket policy, and any KMS key policy. A database timeout usually requires checking security groups, subnet routing, and DNS before changing credentials.
+
+Configure [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery). To retire PIG, follow that guide's retention procedure, then remove routing and revoke unused identities. Retain the RDS database, S3 bucket, and backups until your organization's data-retention process authorizes their deletion.

@@ -1,0 +1,233 @@
+---
+title: Deploy on Google Cloud
+description: Prepare GKE, Cloud SQL for PostgreSQL, cross-cloud S3 access, secrets, and HTTPS for the proposed PIG supervisor deployment.
+slug: docs/governance/deploy-the-worker/deploy-on-gcp
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - google-cloud
+  - deployment
+timestamp: "2026-09-14T00:00:00Z"
+sidebar:
+  order: 5
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+This recipe runs PIG on an existing Google Kubernetes Engine (GKE) cluster. It uses Cloud SQL for PostgreSQL for metadata and stores trace objects in AWS S3. It uses a direct private database connection and an OpenAI model endpoint.
+
+<Aside type="note" title="Supervisor availability">
+  The supervisor is pending implementation. The `PIGDeployment` and credential-injection examples below describe a proposed interface. They are not supported inputs to today's worker Helm chart. See [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) for that path.
+</Aside>
+
+## Before you begin
+
+Have an existing GKE cluster, Helm, and a connected `kubectl` context. You need Google Cloud access to provision dedicated Cloud SQL storage and network connectivity. You also need an AWS account for the S3 bucket and its credentials. Obtain your registration values and planned supervisor materials from Promptless.
+
+This example uses database-password authentication over TLS. It does not require a Cloud SQL Auth Proxy sidecar or IAM database-token refresh in the worker. Your cluster's workload identity can supply your existing Google Secret Manager integration. A Google Cloud identity does not by itself authenticate to AWS S3.
+
+| Resource                    | Acme example                                    |
+| --------------------------- | ----------------------------------------------- |
+| Namespace / deployment      | `pig` / `acme`                                  |
+| Cloud SQL database / owner  | `pig` / `pig_analyzer`                          |
+| S3 region / bucket / prefix | `us-west-2` / `acme-pig-traces` / `acme/traces` |
+| HTTPS hostname              | `traces.acme.example`                           |
+
+If your organization needs Google Cloud Storage for traces, contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) before proceeding. This guide uses the existing S3 storage backend and does not add a Cloud Storage adapter. Vertex AI is also not a currently supported analyzer provider.
+
+## 1. Connect GKE to private PostgreSQL
+
+Provision Cloud SQL for PostgreSQL with private IP connectivity from the VPC used by GKE. Configure private services access and verify the cluster's routing to the allocated database network. Follow [Cloud SQL private IP guidance](https://docs.cloud.google.com/sql/docs/postgres/private-ip). Keep the database's public access disabled for this path.
+
+Create database `pig` with a dedicated owner, `pig_analyzer`, that can run PIG schema migrations. Store its password in your secret manager. Enable backups, point-in-time recovery as required by your policy, and deletion protection. Record the database's private IP for the DSN.
+
+Require encrypted connections and configure server-certificate validation. This example uses the instance CA bundle with `sslmode=verify-ca`, which validates the issuing CA when connecting directly by private IP. Supply the correct bundle for your Cloud SQL CA mode and maintain it through certificate rotation. See [Cloud SQL TLS configuration](https://docs.cloud.google.com/sql/docs/postgres/configure-ssl-instance).
+
+Store a DSN with this shape in `pig-credentials` key `postgres-dsn`:
+
+```text
+postgresql://pig_analyzer:REPLACE_PASSWORD@10.20.0.5:5432/pig?sslmode=verify-ca&sslrootcert=/etc/pig/postgres-ca/ca.pem
+```
+
+Replace the private IP and password, URL-encoding reserved credential characters. Deliver the CA bundle as `pig-postgres-ca` key `ca.pem`. The proposed supervisor mounts it into both analyzer and migration containers. This example selects server-authenticated TLS with database-password authentication. If your database policy also requires client certificates, arrange the additional certificate delivery with Promptless before deployment.
+
+## 2. Prepare S3 and AWS authentication
+
+Create a private, encrypted S3 bucket and reserve `acme/traces/`. Choose the AWS region with your latency, residency, and transfer-cost requirements in mind. Coordinate retention and recovery with Cloud SQL so a restored database retains access to its referenced objects.
+
+Permit outbound HTTPS from GKE to S3's regional endpoints. Private GKE nodes need a working egress path to these public AWS services, such as your organization's controlled NAT/proxy configuration. A Google Cloud private service route to Cloud SQL does not provide that S3 route.
+
+Create a dedicated AWS programmatic identity scoped to the trace prefix. Use the [object-access policy in the AWS recipe](/docs/governance/deploy-the-worker/deploy-on-aws#2-give-the-analyzer-its-own-aws-identity), plus the necessary key policy and KMS permissions if using customer-managed encryption. Do not reuse a root or administrator key.
+
+Have your secret manager deliver `pig-s3-credentials` in namespace `pig` with keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. This baseline uses an AWS access-key pair. AWS recommends temporary role credentials where possible; if federation is mandatory, agree a supported credential integration with Promptless before deploying. See [AWS credential management](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
+
+For a pilot, create the namespace and load the pair from protected files:
+
+```bash
+kubectl create namespace pig
+kubectl create secret generic pig-s3-credentials --namespace pig \
+  --from-file=AWS_ACCESS_KEY_ID=/secure/pig/aws-access-key-id \
+  --from-file=AWS_SECRET_ACCESS_KEY=/secure/pig/aws-secret-access-key
+```
+
+Remove trailing newlines from the files and keep them outside your repository. Your secret-delivery system owns rotation. The proposed supervisor watches the Secret and refreshes the analyzer workload when values change; verify that refresh before revoking the old key. Expiring STS credentials require a refreshing integration, not a one-time paste into Kubernetes.
+
+## 3. Prepare HTTPS and analysis access
+
+Use an ingress controller already installed in GKE. Reserve `traces.acme.example`, route it to that controller, and provide certificate Secret `pig-tls`. If the endpoint is private, verify enrolled devices' VPN routes and private DNS. Allow HTTPS egress to Promptless, GitHub, OpenAI, S3, and the release endpoints supplied with the installation.
+
+Retain the base manifest's 10 MiB ingress-nginx upload annotation, or replace it with your controller's equivalent. Every load balancer and proxy in the upload path must accept at least 10 MiB request bodies.
+
+Prepare the complete [secret set](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity): deployment install token, PostgreSQL DSN, model API key, and read token for a private GitHub hub. Skip namespace creation if already completed. Create ServiceAccount `pig-analyzer`; it is the analyzer's Kubernetes identity, while S3 uses the separate credential Secret in this recipe.
+
+Use a Responses-compatible OpenAI model available to your account. Configure the exact GitHub repository ID, canonical HTTPS URL, and `owner/name`; ensure its `main` branch is readable. The cloud hosting the cluster does not change the analyzer's current GitHub repository requirement or model-provider support.
+
+### Prepare supervisor cloud management
+
+Use a dedicated Google Cloud IAM service account for management, separate from the analyzer. Link it to `pig-system/pig-supervisor` through [Workload Identity Federation for GKE](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/workload-identity#kubernetes-sa-to-iam). Configure both the IAM impersonation binding and the Kubernetes annotation; the annotation alone does not grant access.
+
+In the proposed `supervisor-infrastructure.yaml` from [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), configure the supervisor ServiceAccount:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pig-supervisor
+  namespace: pig-system
+  annotations:
+    iam.gke.io/gcp-service-account: acme-pig-supervisor@acme-production.iam.gserviceaccount.com
+```
+
+S3 management needs a separate AWS programmatic identity. Deliver Secret `acme-aws-management` in `pig-system` with keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Rotate it through your secret manager as in step 2. Keep its credentials distinct from the analyzer's `pig/pig-s3-credentials`.
+
+Replace the ConfigMap's inner `inventory.yaml` with this proposed inventory. Substitute your project, dedicated Cloud SQL instance ID, bucket, and management principals:
+
+```yaml
+version: 1
+deployments:
+  pig/acme:
+    identities:
+      google-management:
+        provider: gcp
+        authentication: workload_identity
+        principal: acme-pig-supervisor@acme-production.iam.gserviceaccount.com
+        serviceAccountRef:
+          namespace: pig-system
+          name: pig-supervisor
+      aws-management:
+        provider: aws
+        authentication: access_key
+        principal: arn:aws:iam::123456789012:user/acme-pig-supervisor-s3
+        credentialsSecretRef:
+          name: acme-aws-management
+    resources:
+      - id: projects/acme-production/instances/acme-pig
+        type: gcp:sql:instance
+        identityRef: google-management
+        operations: [inspect, update]
+        managedFields: [settings.tier]
+      - id: arn:aws:s3:::acme-pig-traces
+        type: aws:s3:bucket
+        identityRef: aws-management
+        operations: [inspect]
+        managedFields: []
+```
+
+Apply the reviewed Google Cloud and AWS permission policies supplied with the installation materials. This example delegates only the dedicated instance's [machine type](https://docs.cloud.google.com/sql/docs/postgres/admin-api/rest/v1/instances). Transfer that field out of competing infrastructure reconciliation. S3 management is inspection only. Backups, retention, deletion protection, IAM, and shared networking stay customer-controlled.
+
+Use these complete proposed values in `supervisor-values.yaml`. For Flux, use the same values under `HelmRelease.spec.values`:
+
+```yaml
+watchNamespace: pig
+serviceAccount:
+  create: false
+  name: pig-supervisor
+infrastructure:
+  inventoryConfigMapRef:
+    name: acme-infrastructure
+    key: inventory.yaml
+  credentialSecretNames:
+    - acme-aws-management
+```
+
+The proposed controller uses the Google Cloud binding for Cloud SQL management and the AWS Secret for S3 management. It must refresh rotated credentials and block if the requested identity is unavailable. Permit workload token exchange and HTTPS egress to the required Google Cloud and AWS management APIs.
+
+Create the bootstrap namespace and resources before delivering `acme-aws-management`; install the chart only after the Secret exists. Retaining the common empty inventory and bootstrap values enables Kubernetes and schema updates without cloud management grants. A release requiring cloud changes then blocks.
+
+## 4. Apply the proposed Google Cloud configuration
+
+Bootstrap the team-supplied supervisor chart with [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), using the management inventory, identities, and values prepared above. Follow the Flux handoff if applicable. Save the complete resource from step 3 as `pig-deployment.yaml`, replacing the registration values, repository, hostname, and activation time.
+
+Save the following cloud overlay as `patch-gcp.yaml`:
+
+```yaml
+apiVersion: governance.promptless.ai/v1alpha1
+kind: PIGDeployment
+metadata:
+  name: acme
+  namespace: pig
+spec:
+  storage:
+    postgres:
+      dsnSecretRef:
+        name: pig-credentials
+        key: postgres-dsn
+      caConfigMapRef:
+        name: pig-postgres-ca
+        key: ca.pem
+    s3:
+      region: us-west-2
+      bucket: acme-pig-traces
+      prefix: acme/traces
+      credentialsSecretRef:
+        name: pig-s3-credentials
+  analysis:
+    model:
+      provider: openai
+      authentication: api_key
+      baseURL: https://api.openai.com/v1
+      name: REPLACE_MODEL_NAME
+      apiKeySecretRef:
+        name: pig-credentials
+        key: model-api-key
+```
+
+Keep the model name aligned with your available account configuration. Save this `kustomization.yaml` next to the base and overlay:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pig-deployment.yaml
+patches:
+  - path: patch-gcp.yaml
+```
+
+Review the resolved manifest, then apply through GitOps or, once the supervisor is available, with:
+
+```bash
+kubectl kustomize .
+kubectl apply -k .
+```
+
+The proposed supervisor maps `credentialsSecretRef` to the AWS environment credentials consumed by the analyzer. The current Helm chart does not expose this general Secret-to-environment mapping.
+
+Delegate dedicated cloud management operations to a separate supervisor identity only through its reviewed resource inventory. The Google Cloud grant and AWS grant are distinct. Transfer ownership of any delegated fields out of competing infrastructure reconciliation; keep shared GKE, networking, and backup policy under your platform team's control.
+
+## 5. Verify and prepare recovery
+
+Follow [installation verification](/docs/governance/deploy-the-worker/install-the-supervisor#4-check-deployment-status) through one completed analysis. Confirm Cloud SQL accepts the intended database user over TLS and S3 objects can be written and read. Verify that a supported device uploads through your HTTPS endpoint.
+
+Confirm management preflight resolves `pig/acme` to the exact Cloud SQL instance and S3 bucket, using the separate Google Cloud and AWS management identities. Check for ownership conflicts before enabling automatic infrastructure changes.
+
+| Symptom                       | First checks                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| PostgreSQL connection timeout | Private services access, allocated routes, database IP, and GKE network policy.                  |
+| Database TLS failure          | Instance CA mode, mounted bundle, DSN path, and server certificate rotation.                     |
+| S3 upload or read failure     | Outbound NAT/proxy, AWS key validity, bucket prefix, and KMS policy.                             |
+| Analysis does not run         | Activation time, complete OpenAI settings, account quota, GitHub identity, and access to `main`. |
+
+Measure cross-cloud traffic and queue delay after the pilot. Test secret rotation and confirm a new session still completes analysis before retiring the old credentials.
+
+Follow [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) for release controls and retirement. Preserve Cloud SQL, S3 objects, and backups during uninstall. Revoke both cloud identities and remove DNS/routing only when they are no longer needed; storage deletion is a separate retention decision.
