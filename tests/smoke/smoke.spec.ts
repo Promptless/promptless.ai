@@ -508,32 +508,32 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /role="tablist"/);
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
 
   // Supporting regions follow the default-active product on the server. The
   // smoke harness does not execute the client-side tab-switching JavaScript.
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
   assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
@@ -610,19 +610,19 @@ test('pricing renders accessible default state and plan structure', async () => 
   assert.match(pricingHtml, /role="tablist"/);
   assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-pricing-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-pricing-panel-docs")[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-pricing-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-pricing-panel-agents")[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
 
   for (const plan of ['startup', 'growth', 'enterprise']) {
