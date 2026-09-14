@@ -1,0 +1,71 @@
+---
+title: 'Your Documentation Knowledge Graph Has a Staleness Problem You Can''t See'
+subtitle: Published September 2026
+description: >-
+  A knowledge graph makes AI agent retrieval 70% more accurate. It also makes wrong answers invisible. Here's the detection architecture that keeps one current.
+date: '2026-09-11T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Your team spent three months building a knowledge graph from your developer documentation. Nodes for every API endpoint, every schema, every authentication method. Edges representing which parameters are required, which methods are deprecated, which versions affect which flows. Agents querying it get structured, precise answers instead of fishing through disconnected pages.
+
+Four months after launch, a developer integration fails. The agent routed it through an authentication flow that your team deprecated in the last release. The knowledge graph still shows the old flow as valid. No error surfaced. No staleness signal appeared. The graph returned a confident, traversable answer. The answer was wrong.
+
+This is the maintenance problem that documentation knowledge graphs introduce, and nobody warns you about it.
+
+## Why flat docs at least show their age
+
+A stale flat page has a timestamp. Developers learn to check it. When they see "Updated March 2025" on an authentication guide in September 2026, they know to verify. The staleness is visible.
+
+A knowledge graph node has no visible staleness signal. Agents querying the graph get a structured answer: "endpoint A requires authentication method B, minimum version 2.0." That answer looks authoritative. It has the structural precision that made the knowledge graph valuable in the first place. Agents trust it, because there is nothing to suggest they should not.
+
+This asymmetry matters. Stale flat docs erode developer trust gradually. Developers encounter enough inaccuracies and start checking everything skeptically. A stale knowledge graph can erode it faster, because the answers look more authoritative. A confident wrong answer from a structured graph does more damage than an ambiguous wrong answer from a prose page.
+
+The accuracy case for knowledge graphs is real. Research published in 2025 found a 70% improvement in retrieval accuracy using knowledge graph-enhanced approaches versus standard vector RAG in complex technical domains. Multi-hop queries (queries that require reasoning across several related concepts) improve by 36% over dense retrieval alone. The structural benefit is genuine. The staleness risk is proportionally higher.
+
+## How documentation knowledge graphs go stale
+
+Most teams build a documentation knowledge graph as a batch process. Parse the codebase and docs, extract entities and relationships, load them into a graph database, deploy. At that moment, the graph accurately reflects the product.
+
+Then the product ships.
+
+An endpoint gets a new required parameter. An authentication scheme changes. A feature ships that creates a new relationship between two previously separate concepts. None of these changes automatically propagate to the graph. The graph reflects the state of the codebase at the last build, not today's state.
+
+The gap is silent. Nothing fails. Agents keep querying. They keep getting answers. The answers were accurate at build time.
+
+A 2025 academic analysis of knowledge graph construction found the core problem directly: "no notion of dependency is available, making it impossible to automatically assess the possible impact of a change, track changes throughout a construction pipeline, or reason about maintainability." That dependency blindness is what makes documentation knowledge graph staleness so hard to catch. You cannot tell which nodes are stale without knowing which codebase changes have happened since the last graph build.
+
+<BlogNewsletterCTA />
+
+## What actually keeps a knowledge graph current
+
+The research group behind RepoDoc (April 2025) evaluated their framework on 24 repositories across 8 programming languages. The central finding: incremental updates triggered by code changes cut graph update time by 73% and reduced token usage by 77%, with 10.2% higher update recall, compared to rebuilding the graph from scratch.
+
+The architectural difference is important. Rebuilding from scratch means re-parsing the entire codebase and re-extracting every relationship after each change. Incremental updates mean identifying which files changed and propagating only the affected relationships. The graph updates where the codebase changed, not everywhere.
+
+This approach requires two things that batch builds skip.
+
+First, the graph must record where each node and edge came from. Each relationship stores which codebase elements produced it. When file X changes, the system knows which nodes were derived from file X and updates only those. Without this provenance metadata, full rebuilds are the only option. Teams avoid them because they are expensive, so the graph accumulates drift.
+
+Second, something must detect the change and trigger the update. A code change lands. The detection layer identifies which documented relationships are affected. The update runs. Without that trigger, the graph drifts silently until an integration fails.
+
+## The same detection problem, now with higher stakes
+
+[Documentation drift detection](https://promptless.ai/blog/technical/documentation-drift-detection-problem) describes the underlying problem: code changes, and nothing automatically connects the change to the documentation it affects. The same gap applies to knowledge graphs. When a parameter is renamed, the flat page describing it needs updating. So does the graph node representing it. The detection problem is identical.
+
+The consequences of missing it are not. A stale page misleads developers who find it. A stale graph node misleads agents that query it on every request, at scale, with no visible signal that something is wrong.
+
+The teams getting this right in 2026 treat knowledge graph freshness as infrastructure. The pattern follows data engineering practice: you do not manually check whether pipelines are producing valid output after every schema change. You build monitors that alert when drift occurs.
+
+For documentation knowledge graphs, that means: code change, then detection of which documented relationships are affected, then targeted update of the corresponding nodes. Treat the graph as live infrastructure that updates when the product changes, not as content that gets rebuilt on a schedule.
+
+A well-structured graph without freshness monitoring returns confident wrong answers. Freshness monitoring without good structure catches drift but cannot always determine what the accurate relationship should be. Both need to work together.
+
+[Your Docs Are Pages. Your Product Knowledge Is a Graph.](https://promptless.ai/blog/technical/your-docs-are-pages-your-product-knowledge-is-a-graph) covers the structural case for knowledge graphs in developer documentation. The infrastructure question is what to build on top of that structure to keep it from silently going wrong.
+
+<BlogRequestDemo />
