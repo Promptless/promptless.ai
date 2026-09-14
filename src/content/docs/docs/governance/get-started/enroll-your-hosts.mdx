@@ -30,66 +30,64 @@ Your operator should provide the analyzer's HTTPS address and confirm its organi
 </Aside>
 
 <Steps>
+  1. **Enable collection in the hub**
 
-1. **Enable collection in the hub**
+     Change the existing setting in `hub.yaml`:
 
-   Change the existing setting in `hub.yaml`:
+     ```yaml title="hub.yaml"
+     trace_ingestion:
+       enabled: true
+     ```
 
-   ```yaml title="hub.yaml"
-   trace_ingestion:
-     enabled: true
-   ```
+     Run `pig verify`, commit the change, and publish it through your hub's CI. Then [update the installed plugins](/docs/governance/get-started/publish-and-install-plugins#keep-installations-current) on your pilot host.
 
-   Run `pig verify`, commit the change, and publish it through your hub's CI. Then [update the installed plugins](/docs/governance/get-started/publish-and-install-plugins#keep-installations-current) on your pilot host.
+     The compiler adds the host runtime and collection hooks to the literal `pig` plugin for Claude and Codex. It does not add them to `docs` or `dev`, and it does not provision an analyzer. With the setting omitted or `false`, generated runtime files and collection hooks are absent.
 
-   The compiler adds the host runtime and collection hooks to the literal `pig` plugin for Claude and Codex. It does not add them to `docs` or `dev`, and it does not provision an analyzer. With the setting omitted or `false`, generated runtime files and collection hooks are absent.
+  2. **Set the analyzer address**
 
-2. **Set the analyzer address**
+     Set this environment variable in the environment that actually launches the agent:
 
-   Set this environment variable in the environment that actually launches the agent:
+     ```bash
+     export PROMPTLESS_WORKER_BASE_URL="https://traces.acme.example"
+     ```
 
-   ```bash
-   export PROMPTLESS_WORKER_BASE_URL="https://traces.acme.example"
-   ```
+     For a terminal agent, launch it from that shell. For a desktop agent, use your organization's desktop environment configuration and restart the application. A variable exported in a separate terminal may not reach an already running GUI application.
 
-   For a terminal agent, launch it from that shell. For a desktop agent, use your organization's desktop environment configuration and restart the application. A variable exported in a separate terminal may not reach an already running GUI application.
+     Do this before the first session with collection enabled. The runtime has a compiled-in Promptless worker default; a customer deployment must explicitly point hosts at its own analyzer.
 
-   Do this before the first session with collection enabled. The runtime has a compiled-in Promptless worker default; a customer deployment must explicitly point hosts at its own analyzer.
+  3. **Approve the host**
 
-3. **Approve the host**
+     Start a new Claude Code or Codex session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
 
-   Start a new Claude Code or Codex session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
+     The approval page is hosted at `https://app.gopromptless.ai/instruction-hub/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
 
-   The approval page is hosted at `https://app.gopromptless.ai/instruction-hub/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
+     If you need to start enrollment manually, find the installed `pig` plugin directory in your agent's plugin installation details and substitute its absolute path:
 
-   If you need to start enrollment manually, find the installed `pig` plugin directory in your agent's plugin installation details and substitute its absolute path:
+     ```bash
+     PIG_PLUGIN_ROOT="/absolute/path/to/installed/pig"
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex
+     ```
 
-   ```bash
-   PIG_PLUGIN_ROOT="/absolute/path/to/installed/pig"
-   python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex
-   ```
+     Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
 
-   Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
+     The host stores its `plihost_` credential locally with owner-only access. It is different from the analyzer's deployment credential. Do not copy host credentials between machines or into your hub.
 
-   The host stores its `plihost_` credential locally with owner-only access. It is different from the analyzer's deployment credential. Do not copy host credentials between machines or into your hub.
+  4. **Verify collection and analysis**
 
-4. **Verify collection and analysis**
+     After manual enrollment, start a new session to let the startup hook fetch the host's configuration. You can also request that initialization explicitly:
 
-   After manual enrollment, start a new session to let the startup hook fetch the host's configuration. You can also request that initialization explicitly:
+     ```bash
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" ensure --host codex
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" status --host codex
+     ```
 
-   ```bash
-   python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" ensure --host codex
-   python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" status --host codex
-   ```
+     Use the same host family as in enrollment. Run a small, non-sensitive task in a repository configured for analysis, then finish the session. The operator should verify all three outcomes:
 
-   Use the same host family as in enrollment. Run a small, non-sensitive task in a repository configured for analysis, then finish the session. The operator should verify all three outcomes:
+     1. **Enrollment.** The analyzer recognizes the host and accepts its check-in.
+     2. **Stored trace.** The native session has reached the analyzer and its raw data is stored in the configured S3 bucket.
+     3. **Completed analysis.** After the configured quiet period, the session has a completed analysis run for the expected repository.
 
-   1. **Enrollment.** The analyzer recognizes the host and accepts its check-in.
-   2. **Stored trace.** The native session has reached the analyzer and its raw data is stored in the configured S3 bucket.
-   3. **Completed analysis.** After the configured quiet period, the session has a completed analysis run for the expected repository.
-
-   A completed run can produce no findings. That is a valid result; pod readiness, enrollment, and an upload acknowledgment alone are not evidence that analysis completed. Use the operator's [deployment verification steps](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) to inspect the server-side result.
-
+     A completed run can produce no findings. That is a valid result; pod readiness, enrollment, and an upload acknowledgment alone are not evidence that analysis completed. Use the operator's [deployment verification steps](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) to inspect the server-side result.
 </Steps>
 
 ## How collection continues

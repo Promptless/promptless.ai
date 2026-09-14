@@ -50,25 +50,23 @@ The deployed trace analyzer service is currently named `instruction-hub-worker`.
 ## Publish an instruction
 
 <Steps>
+  1. **Author shared source**
 
-1. **Author shared source**
+     Acme keeps a `review-docs` skill in its Instruction Hub. The skill describes when to use it, how to run the documentation preview, and what a reviewer should check. Acme includes it in a `docs` plugin for writers and a `dev` plugin for developers.
 
-   Acme keeps a `review-docs` skill in its Instruction Hub. The skill describes when to use it, how to run the documentation preview, and what a reviewer should check. Acme includes it in a `docs` plugin for writers and a `dev` plugin for developers.
+     The skill is an **asset**; the plugin is a named selection of assets. Updating the shared source changes both plugins on the next publish. Repository-specific facts, such as one project's build command, can remain in that repository rather than being generalized for every team.
 
-   The skill is an **asset**; the plugin is a named selection of assets. Updating the shared source changes both plugins on the next publish. Repository-specific facts, such as one project's build command, can remain in that repository rather than being generalized for every team.
+  2. **Validate and build**
 
-2. **Validate and build**
+     The author runs `pig validate` to check the hub and `pig verify` to compile it in a temporary directory. CI runs the same checks on the pull request. These checks catch configuration and build errors; reviewers still need to assess whether the instructions are correct and useful.
 
-   The author runs `pig validate` to check the hub and `pig verify` to compile it in a temporary directory. CI runs the same checks on the pull request. These checks catch configuration and build errors; reviewers still need to assess whether the instructions are correct and useful.
+     The toolchain builds for the configured targets: Claude, Codex, Cursor, and Gemini. Different targets support different asset types and installation mechanisms. A successful build does not prove the desktop agent has installed the plugin or can execute every instruction it contains.
 
-   The toolchain builds for the configured targets: Claude, Codex, Cursor, and Gemini. Different targets support different asset types and installation mechanisms. A successful build does not prove the desktop agent has installed the plugin or can execute every instruction it contains.
+  3. **Publish and install**
 
-3. **Publish and install**
+     After review and merge, a GitHub or GitLab publishing pipeline builds the release output. It updates the release branch and marketplace pointers and records the hub version. Authors work with source on the default branch; agents install the released output.
 
-   After review and merge, a GitHub or GitLab publishing pipeline builds the release output. It updates the release branch and marketplace pointers and records the hub version. Authors work with source on the default branch; agents install the released output.
-
-   Acme's writers install the `docs` plugin and its developers install `dev`. Both install the required `pig` plugin, which includes the managed hub-update skill for Claude and Codex. That skill helps refresh the marketplace and installed plugins. Each host's installation and reload behavior still applies.
-
+     Acme's writers install the `docs` plugin and its developers install `dev`. Both install the required `pig` plugin, which includes the managed hub-update skill for Claude and Codex. That skill helps refresh the marketplace and installed plugins. Each host's installation and reload behavior still applies.
 </Steps>
 
 See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins) for CI configuration and the installation checks.
@@ -76,37 +74,35 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
 ## Learn from a session
 
 <Steps>
+  1. **Prepare the analyzer and enable collection**
 
-1. **Prepare the analyzer and enable collection**
+     Your platform team deploys the analyzer and connects its database, bucket, model provider, and instruction-hub repository. It configures a deployment with Hosted Promptless and makes the analyzer reachable from the hosts that will upload traces.
 
-   Your platform team deploys the analyzer and connects its database, bucket, model provider, and instruction-hub repository. It configures a deployment with Hosted Promptless and makes the analyzer reachable from the hosts that will upload traces.
+     The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude and Codex versions of the `pig` plugin. The setting does not create infrastructure or enroll hosts by itself.
 
-   The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude and Codex versions of the `pig` plugin. The setting does not create infrastructure or enroll hosts by itself.
+  2. **Enroll each host**
 
-2. **Enroll each host**
+     A host opens the browser enrollment flow. A signed-in organization member approves it, and Hosted Promptless issues a credential for that host and deployment. The host uses that credential to authenticate to your analyzer.
 
-   A host opens the browser enrollment flow. A signed-in organization member approves it, and Hosted Promptless issues a credential for that host and deployment. The host uses that credential to authenticate to your analyzer.
+     The collector reads supported native session logs: Claude Code, Claude Desktop, and Codex. A Claude Desktop source must actually exist and be enrolled; installing a Claude plugin alone does not make Desktop traces available. Cursor and Gemini plugin builds do not include native trace collection.
 
-   The collector reads supported native session logs: Claude Code, Claude Desktop, and Codex. A Claude Desktop source must actually exist and be enrolled; installing a Claude plugin alone does not make Desktop traces available. Cursor and Gemini plugin builds do not include native trace collection.
+  3. **Collect and store the trace**
 
-3. **Collect and store the trace**
+     As sessions run, the collector uploads new complete lines from native logs. Your analyzer stores raw chunks and reconstructed traces in your S3 bucket, with host attribution, ingestion progress, and analysis state in PostgreSQL.
 
-   As sessions run, the collector uploads new complete lines from native logs. Your analyzer stores raw chunks and reconstructed traces in your S3 bucket, with host attribution, ingestion progress, and analysis state in PostgreSQL.
+     The host retains its upload ledger and retries unacknowledged ranges on later collection passes. First collection can upload existing session history when a source has no acknowledged offset. Later collection resumes from the acknowledged position. For source and retry details, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
 
-   The host retains its upload ledger and retries unacknowledged ranges on later collection passes. First collection can upload existing session history when a source has no acknowledged offset. Later collection resumes from the acknowledged position. For source and retry details, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+  4. **Analyze the session**
 
-4. **Analyze the session**
+     The analyzer examines sessions after they finish or become quiet. It uses session evidence and instruction-hub context to investigate instruction failures. That work calls the model provider you configured.
 
-   The analyzer examines sessions after they finish or become quiet. It uses session evidence and instruction-hub context to investigate instruction failures. That work calls the model provider you configured.
+     For example, an Acme agent repeatedly tries a removed preview command because `review-docs` still recommends it. The analyzer can create a finding that explains the instruction failure and cites the observed behavior. A completed analysis can also produce no finding; absence of a finding is not an ingestion failure.
 
-   For example, an Acme agent repeatedly tries a removed preview command because `review-docs` still recommends it. The analyzer can create a finding that explains the instruction failure and cites the observed behavior. A completed analysis can also produce no finding; absence of a finding is not an ingestion failure.
+  5. **Review and improve**
 
-5. **Review and improve**
+     The analyzer writes findings and evidence to Hosted Promptless. Hosted Promptless coordinates their GitHub issues and remediation state. When a finding warrants an instruction change, an isolated remediation task in the worker can prepare a pull request against the hub.
 
-   The analyzer writes findings and evidence to Hosted Promptless. Hosted Promptless coordinates their GitHub issues and remediation state. When a finding warrants an instruction change, an isolated remediation task in the worker can prepare a pull request against the hub.
-
-   Acme's reviewer checks the evidence and the proposed instructions, runs the relevant checks, and merges an accepted fix. The hub's publishing pipeline distributes a new release. Refreshing the installed plugins makes the correction available to the team's agents.
-
+     Acme's reviewer checks the evidence and the proposed instructions, runs the relevant checks, and merges an accepted fix. The hub's publishing pipeline distributes a new release. Refreshing the installed plugins makes the correction available to the team's agents.
 </Steps>
 
 The current analyzer repository binding and remediation integration require a GitHub repository with a `main` branch. GitLab hub publishing does not imply GitLab analyzer or remediation support.
