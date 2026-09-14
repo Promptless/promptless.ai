@@ -610,19 +610,19 @@ test('pricing renders accessible default state and plan structure', async () => 
   assert.match(pricingHtml, /role="tablist"/);
   assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-pricing-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-pricing-panel-agents")[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<button(?=[^>]*id="pl-pricing-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-pricing-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-pricing-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-pricing-panel-docs")[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-agents")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-docs")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(
     pricingHtml,
-    /<div(?=[^>]*id="pl-pricing-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-docs")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-pricing-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-pricing-tab-agents")(?![^>]*\shidden)[^>]*>/
   );
 
   for (const plan of ['startup', 'growth', 'enterprise']) {
