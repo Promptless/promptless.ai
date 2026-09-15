@@ -1,76 +1,118 @@
 ---
 title: How it works
-description: Trace the whole path from authored agent instructions to human-reviewed remediation pull requests, and see which component runs where.
+description: Understand PIG's components and dependencies, from publishing instructions to collecting traces and reviewing improvements.
 slug: docs/governance/start-here/how-it-works
 type: guide
 tags:
   - agent-instructions
   - governance
-  - guide
-timestamp: "2026-08-20T00:00:00Z"
+  - architecture
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
 ---
 
-import { Aside, CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
+import PigArchitecture from '../../../../../components/docs/PigArchitecture.astro';
 
-Promptless for Agent Instructions runs one loop across five components:
+PIG connects **publishing instructions** with **learning from sessions**. You can publish instructions independently. Adding trace analysis gives your team evidence about how those instructions perform in practice.
 
-- **Instruction Hub**: the versioned Git repository where you author your agent instructions.
-- **pig**: the toolchain that validates the hub and compiles it into target-native plugin packages.
-- **worker**: the service in your own infrastructure that ingests agent traces and produces findings, with the **Friction Analyzer** inside it.
-- **promptless-host-runtime**: the executable that rides inside your Claude and Codex plugins to enroll each host and collect its traces.
-- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)**: the control plane that issues credentials, projects findings to GitHub, and coordinates remediation.
+This page explains the components, where they run, and what each one depends on. For individual terms, see [Key concepts](/docs/governance/start-here/key-concepts).
 
-This page connects those pieces in order.
+## The components at a glance
 
-## The end-to-end loop
+<PigArchitecture />
+
+### Components every hub uses
+
+| Component                                                                        | Where it runs                           | What it does                                                            | Depends on                                                |
+| -------------------------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------- |
+| Instruction Hub                                                                  | Your Git repository                     | Holds instruction source, plugin definitions, and release configuration | Authors and reviewers                                     |
+| [`pig` toolchain](https://github.com/Promptless/pig-toolchain) and publishing CI | An author's machine and your CI runners | Validate source, build plugins, and publish releases                    | Hub source and repository publishing permissions          |
+| Marketplace and released plugins                                                 | Your release repository                 | Make the compiled instructions available to agents                      | A successful publish and agent access to the repository   |
+| Agent and host runtime                                                           | Each user's workstation or agent host   | Load installed instructions; optionally enroll and upload native traces | An installed plugin; analyzer connectivity for collection |
+
+### Components used only for trace analysis
+
+| Component      | Where it runs                     | What it does                                                                                                | Depends on                                                                             |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Trace analyzer | Your Kubernetes cluster           | Accept traces, reconstruct sessions, run analysis, and propose improvements                                 | PostgreSQL, native object storage, Promptless, model access, and hub repository access |
+| Trace bucket   | Your cloud account                | Store raw trace chunks and reconstructed sessions                                                           | Private object storage and analyzer access                                             |
+| PostgreSQL     | Your cloud account                | Store host identity, ingestion progress, and analysis state                                                 | Dedicated database and analyzer access                                                 |
+| Promptless     | Promptless infrastructure         | Manage enrollment and deployment coordination; record findings and coordinate GitHub issues and remediation | Your organization's deployment and repository connections                              |
+| Model provider | Your configured provider endpoint | Process session and instruction context for analysis and remediation                                        | Model access and configured credentials                                                |
+
+The deployed trace analyzer service is named `instruction-hub-worker`. Its analysis component is called the **Friction Analyzer**. These names refer to a service and a component inside it; you do not install two analysis services.
+
+## Publish an instruction
 
 <Steps>
-  1. **Author instructions in your Instruction Hub.** Start with your skills, subagents, hooks, commands, rules, and MCP configs. Organize them as versioned [assets and packages](/docs/governance/start-here/key-concepts) in a Git repository. See [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+  1. **Author shared source**
 
-  2. **Compile the hub to target-native plugins.** The `pig` toolchain validates the hub and compiles each package into a plugin for Claude, Codex, Cursor, and Gemini. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+     Acme keeps a `review-docs` skill in its Instruction Hub. The skill defines the review scope, accuracy and clarity checks, and the evidence each finding needs. Acme includes it in a `docs` plugin for writers and a `dev` plugin for developers.
 
-  3. **Publish and install on your fleet.** A GitHub Action commits the compiled output to a release branch and rewrites your marketplace manifests. Your fleet installs the plugins and refreshes them on startup. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+     The skill is an **asset**; the plugin is a named selection of assets. Updating the shared source changes both plugins on the next publish. Repository-specific facts, such as one project's build command, can remain in that repository rather than being generalized for every team.
 
-  4. **Enroll each host.** The `promptless-host-runtime` injected into your Claude and Codex plugins enrolls each host with your worker through a browser approval. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+  2. **Validate and build**
 
-  5. **Ingest native session traces.** The host runtime uploads new byte ranges of each native session ledger to your worker. The worker stores them in your own S3 bucket and Postgres database. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+     The author runs `pig validate` to check the hub and `pig verify` to compile it in a temporary directory. CI runs the same checks on the pull request. These checks catch configuration and build errors; reviewers still need to assess whether the instructions are correct and useful.
 
-  6. **Analyze sessions with the Friction Analyzer.** The Friction Analyzer studies one session at a time and records findings, each backed by append-only evidence. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+     The toolchain builds for the configured targets: Claude, Codex, Cursor, and Gemini. Different targets support different asset types and installation mechanisms. A successful build does not prove the desktop agent has installed the plugin or can execute every instruction it contains.
 
-  7. **Project findings to GitHub issues.** The worker sends each finding to the hosted Promptless Runtime, which projects it to a GitHub issue you can triage. See [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+  3. **Publish and install**
 
-  8. **Open a remediation pull request.** For a high-confidence finding, an isolated remediation agent branches your Instruction Hub repository and opens a pull request with a proposed fix. The agent runs in your worker, in its own workspace with a repository-scoped token. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+     After review and merge, a GitHub or GitLab publishing pipeline builds the release output. It updates the release branch and marketplace pointers and records the hub version. Authors work with source on the default branch; agents install the released output.
 
-  9. **Review and merge.** A human reviews and merges the pull request. This human review is the gate. No change lands in your hub without it. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
-
-  10. **Recompile and redistribute.** The merged change recompiles and republishes, your fleet picks it up on startup, and the loop closes. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins).
+     Acme's writers install the `docs` plugin and its developers install `dev`. Both install the required `pig` plugin, which includes the managed hub-update skill for Claude and Codex. That skill helps refresh the marketplace and installed plugins. Each host's installation and reload behavior still applies.
 </Steps>
 
-## What runs where
+See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins) for CI configuration and the installation checks.
 
-The loop spans three trust zones: your Git repository, your own infrastructure, and hosted Promptless.
+## Learn from a session
 
-- **Instruction Hub**: a Git repository you own. It holds the source of your governed instructions and receives remediation pull requests.
-- **pig**: a toolchain that runs in your continuous-integration pipeline, invoked by a thin GitHub Action caller. It never runs as a service.
-- **worker**: a service you deploy into your own infrastructure. It stores raw traces and canonical trace objects in your S3 bucket and metadata in your Postgres database. It also runs both the Friction Analyzer and the isolated remediation agent locally.
-- **promptless-host-runtime**: a command-line executable that ships inside your Claude and Codex plugins and runs on each host through generated lifecycle hooks.
-- **[hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime)**: the control plane Promptless operates. It receives only a limited projection of trace metadata, never trace content.
+<Steps>
+  1. **Prepare the analyzer and enable collection**
 
-For exactly what crosses each boundary, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+     Your platform team deploys the analyzer and connects its database, bucket, model provider, and instruction-hub repository. It configures a deployment with Promptless and makes the analyzer reachable from the hosts that will upload traces.
 
-<Aside type="note">
-  The Friction Analyzer runs inside the worker in your own infrastructure. Hosted Promptless receives only a limited metadata projection, never raw traces, prompts, or tool activity. When the worker analyzes a session, it does send trace-derived analysis input to the model provider you configure. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary.
-</Aside>
+     The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude and Codex versions of the `pig` plugin. The setting does not create infrastructure or enroll hosts by itself.
+
+  2. **Enroll each host**
+
+     A host opens the browser enrollment flow. A signed-in organization member approves it, and Promptless issues a credential for that host and deployment. The host uses that credential to authenticate to your analyzer.
+
+     The collector reads supported native session logs: Claude Code, Claude Desktop, and Codex. A Claude Desktop source must actually exist and be enrolled; installing a Claude plugin alone does not make Desktop traces available. Cursor and Gemini plugin builds do not include native trace collection.
+
+  3. **Collect and store the trace**
+
+     As sessions run, the collector uploads new complete lines from native logs. Your analyzer stores raw chunks and reconstructed traces in your trace bucket, with host attribution, ingestion progress, and analysis state in PostgreSQL.
+
+     The host retains its upload ledger and retries unacknowledged ranges on later collection passes. First collection can upload existing session history when a source has no acknowledged offset. Later collection resumes from the acknowledged position. For source and retry details, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+
+  4. **Analyze the session**
+
+     The analyzer examines sessions after they finish or become quiet. It uses session evidence and instruction-hub context to investigate instruction failures. That work calls the model provider you configured.
+
+     For example, an older release of Acme's `review-docs` skill omits prerequisite checks. Agents following it repeatedly approve setup guides without checking required permissions. The analyzer can identify the missing instruction and cite the observed reviews. A completed analysis can also produce no finding; absence of a finding is not an ingestion failure.
+
+  5. **Review and improve**
+
+     The analyzer writes findings and evidence to Promptless. Promptless coordinates their GitHub issues and remediation state. When a finding warrants an instruction change, an isolated remediation task in the worker can prepare a pull request against the hub.
+
+     Acme's reviewer checks the evidence and the proposed instructions, runs the relevant checks, and merges an accepted fix. The hub's publishing pipeline distributes a new release. Refreshing the installed plugins makes the correction available to the team's agents.
+</Steps>
+
+The current analyzer repository binding and remediation integration require a GitHub repository with a `main` branch. GitLab hub publishing does not imply GitLab analyzer or remediation support.
+
+## Keep the two update paths distinct
+
+**Instruction releases** change the content your agents install. Hub owners publish them through Git, and agent users refresh their plugins.
+
+**Analyzer releases** change the service that collects and studies traces. The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
 ## Next steps
 
-<CardGrid>
-  <LinkCard title="Key concepts" href="/docs/governance/start-here/key-concepts" description="Learn the primitives each step above depends on." />
-
-  <LinkCard title="Set up your Instruction Hub" href="/docs/governance/get-started/set-up-your-instruction-hub" description="Scaffold your hub and import your existing instructions." />
-
-  <LinkCard title="Deploy the analyzer worker" href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" description="Stand up the worker that ingests traces and runs the Friction Analyzer." />
-</CardGrid>
+- [Set up an Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub) to begin publishing.
+- [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions) if your team already has shared guidance.
+- Review the [trust and data model](/docs/governance/start-here/trust-and-data-model), then [plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment) to add analysis.
