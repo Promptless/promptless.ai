@@ -8,7 +8,7 @@ tags:
   - governance
   - kubernetes
   - helm
-timestamp: "2026-09-14T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 6
@@ -16,9 +16,9 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-The trace analyzer runs as the `instruction-hub-worker` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and AWS S3 bucket, and analyzes sessions using your chosen model provider.
+The trace analyzer runs as the `instruction-hub-worker` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
 
-This guide uses the worker chart and image version `0.2.0`, for operator-managed releases. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+This guide uses worker chart `0.3.0` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Before you begin
 
@@ -26,24 +26,39 @@ Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/
 
 - An existing Kubernetes cluster, Helm 3, and `kubectl` configured for that cluster.
 - The public worker chart, a deployment install token beginning with `plih_`, a deployment instance ID, and a configuration hash from Promptless. Obtain these registration values from Promptless.
-- A dedicated PostgreSQL database with a TLS connection string and a user permitted to create and update its schema.
-- An AWS S3 bucket and an AWS identity available to the worker with read and write access to its trace prefix.
+- A dedicated PostgreSQL database with its trusted CA bundle and a TLS connection string that verifies the server hostname. The database user needs schema migration permissions.
+- An S3 bucket, Azure Blob container, or Google Cloud Storage bucket, with read and write access through workload identity.
+- An existing ServiceAccount named `pig-analyzer` in namespace `pig`, bound to that identity. Both the analyzer and migration Job use it.
 - A reachable HTTPS hostname, a certificate, and an existing ingress controller or equivalent route to the worker Service on port 8080.
 - A GitHub Instruction Hub, its numeric repository ID, and credentials for repository access and your analysis model.
 
-The complete example below uses Acme's private GitHub hub and an EKS service account with an IAM role for S3. On other clusters, arrange AWS credential delivery with your platform team before installing. Chart `0.2.0` has no generic `env`, `envFrom`, or S3 credential-Secret setting.
+The complete example below uses Acme's private GitHub hub and S3 on EKS. For AKS or GKE, substitute the native storage and identity settings in the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#native-storage-and-workload-identity). The [cloud deployment guides](/docs/governance/deploy-the-worker/plan-your-deployment#choose-an-installation-path) cover the infrastructure requirements.
 
-Allow worker egress to PostgreSQL, S3, Promptless, GitHub, and the model endpoint. Nodes also need container-registry access. See [network and data boundaries](/docs/governance/deploy-the-worker/plan-your-deployment).
+Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and the model endpoint. Nodes also need container-registry access. See [network and data boundaries](/docs/governance/deploy-the-worker/plan-your-deployment).
 
 ## Install the analyzer
 
 <Steps>
-  1. **Prepare the namespace and secrets.** Confirm the cluster you intend to change:
+  1. **Prepare the namespace, identity, and secrets.** Confirm the cluster you intend to change:
 
      ```bash
      kubectl config current-context
      kubectl create namespace pig --dry-run=client -o yaml | kubectl apply -f -
      ```
+
+     Create the `pig-analyzer` ServiceAccount through your platform or GitOps workflow before installing Helm. For the EKS example, bind its namespace and name in the IAM trust policy and apply this manifest, replacing the role ARN:
+
+     ```yaml title="service-account.yaml"
+     apiVersion: v1
+     kind: ServiceAccount
+     metadata:
+       name: pig-analyzer
+       namespace: pig
+       annotations:
+         eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-worker
+     ```
+
+     Create a ConfigMap named `postgres-ca` in `pig` with your database provider's trusted CA bundle under the key `ca.pem`. The chart mounts it in both the analyzer and migration Job. Use `sslmode=verify-full` in the PostgreSQL DSN.
 
      Create a Secret named `acme-pig-worker` in `pig` through your secret-management system. It must contain these keys:
 
@@ -75,7 +90,7 @@ Allow worker egress to PostgreSQL, S3, Promptless, GitHub, and the model endpoin
 
      For a private hub, the analysis repository token needs read access so the worker can clone and refresh its mirror. Promptless separately needs a repository connection for finding issues. It provides a scoped GitHub credential when a remediation task must push a branch and open a pull request. Coordinate that connection during deployment registration; a working clone alone does not prove both paths are configured.
 
-  2. **Configure the worker.** Save this as `values.yaml`. Replace every `REPLACE_` value, the example AWS account, and the hostname with your environment's values. Get the numeric repository ID with `gh api repos/acme/acme-instruction-hub --jq .id` using an account that can read the hub. Choose a model name your provider account can use.
+  2. **Configure the worker.** Save this as `values.yaml`. Replace every `REPLACE_` value and the hostname with your environment's values. Get the numeric repository ID with `gh api repos/acme/acme-instruction-hub --jq .id` using an account that can read the hub. Choose a model name your provider account can use.
 
      ```yaml title="values.yaml"
      secrets:
@@ -90,6 +105,9 @@ Allow worker egress to PostgreSQL, S3, Promptless, GitHub, and the model endpoin
        deploymentName: acme-production
        deploymentInstanceId: REPLACE_DEPLOYMENT_INSTANCE_ID
        configHash: REPLACE_CONFIG_HASH
+       storageBackend: postgres_s3
+       postgresCaConfigMapName: postgres-ca
+       postgresCaConfigMapKey: ca.pem
        traceObjectS3Bucket: REPLACE_GLOBALLY_UNIQUE_BUCKET
        traceObjectS3Prefix: acme/traces
        analysis:
@@ -107,8 +125,11 @@ Allow worker egress to PostgreSQL, S3, Promptless, GitHub, and the model endpoin
            tokenSecretEnabled: true
 
      serviceAccount:
-       annotations:
-         eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-worker
+       create: false
+       name: pig-analyzer
+
+     migrationJob:
+       serviceAccountName: pig-analyzer
 
      gateway:
        enabled: true
@@ -136,33 +157,41 @@ Allow worker egress to PostgreSQL, S3, Promptless, GitHub, and the model endpoin
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
-     For an ingestion-only pilot, leave `instructionHub.analysis.activationAt` empty. The chart then omits model and repository settings from the worker. Complete all analysis settings before enabling it. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
+     For an ingestion-only pilot, leave both `instructionHub.analysis.activationAt` and `instructionHub.analysis.repository.url` empty. The chart then omits model and repository settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
 
   3. **Render and install.** Download the pinned public worker chart, then render it to catch missing required values without changing the cluster:
 
      ```bash
      helm pull oci://ghcr.io/promptless/charts/instruction-hub-worker \
-       --version 0.2.0 --untar
+       --version 0.3.0 --untar
      helm lint ./instruction-hub-worker --values values.yaml
      helm template instruction-hub-worker ./instruction-hub-worker \
        --namespace pig --values values.yaml > rendered-worker.yaml
      ```
 
-     Review the image, ingress, service account, and Secret references. Then install:
+     Review the image digest, ingress, service account, CA mount, and Secret references. The published chart supplies `image.digest`; when rendering from a source checkout, set it to the verified worker digest from the matching release. Then install:
 
      ```bash
      helm upgrade --install instruction-hub-worker ./instruction-hub-worker \
        --namespace pig \
        --values values.yaml \
-       --atomic --wait --timeout 10m
+       --atomic --wait --timeout 20m
      ```
 
-     A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. It uses the namespace's `default` service account unless you set `migrationJob.serviceAccountName` to an existing one. If network access or database authentication depends on a service account, configure that account for the migration Job too.
+     A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. Both workloads use the existing `pig-analyzer` ServiceAccount in this example. A ServiceAccount created by the worker chart is unavailable to its pre-install hook, so keep the account under your platform or GitOps workflow.
 
      <Aside type="caution">
-       Helm's `--atomic` handles failed Kubernetes release changes. It does not undo database migrations or restore S3 objects. Back up your database before upgrades and confirm the previous application version supports the resulting schema before rolling it back.
+       Helm's `--atomic` handles failed Kubernetes release changes. It does not undo database migrations or restore trace objects. Back up your database before upgrades and confirm the previous application version supports the resulting schema before rolling it back.
      </Aside>
 </Steps>
+
+## Upgrade a manual installation
+
+Review the target release's database, storage, and schema requirements before each upgrade. Apply required infrastructure changes through your platform workflow and verify the recovery points for that exact release before a destructive migration. The manual chart does not enforce the supervisor's confirmation ConfigMap.
+
+Schedule a maintenance window, stop new analyzer traffic, and quiesce the existing analyzer before running `helm upgrade`. Confirm that its pods have stopped before the pre-upgrade migration Job starts. Helm runs this hook before updating the Deployment; the Deployment's `Recreate` strategy alone does not prevent the old analyzer from accessing the database during migration. Coordinate this with GitOps reconciliation so it does not restart the old workload.
+
+Install the pinned target chart with your reviewed values, then repeat the complete-session verification below. If migration fails, preserve the Job logs and inspect the schema before restarting the previous image. Follow the release's recovery procedure; an application rollback does not reverse database changes.
 
 ## Verify a complete session
 
@@ -177,11 +206,11 @@ Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-d
 | Pod cannot start                        | Inspect pod events for missing Secret keys or image-pull failures, then worker logs for configuration validation errors.                                                                                  |
 | HTTPS fails                             | Check DNS, certificate coverage, IngressClass, and the route to Service port 8080.                                                                                                                        |
 | Host checks in but traces do not arrive | Check collector status, capture policy, and host-to-worker upload access. Preserve the host's local collection state.                                                                                     |
-| Trace object remains pending or failed  | Check S3 credentials, bucket/prefix permissions, encryption-key access, and `trace_object_last_error`.                                                                                                    |
+| Trace object remains pending or failed  | Check workload identity, bucket or container permissions, encryption-key access, and `trace_object_last_error`.                                                                                           |
 | Analysis never starts                   | Confirm activation time, a complete canonical trace, the quiet window, and repository/model configuration.                                                                                                |
 | Analysis fails                          | Use `analysis_run_id` and `error_category` to investigate repository access, provider authentication, rate limits, and worker resources.                                                                  |
 
-Do not delete database rows, the S3 prefix, or collection watermarks to clear a stalled deployment. Preserve the evidence, fix the failing dependency, and use the [observability and recovery guidance](/docs/governance/deploy-the-worker/observability).
+Do not delete database rows, the trace-object prefix, or collection watermarks to clear a stalled deployment. Preserve the evidence, fix the failing dependency, and use the [observability and recovery guidance](/docs/governance/deploy-the-worker/observability).
 
 ## Next steps
 

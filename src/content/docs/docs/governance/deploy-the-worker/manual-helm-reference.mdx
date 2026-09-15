@@ -7,15 +7,15 @@ tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-09-14T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 8
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-This page describes the current worker chart, version `0.2.0`. Helm values become environment variables in the worker. Start with [Manually manage the analyzer](/docs/governance/deploy-the-worker/manual-helm) for a complete values file.
+This page describes the current worker chart, version `0.3.0`. Helm values become environment variables in the worker. Start with [Manually manage the analyzer](/docs/governance/deploy-the-worker/manual-helm) for a complete values file.
 
 <Aside type="note" title="Configuration scope">
   This reference covers the worker Helm chart. The [automatic-update configuration](/docs/governance/deploy-the-worker/configuration-reference) uses `PIGDeployment` fields, which are not worker chart values.
@@ -31,17 +31,89 @@ Unless noted, Helm keys in this table are under `instructionHub`. Environment-va
 | `deploymentName`       | `DEPLOYMENT_NAME`           | Human-readable deployment name; use `acme-production` in the Acme example.                     |
 | `deploymentInstanceId` | `DEPLOYMENT_INSTANCE_ID`    | Stable registered deployment identifier from Promptless.                                       |
 | `configHash`           | `CONFIG_HASH`               | Registered configuration hash from Promptless. Coordinate configuration changes with the team. |
-| `storageBackend`       | `STORAGE_BACKEND`           | Use `postgres_s3` for durable deployments. The `memory` backend is for testing.                |
-| `traceObjectS3Bucket`  | `TRACE_OBJECT_S3_BUCKET`    | Customer-owned AWS S3 bucket for raw ranges and canonical trace objects. Required.             |
+| `storageBackend`       | `STORAGE_BACKEND`           | `postgres_s3`, `postgres_azure_blob`, or `postgres_gcs`.                                       |
+| `traceObjectS3Bucket`  | `TRACE_OBJECT_S3_BUCKET`    | S3 bucket for raw ranges and canonical trace objects. Required for `postgres_s3`.              |
 | `traceObjectS3Prefix`  | `TRACE_OBJECT_S3_PREFIX`    | Object prefix; defaults to `trace-objects`. Acme uses `acme/traces`.                           |
 | `maxTraceBatchBytes`   | `MAX_TRACE_BATCH_BYTES`     | Maximum decoded trace-batch size, in bytes. Default `268435456` (256 MiB); must be positive.   |
 | `logLevel`             | `LOG_LEVEL`                 | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default `INFO`.                            |
 
 The install token and PostgreSQL DSN are also required. They come from Secret references, described below. Keep the database, bucket, and prefix stable across restarts and upgrades. Changing a storage location does not migrate existing data.
 
-The service listens on port 8080 by default. Use that value for `service.workerPort` and ingress routing in the current chart. The analysis repository mirror uses an ephemeral `emptyDir`; it can be rebuilt after a restart and does not require a persistent volume. Trace data and analysis state live in S3 and PostgreSQL.
+The service listens on port 8080 by default. Use that value for `service.workerPort` and ingress routing in the current chart. The analysis repository mirror uses an ephemeral `emptyDir`; it can be rebuilt after a restart and does not require a persistent volume. Trace data and analysis state live in your object store and PostgreSQL.
 
-The chart uses the AWS SDK's normal credential discovery. It has no generic environment-variable passthrough or explicit AWS credential-Secret setting. EKS workload identity can supply credentials through the service account. For other arrangements, coordinate credential injection with your platform team. Chart `0.2.0` supports S3 only. Use the [default installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) for native Azure Blob Storage or Google Cloud Storage.
+## Native storage and workload identity
+
+Select one backend. Keep the relevant values under `instructionHub`:
+
+<Tabs>
+  <TabItem label="AWS S3">
+    ```yaml
+    instructionHub:
+      storageBackend: postgres_s3
+      traceObjectS3Bucket: acme-pig-traces
+      traceObjectS3Prefix: acme/traces
+    ```
+
+    Grant the analyzer's AWS identity access to the bucket and trace prefix. For EKS IRSA, annotate the existing ServiceAccount with `eks.amazonaws.com/role-arn` and bind its namespace and name in the role's trust policy.
+  </TabItem>
+
+  <TabItem label="Azure Blob Storage">
+    ```yaml
+    instructionHub:
+      storageBackend: postgres_azure_blob
+      traceObjectAzureAccountUrl: https://REPLACE_STORAGE_ACCOUNT.blob.core.windows.net
+      traceObjectAzureContainer: traces
+      traceObjectPrefix: acme/traces
+    podLabels:
+      azure.workload.identity/use: "true"
+    ```
+
+    Configure AKS workload identity and annotate the existing ServiceAccount with `azure.workload.identity/client-id`. Scope the Blob data role to the trace container. The chart applies `podLabels` to both the analyzer and migration Job.
+  </TabItem>
+
+  <TabItem label="Google Cloud Storage">
+    ```yaml
+    instructionHub:
+      storageBackend: postgres_gcs
+      traceObjectGcsBucket: acme-pig-traces
+      traceObjectPrefix: acme/traces
+    ```
+
+    Configure GKE Workload Identity Federation and grant the identity access to the trace bucket. If using IAM service account impersonation, annotate the existing Kubernetes ServiceAccount with `iam.gke.io/gcp-service-account` and configure its impersonation binding.
+  </TabItem>
+</Tabs>
+
+The SDK for the selected backend discovers credentials through workload identity. The chart does not accept storage access keys or arbitrary `env` and `envFrom` values.
+
+| Helm key                     | Environment-variable suffix      |
+| ---------------------------- | -------------------------------- |
+| `traceObjectAzureAccountUrl` | `TRACE_OBJECT_AZURE_ACCOUNT_URL` |
+| `traceObjectAzureContainer`  | `TRACE_OBJECT_AZURE_CONTAINER`   |
+| `traceObjectGcsBucket`       | `TRACE_OBJECT_GCS_BUCKET`        |
+| `traceObjectPrefix`          | `TRACE_OBJECT_PREFIX`            |
+
+These suffixes use the `INSTRUCTION_HUB_` prefix. `traceObjectPrefix` defaults to `trace-objects` and applies to Azure and GCS. S3 uses `traceObjectS3Prefix`.
+
+## Service account, database TLS, and image
+
+Create the workload identity ServiceAccount before installing the chart, then use it for both workloads:
+
+```yaml
+serviceAccount:
+  create: false
+  name: pig-analyzer
+migrationJob:
+  serviceAccountName: pig-analyzer
+instructionHub:
+  postgresCaConfigMapName: postgres-ca
+  postgresCaConfigMapKey: ca.pem
+```
+
+The pre-install migration hook runs before Helm creates ordinary resources. Its ServiceAccount, credential Secret, and CA ConfigMap must already exist in the release namespace. The migration Job otherwise defaults to the namespace's `default` ServiceAccount.
+
+Create `postgres-ca` with the trusted database CA bundle under `ca.pem`, or change the two ConfigMap values above. Both workloads mount the selected key at `/etc/pig/postgres-ca/ca.pem` and set `PGSSLROOTCERT` to that path. Use `sslmode=verify-full` in the DSN. See [PostgreSQL requirements](/docs/governance/deploy-the-worker/postgresql) for TLS and schema permissions.
+
+The published chart pins the worker image through `image.repository` and `image.digest`. A source checkout requires a verified `image.digest` in the form `sha256:<64 lowercase hex characters>`. Use the digest from the matching release; do not replace it with a mutable tag.
 
 ## Analysis activation and repository
 
@@ -49,7 +121,7 @@ All Helm keys below are under `instructionHub.analysis`. The environment-variabl
 
 | Helm key                        | Environment-variable suffix           | Meaning                                                                                                          |
 | ------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `activationAt`                  | `ACTIVATION_AT`                       | Timezone-aware ISO timestamp for enabling analysis. Empty disables analysis in the chart.                        |
+| `activationAt`                  | `ACTIVATION_AT`                       | Timezone-aware ISO timestamp for enabling analysis. Empty leaves trace analysis inactive.                        |
 | `quietWindowHours`              | `QUIET_WINDOW_HOURS`                  | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
 | `repository.url`                | `REPOSITORY_URL`                      | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`.          |
 | `repository.id`                 | `REPOSITORY_ID`                       | Positive numeric GitHub repository ID.                                                                           |
@@ -57,7 +129,7 @@ All Helm keys below are under `instructionHub.analysis`. The environment-variabl
 | `repository.tokenSecretEnabled` | Controls `REPOSITORY_TOKEN` injection | Set `true` for a private repository and supply the token Secret key.                                             |
 | `repository.mirrorRoot`         | `MIRROR_ROOT`                         | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
 
-When `activationAt` is nonempty, configure the complete repository identity and all model fields below. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
+When `activationAt` or `repository.url` is nonempty, configure the complete repository identity and all model fields below. A configured repository can support remediation without activating trace analysis. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
 
 The repository URL and `fullName` must describe the same GitHub repository. The current analyzer validates `github.com` URLs; GitLab publishing support in the hub toolchain does not imply GitLab analyzer or remediation support. See [Supported agents and platforms](/docs/governance/reference/supported-agents) for the separate compatibility boundaries.
 
@@ -95,7 +167,7 @@ Use `secrets.existingSecretName` to reference a Secret in the worker namespace. 
 | `secrets.analysisModelApiKeyKey`     | `analysis-model-api-key`    | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`    |
 | `secrets.analysisRepositoryTokenKey` | `analysis-repository-token` | `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` |
 
-The model key is referenced only when analysis is enabled with `api_key`. The repository key is referenced when analysis is enabled with `repository.tokenSecretEnabled: true`.
+The model key is referenced when an activation time or repository URL is configured with `api_key`. The repository key is referenced under the same condition when `repository.tokenSecretEnabled: true`.
 
 The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
 
