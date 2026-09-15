@@ -36,7 +36,9 @@ Your team continues to maintain shared clusters, networking, ingress controllers
 
 Your platform team owns database sizing, native object storage, IAM, networking, and backup and retention policy. The supervisor uses application data access and scoped Kubernetes permissions. It does not resize databases or mutate cloud infrastructure.
 
-If a release needs a cloud change, PIG reports `Blocked=True` with the unmet requirement and required operator action. Review and apply the change through Terraform, then let PIG rerun its checks. An unpaused deployment resumes its stable-release transition once the requirement is satisfied.
+If a release needs a cloud change, PIG reports `Blocked=True` with the unmet requirement and required operator action. Review and apply the change through Terraform, then let PIG rerun its checks. An unpaused deployment resumes its stable-release transition once the live checks and any required release confirmations pass.
+
+PIG checks dependencies through its application connections. It does not read Terraform state or keep a copy of provisioned capacity. Your platform team checks requirements PIG cannot verify directly, such as managed database disk headroom. Use the provider's metrics to confirm that requirement for the target release. Connectivity alone does not prove sufficient capacity.
 
 A blocked target can coexist with a healthy installed version. Avoid broadening the supervisor's permissions to bypass an infrastructure requirement. Keep the [bootstrap ownership handoff](/docs/governance/deploy-the-worker/gitops-ownership) in place while changing customer-owned infrastructure.
 
@@ -45,8 +47,8 @@ A blocked target can coexist with a healthy installed version. Avoid broadening 
 The supervisor records the current release, target release, update stage, and a durable migration history. The update sequence is:
 
 1. Resolve and verify the stable release artifacts and its supported upgrade path.
-2. Check hosted compatibility, storage access, model and repository requirements, and available capacity.
-3. Check the release's recovery prerequisites, then run its coordinated schema migrations. Your backup workflow creates and retains cloud recovery points; provide any release-required recovery confirmation before a destructive migration.
+2. Check hosted compatibility, storage access, and model and repository requirements. Check observable capacity and require operator confirmation for release requirements that cannot be verified directly.
+3. Require release-specific recovery confirmation before a destructive migration, then run the release's coordinated schema migrations. Your backup workflow creates and retains the recovery points.
 4. Roll out the analyzer and supervisor in the release's declared order.
 5. Verify health, storage access, and hosted synchronization before marking the target installed.
 
@@ -67,7 +69,33 @@ kubectl logs deployment/pig-supervisor --namespace pig-system --tail=100
 | `Updating=True` | A release transition is in progress.             | Review the stage and elapsed time; avoid competing manual upgrades. |
 | `Blocked=True`  | A required operation cannot proceed.             | Read the reason and resolve the reported dependency or permission.  |
 
-Conditions can overlap: an old deployment can remain ready while its target release is blocked. Use `currentVersion`, `targetVersion`, condition messages, and recent events together. Status never includes secret values or raw trace content.
+An old deployment can remain ready while its target release is blocked. Use `currentVersion`, `targetVersion`, condition messages, and recent events together. Status never includes secret values or raw trace content.
+
+## Confirm release prerequisites
+
+Keep confirmations in a customer-owned ConfigMap in the deployment's namespace. Reference its name from `spec.release.confirmation.configMapRef.name`. Your GitOps repository or backup workflow manages this object; the supervisor reads it without cloud-management permissions.
+
+Every confirmation identifies the deployment and exact target release using `deploymentID` and `releaseDigest`. A confirmation for another deployment or release cannot authorize the transition.
+
+From a pinned checkout of [pig-deploy](https://github.com/Promptless/pig-deploy), inspect the target release:
+
+```bash
+uv run --frozen pig-release-inspect --version REPLACE_WITH_TARGET_VERSION
+```
+
+The command validates the catalog and immutable release manifest, then prints `releaseDigest`, `capacityRequirementsDigest`, and the release requirements as JSON. Copy the digests exactly, including the `sha256:` prefix. Use the deployment's existing `spec.hosted.deploymentID` for `deploymentID`.
+
+### Confirm capacity that PIG cannot inspect
+
+When a target release declares operator capacity requirements, review each requirement against current cloud metrics and the capacity needed during migration. Apply any infrastructure change through Terraform first. Record `capacityConfirmedAt`, the target's `capacityRequirementsDigest`, and `capacityEvidence` describing the check.
+
+PIG records this as an operator acknowledgement, not a live capacity measurement. It still reruns its live dependency checks. Do not copy Terraform outputs into a capacity ConfigMap or treat a successful Terraform apply as evidence of free space.
+
+### Confirm recovery before a destructive migration
+
+Create and verify coordinated PostgreSQL and object-storage recovery points using your backup workflow. Record their identifiers as `postgresRecoveryPoint` and `objectRecoveryPoint`, with `confirmedAt`, for the exact target release. Check that the recovery points meet that release's freshness requirements and remain available under your retention policy.
+
+The supervisor blocks a destructive migration until this confirmation passes. It checks the confirmation again before migration. Recording an identifier does not create a backup or prove that a restore will succeed; rehearse restoration separately. Capacity acknowledgement and recovery confirmation satisfy different prerequisites, even when they share a ConfigMap.
 
 ## Pause release adoption
 
