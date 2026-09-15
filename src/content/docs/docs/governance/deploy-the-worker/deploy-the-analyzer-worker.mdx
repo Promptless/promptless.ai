@@ -18,10 +18,10 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 The analyzer worker is the `instruction-hub-worker` service that runs inside your infrastructure. It accepts session traces from enrolled hosts, stores them in your Postgres database and S3 bucket, and runs the [Friction Analyzer](/docs/governance/start-here/key-concepts).
 
-This guide installs the worker into an existing Kubernetes cluster with Helm and verifies the connections it needs. You deploy the 0.2.0 chart with the `ghcr.io/promptless/instruction-hub-worker:0.2.0` image, supply secret material through a Kubernetes Secret you create, and route traffic to the worker on Service port 8080.
+This guide installs the worker into an existing Kubernetes cluster with Helm and verifies the connections it needs. You deploy the 0.2.0 chart with the `ghcr.io/promptless/instruction-hub-worker:0.2.0` image. You supply secret material through a Kubernetes Secret you create, and route traffic to the worker on Service port 8080.
 
 <Aside type="note">
-  A self-service **Add deployment** setup page in hosted Promptless — which issues the install token, generates a values file, and publishes the chart to a Helm repository — is forthcoming. Until it ships, Promptless provides your `plih_` install token and the chart directly, and you install the chart as shown below.
+  A self-service **Add deployment** setup page in hosted Promptless is forthcoming. It will issue the install token, generate a values file, and publish the chart to a Helm repository. Until it ships, Promptless provides your `plih_` install token and the chart directly, and you install the chart as shown below.
 </Aside>
 
 ## What runs where
@@ -143,7 +143,7 @@ kubectl config current-context
          memory: 2Gi
      ```
 
-     Replace the role ARN, hostname, and TLS Secret with values for your environment. The chart exposes a typed values key for every worker setting — there is no generic `env` or `envFrom` key, so you cannot inject arbitrary environment variables. Each setting lives in a fixed place in the values tree:
+     Replace the role ARN, hostname, and TLS Secret with values for your environment. The chart exposes a typed values key for every worker setting. There is no generic `env` or `envFrom` key, so you cannot inject arbitrary environment variables. Each setting lives in a fixed place in the values tree:
 
      - The worker's non-secret required configuration lives directly under `instructionHub.*`: `runtimeBaseUrl`, `deploymentName`, `deploymentInstanceId`, `configHash`, and `traceObjectS3Bucket`.
      - Analysis settings live under `instructionHub.analysis.*`: `quietWindowHours` and `activationAt` sit directly under `analysis`, the provider, authentication, base URL, and model settings under `instructionHub.analysis.modelApi.*`, and the repository and mirror settings under `instructionHub.analysis.repository.*`.
@@ -151,9 +151,9 @@ kubectl config current-context
 
      The example above shows one required setting and one analysis setting as the pattern; see the [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for the complete variable list.
 
-     The four secret values — the install token, Postgres DSN, analysis model API key, and analysis repository token — plus the Sentry DSN never go in `values.yaml`. The chart reads those four values from the Kubernetes Secret named by `secrets.existingSecretName`, mapping each `secrets.*Key` value to the matching Secret key. The Sentry DSN is read separately, from the Secret named by `observability.sentry.existingSecretName` using the key set in `observability.sentry.dsnKey` (default `SENTRY_DSN`); see the [Observability](/docs/governance/deploy-the-worker/observability) page.
+     The four secret values (the install token, Postgres DSN, analysis model API key, and analysis repository token) plus the Sentry DSN never go in `values.yaml`. The chart reads those four values from the Kubernetes Secret named by `secrets.existingSecretName`, mapping each `secrets.*Key` value to the matching Secret key. The Sentry DSN is read separately, from the Secret named by `observability.sentry.existingSecretName` using the key set in `observability.sentry.dsnKey` (default `SENTRY_DSN`); see the [Observability](/docs/governance/deploy-the-worker/observability) page.
 
-     The `serviceAccount` annotation shown is the AWS/EKS path: on EKS, annotate the ServiceAccount for IRSA so the worker assumes the IAM role that grants bucket access. The `gateway` block renders a standard Kubernetes Ingress (`networking.k8s.io/v1` Ingress), so a compatible ingress controller must already run in the cluster, and `gateway.className` sets the IngressClass. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
+     The `serviceAccount` annotation shown is the AWS/EKS path. On EKS, annotate the ServiceAccount for IRSA so the worker assumes the IAM role that grants bucket access. The `gateway` block renders a standard Kubernetes Ingress (`networking.k8s.io/v1` Ingress), so a compatible ingress controller must already run in the cluster, and `gateway.className` sets the IngressClass. If another ingress or gateway already routes traffic to Kubernetes services, leave `gateway.enabled` off and route it to the worker Service on port 8080.
 
   3. **Install the chart.**
 
@@ -204,7 +204,7 @@ Installation proves that trace ingestion and storage work. To run the Friction A
 - The Instruction Hub repository and repository-scoped token.
 - The quiet window after which a session is eligible for analysis.
 
-Add the API key under the `analysis-model-api-key` key and the repository token under `analysis-repository-token` in the existing Secret, put the non-sensitive analysis settings in `values.yaml`, then rerun the same `helm upgrade --install` command. For a private Instruction Hub repository, set `instructionHub.analysis.repository.tokenSecretEnabled: true` so the chart wires the `analysis-repository-token` Secret key into the worker. See the [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
+Add the API key under the `analysis-model-api-key` key and the repository token under `analysis-repository-token` in the existing Secret. Put the non-sensitive analysis settings in `values.yaml`, then rerun the same `helm upgrade --install` command. For a private Instruction Hub repository, set `instructionHub.analysis.repository.tokenSecretEnabled: true` so the chart wires the `analysis-repository-token` Secret key into the worker. See the [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for every setting.
 
 ## Manage the deployment with GitOps
 
@@ -240,7 +240,7 @@ kubectl logs --namespace instruction-hub \
 
 ### The pod restarts after running
 
-If the worker's periodic sync with hosted Promptless stops, `/healthz` fails and Kubernetes replaces the pod. Confirm outbound HTTPS access to the runtime URL and that the install token is still valid; if the token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
+If the worker's periodic sync with hosted Promptless stops, `/healthz` fails and Kubernetes replaces the pod. Confirm outbound HTTPS access to the runtime URL and that the install token is still valid. If the token was rotated, update `instruction-hub-worker-env` and restart the Deployment.
 
 ### Hosts cannot reach the worker
 

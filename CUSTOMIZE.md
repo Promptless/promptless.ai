@@ -50,8 +50,25 @@ Mandatory infrastructure — keep it wired:
 
 ## Style
 
-- Prose is linted with the repo's Vale config and the `check-broken-links` skill. Run Vale on changed prose before opening a PR (see the repo's Vale CI workflow for the exact invocation).
+- Prose is linted with the repo's Vale package (`vale/Promptless/`, see `AGENTS.md`) and the `check-broken-links` skill. Run `vale sync` once, then `vale` on changed prose before opening a PR; CI fails on any error.
 
 ## Deployment
 
 - Deployed to **Vercel**. The site is fully static — every route is prerendered and no SSR adapter is wired. The one on-demand route the template offers (`/mcp` via `@astrojs/vercel`) is deferred with the MCP server (ADR 0004 §3); it would add SSR only when that capability is attempted.
+
+## Search and assistant
+
+`packages/starlight-search` is copied unchanged from Starport. Its configuration
+in `astro.config.mjs` includes the whole published site, with a modest docs/API
+ranking boost and explicit exclusions for internal/hidden content. Promptless's
+custom header imports the plugin search control; its homepage announcement stays
+in the same place. The page frame mounts the panel on Starlight pages.
+
+Configure `ANTHROPIC_API_KEY` at build and runtime on Vercel to enable the
+assistant. The pinned model is `claude-sonnet-5` with low effort and thinking
+disabled; override it with an effort-compatible `STARPORT_ASSISTANT_MODEL`.
+Search needs no credentials. See the
+[plugin setup and limits](packages/starlight-search/README.md).
+
+The PostHog bridge lives in `src/components/posthog.astro`. It replaces the old
+Pagefind observer and retains `site_searched` for existing dashboards.
