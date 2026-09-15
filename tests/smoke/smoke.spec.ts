@@ -812,11 +812,16 @@ test('website header replaces home search with the launch announcement', async (
     homeHtml,
     /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
   );
-  assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
+  // The global modal is mounted on the homepage for Cmd/Ctrl+K and chat
+  // persistence. Its header control is still replaced by the announcement.
+  const homeHeader = homeHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0];
+  assert.ok(homeHeader);
+  assert.doesNotMatch(homeHeader, /data-starport-search/i);
+  assert.match(homeHtml, /class="sp-modal"/i);
 
   const docsResponse = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(docsResponse.status, 200);
-  assert.match(await docsResponse.text(), /aria-label="Search"/i);
+  assert.match(await docsResponse.text(), /data-starport-search/i);
 });
 
 test('legal pages render', async () => {
