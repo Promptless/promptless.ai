@@ -36,11 +36,12 @@ API triggers are a built-in trigger type that's always active when an API key ex
 
 ### Generate an API key
 
-API keys are managed in your organization's Settings page.
+API keys are managed by organization admins on the **Settings > API Access** page. Only organization admins can create or revoke keys.
 
-1. Navigate to **Settings > API Access**
-2. Click **Generate Key** to create a new API key
-3. Copy the key immediately. It's only shown once
+1. Navigate to **Settings > API Access**.
+2. In the **Create API key** section, enter a **Name** that describes what the key is for.
+3. Click **Create key**.
+4. Copy the full key from the **Copy this key now** section. Promptless shows it only once.
 
 <Aside type="caution">
   Store your API key securely. The full key is only displayed when first generated. Promptless stores only a hash of the key for validation.
@@ -48,22 +49,28 @@ API keys are managed in your organization's Settings page.
 
 ### Key management
 
-- **One active key per organization**: Each organization can have one active API key at a time
-- **Key rotation**: Generating a new key immediately revokes the previous key
-- **Revocation**: You can revoke your active key at any time from the Settings page
+- **No single active key**: An organization can hold many API keys at once, each named for the integration that uses it.
+- **Existing keys carry forward**: If your organization already had an API key, it keeps working and appears in the list under the name `Default`.
+- **Purpose-based names**: Give each key a name that describes what it's for, such as a CI pipeline, a Zapier connection, or a script. A separate key per integration lets you revoke or rotate that one key without touching the others. Do that after you retire that integration, or after a leak. Each active key needs a distinct name within your organization.
+- **Independent revocation**: Revoking or creating a key affects only that key; the others keep working. This replaces the earlier behavior, where regenerating the key logged out every other caller. Revoking is permanent. A revoked key can't be restored, so move any caller still using it to another key first.
+- **At-a-glance status**: Each key in the list shows its **Name** and its key prefix (`sk-pl-...`, under the **Key** column). It also shows when it was **Created** and when it was **Last used**. Revoke a key with its **Revoke** action.
 
 <Aside type="tip">
-  When rotating keys, update your integrations before generating a new key. The previous key stops working immediately when you create a new one.
+  To rotate a key, create a new one, move your integrations over to it, then revoke the old one. Because both keys work at the same time, there's no forced break and no need to cut every consumer over at once.
 </Aside>
 
 ## Use the API
 
-For the full request and response schemas, status codes, and an interactive explorer, see the [API Reference](/docs/for-docs/api/operations/submitapitrigger/). The sections below cover the same endpoint with examples.
+For the full request and response schemas, status codes, and an interactive explorer, see the [API Reference](/docs/for-docs/api/operations/submitapitriggerv1/). The sections below cover these endpoints with examples.
+
+### Base URL and versioning
+
+All requests use the base URL `https://api.gopromptless.ai`. The current API version is `/v1`. New integrations should use `POST /v1/triggers`; the unversioned `POST /triggers` is retained for callers built before versioning existed and runs the same operation through the same handler.
 
 ### Endpoint
 
-```
-POST /triggers
+```http
+POST /v1/triggers
 ```
 
 ### Authentication
@@ -90,15 +97,15 @@ Send a JSON body with your documentation instructions:
 }
 ```
 
-| Field          | Type   | Required | Description                                                                                            |
-| -------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------ |
-| `instructions` | string | Yes      | What you want Promptless to document. Be specific about which docs to update and what changes to make. |
-| `context`      | object | No       | Additional metadata to include with the request. This appears in trigger history for reference.        |
+| Field          | Type   | Required | Description                                                                                                                                                 |
+| -------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instructions` | string | Yes      | What you want Promptless to document. Be specific about which docs to update and what changes to make.                                                      |
+| `context`      | object | No       | Additional metadata to include with the request. This appears in trigger history for reference and is passed through to the workflow as additional context. |
 
 ### Example request
 
 ```bash
-curl -X POST "https://api.gopromptless.ai/triggers" \
+curl -X POST "https://api.gopromptless.ai/v1/triggers" \
   -H "Authorization: Bearer sk-pl-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -116,20 +123,389 @@ A successful request returns a `202 Accepted` response:
 
 ```json
 {
-  "trigger_event_id": "abc123-..."
+  "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "deduplicated": false
+}
+```
+
+`deduplicated` is `false` for a fresh submission. It is `true` only when an `Idempotency-Key` matched an earlier submission, described next.
+
+### Idempotent submissions
+
+Send an optional `Idempotency-Key` request header to make a submission safe to retry. The key is a string of up to 255 characters.
+
+- A fresh submission returns a new `trigger_event_id` and `"deduplicated": false`.
+- A repeat submission that reuses a key already accepted returns the **original** `trigger_event_id` and `"deduplicated": true`, without creating a second trigger event.
+- Keys are scoped to your organization. Two organizations can use the same key string without affecting each other.
+- A failed submission (any `4xx` or `5xx`) does not consume the key, so you can retry it with the same key.
+- `POST /triggers` and `POST /v1/triggers` share one idempotency scope, so a key used on one path is recognized on the other.
+
+Reuse a key only for retries of the *same* request. Reusing one key for two genuinely different requests silently discards the second and points its `trigger_event_id` at the first request's task. Derive the key deterministically from the request's content, for example a hash of `instructions` plus `context`. A genuine retry then reuses the same key, while two genuinely different requests get different keys.
+
+```bash
+curl -X POST "https://api.gopromptless.ai/v1/triggers" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: deploy-2026-08-20-v2.5.0" \
+  -d '{
+    "instructions": "Document the new rate limiting feature added in v2.5"
+  }'
+```
+
+A repeat with the same key returns the original trigger event:
+
+```json
+{
+  "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "deduplicated": true
 }
 ```
 
 ### Error responses
 
-| Status | Error                        | Description                                                  |
-| ------ | ---------------------------- | ------------------------------------------------------------ |
-| 401    | `authentication_failed`      | The API key is missing, invalid, or revoked.                 |
-| 409    | `org_not_configured`         | Your organization hasn't finished setting up Promptless.     |
-| 409    | `no_eligible_doc_collection` | The requested doc collection is not configured or not ready. |
-| 422    | Validation error             | The request body is invalid.                                 |
-| 500    | `enqueue_failed`             | The trigger could not be enqueued for processing.            |
-| 503    | `runtime_store_unavailable`  | Trigger intake is temporarily unavailable.                   |
+| Status | Error                        | Description                                                          |
+| ------ | ---------------------------- | -------------------------------------------------------------------- |
+| 400    | `invalid_idempotency_key`    | The `Idempotency-Key` header is blank or longer than 255 characters. |
+| 400    | `invalid_since`              | The `since` parameter is not a valid ISO 8601 timestamp.             |
+| 400    | `invalid_filter`             | `event` and `status` were combined in the same request.              |
+| 401    | `authentication_failed`      | The API key is missing, invalid, or revoked.                         |
+| 409    | `org_not_configured`         | Your organization hasn't finished setting up Promptless.             |
+| 409    | `no_eligible_doc_collection` | No configured doc collection is eligible to receive the request.     |
+| 422    | Validation error             | The request body is invalid.                                         |
+| 500    | `enqueue_failed`             | The trigger could not be enqueued for processing.                    |
+| 503    | `runtime_store_unavailable`  | Trigger intake is temporarily unavailable.                           |
+
+`invalid_since` and `invalid_filter` come from the [suggestions endpoint](#suggestions). The API enforces no rate limits today, so it never returns a `429`.
+
+## Read endpoints
+
+The `/v1` API also exposes read endpoints for polling integrations: a connection check, the list of your doc collections, and a suggestion lifecycle feed. All three take the same bearer token and return JSON. Each returns `401` when the key is missing, invalid, or revoked, and `503` when the read store is temporarily unavailable.
+
+### Account
+
+```http
+GET /v1/account
+```
+
+Returns the organization tied to your API key. Use it to test a connection and label the account. `org_name` is `null` for an organization created before names were recorded. For the full schema, see the [Get account details reference](/docs/for-docs/api/operations/getaccount/).
+
+```bash
+curl "https://api.gopromptless.ai/v1/account" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+```json
+{
+  "org_id": "org_2b5f9c1e",
+  "org_name": "Acme, Inc."
+}
+```
+
+### Doc collections
+
+```http
+GET /v1/doc-collections
+```
+
+Lists the doc collections configured for your organization. Each entry carries its `id`, `name`, `platform`, and `default_branch`. The response is not paged. For the full schema, see the [List doc collections reference](/docs/for-docs/api/operations/listdoccollections/).
+
+```bash
+curl "https://api.gopromptless.ai/v1/doc-collections" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+```json
+{
+  "doc_collections": [
+    {
+      "id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+      "name": "acme/docs",
+      "platform": "github",
+      "default_branch": "main"
+    }
+  ]
+}
+```
+
+### Suggestions
+
+```http
+GET /v1/suggestions
+```
+
+Returns the suggestion lifecycle feed for your organization. That feed covers the suggestions Promptless has created, merged, and closed. For the full schema, see the [List suggestions reference](/docs/for-docs/api/operations/listsuggestions/).
+
+```bash
+curl "https://api.gopromptless.ai/v1/suggestions?event=merged&limit=50" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+```json
+{
+  "suggestions": [
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "title": "Document the new rate limiting feature",
+      "description": "Add a rate limiting section to the API guide.",
+      "status": "merged",
+      "url": "https://app.gopromptless.ai/suggestions/7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "docs_pr_url": "https://github.com/acme/docs/pull/482",
+      "doc_collection_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+      "doc_collection_name": "acme/docs",
+      "impacted_file_paths": ["docs/api/rate-limits.md"],
+      "impacted_file_count": 1,
+      "created_at": "2026-08-20T14:32:00Z",
+      "merged_at": "2026-08-21T09:15:00Z",
+      "closed_at": null,
+      "closed_without_merge": false,
+      "close_reason": null
+    }
+  ]
+}
+```
+
+Each suggestion carries these fields:
+
+| Field                  | Type            | Description                                                                                                                                                                                                                                                                                  |
+| ---------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                   | string (UUID)   | Stable identifier for the suggestion. Deduplicate a feed on this value.                                                                                                                                                                                                                      |
+| `title`                | string \| null  | Short summary of the documentation change.                                                                                                                                                                                                                                                   |
+| `description`          | string \| null  | Longer explanation of the change.                                                                                                                                                                                                                                                            |
+| `status`               | string \| null  | Mirrors the docs pull request's state: `open`, `draft`, `merged`, or `closed`. `null` when the suggestion is drafted but no docs PR has been opened yet; `draft` when a *draft* docs PR is open.                                                                                             |
+| `url`                  | string          | Dashboard link to the suggestion.                                                                                                                                                                                                                                                            |
+| `docs_pr_url`          | string \| null  | Link to the documentation pull request, or `null` before a docs PR exists.                                                                                                                                                                                                                   |
+| `doc_collection_id`    | string \| null  | Identifier of the collection the suggestion targets.                                                                                                                                                                                                                                         |
+| `doc_collection_name`  | string \| null  | Name of that collection.                                                                                                                                                                                                                                                                     |
+| `impacted_file_paths`  | array of string | Paths the suggestion changes.                                                                                                                                                                                                                                                                |
+| `impacted_file_count`  | integer         | Number of impacted files.                                                                                                                                                                                                                                                                    |
+| `created_at`           | string          | ISO 8601 time the suggestion was created.                                                                                                                                                                                                                                                    |
+| `merged_at`            | string \| null  | ISO 8601 time the docs PR merged, or `null`.                                                                                                                                                                                                                                                 |
+| `closed_at`            | string \| null  | ISO 8601 time the suggestion closed, or `null`.                                                                                                                                                                                                                                              |
+| `closed_without_merge` | boolean         | `true` when the suggestion closed without merging. Use this field to distinguish suggestions that shipped from ones that were rejected.                                                                                                                                                      |
+| `close_reason`         | string \| null  | Supplementary machine-readable label for why the suggestion closed (for example, `dashboard_review`), or `null`. This set may expand over time and includes a catch-all such as `unknown_legacy`, so branch on `closed_without_merge` rather than hard-coding against `close_reason` values. |
+
+#### Filtering
+
+Narrow the feed with these query parameters, all optional:
+
+| Parameter | Values                              | Notes                                                                        |
+| --------- | ----------------------------------- | ---------------------------------------------------------------------------- |
+| `event`   | `created`, `merged`, `closed`       | Selects suggestions by lifecycle event and orders by that event's timestamp. |
+| `status`  | `open`, `draft`, `merged`, `closed` | Selects suggestions by current status.                                       |
+| `query`   | free text                           | Matches against the title and description.                                   |
+| `since`   | ISO 8601 timestamp                  | Inclusive lower limit on the event timestamp.                                |
+| `limit`   | 1–100                               | Number of suggestions to return. Defaults to 50.                             |
+| `offset`  | 0 or greater                        | Number of suggestions to skip. Defaults to 0.                                |
+
+`event` and `status` cannot be combined in the same request; sending both returns `400 invalid_filter`. Use `event` to poll a lifecycle feed and `status` to search by current state.
+
+#### Polling
+
+Results come back newest-first, ordered by the selected `event`'s timestamp in descending order. Build an incremental loop against that order:
+
+- Track the newest event timestamp you have seen and pass it as `since` on the next poll, rather than a wall-clock "now". Because `since` is an inclusive lower limit, this returns an event that committed a moment after your last poll instead of skipping it.
+- Since `since` is inclusive, a row whose event timestamp equals `since` is returned again. Deduplicate results by `id`.
+- Omitting `since` returns from the start of the available history.
+- Page through a large result set with `limit` and `offset`. A response that returns fewer than `limit` suggestions means you have reached the end of the current set.
+- `event` accepts only one value per request and cannot be combined with `status`. The full lifecycle covers created, merged, and closed-without-merge. Track it by running a separate polling loop with its own `since` cursor for each `event` value.
+- There is no cursor token; polling is driven entirely by `since`, `limit`, and `offset`.
+
+A minimal incremental loop for one `event` value:
+
+```text
+# Run one loop per event value (created, merged, closed).
+since = null                       # omitted on the first poll -> full history
+seen  = set()                      # ids already handled, for dedup
+
+repeat on an interval:
+    offset = 0
+    newest = since
+    while true:
+        page = GET /v1/suggestions?event=merged&limit=100&offset=offset
+               (add "&since=<since>" when since is set)
+        for s in page.suggestions:          # newest-first
+            if s.id not in seen:
+                process(s)
+                seen.add(s.id)
+            newest = max(newest, s.merged_at)
+        if len(page.suggestions) < 100:     # fewer than limit -> end of set
+            break
+        offset = offset + 100
+    since = newest                          # inclusive lower bound for next poll
+```
+
+## Task status and messages
+
+After you submit a task, follow its progress and continue the conversation on the same trigger event. Both operations use the same `Authorization: Bearer sk-pl-...` token. The conversation is available for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`.
+
+### Read task status
+
+```http
+GET /v1/triggers/{trigger_event_id}
+```
+
+`trigger_event_id` is the id returned by `POST /v1/triggers`. A successful request returns `200 OK` with the task's current state:
+
+| Field              | Type           | Description                                                                                                                                                                  |
+| ------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trigger_event_id` | string (UUID)  | The task's id.                                                                                                                                                               |
+| `status`           | string         | The task's current status. The `status` string can change over time, so branch on `finished` to detect completion.                                                           |
+| `finished`         | boolean        | `true` when the task has completed or been skipped.                                                                                                                          |
+| `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                                        |
+| `source`           | string         | The task's origin.                                                                                                                                                           |
+| `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                 |
+| `resolution`       | string \| null | A human-readable note, not a fixed set of codes, that distinguishes a deliberate no-op from a run that could not finish. Read it for context after `finished` is `true`.     |
+| `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                   |
+| `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code. |
+| `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                            |
+
+Each entry in `suggestions` carries these fields:
+
+| Field               | Type                  | Description                                                                                            |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
+| `id`                | string (UUID)         | Stable identifier for the suggestion.                                                                  |
+| `title`             | string \| null        | Short summary of the documentation change.                                                             |
+| `description`       | string \| null        | Longer explanation of the change.                                                                      |
+| `status`            | string \| null        | The docs pull request's state: `open`, `draft`, `merged`, or `closed`. `null` before a docs PR exists. |
+| `doc_collection_id` | string (UUID) \| null | Identifier of the collection the suggestion targets.                                                   |
+| `docs_pr_url`       | string \| null        | Link to the documentation pull request, or `null` before a docs PR exists.                             |
+| `branch_name`       | string                | The git branch in the documentation repository.                                                        |
+| `labels`            | array of string       | Labels on the suggestion.                                                                              |
+| `assignees`         | array of string       | Assignees on the suggestion.                                                                           |
+| `created_at`        | string                | ISO 8601 time the suggestion was created.                                                              |
+
+The `suggestions` array lists the suggestions this task produced with their current `status` and docs pull request link. To track a suggestion's full lifecycle, including whether it merged or closed without merging, use the [Suggestions](#suggestions) feed and its `closed_without_merge` field.
+
+Each entry in `messages` has the `TaskMessage` shape below. The send endpoint returns the same shape.
+
+| Field              | Type          | Description                                                                                          |
+| ------------------ | ------------- | ---------------------------------------------------------------------------------------------------- |
+| `id`               | string (UUID) | Stable, immutable identifier. Deduplicate on it.                                                     |
+| `trigger_event_id` | string (UUID) | The task this message belongs to.                                                                    |
+| `sequence`         | integer       | The message's order within the task.                                                                 |
+| `author`           | object        | `type` is `promptless` or `customer`. `name` is the customer's email when available, otherwise null. |
+| `created_at`       | string        | ISO 8601 time the message was created.                                                               |
+| `message`          | string        | The message text.                                                                                    |
+
+Reading status works for any task source. Promptless populates the `messages` array for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`. A task you submit over the API is eligible for a conversation. An empty `messages` array on your own API task means the task has no messages yet. Tasks from other sources, such as Slack, a GitHub pull request, or the dashboard, carry no conversation, so their `messages` array is empty.
+
+```bash
+curl "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+```json
+{
+  "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "in_progress",
+  "finished": false,
+  "submitted_at": "2026-08-20T14:32:00Z",
+  "source": "api",
+  "request": "Document the new rate limiting feature added in v2.5",
+  "resolution": null,
+  "suggestions": [
+    {
+      "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+      "title": "Document the new rate limiting feature",
+      "description": "Add a rate limiting section to the API guide.",
+      "status": "open",
+      "doc_collection_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+      "docs_pr_url": "https://github.com/acme/docs/pull/482",
+      "branch_name": "promptless/document-rate-limits",
+      "labels": ["documentation"],
+      "assignees": ["deploy-bot@acme.com"],
+      "created_at": "2026-08-20T14:35:00Z"
+    }
+  ],
+  "status_guidance": "Keep polling until finished is true.",
+  "messages": [
+    {
+      "id": "b1e2c3d4-5678-90ab-cdef-1234567890ab",
+      "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+      "sequence": 1,
+      "author": { "type": "customer", "name": "deploy-bot@acme.com" },
+      "created_at": "2026-08-20T14:32:05Z",
+      "message": "Document the new rate limiting feature added in v2.5"
+    }
+  ]
+}
+```
+
+Poll this endpoint on an interval until `finished` is `true`. Back off and retry on a `503`. When you read the conversation, deduplicate messages by their stable `id` so a repeated poll does not reprocess one.
+
+For the full schema, see the [Get task status reference](/docs/for-docs/api/operations/gettaskstatus/).
+
+### Send a task message
+
+```http
+POST /v1/triggers/{trigger_event_id}/messages
+```
+
+Promptless appends the message to the original task named by `trigger_event_id`. The reply stays on that task's conversation, and no new task is created.
+
+| Field     | Type   | Required | Description                                                                |
+| --------- | ------ | -------- | -------------------------------------------------------------------------- |
+| `message` | string | Yes      | The instruction to add. Non-empty after trimming, up to 20,000 characters. |
+
+Send an optional `Idempotency-Key` request header, up to 255 characters, to retry safely. The same key with the same text returns the original stored message with `deduplicated` set to `true`. The same key with different text returns `409 idempotency_conflict`. The key is scoped to the task and your API key, so the same key value used on a different task is independent.
+
+A new message returns `201 Created` with body `{ "message": <TaskMessage>, "deduplicated": false }`. An idempotent replay returns `200 OK` with body `{ "message": <original TaskMessage>, "deduplicated": true }`.
+
+```bash
+curl -X POST "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-446655440000/messages" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Also document the 429 rate-limit response for this endpoint."
+  }'
+```
+
+```json
+{
+  "message": {
+    "id": "c2f3d4e5-6789-01bc-def2-34567890abcd",
+    "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "sequence": 2,
+    "author": { "type": "customer", "name": "deploy-bot@acme.com" },
+    "created_at": "2026-08-20T14:40:00Z",
+    "message": "Also document the 429 rate-limit response for this endpoint."
+  },
+  "deduplicated": false
+}
+```
+
+A retry that sends the same text with the same `Idempotency-Key` returns the stored message and sets `deduplicated` to `true`:
+
+```json
+{
+  "message": {
+    "id": "c2f3d4e5-6789-01bc-def2-34567890abcd",
+    "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "sequence": 2,
+    "author": { "type": "customer", "name": "deploy-bot@acme.com" },
+    "created_at": "2026-08-20T14:40:00Z",
+    "message": "Also document the 429 rate-limit response for this endpoint."
+  },
+  "deduplicated": true
+}
+```
+
+For the full schema, see the [Send a task message reference](/docs/for-docs/api/operations/sendtaskmessage/).
+
+### Task error responses
+
+Both operations return `401 authentication_failed` when the key is missing, invalid, or revoked. Both return `404 task_not_found` for an unknown task or one in another organization. Both return `503 runtime_store_unavailable` when the read store is temporarily unavailable.
+
+| Status | Error                       | Description                                                                                                                                                                                                                                                             | Applies to |
+| ------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 404    | `task_not_found`            | Unknown task, or a task in another organization.                                                                                                                                                                                                                        | both       |
+| 422    | Validation error            | The `trigger_event_id` in the path isn't a valid UUID, or the request body is malformed.                                                                                                                                                                                | both       |
+| 409    | `task_finished`             | The task has finished and stops accepting messages. A task that finished by reporting a blocker or a clarification request has still finished. To continue the work, submit a new trigger with `POST /v1/triggers`.                                                     | send       |
+| 400    | `unsupported_task_source`   | Task messages are available for tasks submitted over the API or MCP and for MCP `request_changes` tasks. Read the task's status with `GET /v1/triggers/{trigger_event_id}` (status is available for every source), or submit the work as a new API trigger to converse. | send       |
+| 400    | `invalid_message`           | The message is empty or longer than 20,000 characters after trimming, or an `Idempotency-Key` that is blank or longer than 255 characters.                                                                                                                              | send       |
+| 409    | `idempotency_conflict`      | The same `Idempotency-Key` was reused with different text.                                                                                                                                                                                                              | send       |
+| 401    | `authentication_failed`     | The API key is missing, invalid, or revoked.                                                                                                                                                                                                                            | both       |
+| 503    | `runtime_store_unavailable` | Task intake or lookup is temporarily unavailable.                                                                                                                                                                                                                       | both       |
 
 ## View API triggers
 
