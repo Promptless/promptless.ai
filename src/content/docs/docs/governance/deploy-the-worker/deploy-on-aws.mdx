@@ -1,6 +1,6 @@
 ---
 title: Deploy on AWS
-description: Prepare EKS, RDS PostgreSQL, S3, workload identity, and HTTPS for the proposed PIG supervisor deployment on AWS.
+description: Prepare EKS, RDS PostgreSQL, S3, workload identity, and HTTPS for the PIG supervisor deployment on AWS.
 slug: docs/governance/deploy-the-worker/deploy-on-aws
 type: guide
 tags:
@@ -13,17 +13,13 @@ sidebar:
   order: 3
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
 This recipe prepares PIG on an existing Amazon EKS cluster with Amazon RDS for PostgreSQL and Amazon S3. The analyzer uses its own IAM role to access trace objects. Acme's example places the cluster, database, and bucket in `us-west-2`.
 
-<Aside type="note" title="Supervisor availability">
-  The supervisor is pending implementation. The `PIGDeployment` and cloud-management examples below define its proposed interface; they are not inputs to today's worker chart. For the available deployment path, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
-</Aside>
-
 ## Before you begin
 
-Have an existing EKS cluster, a connected `kubectl` context, Helm, and access to your AWS infrastructure workflow. You need permission to provision a dedicated database, bucket, IAM role, and DNS record, plus cluster permission to bootstrap the supervisor. Obtain the deployment registration values and proposed installation materials from Promptless.
+Have an existing EKS cluster, a connected `kubectl` context, Helm, and access to your AWS infrastructure workflow. You need permission to provision a dedicated database, bucket, IAM role, and DNS record, plus cluster permission to bootstrap the supervisor. Obtain the deployment registration values and installation materials from Promptless.
 
 Choose these names before provisioning:
 
@@ -91,15 +87,15 @@ The infrastructure this recipe provisions (EKS, RDS, S3, and the analyzer's IAM 
          eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/acme-pig-analyzer
      ```
 
-     Apply this with your normal Kubernetes workflow. On the Helm path available today, the worker chart carries this role. It annotates the ServiceAccount it manages through the `serviceAccount.annotations` value (`eks.amazonaws.com/role-arn`), as shown in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). Scope the IRSA trust to that ServiceAccount. The proposed `PIGDeployment.spec.serviceAccountName` selects this account only on the supervisor path. This AWS path uses IRSA, so do not put AWS access keys in a credentials Secret or the deployment manifest.
+     Apply this with your normal Kubernetes workflow. For a manually managed Helm installation, the worker chart carries this role. It annotates the ServiceAccount it manages through the `serviceAccount.annotations` value (`eks.amazonaws.com/role-arn`), as shown in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). Scope the IRSA trust to that ServiceAccount. The `PIGDeployment.spec.serviceAccountName` selects this account only on the supervisor path. This AWS path uses IRSA, so do not put AWS access keys in a credentials Secret or the deployment manifest.
 
      The supervisor uses a separate management identity, distinct from this analyzer role; grant it only the dedicated resource-management operations in its reviewed inventory. See [Assign ownership](/docs/governance/deploy-the-worker/plan-your-deployment#assign-ownership-before-enabling-updates) for the full separation model.
 
   3. **Set up secrets, networking, and model access.** Deliver credentials to the schema your deployment path expects, and skip recreating the namespace and ServiceAccount prepared above. An AWS Secrets Manager integration can supply the Kubernetes Secret through your existing secret-delivery tooling; PIG does not assume a particular secrets controller.
 
-     On the Helm path available today, create the credentials Secret named `acme-pig-worker` with keys `install-token`, `customer-postgres-dsn`, `analysis-model-api-key`, and `analysis-repository-token`, then reference them through the chart values `existingSecretName`, `installTokenKey`, `customerPostgresDsnKey`, `analysisModelApiKeyKey`, and `analysisRepositoryTokenKey`. Provide the TLS certificate as the Secret named in the chart's `gateway.tls`; Acme uses `acme-pig-tls`. Keep the database CA reachable at the path your DSN's `sslrootcert` names. See [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+     For a manually managed Helm installation, create the credentials Secret named `acme-pig-worker` with keys `install-token`, `customer-postgres-dsn`, `analysis-model-api-key`, and `analysis-repository-token`, then reference them through the chart values `existingSecretName`, `installTokenKey`, `customerPostgresDsnKey`, `analysisModelApiKeyKey`, and `analysisRepositoryTokenKey`. Provide the TLS certificate as the Secret named in the chart's `gateway.tls`; Acme uses `acme-pig-tls`. Keep the database CA reachable at the path your DSN's `sslrootcert` names. See [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
-     On the proposed supervisor path, deliver `pig-credentials`, `pig-postgres-ca`, and `pig-tls` as described in [Install the supervisor](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity) instead.
+     For an installation with automatic updates, deliver `pig-credentials`, `pig-postgres-ca`, and `pig-tls` as described in [Install the supervisor](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity) instead.
 
      Use your installed ingress controller and a certificate for `traces.acme.example`. If using a private load balancer, make sure enrolled laptops can reach it through your corporate network. Permit HTTPS egress to Hosted Promptless, GitHub, the model endpoint, S3, and release artifacts. Allow the AWS token-service path required by your workload identity, using private endpoints or controlled egress as appropriate.
 
@@ -107,7 +103,7 @@ The infrastructure this recipe provisions (EKS, RDS, S3, and the analyzer's IAM 
 
      The base example uses OpenAI with an API key. You may choose Bedrock with `aws_sigv4` instead, provided the workload role has model access and the selected regional endpoint/model supports Responses. Use the exact current provider settings in the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference). Do not assume an arbitrary Bedrock model works with the analyzer.
 
-     **Prepare supervisor cloud management.** The following inventory and chart settings are also proposed interfaces. Provision a separate IAM role, `acme-pig-supervisor`, for management operations. Trust only `system:serviceaccount:pig-system:pig-supervisor` through the EKS OIDC provider. Apply the reviewed management policy supplied with the installation materials; do not reuse the analyzer's role.
+     **Prepare supervisor cloud management.** Provision a separate IAM role, `acme-pig-supervisor`, for management operations. Trust only `system:serviceaccount:pig-system:pig-supervisor` through the EKS OIDC provider. Apply the reviewed management policy supplied with the installation materials; do not reuse the analyzer's role.
 
      In `supervisor-infrastructure.yaml` from [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), configure the supervisor ServiceAccount as follows:
 
@@ -152,7 +148,7 @@ The infrastructure this recipe provisions (EKS, RDS, S3, and the analyzer's IAM 
 
      Use the common bootstrap values unchanged: the management role uses IRSA, so `infrastructure.credentialSecretNames` remains empty. Allow the supervisor to reach AWS token and resource-management APIs. Keeping the common empty inventory instead limits updates to Kubernetes and schema changes; releases needing cloud operations then block.
 
-  4. **Configure the proposed supervisor deployment.** Bootstrap the team-supplied `./pig-supervisor` chart using [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), with the management inventory and ServiceAccount prepared above. Follow the Flux handoff if applicable. Save the complete example from step 3 as `pig-deployment.yaml` and replace its registration, GitHub repository, model, and hostname values. Keep `credentialsSecretRef` absent under S3 so the analyzer uses IRSA.
+  4. **Configure the supervisor deployment.** Bootstrap the team-supplied `./pig-supervisor` chart using [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), with the management inventory and ServiceAccount prepared above. Follow the Flux handoff if applicable. Save the complete example from step 3 as `pig-deployment.yaml` and replace its registration, GitHub repository, model, and hostname values. Keep `credentialsSecretRef` absent under S3 so the analyzer uses IRSA.
 
      For a repeatable cloud overlay, save this as `patch-aws.yaml` in the same directory:
 
@@ -182,7 +178,7 @@ The infrastructure this recipe provisions (EKS, RDS, S3, and the analyzer's IAM 
        - path: patch-aws.yaml
      ```
 
-     Review the resolved manifest, then apply it once the proposed supervisor is available:
+     Review the resolved manifest, then apply it with:
 
      ```bash
      kubectl kustomize .

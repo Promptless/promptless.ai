@@ -1,6 +1,6 @@
 ---
 title: Install the supervisor
-description: Prepare the proposed PIG supervisor installation, configure a deployment, and verify the path from host enrollment through completed trace analysis.
+description: Prepare the PIG supervisor installation, configure a deployment, and verify the path from host enrollment through completed trace analysis.
 slug: docs/governance/deploy-the-worker/install-the-supervisor
 type: guide
 tags:
@@ -13,13 +13,9 @@ sidebar:
   order: 2
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
-The supervisor is designed to install and maintain PIG trace analysis in your cluster. You provide storage, access, and deployment settings once. The supervisor then manages application releases, migrations, and its own updates.
-
-<Aside type="note" title="Supervisor availability">
-  The supervisor is pending implementation. The chart, `PIGDeployment` resource, and status fields below define a proposed interface; these commands do not install a shipping product today. For the available deployment path, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
-</Aside>
+The supervisor installs and maintains PIG trace analysis in your cluster. You provide storage, access, and deployment settings once. The supervisor then manages application releases, migrations, and its own updates.
 
 ## Before you begin
 
@@ -27,15 +23,11 @@ Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-depl
 
 If you are following a cloud recipe, use this page for the common bootstrap and base configuration. Apply only the cloud recipe's combined manifest. You do not need to apply this page's base manifest separately.
 
-The proposed installation materials from Promptless consist of a versioned supervisor chart, release artifact identities, a resource/permission inventory, and deployment registration values. In this guide, `./pig-supervisor` means the unpacked chart supplied by the team. It is not a public registry address.
+The installation materials from Promptless consist of a versioned supervisor chart, release artifact identities, a resource/permission inventory, and deployment registration values. In this guide, `./pig-supervisor` means the unpacked chart supplied by the team. It is not a public registry address.
 
-Use one supervisor installation to manage the `pig` namespace in this example. Install the supervisor itself in `pig-system`. Cluster administrators perform the bootstrap because it installs the `PIGDeployment` custom resource definition and the controller's scoped RBAC. Routine releases should not require cluster-admin access.
+Use one supervisor installation to manage the `pig` namespace in this example. Install the supervisor itself in `pig-system`. Cluster administrators perform the bootstrap because it installs the `PIGDeployment` custom resource definition and the controller's scoped RBAC. Routine releases use the permissions granted at bootstrap.
 
 ## 1. Prepare secrets and the analyzer identity
-
-<Aside type="caution">
-  The supervisor is pending implementation. If you need to deploy today, stop here and use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) instead.
-</Aside>
 
 <Steps>
   1. **Create the namespace and analyzer ServiceAccount.** Create namespace `pig` and a ServiceAccount named `pig-analyzer`. Reuse either resource if your cloud preparation already created it; run only the missing create commands. Apply the cloud-specific identity configuration from your recipe to that ServiceAccount.
@@ -57,7 +49,7 @@ Use one supervisor installation to manage the `pig` namespace in this example. I
 
      The file paths are placeholders for files your team prepares; file contents must not include a trailing newline. Omit the repository argument if the repository is public. For ongoing operation, configure your secret manager to rotate the same keys.
 
-  3. **Provide the database CA bundle, if your database needs one.** Create `pig-postgres-ca` with key `ca.pem` from your provider's certificate bundle. The proposed supervisor mounts it at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers.
+  3. **Provide the database CA bundle, if your database needs one.** Create `pig-postgres-ca` with key `ca.pem` from your provider's certificate bundle. The supervisor mounts it at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers.
 
      ```bash
      kubectl create configmap pig-postgres-ca --namespace pig \
@@ -78,15 +70,11 @@ The `pig-credentials` Secret uses these keys:
 
 ## 2. Bootstrap the supervisor
 
-Bootstrapping installs the proposed interface; it does not install a shipping product today.
+Bootstrapping installs the controller and the `PIGDeployment` custom resource definition. You declare your deployment after assigning ownership and permissions.
 
 ### Declare the management boundary
 
 The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its cloud management identities are separate from the analyzer's data-access identities. Keep this account, its identity bindings, and its resource inventory in your platform team's GitOps configuration.
-
-<Aside type="caution">
-  The supervisor is pending implementation. These bootstrap commands configure a proposed interface and do not install a shipping product today.
-</Aside>
 
 <Steps>
   1. **Save the bootstrap infrastructure as `supervisor-infrastructure.yaml`.** The empty inventory authorizes Kubernetes application updates and PostgreSQL schema migrations, but no cloud resource operations. A stable release that requires a cloud change blocks until the necessary resource and permission are explicitly delegated.
@@ -117,7 +105,7 @@ The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its clo
              resources: []
      ```
 
-     For cloud management, replace the inner `inventory.yaml` value and add the ServiceAccount bindings from your cloud recipe. Use the exact provisioned resource IDs. The examples delegate database sizing and permit inspection of the S3 bucket; they leave backup, retention, deletion, IAM, and networking changes outside supervisor authority. The [inventory contract](#the-proposed-inventory-contract) below defines each field.
+     For cloud management, replace the inner `inventory.yaml` value and add the ServiceAccount bindings from your cloud recipe. Use the exact provisioned resource IDs. The examples delegate database sizing and permit inspection of the S3 bucket; they leave backup, retention, deletion, IAM, and networking changes outside supervisor authority. The [inventory contract](#the-inventory-contract) below defines each field.
 
   2. **Save the chart values as `supervisor-values.yaml`.**
 
@@ -133,7 +121,7 @@ The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its clo
        credentialSecretNames: []
      ```
 
-     Both references resolve in `pig-system`. The chart grants read access to this inventory and only the management Secrets named in `credentialSecretNames`. Cloud recipes add their required Secret names and pod labels here. The controller must not modify the inventory, credential bindings, or its own permission grants.
+     Both references resolve in `pig-system`. The chart grants read access to this inventory and only the management Secrets named in `credentialSecretNames`. Cloud recipes add their required Secret names and pod labels here. The controller cannot modify the inventory, credential bindings, or its own permission grants.
 
   3. **Apply the bootstrap resources.** Create them through GitOps, or for a direct installation:
 
@@ -141,7 +129,7 @@ The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its clo
      kubectl apply -f supervisor-infrastructure.yaml
      ```
 
-  4. **Install the supervisor chart.** Deliver any cloud management Secrets before installing the chart. Review its rendered permissions against the inventory, then use the proposed bootstrap command:
+  4. **Install the supervisor chart.** Deliver any cloud management Secrets before installing the chart. Review its rendered permissions against the inventory, then use the bootstrap command:
 
      ```bash
      helm upgrade --install pig-supervisor ./pig-supervisor \
@@ -151,10 +139,10 @@ The supervisor uses its own ServiceAccount, `pig-system/pig-supervisor`. Its clo
        --wait
      ```
 
-     `watchNamespace` restricts customer deployment reconciliation to `pig`. The controller also needs the permissions declared by the chart to maintain its own resources in `pig-system` and its custom resource definition. It must reject a missing inventory entry and report unavailable management identities or permissions before changing cloud resources.
+     `watchNamespace` restricts customer deployment reconciliation to `pig`. The controller also needs the permissions declared by the chart to maintain its own resources in `pig-system` and its custom resource definition. It rejects a missing inventory entry and reports unavailable management identities or permissions before changing cloud resources.
 </Steps>
 
-#### The proposed inventory contract
+#### The inventory contract
 
 | Field                       | Meaning                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -171,11 +159,7 @@ Before enabling `update`, remove competing reconciliation for those fields from 
 
 If your cluster already uses Flux, use this sequence instead of running the Helm command above. Flux installs the bootstrap release, then you suspend that release before creating a `PIGDeployment`. GitOps continues to reconcile your deployment specification and secret-delivery resources.
 
-This is part of the proposed supervisor contract. Until a `PIGDeployment` exists in its watched namespace, the supervisor must report health and wait without starting release transitions or updating itself. Creating that resource after the handoff enables its release policy.
-
-<Aside type="caution">
-  The supervisor is pending implementation. This Flux handoff describes the proposed contract; it does not manage a shipping product today.
-</Aside>
+Until a `PIGDeployment` exists in its watched namespace, the supervisor reports health and waits without starting release transitions or updating itself. Creating that resource after the handoff enables its release policy.
 
 <Steps>
   1. **Prepare the Flux manifest.** Prepare it in a path reconciled by your existing Flux installation. Reconcile `supervisor-infrastructure.yaml` and secret delivery before the Helm release. Use Flux controllers that support `OCIRepository` API `v1` and `HelmRelease` API `v2`. Replace the registry URL and digest with the bootstrap chart identity supplied by Promptless. The illustrative registry below is not a published PIG registry.
@@ -246,17 +230,13 @@ After the handoff, ownership is:
 | GitOps and your secret manager | The suspended bootstrap manifest, namespaces, `PIGDeployment.spec`, analyzer and supervisor ServiceAccounts, management inventory and identity bindings, external Secrets, and certificate ConfigMaps. |
 | Supervisor                     | The bootstrap chart's declared supervisor resources, including its Deployment image and pod configuration; the PIG custom resource definition; generated analyzer resources and migration Jobs.        |
 
-The supervisor remains limited by its installed permissions and declared resource inventory. It must not widen its own RBAC or adopt unrelated resources. Do not add the chart's rendered resources to a separate Flux Kustomization or Argo CD Application. This handoff does not disable reconciliation for other applications.
+The supervisor remains limited by its installed permissions and declared resource inventory. It cannot widen its own RBAC or adopt unrelated resources. Do not add the chart's rendered resources to a separate Flux Kustomization or Argo CD Application. This handoff does not disable reconciliation for other applications.
 
 Keep the bootstrap `HelmRelease` suspended during normal operation. Do not resume it, remove it from Git, or run manual Helm upgrades while the supervisor owns those resources. Use `PIGDeployment.spec.release` for [pause and pin controls](/docs/governance/deploy-the-worker/manage-updates-and-recovery). Follow the recovery or retirement procedure before transferring ownership again.
 
 For a direct Helm bootstrap, there is no continuously running Helm controller to suspend. Keep the bootstrap values for recovery, then create the `PIGDeployment` in step 3 without adding a competing reconciler.
 
 ## 3. Declare your PIG deployment
-
-<Aside type="caution">
-  The supervisor is pending implementation. Declaring the `PIGDeployment` is part of the proposed interface; the resource does not register with a shipping product today.
-</Aside>
 
 <Steps>
   1. **Save the deployment resource as `pig-deployment.yaml`.** Replace every Acme URL, repository ID, bucket, and registration value with your own. `runtimeURL` and `deploymentID` come from Promptless; the examples do not designate a live Promptless endpoint.
@@ -317,7 +297,7 @@ For a direct Helm bootstrap, there is no continuously running Helm controller to
              key: model-api-key
      ```
 
-     The proposed resource uses the current worker's repository and model requirements. It does not add support for new storage or model providers. Set the activation time to your intended collection rollout; use the model your account can access. Remove `tokenSecretRef` for a public hub. Remove `caConfigMapRef` only when the database certificate is already trusted by the container's system trust store.
+     The resource uses the analyzer's repository and model requirements described in [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment#select-repository-and-model-access). Set the activation time to your intended collection rollout; use the model your account can access. Remove `tokenSecretRef` for a public hub. Remove `caConfigMapRef` only when the database certificate is already trusted by the container's system trust store.
 
   2. **On Azure or GCP, add object-storage credentials.** After preparing `pig-s3-credentials` as described in the cloud recipe, add the following under `spec.storage.s3`:
 
@@ -333,24 +313,20 @@ For a direct Helm bootstrap, there is no continuously running Helm controller to
      kubectl get pigdeployment acme --namespace pig --watch
      ```
 
-     The supervisor should preflight connections and permissions, initialize or migrate the database, start the analyzer, and publish status. The resource name becomes the generated analyzer Deployment and Service prefix: `acme-analyzer`.
+     The supervisor checks connections and permissions, initializes or migrates the database, starts the analyzer, and publishes status. The resource name becomes the generated analyzer Deployment and Service prefix: `acme-analyzer`.
 </Steps>
 
 The supervisor maps `hosted.deploymentID` to the current worker's `deploymentInstanceId` and uses the resource name as the deployment name. It resolves the registered configuration hash from the effective deployment configuration and hosted registration. You do not invent a `configHash` or reuse a host enrollment credential as the install token. The current Helm path still requires the configuration values supplied by Promptless.
 
 `ingressClassName` must name an existing controller. The supervisor creates a standard Ingress backed by the analyzer Service, using the four current API paths: `/healthz`, `/v0/host-enrollment/policy`, `/v0/host-enrollment/check-ins`, and `/v0/traces/batches`.
 
-The proposed supervisor copies `ingressAnnotations` to the generated Ingress metadata. The example raises ingress-nginx's [request-body limit](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-max-body-size) to 10 MiB, matching the collector's maximum encoded upload request. For another controller, replace that annotation with its equivalent. Every load balancer and proxy on the upload path must also allow at least 10 MiB; the default ingress-nginx limit is too small.
+The supervisor copies `ingressAnnotations` to the generated Ingress metadata. The example raises ingress-nginx's [request-body limit](https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#custom-max-body-size) to 10 MiB, matching the collector's maximum encoded upload request. For another controller, replace that annotation with its equivalent. Every load balancer and proxy on the upload path must also allow at least 10 MiB; the default ingress-nginx limit is too small.
 
-The proposed supervisor injects `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and, when supplied, `AWS_SESSION_TOKEN` from that Secret into the analyzer. It sets the AWS region from `storage.s3.region`. With no credential Secret, the analyzer uses the ambient AWS SDK credential chain, as in the EKS recipe. The supervisor must reconcile Secret changes into the workload so rotated credentials take effect.
+The supervisor injects `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and, when supplied, `AWS_SESSION_TOKEN` from that Secret into the analyzer. It sets the AWS region from `storage.s3.region`. With no credential Secret, the analyzer uses the ambient AWS SDK credential chain, as in the EKS recipe. The supervisor reconciles Secret changes into the workload so rotated credentials take effect.
 
 ## 4. Check deployment status
 
-The proposed status interface reports the installed and target release and Kubernetes conditions named `Ready`, `Updating`, and `Blocked`.
-
-<Aside type="caution">
-  The supervisor is pending implementation. These status commands read a proposed interface and return nothing from a shipping product today.
-</Aside>
+The status interface reports the installed and target release and Kubernetes conditions named `Ready`, `Updating`, and `Blocked`.
 
 <Steps>
   1. **Read the status and logs.**
@@ -363,7 +339,7 @@ The proposed status interface reports the installed and target release and Kuber
      kubectl logs deployment/acme-analyzer --namespace pig --tail=100
      ```
 
-     `Ready=True` means the supervisor has reconciled the configuration and its deployment checks passed. It is not proof that a user trace has completed analysis. A `Blocked=True` condition must identify the failing dependency or required operator action. Do not paste Secrets or raw traces into a support request; include the deployment ID, release, condition, and relevant redacted error.
+     `Ready=True` means the supervisor has reconciled the configuration and its deployment checks passed. It is not proof that a user trace has completed analysis. A `Blocked=True` condition identifies the failing dependency or required operator action. Do not paste Secrets or raw traces into a support request; include the deployment ID, release, condition, and relevant redacted error.
 
   2. **Check HTTPS from an enrolled device's network.** Point your hostname at the ingress endpoint, then:
 
@@ -375,10 +351,6 @@ The proposed status interface reports the installed and target release and Kuber
 </Steps>
 
 ## 5. Verify the complete workflow
-
-<Aside type="caution">
-  The supervisor is pending implementation. This verification exercises the proposed interface end to end; it does not run against a shipping product today.
-</Aside>
 
 <Steps>
   1. Confirm the deployment's endpoint and identity with Promptless. Then follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device.
@@ -392,12 +364,12 @@ Record the session and deployment identity as your installation acceptance evide
 
 ## Troubleshoot initial installation
 
-| Symptom                                 | Check                                                                                                                                                                                                            |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PIGDeployment` is unknown              | The supervisor is pending implementation, or its chart and CRD have not been installed in this cluster. To deploy today, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). |
-| Database preflight is blocked           | Private routing, DNS, database credentials, CA bundle, and schema-owner permissions.                                                                                                                             |
-| S3 access is denied                     | Bucket/prefix policy, IAM trust or credential Secret, and KMS key permissions when using a customer-managed key.                                                                                                 |
-| Hosts cannot enroll or upload           | Host-network reachability, TLS, deployment registration, policy, credential validity, and ingress body limits.                                                                                                   |
-| Traces arrive but analysis stays paused | Activation time, complete model settings, GitHub numeric ID and canonical URL, access to `main`, and model quota.                                                                                                |
+| Symptom                                 | Check                                                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `PIGDeployment` is unknown              | Confirm the supervisor chart and custom resource definition are installed, and that your `kubectl` context points to the intended cluster. |
+| Database preflight is blocked           | Private routing, DNS, database credentials, CA bundle, and schema-owner permissions.                                                       |
+| S3 access is denied                     | Bucket/prefix policy, IAM trust or credential Secret, and KMS key permissions when using a customer-managed key.                           |
+| Hosts cannot enroll or upload           | Host-network reachability, TLS, deployment registration, policy, credential validity, and ingress body limits.                             |
+| Traces arrive but analysis stays paused | Activation time, complete model settings, GitHub numeric ID and canonical URL, access to `main`, and model quota.                          |
 
 After the first successful analysis, configure [automatic updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).

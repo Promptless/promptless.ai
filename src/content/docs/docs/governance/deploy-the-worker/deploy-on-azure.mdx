@@ -1,6 +1,6 @@
 ---
 title: Deploy on Azure
-description: Prepare AKS, Azure Database for PostgreSQL, cross-cloud S3 access, secrets, and HTTPS for the proposed PIG supervisor deployment.
+description: Prepare AKS, Azure Database for PostgreSQL, cross-cloud S3 access, secrets, and HTTPS for the PIG supervisor deployment.
 slug: docs/governance/deploy-the-worker/deploy-on-azure
 type: guide
 tags:
@@ -13,17 +13,13 @@ sidebar:
   order: 4
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
 This recipe runs PIG on an existing Azure Kubernetes Service (AKS) cluster. It uses Azure Database for PostgreSQL Flexible Server for metadata and AWS S3 for trace objects. The analyzer stays in AKS; S3 access crosses the Azure/AWS boundary.
 
-<Aside type="note" title="Supervisor availability">
-  The supervisor is pending implementation. The `PIGDeployment` and cloud-management examples below define its proposed interface; they are not inputs to today's worker chart. For the available deployment path, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
-</Aside>
-
 ## Before you begin
 
-Have an existing AKS cluster, Helm, and a connected `kubectl` context. You need Azure access to provision dedicated PostgreSQL storage and network settings. You also need an AWS account for S3 and an AWS identity. Obtain the Promptless deployment registration values and proposed installation materials.
+Have an existing AKS cluster, Helm, and a connected `kubectl` context. You need Azure access to provision dedicated PostgreSQL storage and network settings. You also need an AWS account for S3 and an AWS identity. Obtain the Promptless deployment registration values and installation materials.
 
 This recipe uses database-password authentication, an AWS credential Secret for S3, and an Azure OpenAI API key. Your AKS workload identity may deliver Secrets from your existing Azure Key Vault integration. It does not by itself authenticate to S3 or replace these application credentials. Because S3 access crosses the Azure/AWS boundary, confirm the cross-cloud credential setup with the team before you begin.
 
@@ -49,13 +45,13 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
      postgresql://pig_analyzer:REPLACE_PASSWORD@acme-pig.postgres.database.azure.com:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
      ```
 
-     Replace the server and password, URL-encoding reserved characters in credentials. The proposed supervisor's `caConfigMapRef` mounts the CA bundle into analyzer and migration containers. This recipe does not depend on automatic Microsoft Entra database-token refresh in the worker.
+     Replace the server and password, URL-encoding reserved characters in credentials. The supervisor's `caConfigMapRef` mounts the CA bundle into analyzer and migration containers. This recipe does not depend on automatic Microsoft Entra database-token refresh in the worker.
 
   2. **Prepare S3 and a separate AWS credential.** Create a private, encrypted AWS S3 bucket and reserve the `acme/traces/` prefix. Coordinate its retention and recovery settings with PostgreSQL. Allow HTTPS egress from AKS to the bucket's regional endpoint and account for transfer costs and latency between the chosen cloud regions.
 
      Use a dedicated AWS programmatic identity scoped to reading and writing this prefix. The [AWS recipe's object-access policy](/docs/governance/deploy-the-worker/deploy-on-aws) shows the required object permissions. Add KMS permissions if your bucket uses a customer-managed key. Do not reuse an administrator's or root account's credentials.
 
-     The baseline proposed interface accepts an access-key pair. AWS recommends temporary role credentials where possible; if your organization requires federation, agree the workload credential integration with Promptless before deployment. See [AWS access-key management](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
+     The baseline interface accepts an access-key pair. AWS recommends temporary role credentials where possible; if your organization requires federation, agree the workload credential integration with Promptless before deployment. See [AWS access-key management](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html).
 
      Have your secret manager deliver `pig-s3-credentials` in namespace `pig` with keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. A pilot can create it from protected files:
 
@@ -65,7 +61,7 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
        --from-file=AWS_SECRET_ACCESS_KEY=/secure/pig/aws-secret-access-key
      ```
 
-     Create namespace `pig` before this command. Keep values out of the Git repository and remove trailing newlines from the protected files. Your secrets workflow owns key rotation and revocation. The proposed supervisor must detect changed Secret data and restart or refresh the analyzer. Verify the new credentials before revoking the old key. A one-time STS session copied into a Secret is not a durable rotation strategy.
+     Create namespace `pig` before this command. Keep values out of the Git repository and remove trailing newlines from the protected files. Your secrets workflow owns key rotation and revocation. The supervisor detects changed Secret data and refreshes the analyzer. Verify the new credentials before revoking the old key. A one-time STS session copied into a Secret is not a durable rotation strategy.
 
   3. **Prepare endpoint, model, and repository access.** Use your existing AKS ingress controller and TLS certificate management. Create `pig-tls` for `traces.acme.example`, then configure DNS to route to the ingress. The endpoint may be private if all enrolled devices have access. Allow outbound HTTPS to Promptless, GitHub, Azure OpenAI, AWS S3, and the supplied release artifact endpoints.
 
@@ -75,13 +71,13 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
 
      The analyzer also needs a GitHub Instruction Hub with a numeric repository ID, canonical HTTPS URL, and readable `main` branch. Supply the repository token for a private repository and the install token from Promptless.
 
-     On the Helm path available today, create the credentials Secret named `acme-pig-worker` with keys `install-token`, `customer-postgres-dsn`, `analysis-model-api-key`, and `analysis-repository-token`, and reference them through the chart values `existingSecretName`, `installTokenKey`, `customerPostgresDsnKey`, `analysisModelApiKeyKey`, and `analysisRepositoryTokenKey`. Provide the TLS certificate as the Secret named in the chart's `gateway.tls`. Chart 0.2.0 has no S3 credential-Secret setting, so the `pig-s3-credentials` keys from step 2 cannot be injected through it. Arrange AWS credential delivery for the analyzer with your platform team, as [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) describes.
+     For a manually managed Helm installation, create the credentials Secret named `acme-pig-worker` with keys `install-token`, `customer-postgres-dsn`, `analysis-model-api-key`, and `analysis-repository-token`, and reference them through the chart values `existingSecretName`, `installTokenKey`, `customerPostgresDsnKey`, `analysisModelApiKeyKey`, and `analysisRepositoryTokenKey`. Provide the TLS certificate as the Secret named in the chart's `gateway.tls`. Chart 0.2.0 has no S3 credential-Secret setting, so the `pig-s3-credentials` keys from step 2 cannot be injected through it. Arrange AWS credential delivery for the analyzer with your platform team, as [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) describes.
 
-     On the proposed supervisor path, prepare the full [secret and certificate set](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity) instead. That set is `pig-credentials` (keys `install-token`, `postgres-dsn`, `model-api-key`, and `repository-token`), `pig-tls`, and the `pig-s3-credentials` Secret from step 2. Skip any namespace creation already completed.
+     For an installation with automatic updates, prepare the full [secret and certificate set](/docs/governance/deploy-the-worker/install-the-supervisor#1-prepare-secrets-and-the-analyzer-identity) instead. That set is `pig-credentials` (keys `install-token`, `postgres-dsn`, `model-api-key`, and `repository-token`), `pig-tls`, and the `pig-s3-credentials` Secret from step 2. Skip any namespace creation already completed.
 
      **Prepare supervisor cloud management.** Cloud management uses two identities, separate from all analyzer credentials. For Azure, enable AKS workload identity and bind a dedicated user-assigned managed identity to `pig-system/pig-supervisor`. Scope its federated credential to that exact ServiceAccount. Follow [AKS workload identity setup](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster) for the issuer, subject, and identity binding.
 
-     In the proposed `supervisor-infrastructure.yaml` from [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), configure this ServiceAccount:
+     In the `supervisor-infrastructure.yaml` from [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), configure this ServiceAccount:
 
      ```yaml title="supervisor-infrastructure.yaml"
      apiVersion: v1
@@ -96,7 +92,7 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
 
      For AWS bucket management, create a separate programmatic identity and deliver Secret `acme-aws-management` in `pig-system`. Use keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, with the same rotation procedure as step 2. This Secret must contain different credentials from `pig/pig-s3-credentials`.
 
-     Replace the ConfigMap's inner `inventory.yaml` with the following proposed inventory. Substitute your subscription, resource group, dedicated server ID, bucket, and both identity values:
+     Replace the ConfigMap's inner `inventory.yaml` with the following inventory. Substitute your subscription, resource group, dedicated server ID, bucket, and both identity values:
 
      ```yaml title="inventory.yaml"
      version: 1
@@ -132,7 +128,7 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
 
      Apply the reviewed Azure and AWS management policies supplied with the installation materials to the named identities. This example delegates only the dedicated server's [SKU name](https://learn.microsoft.com/en-us/rest/api/postgresql/servers/update?view=rest-postgresql-2024-08-01); transfer that field out of competing infrastructure reconciliation. S3 management is inspection only. Neither identity receives authority to change backups, retention, deletion protection, IAM, or shared networking.
 
-     Use these complete proposed bootstrap values in `supervisor-values.yaml`. For Flux, use the same values under `HelmRelease.spec.values`:
+     Use these complete bootstrap values in `supervisor-values.yaml`. For Flux, use the same values under `HelmRelease.spec.values`:
 
      ```yaml title="supervisor-values.yaml"
      watchNamespace: pig
@@ -149,11 +145,11 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
          - acme-aws-management
      ```
 
-     The proposed chart applies `podLabels` to the supervisor pod template. The controller uses the Azure binding for Azure calls and the named AWS Secret for S3 management. It must refresh rotated credentials and report a missing identity instead of falling back to another principal. Permit token exchange and HTTPS access to both providers' management APIs.
+     The chart applies `podLabels` to the supervisor pod template. The controller uses the Azure binding for Azure calls and the named AWS Secret for S3 management. It refreshes rotated credentials and reports a missing identity instead of falling back to another principal. Permit token exchange and HTTPS access to both providers' management APIs.
 
      Create the bootstrap namespace and resources before delivering `acme-aws-management`; install the chart only after that Secret exists. To use no cloud management grants, retain the common empty inventory and bootstrap values instead. Kubernetes and schema updates remain enabled; releases requiring cloud changes then block.
 
-  4. **Configure the proposed deployment.** Bootstrap the team-supplied supervisor chart using [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), with the management inventory, identities, and values prepared above. Follow the Flux handoff if applicable. Save the complete `PIGDeployment` example from step 3 as `pig-deployment.yaml`; replace the registration, repository, activation time, and hostname values.
+  4. **Configure the deployment.** Bootstrap the team-supplied supervisor chart using [installation step 2](/docs/governance/deploy-the-worker/install-the-supervisor#2-bootstrap-the-supervisor), with the management inventory, identities, and values prepared above. Follow the Flux handoff if applicable. Save the complete `PIGDeployment` example from step 3 as `pig-deployment.yaml`; replace the registration, repository, activation time, and hostname values.
 
      Save this overlay as `patch-azure.yaml`:
 
@@ -193,14 +189,14 @@ If your organization requires Azure Blob Storage, contact [help@gopromptless.ai]
        - path: patch-azure.yaml
      ```
 
-     Review and apply through your GitOps workflow, or use the following once the proposed supervisor is available:
+     Review and apply through your GitOps workflow, or run:
 
      ```bash
      kubectl kustomize .
      kubectl apply -k .
      ```
 
-     The proposed `credentialsSecretRef` is what injects AWS credentials into the workload. The existing worker Helm chart has no equivalent general-purpose credential-Secret injection setting; this manifest must not be passed to that chart as values.
+     The `credentialsSecretRef` is what injects AWS credentials into the workload. The existing worker Helm chart has no equivalent general-purpose credential-Secret injection setting; this manifest must not be passed to that chart as values.
 
      Keep the analyzer's data-access identity separate from the supervisor's management identity; Azure and AWS permissions are separate grants. See [Assign ownership](/docs/governance/deploy-the-worker/plan-your-deployment#assign-ownership-before-enabling-updates) for the full separation model.
 </Steps>

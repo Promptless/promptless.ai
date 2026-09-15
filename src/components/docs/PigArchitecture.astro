@@ -1,0 +1,179 @@
+---
+import { Bot, Cloud, Cylinder, Database, Files, FolderGit2, GitPullRequest, ListChecks, Package, PanelsTopLeft, ScanSearch } from '@lucide/astro';
+import ArchitectureNode from './ArchitectureNode.astro';
+
+type Point = [number, number];
+// Two segments leave room for each data object. Only the destination has an arrowhead.
+const flows: { description: string; before: Point[]; after: Point[] }[] = [
+  { description: 'Instruction Hub → Published plugins → AI agent.', before: [[190, 89], [216, 89]], after: [[309, 89], [351, 89]] },
+  { description: 'Host trace collector → Session traces → Trace analyzer.', before: [[465, 126], [465, 181]], after: [[465, 225], [465, 331]] },
+  { description: 'Trace analyzer → Proposed instruction changes → Instruction Hub.', before: [[340, 370], [105, 370], [105, 285]], after: [[105, 222], [105, 145]] },
+  { description: 'Trace analyzer → Analysis context → Model provider.', before: [[340, 427], [316, 427], [316, 461], [309, 461]], after: [[208, 461], [190, 461]] },
+  { description: 'Trace analyzer → Trace objects → Trace bucket.', before: [[590, 370], [621, 370]], after: [[741, 370], [782, 370]] },
+  { description: 'Trace analyzer → Analysis state → PostgreSQL.', before: [[590, 415], [610, 415], [610, 471], [621, 471]], after: [[741, 471], [782, 471]] },
+  { description: 'Trace analyzer → Findings, remediations, and analyzer status → Hosted Promptless.', before: [[465, 467], [465, 569]], after: [[465, 625], [465, 654]] },
+];
+const position = (x: number, y: number, width: number, height: number) =>
+  `left:${x / 940 * 100}%;top:${y / 782 * 100}%;width:${width / 940 * 100}%;height:${height / 782 * 100}%`;
+const lines = flows.flatMap(flow => [flow.before, flow.after].flatMap(points =>
+  points.slice(1).map(([x, y], i) => {
+    const [previousX, previousY] = points[i];
+    return `${position(Math.min(x, previousX), Math.min(y, previousY), Math.abs(x - previousX), Math.abs(y - previousY))};${x === previousX ? 'width' : 'height'}:1px`;
+  })
+));
+const tips = flows.map(({ after }) => {
+  const [previousX, previousY] = after[after.length - 2];
+  const [x, y] = after[after.length - 1];
+  const rotation = y === previousY ? (x > previousX ? 45 : 225) : (y > previousY ? 135 : -45);
+  return `left:${x / 940 * 100}%;top:${y / 782 * 100}%;transform:translate(-50%,-50%) rotate(${rotation}deg)`;
+});
+---
+
+<figure class="architecture not-content" aria-label="PIG architecture and data flow">
+  <p class="scroll-hint">Scroll horizontally to view the architecture.</p>
+  <div class="graph-scroll" tabindex="0" role="region" aria-label="PIG architecture diagram">
+    <div class="graph">
+      {lines.map(style => <i class="wire" style={style} aria-hidden="true" />)}
+      {tips.map(style => <i class="tip" style={style} aria-hidden="true" />)}
+
+      <ArchitectureNode icon={FolderGit2} label="Instruction Hub" description="Git repository" variant="external" x={8} y={33} width={182} height={112} />
+      <ArchitectureNode icon={Package} label={'Published\nplugins'} kind="object" x={216} y={64} width={93} height={50} />
+
+      <section class="boundary customer" style={position(330, 0, 270, 142)} aria-label="Host machine">
+        <h3>Host machine<span class="host-subtitle">(workstation, laptop, agent host)</span></h3>
+        <ArchitectureNode icon={Bot} label="AI agent" description="With the trace collector" variant="row" x={28} y={64} width={214} height={57} canvas={[270, 142]} />
+      </section>
+
+      <ArchitectureNode icon={Files} label="Session traces" kind="object" variant="major" x={382} y={181} width={166} height={44} />
+      <ArchitectureNode icon={GitPullRequest} label={'Proposed instruction\nchanges'} kind="object" variant="vertical" x={20} y={222} width={170} height={63} />
+
+      <section class="boundary customer" style={position(310, 256, 630, 280)} aria-label="Your cluster">
+        <h3>Your cluster</h3>
+        <ArchitectureNode icon={ScanSearch} label="Trace analyzer" variant="primary" x={30} y={81} width={250} height={130} canvas={[630, 280]} />
+        <ArchitectureNode icon={Files} label={'Trace\nobjects'} kind="object" x={311} y={90} width={120} height={48} canvas={[630, 280]} />
+        <ArchitectureNode icon={Cylinder} label="Trace bucket" description="Object storage" variant="storage" x={475} y={62} width={140} height={103} canvas={[630, 280]} />
+        <ArchitectureNode icon={ListChecks} label={'Analysis\nstate'} kind="object" x={311} y={191} width={120} height={48} canvas={[630, 280]} />
+        <ArchitectureNode icon={Database} label="PostgreSQL" variant="storage" x={475} y={168} width={140} height={103} canvas={[630, 280]} />
+      </section>
+
+      <ArchitectureNode icon={Files} label={'Analysis\ncontext'} kind="object" x={208} y={435} width={101} height={52} />
+      <ArchitectureNode icon={Cloud} label="Model provider" description="Your configured endpoint" variant="external" x={8} y={411} width={182} height={103} />
+      <ArchitectureNode icon={ListChecks} label={'Findings, remediations,\n& analyzer status'} kind="object" variant="major" x={340} y={569} width={250} height={56} />
+
+      <section class="boundary promptless" style={position(330, 654, 270, 124)} aria-label="Promptless cluster">
+        <h3>Promptless cluster</h3>
+        <ArchitectureNode icon={PanelsTopLeft} label="Hosted Promptless" description="Review findings and remediations" variant="hosted row" x={23} y={46} width={224} height={61} canvas={[270, 124]} />
+      </section>
+    </div>
+  </div>
+  <ol class="sr-only" aria-label="Data flow relationships">
+    {flows.map(flow => <li>{flow.description}</li>)}
+  </ol>
+  <figcaption>Raw traces are stored in your trace bucket. Findings sent to Promptless can include session details; analysis context is sent to your configured model provider.</figcaption>
+</figure>
+
+<style>
+  .architecture {
+    --arch-customer: #99ccbd;
+    --arch-customer-text: #c9e7df;
+    --arch-customer-border: #304b45;
+    --arch-customer-bg: #0d1514;
+    --arch-analyzer-bg: #142720;
+    --arch-analyzer-border: #4d7e6c;
+    --arch-promptless: #bbb0e4;
+    --arch-promptless-text: #ddd6fa;
+    --arch-promptless-border: #443c64;
+    --arch-promptless-bg: #13111e;
+    --arch-external: #d0b486;
+    --arch-external-text: #e1cba8;
+    margin: 1.5rem 0;
+    container-type: inline-size;
+  }
+  .graph-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 6px;
+  }
+  .graph-scroll:focus-visible {
+    outline: 2px solid var(--sl-color-accent);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+  .graph {
+    position: relative;
+    width: 100%;
+    min-width: 860px;
+    aspect-ratio: 940 / 782;
+    isolation: isolate;
+  }
+  .boundary {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px solid var(--arch-customer-border);
+    border-radius: 9px;
+    background: var(--arch-customer-bg);
+  }
+  .boundary h3 {
+    position: absolute;
+    top: 15px;
+    left: 19px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--arch-customer);
+    line-height: 1.4;
+  }
+  .host-subtitle {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--pl-color-text-muted);
+    margin-top: 2px;
+  }
+  .promptless {
+    border-color: var(--arch-promptless-border);
+    background: var(--arch-promptless-bg);
+  }
+  .promptless h3 {
+    color: var(--arch-promptless);
+  }
+  .wire {
+    position: absolute;
+    z-index: 1;
+    background: #687683;
+    pointer-events: none;
+  }
+  .tip {
+    position: absolute;
+    z-index: 1;
+    width: 6px;
+    height: 6px;
+    border-top: 1px solid #86929e;
+    border-right: 1px solid #86929e;
+    pointer-events: none;
+  }
+  figcaption {
+    margin-top: 1rem;
+    color: var(--pl-color-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+  .scroll-hint {
+    display: none;
+    margin: 0 0 1rem;
+    color: var(--pl-color-text-muted);
+    font-size: 0.8125rem;
+  }
+  @container (max-width: 859px) { .scroll-hint { display: block; } }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

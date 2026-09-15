@@ -12,24 +12,18 @@ sidebar:
   order: 1
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-
 The trace analyzer connects the instructions your team publishes with what happens when agents use them. It receives traces from enrolled hosts, stores them in your infrastructure, and investigates instruction problems using your configured model provider. Technical writers and developers can set up an Instruction Hub before you deploy trace analysis.
 
 This guide helps your platform team prepare the environment. Use it to agree on ownership, access, and recovery before installing anything.
 
-<Aside type="note" title="Supervisor availability">
-  The supervisor is pending implementation. These public guides describe its proposed interface and operating contract; you cannot run its commands or apply its configuration against today's service. To deploy the current analyzer, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
-</Aside>
-
 ## Choose an installation path
 
-| Path               | What your team does                                                                             | Availability                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Supervisor         | Install a controller once, declare a PIG deployment, and receive stable releases automatically. | Pending implementation; documented in this guide set. |
-| Current Helm chart | Install and upgrade the `instruction-hub-worker` chart, including its database migration hook.  | Available from the Promptless team.                   |
+| Path                                                                                     | Update management                                                                   | Choose this when                                              |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [Automatic updates](/docs/governance/deploy-the-worker/install-the-supervisor) (default) | Install the supervisor once; it maintains the analyzer and follows stable releases. | You want routine updates with pause and version-pin controls. |
+| [Manually managed Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker)   | Your team installs and upgrades the worker chart, including database migrations.    | Your operations workflow manages each release.                |
 
-The supervisor is intended to manage the trace analyzer, its migrations, and dedicated PIG resources, and to update itself. You retain control over release pauses, version pins, credentials, and the infrastructure it is allowed to manage.
+The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. The supervisor manages the analyzer, its migrations, and dedicated PIG resources, and updates itself. You retain control over credentials and the infrastructure it is allowed to manage.
 
 ## Assemble the deployment
 
@@ -67,15 +61,15 @@ Set an analysis activation timestamp when you are ready to begin. Analysis norma
 | Cluster → release artifacts          | Access to the registries and release endpoints supplied with the installation materials.                            |
 | Supervisor → cloud management        | Token exchange and HTTPS to each provider's management APIs, when cloud operations are delegated.                   |
 
-Allow DNS and certificate validation through your network policy. Configure the ingress controller to accept trace uploads without changing their authorization headers or request body. Every ingress, load balancer, and proxy must accept at least 10 MiB for the collector's maximum encoded upload request. The proposed installation example sets this through `endpoint.ingressAnnotations`; adjust the controller-specific annotation when necessary. An interactive login proxy in front of the API must not intercept requests from enrolled hosts.
+Allow DNS and certificate validation through your network policy. Configure the ingress controller to accept trace uploads without changing their authorization headers or request body. Every ingress, load balancer, and proxy must accept at least 10 MiB for the collector's maximum encoded upload request. The installation example sets this through `endpoint.ingressAnnotations`; adjust the controller-specific annotation when necessary. An interactive login proxy in front of the API must not intercept requests from enrolled hosts.
 
 A private endpoint keeps inbound traffic off the public internet; it does not remove the analyzer's outbound dependencies. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary, including analysis input sent to the model provider.
 
 ## Assign ownership before enabling updates
 
-This ownership model applies only to the proposed supervisor path. A Helm-only deployment has no separate ownership boundary to configure.
+This ownership model applies only to the supervisor path. With manually managed Helm, your platform team owns release upgrades and infrastructure changes.
 
-The proposed supervisor follows every stable release by default, including releases that change application behavior, schemas, or dedicated PIG infrastructure. This is broader than patch-only updates. An update must still pass compatibility, permission, and data-preservation checks.
+The supervisor follows every stable release by default, including releases that change application behavior, schemas, or dedicated PIG infrastructure. This is broader than patch-only updates. An update must still pass compatibility, permission, and data-preservation checks.
 
 | Owner                  | Responsibilities                                                                                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -86,13 +80,13 @@ The proposed supervisor follows every stable release by default, including relea
 
 Use one owner for each resource. GitOps should reconcile the `PIGDeployment` specification and externally supplied configuration. The supervisor maintains its bootstrap resources, custom resource definition, generated analyzer resources, and migration Jobs within its installed permissions. Follow the [Flux bootstrap handoff](/docs/governance/deploy-the-worker/install-the-supervisor#hand-off-bootstrap-ownership): install the supervisor, suspend its bootstrap `HelmRelease` in Git, verify the suspension, and only then create the `PIGDeployment`. Keep that Helm release suspended while the supervisor manages releases.
 
-The proposed bootstrap uses customer-owned ConfigMap `pig-system/acme-infrastructure`. Its `inventory.yaml` maps `pig/acme` to exact dedicated cloud resource IDs, allowed operations and fields, and separate management identities. The chart references that inventory and the external `pig-supervisor` ServiceAccount. The supervisor cannot edit its own inventory or grants. See the [management boundary](/docs/governance/deploy-the-worker/install-the-supervisor#declare-the-management-boundary) and each cloud recipe for complete examples.
+The bootstrap uses customer-owned ConfigMap `pig-system/acme-infrastructure`. Its `inventory.yaml` maps `pig/acme` to exact dedicated cloud resource IDs, allowed operations and fields, and separate management identities. The chart references that inventory and the external `pig-supervisor` ServiceAccount. The supervisor cannot edit its own inventory or grants. See the [management boundary](/docs/governance/deploy-the-worker/install-the-supervisor#declare-the-management-boundary) and each cloud recipe for complete examples.
 
 The default empty inventory permits Kubernetes updates and schema migrations, with no cloud management grants. Cloud examples delegate a database sizing field and S3 configuration inspection. Azure and Google Cloud use a native management identity plus separate AWS management credentials for S3. These identities are distinct from the analyzer's database and object-access credentials.
 
-Initial cloud provisioning remains in your infrastructure workflow. Apply the supplied, reviewed permission policy to each management identity. Remove competing Terraform or GitOps reconciliation for fields delegated to the supervisor; keep ownership of all other fields. Creation, deletion, backup and retention changes, IAM grants, and shared resources are outside the proposed default authority.
+Initial cloud provisioning remains in your infrastructure workflow. Apply the supplied, reviewed permission policy to each management identity. Remove competing Terraform or GitOps reconciliation for fields delegated to the supervisor; keep ownership of all other fields. Creation, deletion, backup and retention changes, IAM grants, and shared resources are outside the default authority.
 
-If a release needs a permission you have not granted, it stops with a reason and required action. It must not grant itself broader authority or skip a required migration. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+If a release needs a permission you have not granted, it stops with a reason and required action. It cannot grant itself broader authority or skip a required migration. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
 ## Prepare recovery and capacity
 
@@ -100,7 +94,7 @@ Keep PostgreSQL backups and S3 retention aligned: restoring metadata without its
 
 Start the analyzer with one replica, matching the current chart. Reserve enough CPU and memory for analysis child processes and enough temporary storage for repository checkouts and trace workspaces. Measure ingestion volume, queue delay, database growth, and model usage before increasing capacity; no universal production sizing is assumed by these guides.
 
-On the proposed supervisor path, its contract retains the database and trace objects when a deployment is removed. Removing a Kubernetes resource is not a request to erase customer data. A Helm-only deployment today has no such contract, so your own backup and retention controls govern what persists. Either way, perform any later storage deletion through a separate, reviewed infrastructure change.
+Removing a supervisor-managed deployment retains its database and trace objects. Removing a Kubernetes resource is not a request to erase customer data. For a manually managed Helm deployment, your own backup and retention controls govern what persists. Either way, perform any later storage deletion through a separate, reviewed infrastructure change.
 
 ## Choose your cloud recipe
 
@@ -110,4 +104,4 @@ On the proposed supervisor path, its contract retains the database and trace obj
 
 Each recipe feeds into the same [supervisor installation](/docs/governance/deploy-the-worker/install-the-supervisor) and verifies a first trace through completed analysis.
 
-To deploy the currently available analyzer instead of the proposed supervisor path, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+For operator-managed releases, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
