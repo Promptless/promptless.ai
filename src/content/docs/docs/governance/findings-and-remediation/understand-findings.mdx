@@ -40,6 +40,8 @@ When a finding is read back for reconciliation, it also carries an `id`, a `vers
 
 A `digest_range` cites a range of the session digest the analyzer built for the run. It is a location within that digest, not the SHA-256 digest used to verify trace integrity elsewhere.
 
+A finding also carries an open or closed lifecycle, reflected in the dashboard and in the finding's linked GitHub issue. Its `status` field is `open` or `closed`. The `closed_at` timestamp records when the finding closed, and stays empty while the finding is open. Its `lifecycle_updated_at` timestamp records when that open or closed state last changed. A verified close or reopen also increments the finding's `version`.
+
 <Aside type="note">
   A finding has no `category` field and no `proposed_remediation` field. Severity, confidence, evidence, and the `instruction_failure` narrative are what a finding carries; remediation is a separate flow.
 </Aside>
@@ -48,4 +50,18 @@ A `digest_range` cites a range of the session digest the analyzer built for the 
 
 The worker never creates GitHub issues itself. It sends each finding as a mutation to the hosted Promptless Runtime. The Runtime projects the finding to a GitHub issue on the Runtime side, in your Instruction Hub repository. The issue carries managed labels for the finding, its severity, and its confidence. The projected issue reflects the finding's title, summary, impact, `instruction_failure`, and cited evidence.
 
-In the issue body, evidence stays expanded through three occurrences and collapses into a details block once a finding gathers four or more. The finding's `github_status` and `github_issue_url` track that projection, so you can tell whether an issue exists and open it. From there, high-confidence findings can move into remediation. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+In the issue body, evidence stays expanded through three occurrences and collapses into a details block once a finding gathers four or more. The finding's `github_status` and `github_issue_url` track that projection, so you can tell whether an issue exists and open it.
+
+**Lifecycle sync.** Once a finding has a linked GitHub issue, the finding and that issue always share the same open or closed state. Promptless keeps the two in sync in both directions.
+
+When you close or reopen a finding from the dashboard, Promptless updates the linked GitHub issue to match. It then re-reads the issue and records GitHub's verified state.
+
+The sync runs the other way too: when you close or reopen the finding's GitHub issue, Promptless updates the finding the same way. It re-reads the current issue rather than trusting the lifecycle fields in the webhook delivery.
+
+In the dashboard, each finding shows a status pill that reads **Open** or **Closed**. It also shows a control labeled **Close finding** while the finding is open, and **Reopen finding** once it is closed. Any member of your organization can close or reopen a finding. A closed finding stays visible in the dashboard, and you can reopen it there.
+
+Concurrent or conflicting close and reopen actions cannot leave a finding and its issue out of sync. The most recent verified state from GitHub wins, and older reads are rejected.
+
+GitHub webhooks are the immediate sync path. If a webhook delivery is missed, a background repair re-reads the issue's open/closed state from GitHub and resyncs the finding automatically. This repair only reads GitHub; it updates the finding and leaves the GitHub issue as it is.
+
+From there, high-confidence findings can move into remediation. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
