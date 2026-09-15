@@ -5,16 +5,17 @@ import ArchitectureNode from './ArchitectureNode.astro';
 type Point = [number, number];
 // Two segments leave room for each data object. Only the destination has an arrowhead.
 const flows: { description: string; before: Point[]; after: Point[] }[] = [
-  { description: 'Instruction Hub → Published plugins → AI agent.', before: [[190, 89], [216, 89]], after: [[309, 89], [351, 89]] },
-  { description: 'Host trace collector → Session traces → Trace analyzer.', before: [[465, 126], [465, 181]], after: [[465, 225], [465, 331]] },
-  { description: 'Trace analyzer → Proposed instruction changes → Instruction Hub.', before: [[340, 370], [105, 370], [105, 285]], after: [[105, 222], [105, 145]] },
-  { description: 'Trace analyzer → Analysis context → Model provider.', before: [[340, 427], [316, 427], [316, 461], [309, 461]], after: [[208, 461], [190, 461]] },
-  { description: 'Trace analyzer → Trace objects → Trace bucket.', before: [[590, 370], [621, 370]], after: [[741, 370], [782, 370]] },
-  { description: 'Trace analyzer → Analysis state → PostgreSQL.', before: [[590, 415], [610, 415], [610, 471], [621, 471]], after: [[741, 471], [782, 471]] },
-  { description: 'Trace analyzer → Findings, remediations, and analyzer status → Hosted Promptless.', before: [[465, 467], [465, 569]], after: [[465, 625], [465, 654]] },
+  { description: 'Instruction Hub → Published plugins → AI agent.', before: [[190, 107], [200, 107]], after: [[300, 107], [334, 107]] },
+  { description: 'AI agent → Prompts → Model provider shared with the trace analyzer.', before: [[620, 107], [640, 107]], after: [[730, 107], [750, 107]] },
+  { description: 'Host trace collector → Session traces → Trace analyzer.', before: [[465, 170], [465, 204]], after: [[465, 248], [465, 355]] },
+  { description: 'Trace analyzer → Detected instruction issues and proposed updates → Instruction Hub.', before: [[340, 407], [105, 407], [105, 312]], after: [[105, 226], [105, 163]] },
+  { description: 'Trace analyzer → Trace digest → Model provider shared with the AI agent.', before: [[570, 361], [570, 219], [630, 219]], after: [[760, 219], [845, 219], [845, 188]] },
+  { description: 'Trace analyzer → Trace objects → Trace bucket.', before: [[590, 397], [621, 397]], after: [[741, 397], [782, 397]] },
+  { description: 'Trace analyzer → Analysis state → PostgreSQL.', before: [[590, 477], [610, 477], [610, 511], [621, 511]], after: [[741, 511], [782, 511]] },
+  { description: 'Trace analyzer → Findings, remediations, and analyzer status → Hosted Promptless.', before: [[465, 539], [465, 635]], after: [[465, 697], [465, 730]] },
 ];
 const position = (x: number, y: number, width: number, height: number) =>
-  `left:${x / 940 * 100}%;top:${y / 782 * 100}%;width:${width / 940 * 100}%;height:${height / 782 * 100}%`;
+  `left:${x / 940 * 100}%;top:${y / 850 * 100}%;width:${width / 940 * 100}%;height:${height / 850 * 100}%`;
 const lines = flows.flatMap(flow => [flow.before, flow.after].flatMap(points =>
   points.slice(1).map(([x, y], i) => {
     const [previousX, previousY] = points[i];
@@ -25,7 +26,7 @@ const tips = flows.map(({ after }) => {
   const [previousX, previousY] = after[after.length - 2];
   const [x, y] = after[after.length - 1];
   const rotation = y === previousY ? (x > previousX ? 45 : 225) : (y > previousY ? 135 : -45);
-  return `left:${x / 940 * 100}%;top:${y / 782 * 100}%;transform:translate(-50%,-50%) rotate(${rotation}deg)`;
+  return `left:${x / 940 * 100}%;top:${y / 850 * 100}%;transform:translate(-50%,-50%) rotate(${rotation}deg)`;
 });
 ---
 
@@ -36,40 +37,41 @@ const tips = flows.map(({ after }) => {
       {lines.map(style => <i class="wire" style={style} aria-hidden="true" />)}
       {tips.map(style => <i class="tip" style={style} aria-hidden="true" />)}
 
-      <ArchitectureNode icon={FolderGit2} label="Instruction Hub" description="Git repository" variant="external" x={8} y={33} width={182} height={112} />
-      <ArchitectureNode icon={Package} label={'Published\nplugins'} kind="object" x={216} y={64} width={93} height={50} />
+      <ArchitectureNode icon={FolderGit2} label="Instruction Hub" description="Git repository" variant="external" x={8} y={51} width={182} height={112} />
+      <ArchitectureNode icon={Package} label={'Published\nplugins'} kind="object" x={200} y={81} width={100} height={52} />
 
-      <section class="boundary customer" style={position(330, 0, 270, 142)} aria-label="Host machine">
-        <h3>Host machine<span class="host-subtitle">(workstation, laptop, agent host)</span></h3>
-        <ArchitectureNode icon={Bot} label="AI agent" description="With the trace collector" variant="row" x={28} y={64} width={214} height={57} canvas={[270, 142]} />
+      <section class="boundary customer" style={position(310, 0, 310, 170)} aria-label="Host machine">
+        <h3>Host machine<span class="host-subtitle">workstation, laptop, agent host</span></h3>
+        <ArchitectureNode icon={Bot} label="AI agent" description="Trace collector hooks installed by Instruction Hub plugin" variant="row" x={30} y={65} width={250} height={88} canvas={[310, 170]} />
       </section>
 
-      <ArchitectureNode icon={Files} label="Session traces" kind="object" variant="major" x={382} y={181} width={166} height={44} />
-      <ArchitectureNode icon={GitPullRequest} label={'Proposed instruction\nchanges'} kind="object" variant="vertical" x={20} y={222} width={170} height={63} />
+      <ArchitectureNode icon={Files} label="Prompts" kind="object" x={640} y={81} width={90} height={52} />
+      <ArchitectureNode icon={Cloud} label="Model provider" description="Reuse the same model provider your agents use" variant="external" x={750} y={44} width={190} height={144} />
+      <ArchitectureNode icon={Files} label="Trace digest" kind="object" x={630} y={195} width={130} height={48} />
+      <ArchitectureNode icon={Files} label="Session traces" kind="object" variant="major" x={375} y={204} width={180} height={44} />
+      <ArchitectureNode icon={GitPullRequest} label={'Detected instruction\nissues & proposed\nupdates'} kind="object" variant="vertical" x={8} y={226} width={194} height={86} />
 
-      <section class="boundary customer" style={position(310, 256, 630, 280)} aria-label="Your cluster">
+      <section class="boundary customer" style={position(310, 280, 630, 320)} aria-label="Your cluster">
         <h3>Your cluster</h3>
-        <ArchitectureNode icon={ScanSearch} label="Trace analyzer" variant="primary" x={30} y={81} width={250} height={130} canvas={[630, 280]} />
-        <ArchitectureNode icon={Files} label={'Trace\nobjects'} kind="object" x={311} y={90} width={120} height={48} canvas={[630, 280]} />
-        <ArchitectureNode icon={Cylinder} label="Trace bucket" description="Object storage" variant="storage" x={475} y={62} width={140} height={103} canvas={[630, 280]} />
-        <ArchitectureNode icon={ListChecks} label={'Analysis\nstate'} kind="object" x={311} y={191} width={120} height={48} canvas={[630, 280]} />
-        <ArchitectureNode icon={Database} label="PostgreSQL" variant="storage" x={475} y={168} width={140} height={103} canvas={[630, 280]} />
+        <ArchitectureNode icon={ScanSearch} label="Trace analyzer" description="Looks for agent errors, mistakes, inefficiency, misconfiguration, etc." variant="primary" x={30} y={81} width={250} height={178} canvas={[630, 320]} />
+        <ArchitectureNode icon={Files} label={'Trace\nobjects'} kind="object" x={311} y={93} width={120} height={48} canvas={[630, 320]} />
+        <ArchitectureNode icon={Cylinder} label="Trace bucket" description="Object storage: S3, GCS, etc." variant="storage" x={475} y={56} width={140} height={123} canvas={[630, 320]} />
+        <ArchitectureNode icon={ListChecks} label={'Analysis\nstate'} kind="object" x={311} y={207} width={120} height={48} canvas={[630, 320]} />
+        <ArchitectureNode icon={Database} label="PostgreSQL" variant="storage" x={475} y={176} width={140} height={110} canvas={[630, 320]} />
       </section>
 
-      <ArchitectureNode icon={Files} label={'Analysis\ncontext'} kind="object" x={208} y={435} width={101} height={52} />
-      <ArchitectureNode icon={Cloud} label="Model provider" description="Your configured endpoint" variant="external" x={8} y={411} width={182} height={103} />
-      <ArchitectureNode icon={ListChecks} label={'Findings, remediations,\n& analyzer status'} kind="object" variant="major" x={340} y={569} width={250} height={56} />
+      <ArchitectureNode icon={ListChecks} label={'Findings, remediations,\n& analyzer status'} kind="object" variant="major" x={320} y={635} width={290} height={62} />
 
-      <section class="boundary promptless" style={position(330, 654, 270, 124)} aria-label="Promptless cluster">
+      <section class="boundary promptless" style={position(310, 730, 310, 120)} aria-label="Promptless cluster">
         <h3>Promptless cluster</h3>
-        <ArchitectureNode icon={PanelsTopLeft} label="Hosted Promptless" description="Review findings and remediations" variant="hosted row" x={23} y={46} width={224} height={61} canvas={[270, 124]} />
+        <ArchitectureNode icon={PanelsTopLeft} label="Hosted Promptless" description="Review findings and remediations" variant="hosted row" x={30} y={46} width={250} height={61} canvas={[310, 120]} />
       </section>
     </div>
   </div>
   <ol class="sr-only" aria-label="Data flow relationships">
     {flows.map(flow => <li>{flow.description}</li>)}
   </ol>
-  <figcaption>Raw traces are stored in your trace bucket. Findings sent to Promptless can include session details; analysis context is sent to your configured model provider.</figcaption>
+  <figcaption>Raw traces are stored in your trace bucket. Trace digests are sent to the model provider your agents use.</figcaption>
 </figure>
 
 <style>
@@ -103,7 +105,7 @@ const tips = flows.map(({ after }) => {
     position: relative;
     width: 100%;
     min-width: 860px;
-    aspect-ratio: 940 / 782;
+    aspect-ratio: 940 / 850;
     isolation: isolate;
   }
   .boundary {
