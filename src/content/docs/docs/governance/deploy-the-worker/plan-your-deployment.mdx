@@ -1,107 +1,63 @@
 ---
-title: Plan your trace analyzer deployment
-description: Choose the infrastructure, permissions, data boundaries, and operating model for PIG trace analysis in your Kubernetes cluster.
+title: Deploy trace analysis
+description: Choose an installation path and prepare the cluster, storage, identities, and network access for PIG trace analysis.
 slug: docs/governance/deploy-the-worker/plan-your-deployment
-type: guide
+type: landing
 tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-14T00:00:00Z"
-sidebar:
-  order: 1
+timestamp: "2026-09-15T00:00:00Z"
 ---
 
-The trace analyzer connects the instructions your team publishes with what happens when agents use them. It receives traces from enrolled hosts, stores them in your infrastructure, and investigates instruction problems using your configured model provider. Technical writers and developers can set up an Instruction Hub before you deploy trace analysis.
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-This guide helps your platform team prepare the environment. Use it to agree on ownership, access, and recovery before installing anything.
+Deploy the trace analyzer in your infrastructure to analyze agent sessions using your model provider. Session data lives in your PostgreSQL database and trace bucket. The Promptless Dashboard shows findings, remediations, analyzer status, and agent instruction health.
+
+Installation has two stages: prepare your cloud infrastructure, then bootstrap PIG with Helm. The analyzer and its update controller, the supervisor, follow stable releases automatically. You can pause updates or pin a release.
 
 ## Choose an installation path
 
-| Path                                                                                     | Update management                                                                   | Choose this when                                              |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [Automatic updates](/docs/governance/deploy-the-worker/install-the-supervisor) (default) | Install the supervisor once; it maintains the analyzer and follows stable releases. | You want routine updates with pause and version-pin controls. |
-| [Manually managed Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker)   | Your team installs and upgrades the worker chart, including database migrations.    | Your operations workflow manages each release.                |
+<CardGrid>
+  <LinkCard title="Kubernetes with Helm" description="Use an existing cluster, PostgreSQL database, and trace bucket." href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" />
 
-The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. The supervisor manages the analyzer, its migrations, and dedicated PIG resources, and updates itself. You retain control over credentials and the infrastructure it is allowed to manage.
+  <LinkCard title="AWS with Terraform" description="Prepare RDS, S3, and workload identity for an existing EKS cluster." href="/docs/governance/deploy-the-worker/deploy-on-aws" />
 
-## Assemble the deployment
+  <LinkCard title="Azure with Terraform" description="Prepare PostgreSQL, Blob Storage, and workload identity for an existing AKS cluster." href="/docs/governance/deploy-the-worker/deploy-on-azure" />
 
-Begin with an existing Kubernetes cluster. The examples use the organization **Acme**, namespace `pig`, and deployment `acme`.
+  <LinkCard title="Google Cloud with Terraform" description="Prepare Cloud SQL, Cloud Storage, and workload identity for an existing GKE cluster." href="/docs/governance/deploy-the-worker/deploy-on-gcp" />
+</CardGrid>
 
-| Dependency                 | Purpose                                                                       | Preparation                                                                                 |
-| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Kubernetes                 | Runs the supervisor, analyzer, and migration jobs.                            | Reserve a namespace and capacity; use your existing ingress controller.                     |
-| PostgreSQL                 | Stores host identity, trace metadata, ingestion progress, and analysis state. | Create a dedicated database and database owner; configure private connectivity and backups. |
-| AWS S3                     | Stores raw trace chunks, canonical trace objects, and analysis context.       | Create a private bucket and grant access to the selected prefix.                            |
-| Promptless organization    | Registers the deployment, authorizes hosts, and receives findings and status. | Obtain the runtime URL, deployment identity, and install token from Promptless.             |
-| Instruction Hub repository | Gives the analyzer the instructions to investigate.                           | Supply its canonical GitHub HTTPS URL, numeric repository ID, and `owner/name`.             |
-| Model endpoint             | Performs trace analysis.                                                      | Select a supported provider, model, and authentication method; confirm access and quota.    |
-| HTTPS endpoint             | Receives policy requests, host check-ins, and trace uploads.                  | Reserve a hostname and certificate reachable from enrolled devices.                         |
+The cloud guides create dedicated PIG infrastructure in your existing network. They finish with the same Helm installation. Use [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) if your team needs to apply every application upgrade itself.
 
-All three cloud recipes use S3. An AKS or GKE installation therefore has an AWS dependency for trace storage. If you require Azure Blob Storage or Google Cloud Storage, contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) before provisioning storage.
+## Before you begin
 
-### Select repository and model access
+| Requirement             | What to prepare                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Kubernetes              | An existing cluster, `kubectl`, Helm 3 or later, and permission to install the PIG custom resource definition and scoped RBAC.           |
+| PostgreSQL              | A dedicated database, schema-owner credentials, TLS, backups, and private connectivity from the analyzer and migration Jobs.             |
+| Trace bucket            | Private S3, Azure Blob Storage, or Google Cloud Storage with a dedicated prefix and a workload identity that can read and write objects. |
+| HTTPS endpoint          | A hostname, certificate, and ingress reachable from enrolled hosts. Every proxy must accept encoded uploads of at least 10 MiB.          |
+| Promptless registration | Your deployment ID, runtime URL, and installation token. Keep this identity stable across upgrades and recovery.                         |
+| Instruction Hub         | A GitHub repository with a readable `main` branch, its canonical URL and numeric ID, and read credentials if private.                    |
+| Model access            | A supported Responses API endpoint, model name, authorization, and enough quota for analysis.                                            |
 
-The current analyzer verifies a GitHub repository and analyzes its `main` branch. Obtain the immutable repository ID rather than deriving identity from its name. A public repository does not need a read token; a private repository needs a token that can verify and read it. GitLab publishing for the Instruction Hub does not currently imply GitLab support for the analyzer's repository binding.
+Select infrastructure regions to meet your data residency requirements. The model provider can be in a different cloud; choose it independently from your trace bucket. See [model providers](/docs/governance/deploy-the-worker/model-providers) for supported endpoints.
 
-The analyzer supports `openai`, `azure_openai`, and `aws_bedrock` model providers. OpenAI and Azure use API keys. Bedrock can use an API key or AWS Signature Version 4 with ambient AWS credentials. Select an endpoint and model that support the Responses API. The cloud running Kubernetes does not determine the model provider: for example, a GKE installation can use OpenAI. See the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for current settings.
+## Assign ownership
 
-Set an analysis activation timestamp when you are ready to begin. Analysis normally considers traces at or after this time. All analysis settings must be supplied together; storage and successful uploads alone do not enable analysis.
+| Owner                                            | Maintains                                                                                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Your platform team, using Terraform              | Cloud databases and their capacity, trace storage, networking, IAM, encryption keys, backup and retention policies.                 |
+| Your Kubernetes configuration and secret manager | Namespaces, analyzer workload identity, desired `PIGDeployment` configuration, secret delivery, and certificates.                   |
+| PIG                                              | Analyzer and supervisor application releases, generated workloads, and database schema migrations within the installed permissions. |
 
-## Establish network paths
+Keep the one-time Helm bootstrap outside Terraform's ongoing reconciliation. After bootstrap, PIG updates its own workloads. A second controller restoring the original chart would undo those updates. [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) explains the handoff.
 
-| Connection                           | Required path                                                                                                       |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| Enrolled devices → analyzer          | HTTPS on the deployment hostname. Private access is suitable when every device can reach it, such as through a VPN. |
-| Analyzer → PostgreSQL                | TCP 5432 over your private network, with database TLS.                                                              |
-| Analyzer → S3                        | HTTPS to the bucket's regional AWS endpoint.                                                                        |
-| Analyzer → Hosted Promptless         | HTTPS for policy, credential checks, findings, and status.                                                          |
-| Analyzer → GitHub and model provider | HTTPS for repository verification/download and analysis requests.                                                   |
-| Cluster → release artifacts          | Access to the registries and release endpoints supplied with the installation materials.                            |
-| Supervisor → cloud management        | Token exchange and HTTPS to each provider's management APIs, when cloud operations are delegated.                   |
+A release that needs more infrastructure capacity or access reports a blocked update. Your team reviews and applies the Terraform change; PIG resumes when its checks pass. PIG does not resize cloud databases or change IAM and backup policies.
 
-Allow DNS and certificate validation through your network policy. Configure the ingress controller to accept trace uploads without changing their authorization headers or request body. Every ingress, load balancer, and proxy must accept at least 10 MiB for the collector's maximum encoded upload request. The installation example sets this through `endpoint.ingressAnnotations`; adjust the controller-specific annotation when necessary. An interactive login proxy in front of the API must not intercept requests from enrolled hosts.
+## Plan for production
 
-A private endpoint keeps inbound traffic off the public internet; it does not remove the analyzer's outbound dependencies. See [Trust and data model](/docs/governance/start-here/trust-and-data-model) for what crosses each boundary, including analysis input sent to the model provider.
+Before expanding beyond a pilot, measure [compute and capacity](/docs/governance/deploy-the-worker/compute-and-sizing), configure coordinated [database](/docs/governance/deploy-the-worker/postgresql) and [object-storage](/docs/governance/deploy-the-worker/object-storage) recovery, and confirm [network access](/docs/governance/deploy-the-worker/networking-and-identity).
 
-## Assign ownership before enabling updates
-
-This ownership model applies only to the supervisor path. With manually managed Helm, your platform team owns release upgrades and infrastructure changes.
-
-The supervisor follows every stable release by default, including releases that change application behavior, schemas, or dedicated PIG infrastructure. This is broader than patch-only updates. An update must still pass compatibility, permission, and data-preservation checks.
-
-| Owner                  | Responsibilities                                                                                                                                                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Your platform team     | Shared cluster, VPC/VNet, ingress controller, DNS, secret delivery, resource budgets, database and object-storage backup policies.                                     |
-| Your GitOps repository | The supervisor bootstrap configuration, `PIGDeployment` specification, and references to externally managed secrets.                                                   |
-| Supervisor             | Generated analyzer resources, coordinated migrations, stable release selection, dedicated PIG resource changes within its declared scope, status, and its own updates. |
-| Instruction authors    | Hub content, published plugins, and review of proposed instruction improvements.                                                                                       |
-
-Use one owner for each resource. GitOps should reconcile the `PIGDeployment` specification and externally supplied configuration. The supervisor maintains its bootstrap resources, custom resource definition, generated analyzer resources, and migration Jobs within its installed permissions. Follow the [Flux bootstrap handoff](/docs/governance/deploy-the-worker/install-the-supervisor#hand-off-bootstrap-ownership): install the supervisor, suspend its bootstrap `HelmRelease` in Git, verify the suspension, and only then create the `PIGDeployment`. Keep that Helm release suspended while the supervisor manages releases.
-
-The bootstrap uses customer-owned ConfigMap `pig-system/acme-infrastructure`. Its `inventory.yaml` maps `pig/acme` to exact dedicated cloud resource IDs, allowed operations and fields, and separate management identities. The chart references that inventory and the external `pig-supervisor` ServiceAccount. The supervisor cannot edit its own inventory or grants. See the [management boundary](/docs/governance/deploy-the-worker/install-the-supervisor#declare-the-management-boundary) and each cloud recipe for complete examples.
-
-The default empty inventory permits Kubernetes updates and schema migrations, with no cloud management grants. Cloud examples delegate a database sizing field and S3 configuration inspection. Azure and Google Cloud use a native management identity plus separate AWS management credentials for S3. These identities are distinct from the analyzer's database and object-access credentials.
-
-Initial cloud provisioning remains in your infrastructure workflow. Apply the supplied, reviewed permission policy to each management identity. Remove competing Terraform or GitOps reconciliation for fields delegated to the supervisor; keep ownership of all other fields. Creation, deletion, backup and retention changes, IAM grants, and shared resources are outside the default authority.
-
-If a release needs a permission you have not granted, it stops with a reason and required action. It cannot grant itself broader authority or skip a required migration. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
-
-## Prepare recovery and capacity
-
-Keep PostgreSQL backups and S3 retention aligned: restoring metadata without its referenced objects can leave traces unreadable. Record the bucket, prefix, deployment identity, credentials, and database backup location in your recovery procedure. Enable storage deletion protection through your cloud's controls.
-
-Start the analyzer with one replica, matching the current chart. Reserve enough CPU and memory for analysis child processes and enough temporary storage for repository checkouts and trace workspaces. Measure ingestion volume, queue delay, database growth, and model usage before increasing capacity; no universal production sizing is assumed by these guides.
-
-Removing a supervisor-managed deployment retains its database and trace objects. Removing a Kubernetes resource is not a request to erase customer data. For a manually managed Helm deployment, your own backup and retention controls govern what persists. Either way, perform any later storage deletion through a separate, reviewed infrastructure change.
-
-## Choose your cloud recipe
-
-- [Deploy on AWS](/docs/governance/deploy-the-worker/deploy-on-aws): EKS, RDS PostgreSQL, S3, and an IAM role for the analyzer.
-- [Deploy on Azure](/docs/governance/deploy-the-worker/deploy-on-azure): AKS, Azure Database for PostgreSQL, and S3 with separate AWS authentication.
-- [Deploy on Google Cloud](/docs/governance/deploy-the-worker/deploy-on-gcp): GKE, Cloud SQL for PostgreSQL, and S3 with separate AWS authentication.
-
-Each recipe feeds into the same [supervisor installation](/docs/governance/deploy-the-worker/install-the-supervisor) and verifies a first trace through completed analysis.
-
-For operator-managed releases, use [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+Finish installation by [verifying a complete session](/docs/governance/deploy-the-worker/verify-your-deployment). A ready pod or successful health check alone does not verify trace analysis.

@@ -1,108 +1,103 @@
 ---
-title: Configuration reference
-description: Configure the current trace analyzer's deployment, storage, model, repository, and secrets, and map Helm values to worker settings.
+title: Deployment configuration
+description: Reference the PIGDeployment fields for automatic updates, storage, repository access, models, and Secret references.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
   - agent-instructions
   - governance
-  - reference
-timestamp: "2026-09-14T00:00:00Z"
-sidebar:
-  hidden: false
-  order: 8
+  - deployment
+timestamp: "2026-09-15T00:00:00Z"
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+This reference covers the `PIGDeployment` resource used by the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) covers worker chart `0.2.0`; its values are a separate interface.
 
-This page describes the current worker chart, version `0.2.0`. Helm values become environment variables in the worker. Start with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) for a complete values file.
+## Resource identity
 
-<Aside type="note" title="Configuration scope">
-  This reference covers the worker Helm chart. The [supervisor configuration](/docs/governance/deploy-the-worker/install-the-supervisor) uses `PIGDeployment` fields, which are not worker chart values.
-</Aside>
+```yaml
+apiVersion: governance.promptless.ai/v1alpha1
+kind: PIGDeployment
+metadata:
+  name: acme
+  namespace: pig
+```
 
-## Deployment and storage
+Keep the resource name, namespace, and registered deployment ID stable. The example generates analyzer Deployment and Service `acme-analyzer`. Secret and ConfigMap references resolve in the deployment's namespace.
 
-Unless noted, Helm keys in this table are under `instructionHub`. Environment-variable suffixes have the prefix `INSTRUCTION_HUB_`.
+The bootstrap chart's `watchNamespace` selects the analyzer namespace. Install one supervisor for that scope and keep its bootstrap values with your recovery records.
 
-| Helm key               | Environment-variable suffix | Meaning                                                                                        |
-| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `runtimeBaseUrl`       | `RUNTIME_BASE_URL`          | Hosted Promptless endpoint supplied during registration.                                       |
-| `deploymentName`       | `DEPLOYMENT_NAME`           | Human-readable deployment name; use `acme-production` in the Acme example.                     |
-| `deploymentInstanceId` | `DEPLOYMENT_INSTANCE_ID`    | Stable registered deployment identifier from Promptless.                                       |
-| `configHash`           | `CONFIG_HASH`               | Registered configuration hash from Promptless. Coordinate configuration changes with the team. |
-| `storageBackend`       | `STORAGE_BACKEND`           | Use `postgres_s3` for durable deployments. The `memory` backend is for testing.                |
-| `traceObjectS3Bucket`  | `TRACE_OBJECT_S3_BUCKET`    | Customer-owned AWS S3 bucket for raw ranges and canonical trace objects. Required.             |
-| `traceObjectS3Prefix`  | `TRACE_OBJECT_S3_PREFIX`    | Object prefix; defaults to `trace-objects`. Acme uses `acme/traces`.                           |
-| `maxTraceBatchBytes`   | `MAX_TRACE_BATCH_BYTES`     | Maximum decoded trace-batch size, in bytes. Default `268435456` (256 MiB); must be positive.   |
-| `logLevel`             | `LOG_LEVEL`                 | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default `INFO`.                            |
+## Release policy
 
-The install token and PostgreSQL DSN are also required. They come from Secret references, described below. Keep the database, bucket, and prefix stable across restarts and upgrades. Changing a storage location does not migrate existing data.
+Fields are under `spec.release`:
 
-The service listens on port 8080 by default. Use that value for `service.workerPort` and ingress routing in the current chart. The analysis repository mirror uses an ephemeral `emptyDir`; it can be rebuilt after a restart and does not require a persistent volume. Trace data and analysis state live in S3 and PostgreSQL.
+| Field           | Meaning                                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `channel`       | `stable` follows every stable release, including major releases and schema migrations.                             |
+| `paused`        | `false` permits release transitions. `true` stops new transitions while preserving service and credential refresh. |
+| `pinnedVersion` | Empty follows the channel; an exact supported release pins the target. A pause takes precedence.                   |
 
-The chart uses the AWS SDK's normal credential discovery. It has no generic environment-variable passthrough or explicit AWS credential-Secret setting. EKS workload identity can supply credentials through the service account. For other arrangements, coordinate credential injection with your platform team. Azure Blob Storage and Google Cloud Storage are not current storage backends; contact [Promptless](mailto\:help@gopromptless.ai) if you need them.
+The policy coordinates the analyzer and supervisor together. A pin does not bypass compatibility or migration checks. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
-## Analysis activation and repository
+## Identity and endpoint
 
-All Helm keys below are under `instructionHub.analysis`. The environment-variable suffixes have the prefix `INSTRUCTION_HUB_ANALYSIS_`.
+Fields are under `spec`:
 
-| Helm key                        | Environment-variable suffix           | Meaning                                                                                                          |
-| ------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `activationAt`                  | `ACTIVATION_AT`                       | Timezone-aware ISO timestamp for enabling analysis. Empty disables analysis in the chart.                        |
-| `quietWindowHours`              | `QUIET_WINDOW_HOURS`                  | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
-| `repository.url`                | `REPOSITORY_URL`                      | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`.          |
-| `repository.id`                 | `REPOSITORY_ID`                       | Positive numeric GitHub repository ID.                                                                           |
-| `repository.fullName`           | `REPOSITORY_FULL_NAME`                | Matching owner and repository, such as `acme/acme-instruction-hub`.                                              |
-| `repository.tokenSecretEnabled` | Controls `REPOSITORY_TOKEN` injection | Set `true` for a private repository and supply the token Secret key.                                             |
-| `repository.mirrorRoot`         | `MIRROR_ROOT`                         | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
+| Field                          | Meaning                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.          |
+| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in. |
+| `hosted.runtimeURL`            | Runtime URL from your Promptless deployment registration.                                           |
+| `hosted.deploymentID`          | Stable registered deployment identifier.                                                            |
+| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                            |
+| `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                    |
+| `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                               |
+| `endpoint.tlsSecretName`       | TLS Secret covering the hostname.                                                                   |
+| `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.        |
 
-When `activationAt` is nonempty, configure the complete repository identity and all model fields below. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
+The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token is separate from individual host credentials.
 
-The repository URL and `fullName` must describe the same GitHub repository. The current analyzer validates `github.com` URLs; GitLab publishing support in the hub toolchain does not imply GitLab analyzer or remediation support. See [Supported agents and platforms](/docs/governance/reference/supported-agents) for the separate compatibility boundaries.
+## Storage
 
-## Model provider
+Fields are under `spec.storage`. Configure `postgres` and **exactly one** of `s3`, `azureBlob`, or `gcs`.
 
-These Helm keys are under `instructionHub.analysis.modelApi`:
+| Field                                                             | Meaning                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `postgres.dsnSecretRef`                                           | Secret `name` and `key` containing the database connection string with TLS settings.              |
+| `postgres.caConfigMapRef`                                         | Optional ConfigMap `name` and `key` for a CA bundle mounted at `/etc/pig/postgres-ca/ca.pem`.     |
+| `s3.region`, `s3.bucket`, `s3.prefix`                             | AWS region, bucket, and dedicated trace prefix. Uses the analyzer's AWS workload identity.        |
+| `azureBlob.accountURL`, `azureBlob.container`, `azureBlob.prefix` | HTTPS storage account URL, private container, and trace prefix. Uses Microsoft Entra Workload ID. |
+| `gcs.bucket`, `gcs.prefix`                                        | Google Cloud Storage bucket and trace prefix. Uses Workload Identity Federation for GKE.          |
 
-| Helm key         | Worker environment variable                     | Meaning                                                                                          |
-| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `provider`       | `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | `openai`, `azure_openai`, or `aws_bedrock`.                                                      |
-| `authentication` | `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | `api_key`, or `aws_sigv4` for Bedrock only.                                                      |
-| `baseUrl`        | `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | Supported HTTPS Responses API endpoint.                                                          |
-| `model`          | `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | Model or deployment name available through that endpoint. Select it explicitly for your account. |
+Storage configuration grants no cloud management authority. Changing a location does not move existing data. Plan that transition using the [object-storage guidance](/docs/governance/deploy-the-worker/object-storage).
 
-| Provider       | Accepted endpoint shape                                                                             | Authentication        |
-| -------------- | --------------------------------------------------------------------------------------------------- | --------------------- |
-| `openai`       | `https://api.openai.com/v1`                                                                         | API key.              |
-| `azure_openai` | `https://RESOURCE.openai.azure.com/openai/v1` or `https://RESOURCE.services.ai.azure.com/openai/v1` | API key.              |
-| `aws_bedrock`  | `https://bedrock-mantle.REGION.api.aws/v1` or the same host with `/openai/v1`                       | API key or AWS SigV4. |
+## Analysis and repository
 
-Replace `RESOURCE` and `REGION`. URLs must not contain embedded credentials, an explicit port, query parameters, or a fragment. Ordinary Bedrock Runtime URLs and arbitrary OpenAI-compatible endpoints do not pass the current provider validation. GKE deployments can use one of the supported providers; there is no Vertex AI provider option.
+Fields are under `spec.analysis`:
 
-For `api_key`, supply `analysis-model-api-key` in the worker Secret. For `aws_sigv4`, select `aws_bedrock`, omit the model API key, and grant the worker's AWS identity access to the selected model. S3 and model authorization are separate permissions even when they use one identity.
+| Field                       | Meaning                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `activationAt`              | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.                  |
+| `quietWindowHours`          | Positive interval after session activity before analysis; the example uses `0.5` hours.                 |
+| `repository.url`            | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`. |
+| `repository.id`             | Positive numeric GitHub repository ID.                                                                  |
+| `repository.fullName`       | Matching owner and repository, such as `acme/acme-instruction-hub`.                                     |
+| `repository.tokenSecretRef` | Secret `name` and `key` for private-repository read access; omit for a public hub.                      |
+| `model.provider`            | `openai`, `azure_openai`, or `aws_bedrock`.                                                             |
+| `model.authentication`      | `api_key`, or `aws_sigv4` for Bedrock.                                                                  |
+| `model.baseURL`             | A supported HTTPS Responses API endpoint.                                                               |
+| `model.name`                | The model or deployment name available in your provider account.                                        |
+| `model.apiKeySecretRef`     | Secret `name` and `key`; omit for Signature Version 4.                                                  |
 
-The analyzer sends session content and relevant instruction context to this provider. Choose its region and data-handling terms accordingly; see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+A nonempty activation time requires complete repository and model settings. The repository must have a readable `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
 
-## Secret references
+Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. Promptless's connected repository integration separately authorizes finding and remediation workflows; a successful analyzer clone does not verify that integration.
 
-Use `secrets.existingSecretName` to reference a Secret in the worker namespace. The chart defaults to these keys:
+## Validate a change
 
-| Helm mapping                         | Default Secret key          | Worker environment variable                 |
-| ------------------------------------ | --------------------------- | ------------------------------------------- |
-| `secrets.installTokenKey`            | `install-token`             | `INSTRUCTION_HUB_INSTALL_TOKEN`             |
-| `secrets.customerPostgresDsnKey`     | `customer-postgres-dsn`     | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`     |
-| `secrets.analysisModelApiKeyKey`     | `analysis-model-api-key`    | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`    |
-| `secrets.analysisRepositoryTokenKey` | `analysis-repository-token` | `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` |
+Review configuration through its owner, such as your GitOps repository. Validate the manifest against the installed release's custom resource definition:
 
-The model key is referenced only when analysis is enabled with `api_key`. The repository key is referenced when analysis is enabled with `repository.tokenSecretEnabled: true`.
+```bash
+kubectl apply --dry-run=server -f pig-deployment.yaml
+```
 
-The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
-
-Sentry uses a separate Secret reference. See [Observability](/docs/governance/deploy-the-worker/observability) for the exact values.
-
-## Validate a configuration change
-
-Render the chart with your values and review the generated references and endpoints. Apply through the deployment's single owner: Helm, GitOps, or the supervisor. Do not let two controllers manage the same worker resources.
-
-After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#verify-a-complete-session). Configuration validation and a healthy pod do not prove that credentials can access the database, bucket, repository, or model.
+Apply the change and inspect `kubectl describe pigdeployment acme --namespace pig`. Repeat [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment) after changes to storage, identities, model access, or endpoints. Schema validation alone cannot prove those dependencies are reachable.

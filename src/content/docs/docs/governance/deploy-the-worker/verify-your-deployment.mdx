@@ -1,0 +1,115 @@
+---
+title: Verify your deployment
+description: Confirm host enrollment, durable trace objects, successful analysis, and visible dashboard status for one real session.
+slug: docs/governance/deploy-the-worker/verify-your-deployment
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+timestamp: "2026-09-15T00:00:00Z"
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+Verify one session from collection through completed analysis before expanding your rollout. Keep its session ID and deployment ID so you can correlate every check. An analysis with zero findings is a successful result.
+
+## 1. Check the deployment and endpoint
+
+For the automatic installation:
+
+```bash
+kubectl describe pigdeployment acme --namespace pig
+kubectl logs deployment/acme-analyzer --namespace pig --tail=100
+curl --fail https://traces.acme.example/healthz
+```
+
+Run the HTTPS check from the network your enrolled hosts use. Confirm the certificate, hostname, and routing. `Ready=True` means deployment checks passed; it does not prove a host can upload and complete analysis.
+
+For the manual worker chart, use `deployment/instruction-hub-worker` in log commands and `helm status instruction-hub-worker --namespace pig` for release status.
+
+## 2. Enroll a host and create a session
+
+<Steps>
+  1. Follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device. Confirm its endpoint and deployment identity match this installation.
+  2. Start a new agent session after the configured analysis activation time. Use an installed Instruction Hub skill and complete the session normally.
+  3. Confirm the host checks in and its collector uploads the session. Record the agent source and exact session ID.
+</Steps>
+
+Use `claude`, `codex`, or `claude-desktop` as the source in the queries below. Replace `REPLACE_SESSION_ID` with the recorded ID.
+
+## 3. Verify durable storage
+
+Connect to the dedicated PIG database with a read-only session. Query only the pilot session:
+
+```sql
+BEGIN READ ONLY;
+SELECT id, source, session_id, trace_object_status,
+       last_ingested_at, trace_object_last_error
+FROM agent_traces
+WHERE source = 'codex' AND session_id = 'REPLACE_SESSION_ID';
+COMMIT;
+```
+
+Confirm `trace_object_status = 'written'` and an ingestion timestamp matching your pilot. To inspect the persisted storage fields for that session:
+
+```sql
+BEGIN READ ONLY;
+SELECT t.id, field.key, field.value
+FROM agent_traces AS t
+CROSS JOIN LATERAL jsonb_each(to_jsonb(t)) AS field
+WHERE t.source = 'codex' AND t.session_id = 'REPLACE_SESSION_ID'
+  AND field.key LIKE 'trace_object_%'
+  AND field.value <> 'null'::jsonb;
+COMMIT;
+```
+
+Use the recorded canonical object location to inspect that exact object with your cloud's storage tools. Do not infer its name from the session ID or select a nearby object by timestamp. Inspect the raw-object references too if upload reconstruction is under investigation.
+
+<Tabs>
+  <TabItem label="S3">
+    Confirm the recorded bucket and key with your normal S3 inspection tools. Worker chart `0.2.0` records the canonical location in `agent_traces.trace_object_s3_uri`.
+  </TabItem>
+
+  <TabItem label="Azure Blob Storage">
+    Confirm the recorded account, container, and blob name in Azure Storage Explorer or your approved Blob inspection tool.
+  </TabItem>
+
+  <TabItem label="Google Cloud Storage">
+    Confirm the recorded bucket and object name in Cloud Storage or your approved storage inspection tool.
+  </TabItem>
+</Tabs>
+
+The object must be readable through the analyzer's configured identity. An administrator's successful read alone does not verify the workload's access. Do not copy session content into tickets or installation logs.
+
+## 4. Confirm completed analysis
+
+Allow the configured quiet window to pass after session activity stops. In analyzer logs, find `Trace analysis run succeeded` for the pilot's `trace_record_id`. Keep its `analysis_run_id` and `repository_sha`.
+
+You can also check the database:
+
+```sql
+BEGIN READ ONLY;
+SELECT r.id, r.status, r.error_category, r.repository_sha,
+       r.successful_finding_write_count, r.completed_at
+FROM agent_analysis_runs AS r
+JOIN agent_traces AS t ON t.id = r.agent_trace_id
+WHERE t.source = 'codex' AND t.session_id = 'REPLACE_SESSION_ID'
+ORDER BY r.queued_at DESC
+LIMIT 5;
+COMMIT;
+```
+
+At least one run for the pilot's completed session must have `status = 'succeeded'`. Zero in `successful_finding_write_count` is valid. A queued or failed run has not passed this check.
+
+## 5. Check the Promptless Dashboard
+
+Confirm the deployment and pilot session appear with current analyzer status. If the run produced findings, open their evidence and check the host and installed instruction attribution. Confirm the connected hub's issue workflow receives the finding where configured.
+
+A local success with stale dashboard status indicates a synchronization problem. Follow [observability and troubleshooting](/docs/governance/deploy-the-worker/observability) from the first failing stage.
+
+## Record acceptance
+
+Keep the deployment ID, release, agent source, session ID, trace record ID, analysis run ID, and verification time in your deployment runbook. Record the outcome of all four checks: enrollment, readable durable storage, succeeded analysis, and dashboard visibility.
+
+Repeat these checks after a storage migration, recovery, or material identity change.

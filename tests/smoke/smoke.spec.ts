@@ -351,7 +351,7 @@ test('each documentation product gets only its own active topic and product meta
     'get-started/set-up-your-instruction-hub',
     'get-started/migrate-existing-instructions',
     'deploy-the-worker/plan-your-deployment',
-    'deploy-the-worker/install-the-supervisor',
+    'deploy-the-worker/deploy-the-analyzer-worker',
     'deploy-the-worker/manage-updates-and-recovery',
   ]) {
     assert.ok(governanceHtml.includes(`href="/docs/governance/${journey}"`));

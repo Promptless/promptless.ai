@@ -277,25 +277,49 @@ export default defineConfig({
                 {
                   label: 'Deploy trace analysis',
                   collapsed: true,
-                  // Enumerated (not a blanket autogenerate) so the three cloud
-                  // recipes nest under one label instead of sitting flat
-                  // alongside planning, Helm, updates, observability, and config.
+                  // Group deployment tasks separately from infrastructure and operations.
                   items: [
-                    { label: 'Plan your deployment', slug: 'docs/governance/deploy-the-worker/plan-your-deployment' },
-                    { label: 'Install with Helm', slug: 'docs/governance/deploy-the-worker/deploy-the-analyzer-worker' },
+                    { label: 'Overview', slug: 'docs/governance/deploy-the-worker/plan-your-deployment' },
                     {
-                      label: 'Cloud recipes',
+                      label: 'Install',
                       collapsed: true,
                       items: [
-                        { label: 'Deploy on AWS', slug: 'docs/governance/deploy-the-worker/deploy-on-aws' },
-                        { label: 'Deploy on Azure', slug: 'docs/governance/deploy-the-worker/deploy-on-azure' },
-                        { label: 'Deploy on Google Cloud', slug: 'docs/governance/deploy-the-worker/deploy-on-gcp' },
+                        { label: 'Kubernetes with Helm', slug: 'docs/governance/deploy-the-worker/deploy-the-analyzer-worker' },
+                        { label: 'AWS with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-aws' },
+                        { label: 'Azure with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-azure' },
+                        { label: 'Google Cloud with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-gcp' },
                       ],
                     },
-                    { label: 'Install the supervisor', slug: 'docs/governance/deploy-the-worker/install-the-supervisor' },
-                    { label: 'Manage updates and recovery', slug: 'docs/governance/deploy-the-worker/manage-updates-and-recovery' },
-                    { label: 'Observability', slug: 'docs/governance/deploy-the-worker/observability' },
-                    { label: 'Configuration reference', slug: 'docs/governance/deploy-the-worker/configuration-reference' },
+                    {
+                      label: 'Infrastructure',
+                      collapsed: true,
+                      items: [
+                        { label: 'Compute and sizing', slug: 'docs/governance/deploy-the-worker/compute-and-sizing' },
+                        { label: 'PostgreSQL', slug: 'docs/governance/deploy-the-worker/postgresql' },
+                        { label: 'Object storage', slug: 'docs/governance/deploy-the-worker/object-storage' },
+                        { label: 'Networking and identity', slug: 'docs/governance/deploy-the-worker/networking-and-identity' },
+                        { label: 'Model providers', slug: 'docs/governance/deploy-the-worker/model-providers' },
+                      ],
+                    },
+                    {
+                      label: 'Operate',
+                      collapsed: true,
+                      items: [
+                        { label: 'Verify your deployment', slug: 'docs/governance/deploy-the-worker/verify-your-deployment' },
+                        { label: 'Updates and recovery', slug: 'docs/governance/deploy-the-worker/manage-updates-and-recovery' },
+                        { label: 'Observability', slug: 'docs/governance/deploy-the-worker/observability' },
+                        { label: 'GitOps ownership', slug: 'docs/governance/deploy-the-worker/gitops-ownership' },
+                      ],
+                    },
+                    {
+                      label: 'Reference',
+                      collapsed: true,
+                      items: [
+                        { label: 'Deployment configuration', slug: 'docs/governance/deploy-the-worker/configuration-reference' },
+                        { label: 'Manual Helm installation', slug: 'docs/governance/deploy-the-worker/manual-helm' },
+                        { label: 'Manual Helm reference', slug: 'docs/governance/deploy-the-worker/manual-helm-reference' },
+                      ],
+                    },
                   ],
                 },
                 { label: 'Operate PIG', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/findings-and-remediation', collapsed: true } }] },

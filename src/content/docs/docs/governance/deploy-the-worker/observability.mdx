@@ -7,82 +7,48 @@ tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-09-14T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 9
 ---
 
-import { Aside } from '@astrojs/starlight/components';
-
-Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis completes, and findings synchronize to Hosted Promptless. A healthy pod covers only part of that flow.
+Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis completes, and findings and status synchronize to the Promptless Dashboard. A healthy pod covers only part of that flow.
 
 The analyzer emits structured logs by default. Datadog tracing and Sentry error reporting are optional. The [supervisor](/docs/governance/deploy-the-worker/manage-updates-and-recovery) reports release and migration status for deployments with automatic updates.
 
 ## Checks to keep visible
 
-| Stage                  | Evidence of progress                                                                         | Investigate when                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Host collection        | Recent successful collector status and host check-in.                                        | An active pilot host stops checking in or uploading.                                         |
-| Durable storage        | Recent `agent_traces.last_ingested_at`, a completed canonical object, and a readable S3 URI. | Storage errors appear, objects remain pending, or active hosts stop producing stored traces. |
-| Analysis               | `Trace analysis run succeeded`, correlated by `trace_record_id` and `analysis_run_id`.       | Failures repeat or eligible quiet sessions do not complete.                                  |
-| Hosted synchronization | Deployment status and newly projected trace metadata or findings reach Promptless.           | Local work completes but hosted state remains stale.                                         |
-| Remediation            | An outcome explaining a pull request, external owner, or missing evidence.                   | A finding has no visible progress after prerequisites are met.                               |
+| Stage                  | Evidence of progress                                                                                                  | Investigate when                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Host collection        | Recent successful collector status and host check-in.                                                                 | An active pilot host stops checking in or uploading.                                         |
+| Durable storage        | Recent `agent_traces.last_ingested_at`, a completed canonical object, and a readable object at the recorded location. | Storage errors appear, objects remain pending, or active hosts stop producing stored traces. |
+| Analysis               | `Trace analysis run succeeded`, correlated by `trace_record_id` and `analysis_run_id`.                                | Failures repeat or eligible quiet sessions do not complete.                                  |
+| Hosted synchronization | Deployment status and newly projected trace metadata or findings reach Promptless.                                    | Local work completes but hosted state remains stale.                                         |
+| Remediation            | An outcome explaining a pull request, external owner, or missing evidence.                                            | A finding has no visible progress after prerequisites are met.                               |
 
-Set thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#verify-a-complete-session) before alerting.
+Set thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
 
 ## Read structured logs
 
-For the release name used in the Helm guide:
+For the deployment name used in the default Helm guide:
 
 ```bash
-kubectl --namespace pig logs deployment/instruction-hub-worker --since=1h
+kubectl --namespace pig logs deployment/acme-analyzer --since=1h
 kubectl --namespace pig get pods
 ```
 
 The worker writes structured JSON logs to container stdout. Analysis-process logs join the service's log stream. Your platform's log collector must forward those logs if you want retention or centralized search; stdout alone does not send them to Datadog.
 
-Correlate analysis messages with `analysis_run_id`, `trace_record_id`, `analyzer_version`, and `repository_sha`. Successful runs include `successful_finding_write_count`; failed runs include `failure_category`. Keep these identifiers when contacting support, along with the worker/chart version and time window.
+Correlate analysis messages with `analysis_run_id`, `trace_record_id`, `analyzer_version`, and `repository_sha`. Successful runs include `successful_finding_write_count`; failed runs include `failure_category`. Keep these identifiers when contacting support, along with the PIG release and time window.
 
 If a pod is restarting, inspect its previous logs with `kubectl -n pig logs POD_NAME --previous`. Avoid dumping Secret contents or full session transcripts into a support ticket.
 
-## Enable Datadog
+## Optional telemetry integrations
 
-If your cluster already runs a Datadog Agent that accepts APM traffic, add these current Helm values:
+Forward structured stdout logs with your existing cluster log collector. Apply your organization's access and retention controls to operational context and any session data collected by optional telemetry.
 
-```yaml title="observability-values.yaml"
-observability:
-  environment: production
-  datadog:
-    enabled: true
-    env: production
-    service: acme-pig-worker
-    agentUrl: http://datadog-agent.datadog:8126
-    site: datadoghq.com
-```
-
-Replace the Agent URL and site for your installation. The chart sets `DD_TRACE_ENABLED`, `DD_ENV`, `DD_SERVICE`, `DD_VERSION`, `DD_TRACE_AGENT_URL`, and `DD_SITE`, and adds a log-discovery annotation. Configure the Agent's container-log collection and network access separately.
-
-The chart exposes the listed settings; it does not pass arbitrary `DD_*` environment variables from values. Analysis tracing can include LLM observability data. Review your telemetry collection and retention settings before enabling it for sensitive sessions.
-
-## Enable Sentry
-
-Create a Secret named `acme-pig-sentry` with a `SENTRY_DSN` key using your secret-management system, then add:
-
-```yaml title="sentry-values.yaml"
-observability:
-  environment: production
-  sentry:
-    enabled: true
-    existingSecretName: acme-pig-sentry
-    dsnKey: SENTRY_DSN
-```
-
-The chart supplies `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` to the worker and migration Job. Error reporting is enabled by the DSN; Sentry performance tracing is disabled in the worker's current setup.
-
-<Aside type="note">
-  Opting into external telemetry adds another data destination. Logs and error reports can contain operational context. Apply your organization's access and retention controls, and review the [data boundaries](/docs/governance/start-here/trust-and-data-model).
-</Aside>
+For the operator-managed worker chart, the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#enable-datadog) covers Datadog and Sentry settings. Those chart values are not `PIGDeployment` fields.
 
 ## Diagnose by the first failing stage
 
@@ -92,11 +58,11 @@ Check the host credential, hosted deployment registration, hostname, TLS certifi
 
 ### Host checks in, but storage does not complete
 
-Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and S3 authorization, region, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
+Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and object-storage authorization, location, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
 
 ### Storage succeeds, but analysis fails
 
-Confirm that analysis is enabled, the session is eligible after its quiet window, and the repository and model settings are complete. Use the run's failure category to narrow the investigation. Test repository read access and model authorization independently; neither follows from successful S3 access.
+Confirm that analysis is enabled, the session is eligible after its quiet window, and the repository and model settings are complete. Use the run's failure category to narrow the investigation. Test repository read access and model authorization independently; neither follows from successful object-storage access.
 
 The worker retries transient failures during an analysis run. If the run reaches `failed`, fix the dependency and contact Promptless for supported re-analysis. Preserve its run ID and stored traces. An unchanged failed session revision does not automatically retry after recovery. Avoid ad hoc backfill Jobs or edits to analysis rows.
 
@@ -104,23 +70,24 @@ The worker retries transient failures during an analysis run. If the run reaches
 
 Check outbound access to Hosted Promptless and the registered install token, deployment ID, and configuration hash. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
 
-### An upgrade fails
+### An upgrade is blocked or fails
 
-Inspect the migration Job before retrying:
+Inspect the current and target releases, conditions, and supervisor logs:
 
 ```bash
-kubectl --namespace pig get jobs
-kubectl --namespace pig logs job/instruction-hub-worker-migrate
-helm --namespace pig status instruction-hub-worker
-helm --namespace pig history instruction-hub-worker
+kubectl describe pigdeployment acme --namespace pig
+kubectl logs deployment/pig-supervisor --namespace pig-system --since=1h
+kubectl get jobs --namespace pig
 ```
 
-The chart removes successful migration Jobs and replaces an earlier hook Job on the next attempt. Preserve failed Job logs before retrying. Confirm PostgreSQL schema state and application compatibility before choosing a rollback.
+Preserve the failed migration Job's logs before retrying. Resolve the reported dependency through its owner: Terraform for cloud resources, your secret manager for credentials, and PIG for application releases. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before choosing a rollback.
+
+For the manual worker chart, inspect `job/instruction-hub-worker-migrate` and `helm history instruction-hub-worker --namespace pig`. The chart removes successful hook Jobs and replaces the earlier hook on the next attempt.
 
 ## Preserve data during recovery
 
-Keep PostgreSQL backups and S3 retention/versioning under your organization's recovery policy. Rehearse restoring them as a consistent set: restoring only the database or only objects can leave records and content out of sync.
+Keep PostgreSQL backups and object-storage retention and version recovery under your organization's recovery policy. Rehearse restoring them as a consistent set: restoring only the database or only objects can leave records and content out of sync.
 
-Restarting the worker can rebuild its disposable repository mirror. It should retain the same registered deployment identity, PostgreSQL database, and S3 prefix. Do not clear host collection state, delete traces, or reset database tables to force a retry.
+Restarting the worker can rebuild its disposable repository mirror. It should retain the same registered deployment identity, PostgreSQL database, and trace prefix. Do not clear host collection state, delete traces, or reset database tables to force a retry.
 
 For Helm-managed releases, coordinate restoration and any compatible application rollback with Promptless. For the supervisor's pause, blocked-upgrade, and recovery behavior, see [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
