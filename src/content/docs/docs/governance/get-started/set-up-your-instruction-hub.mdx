@@ -7,7 +7,7 @@ tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-09-14T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
@@ -17,7 +17,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 An Instruction Hub is a Git repository containing your team's shared instructions and the plugins that distribute them. Authors edit ordinary Markdown and configuration files, review changes in pull requests, and publish a version that colleagues can install in their agents.
 
-This guide creates an Acme hub with a documentation review skill and a development review skill. You can use the hub without deploying trace analysis. If you already have instructions to consolidate, create the scaffold here, then follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
+This guide creates an Acme hub with a documentation review skill and a bug investigation skill. You can use the hub without deploying trace analysis. If you already have instructions to consolidate, create the scaffold here, then follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
 
 ## Before you begin
 
@@ -56,7 +56,7 @@ These are macOS/Linux shell commands. On Windows, activate the environment with 
      Create the directories:
 
      ```bash
-     mkdir -p assets/skills/review-docs assets/skills/review-code
+     mkdir -p assets/skills/review-docs assets/skills/investigate-bug
      ```
 
      Save this as `assets/skills/review-docs/SKILL.md`:
@@ -64,40 +64,92 @@ These are macOS/Linux shell commands. On Windows, activate the environment with 
      ```markdown title="assets/skills/review-docs/SKILL.md"
      ---
      name: review-docs
-     description: Review an Acme documentation draft for clear steps, complete prerequisites, and accurate examples.
+     description: >-
+       Use when reviewing a documentation draft or pull request for accuracy,
+       missing steps, or clarity. Return findings with concrete corrections.
      ---
 
      # Review documentation
 
-     Use this skill when reviewing a user-facing guide before publication.
+     ## Scope
 
-     1. Identify the reader's goal and the result the guide promises.
-     2. Check that prerequisites appear before the steps that need them.
-     3. Check commands, links, and product behavior against the supplied sources.
-     4. Flag missing steps, unexplained terms, and ambiguous expected results.
+     Review the files or change set the user names. Otherwise, inspect staged,
+     unstaged, and untracked documentation changes. Read the repository's local
+     instructions and identify the intended reader and the task they must complete.
+     If no documentation is in scope, say so and stop.
 
-     Return a short list of actionable findings with the affected passage and a
-     suggested correction. State what you could not verify. Do not publish changes.
+     ## Review
+
+     1. Check factual claims, commands, configuration keys, and examples against
+        the implementation or official documentation for the relevant version.
+        Flag unsupported claims; do not make them sound more certain.
+     2. Walk through the reader's task. Check prerequisite access, step order,
+        expected results, and recovery from likely errors.
+     3. Check whether the reader can find, understand, and use the information.
+        Flag vague instructions, undefined terms, buried actions, and repetition.
+        Keep technical terms the audience needs and drop stylistic preferences.
+     4. Run the repository's documented checks and preview the affected pages.
+        Inspect navigation, links, code blocks, and callouts. Do not execute
+        examples that change production data or infrastructure during a review.
+
+     ## Return findings
+
+     Put findings first, ordered by severity: critical issues block the task;
+     important issues cause a wrong action or a material misunderstanding.
+     Each finding needs a file:line location, the affected claim or passage,
+     supporting evidence, the reader impact, and a concrete correction.
+
+     State which checks ran and what remains unverified. If there are no findings,
+     say so. Return the review without editing or publishing the draft.
      ```
 
-     Save a second skill as `assets/skills/review-code/SKILL.md`:
+     Save a second skill as `assets/skills/investigate-bug/SKILL.md`:
 
-     ```markdown title="assets/skills/review-code/SKILL.md"
+     ```markdown title="assets/skills/investigate-bug/SKILL.md"
      ---
-     name: review-code
-     description: Review an Acme code change for correctness and useful regression coverage before a pull request.
+     name: investigate-bug
+     description: >-
+       Use when a bug report, error, or failed request needs a diagnosis.
+       Reproduce the failure, trace the relevant code and logs, and report
+       the supported cause and a proposed fix.
      ---
 
-     # Review code
+     # Investigate a bug
 
-     Read the repository's local instructions before reviewing a change.
+     ## Scope
 
-     1. Describe the behavior that changed and inspect its callers.
-     2. Check failure handling and inputs at the changed boundary.
-     3. Identify a regression scenario and check whether existing tests cover it.
+     Start with the reported failure and read the repository's local instructions.
+     Keep production access read-only. Use the project's documented tooling for
+     logs, traces, and database queries, scoped to the affected request or session.
+     Do not retry production jobs, change data, or deploy a fix without approval.
 
-     Return actionable findings with file locations and an explanation of the
-     user-visible failure. If there are none, say so and list verification limits.
+     ## Investigate
+
+     1. Record expected and actual behavior, the environment and release, the
+        failing input or request ID, and when the problem began. Ask for missing
+        details only when they block the next useful check.
+     2. Reproduce the smallest failing case locally with the existing test or
+        development setup. Record the command and observed result. If local
+        reproduction is unavailable, anchor the investigation to a specific
+        failed request and its logs; do not claim it was reproduced.
+     3. Trace the failing operation through the code for the affected release.
+        Correlate logs and stored state by request or session ID and timestamp.
+        Compare a successful case when available. Check recent changes when
+        their timing could explain the failure.
+     4. State a candidate cause and the evidence that would confirm or disprove
+        it. Run the smallest check that distinguishes it from other explanations.
+        Separate the original failure from downstream errors; an error message
+        or a nearby deployment alone does not establish the cause.
+     5. Identify the smallest fix and a regression test for the original failure.
+        Keep diagnosis separate from implementation unless the user requested both.
+
+     ## Report
+
+     Lead with the cause and its decisive evidence, or state that the cause remains
+     unconfirmed. Include the reproduction, affected behavior, relevant file:line
+     locations and log references, and the proposed fix and regression test.
+     Separate observed facts from hypotheses. Name any remaining uncertainty and
+     the next check that would resolve it. Redact credentials and sensitive data.
      ```
 
      Keep reusable reference material and helper scripts beside a skill in `references/` and `scripts/`. Use relative links inside the skill so those files remain usable after installation. Keep project-specific build commands and directory conventions in each project's own instructions.
@@ -125,7 +177,7 @@ These are macOS/Linux shell commands. On Windows, activate the environment with 
      owners:
        - engineering
      includes:
-       - skill:review-code
+       - skill:investigate-bug
        - skill:review-docs
      ```
 
@@ -158,8 +210,8 @@ These are macOS/Linux shell commands. On Windows, activate the environment with 
        docs.yaml                       # Documentation team's selection
        dev.yaml                        # Development team's selection
      assets/
-       skills/review-docs/SKILL.md      # Reusable documentation procedure
-       skills/review-code/SKILL.md      # Reusable development procedure
+       skills/review-docs/SKILL.md      # Documentation accuracy and clarity review
+       skills/investigate-bug/SKILL.md  # Evidence-based bug diagnosis
        rules/                          # Rules with target support metadata
        agents/                         # Specialist agent definitions
        commands/                       # Agent commands
