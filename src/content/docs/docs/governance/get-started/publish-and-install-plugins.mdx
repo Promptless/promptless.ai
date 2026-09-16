@@ -1,76 +1,265 @@
 ---
 title: Publish and install plugins
-description: Compile a hub to target-native plugins with pig build, publish through the GitHub Action, and install the plugins across your fleet.
+description: Publish an Acme Instruction Hub with GitHub or GitLab CI, install its plugins, and verify that your agents can use the instructions.
 slug: docs/governance/get-started/publish-and-install-plugins
 type: guide
 tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
-  order: 2
+  order: 3
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import PigFlow from '../../../../../components/docs/PigFlow.astro';
 
-Once your [Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub) validates, you compile it to plugins, publish those plugins, and install them across your fleet. The `pig` toolchain does the compiling; a thin GitHub Action does the publishing.
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-## Compile targets
+Publishing makes a reviewed version of your hub available to your team. Installation gives each agent the plugins that person needs. Acme publishes `pig`, `docs`, and `dev`; a technical writer installs `pig` and `docs`, while a developer can also install `dev`.
 
-`pig build` compiles each package in `stable_packages` for every configured target and writes the result to `dist/<target>/<package>/`, alongside the marketplace manifests. It compiles for four targets:
+<PigFlow variant="publishing" />
 
-- **Claude** and **Codex** each get a plugin package and a marketplace manifest.
-- **Cursor** gets a plugin package and a marketplace manifest; skills and rules render to `.mdc` rule files.
-- **Gemini** gets an extension package with no marketplace.
+## Before you start
 
-To confirm the committed output is current without rewriting it, run `pig build --check`, which fails if the generated artifacts are stale. See [The pig CLI reference](/docs/governance/reference/pig-cli-reference).
+This page serves two readers. A **publisher** sets up CI once so the hub compiles and releases; an **installer** adds the published marketplace and installs plugins for their own agent.
 
-## Publish with the GitHub Action
+To publish, you need:
 
-You add two thin caller workflows under `.github/workflows/` that call the toolchain's reusable workflows. One calls `pr-check.yml@main` on pull requests, and the other calls `publish.yml@main` on merges to your default branch. This keeps the compiler version centralized in the toolchain. At their most minimal, each caller references the toolchain workflow with `uses:`:
+- A [validated hub](/docs/governance/get-started/set-up-your-instruction-hub).
+- A GitHub or GitLab repository you can configure.
+- Permission for CI to write to that repository and push to its protected release branches.
 
-```yaml
-# .github/workflows/instruction-hub-pr.yml
-on: pull_request
-jobs:
-  pr-check:
-    uses: Promptless/pig-toolchain/.github/workflows/pr-check.yml@main
+The examples use `acme/acme-instruction-hub` and a source branch named `main`. Replace the organization, repository, and branch with yours.
+
+To install, you need:
+
+- An agent that supports one of the [build targets](/docs/governance/reference/supported-agents).
+- Read access to the published hub.
+
+For a private hub, both CI and each person installing plugins need repository access. A successful CI build does not grant that access to your teammates.
+
+Already installing from a hub someone else publishes? Skip ahead to [Install the plugins](#install-the-plugins).
+
+## Publish your hub
+
+Publishing runs in CI. Set up the workflow for your Git provider, then push it.
+
+<Tabs>
+  <TabItem label="GitHub">
+    <Steps>
+      1. **Create the two workflow files in your hub.** The check workflow validates and compiles pull requests. The publish workflow runs after a merge to `main` and serializes releases.
+
+         ```yaml title=".github/workflows/instruction-hub-check.yml"
+         name: Check Instruction Hub
+         on:
+           pull_request:
+           workflow_dispatch:
+         permissions:
+           contents: read
+         jobs:
+           instruction-hub:
+             uses: Promptless/pig-toolchain/.github/workflows/pr-check.yml@main
+         ```
+
+         ```yaml title=".github/workflows/instruction-hub-publish.yml"
+         name: Publish Instruction Hub
+         on:
+           push:
+             branches: [main]
+           workflow_dispatch:
+         permissions:
+           contents: write
+         concurrency:
+           group: instruction-hub-release
+           cancel-in-progress: false
+         jobs:
+           instruction-hub:
+             if: github.ref == 'refs/heads/main'
+             uses: Promptless/pig-toolchain/.github/workflows/publish.yml@main
+             with:
+               source-branch: main
+         ```
+
+      2. **Commit the workflow files and push them.** Create an empty `acme/acme-instruction-hub` repository on GitHub first if you have not already.
+
+         ```bash
+         git add .github/workflows
+         git commit -m "Add instruction hub publishing"
+         git remote add origin https://github.com/acme/acme-instruction-hub.git
+         git push -u origin main
+         ```
+
+         If `origin` already exists, use that remote instead of adding it again.
+
+      3. **Inspect the run.** In **Actions**, open **Publish Instruction Hub** and check its result. The workflow uses the repository's automatic `GITHUB_TOKEN`; this example needs no separate GitHub token. Repository permissions and branch rules must allow the workflow to update both `main` and `release/stable`.
+    </Steps>
+
+    The workflows use the toolchain's current `main` revision, which the CI logs record. If your organization reviews toolchain updates separately, pin both `uses` references to the same reviewed toolchain commit and update them together.
+
+    If your hub lives below the repository root, set the `hub-root` input in both jobs; the default is `.`. The publishing workflow also accepts `release-branch` if you use a different release branch. Keep the concurrency group and `cancel-in-progress: false` so two runs do not publish overlapping releases.
+  </TabItem>
+
+  <TabItem label="GitLab">
+    <Steps>
+      1. **Add the supported CI template to your hub's `.gitlab-ci.yml`.**
+
+         ```yaml title=".gitlab-ci.yml"
+         include:
+           - remote: https://raw.githubusercontent.com/Promptless/pig-toolchain/main/templates/gitlab/instruction-hub.yml
+         ```
+
+         Use a Linux runner that supports the template's container image. If you already have custom stages, match the template jobs to those stages:
+
+         ```yaml title=".gitlab-ci.yml with existing stages"
+         stages: [verify, publish]
+         include:
+           - remote: https://raw.githubusercontent.com/Promptless/pig-toolchain/main/templates/gitlab/instruction-hub.yml
+             inputs:
+               check-stage: verify
+               publish-stage: publish
+               release-branch: release/stable
+               toolchain-ref: main
+         ```
+
+      2. **Allow the pipeline to push to your repository.** In the project settings, open **CI/CD → Job token permissions** and enable **Allow Git push requests to the repository**. The user who starts the pipeline must have permission to push to the source and release branches. Publishing uses `CI_JOB_TOKEN`, with no GitHub publishing credential.
+
+      3. **Push the configuration and inspect the jobs.** Open the validation and publishing jobs in **Build → Pipelines**. The template validates merge requests and publishes pushes to the default branch. A manually started pipeline on another branch validates without publishing. Git pushes made by the job token do not start another pipeline.
+    </Steps>
+
+    For a reviewed toolchain pin, replace `main` in both the remote template URL and `toolchain-ref` with the same full toolchain commit.
+  </TabItem>
+</Tabs>
+
+## Verify the published release
+
+A successful first publication creates `release/stable`, publishes all three plugins, and updates the source branch's marketplace pointers and version. Review those changes in your Git provider before asking the team to install.
+
+For subsequent changes, the workflow compares the content with the previous release. Changed content normally advances the patch version; unchanged content does not need a new release. To choose a higher minor or major version deliberately, update the source configuration before merging:
+
+```bash
+pig set-version --hub . --version 0.2.0
+pig verify --hub .
 ```
 
-```yaml
-# .github/workflows/instruction-hub-publish.yml
-on:
-  push:
-    branches: [main]
-permissions:
-  contents: write
-jobs:
-  publish:
-    uses: Promptless/pig-toolchain/.github/workflows/publish.yml@main
-```
-
-The publish caller needs `permissions: contents: write` so the action can push the compiled output to the release branch. For any inputs or secrets these reusable workflows require beyond your repository's own token, see the toolchain's workflow reference.
-
-On publish, the action:
-
-<Steps>
-  1. Validates the hub.
-  2. Resolves the next plugin version against the previous release on the release branch.
-  3. Runs `pig build` at the resolved version.
-  4. Commits the compiled `dist/` and manifests to the `release/stable` branch, an orphan branch that holds only generated output.
-  5. Rewrites the marketplace manifests on your source branch into pointers at that release branch.
-</Steps>
-
-Each release records a `hub.release.json` manifest whose `release_id` combines the version and a content hash, in the form `<version>+<hash12>`.
+Commit the version change along with the instructions. All plugins in the hub share that version. Do not manually edit generated version fields.
 
 <Aside type="note">
-  Compiled plugins live on the `release/stable` branch, not your default branch. On your default branch, the marketplace manifests are pointers into that release branch.
+  Publishing checks that the source and previous release still match the revisions it started from. If either branch advances during the job, publication stops instead of overwriting it. Refresh from the latest source and rerun the workflow; do not bypass the check with a force push.
 </Aside>
 
-## Install on your fleet
+## Understand the release branches
 
-Your fleet installs the plugins from the marketplace manifests, and each host refreshes its installed plugins on startup. A new release therefore reaches hosts without manual reinstalls.
+Keep authored instructions, `hub.yaml`, and `plugins/*.yaml` on `main`. The publishing workflow compiles every plugin in `stable_plugins` for each configured target and maintains a separate `release/stable` branch containing the generated output.
 
-The required `pig` package is where the host runtime rides: at compile time the toolchain injects `promptless-host-runtime` into the Claude and Codex plugins. Installing those plugins therefore puts the runtime on each host, ready to enroll. Continue to [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+| Output                       | Purpose                                                          |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `dist/<target>/<plugin-id>/` | An installable Claude, Codex, Cursor plugin, or Gemini extension |
+| Target marketplace manifests | A catalog of the available plugins for Claude, Codex, and Cursor |
+| `hub.release.json`           | Version and content identity of the compiled release             |
+| `hub.stable.json`            | Information about the published stable release                   |
+
+On the source branch, marketplace entries point to the generated plugins on `release/stable`. Add the source repository to an agent's marketplace, so it can follow those pointers. Gemini uses extension directories instead of a marketplace.
+
+You can inspect a local build with `pig build`. For routine review, use `pig verify`: it compiles in a temporary directory without changing generated files in your checkout. Neither command publishes a release.
+
+## Install the plugins
+
+Choose the instructions for your agent, then install for the one agent you use. Installing `pig` does not enable trace collection by itself: the default hub configuration has `trace_ingestion.enabled: false`.
+
+The commands below use the GitHub example URL `https://github.com/acme/acme-instruction-hub.git`. For a GitLab-hosted hub, substitute your full GitLab repository URL ending in `.git`.
+
+<Tabs>
+  <TabItem label="Claude Code">
+    <Steps>
+      1. **Add the source repository.** Inside Claude Code, add the marketplace. These are Claude Code slash commands, not terminal commands.
+
+         ```text
+         /plugin marketplace add https://github.com/acme/acme-instruction-hub.git
+         ```
+
+      2. **Install the plugins.** Install `pig` and `docs`; developers can also run `/plugin install dev@acme-instruction-hub`.
+
+         ```text
+         /plugin install pig@acme-instruction-hub
+         /plugin install docs@acme-instruction-hub
+         ```
+
+         Use `/plugin` to review installed plugins and their scope. Choose user scope for personal use across projects, or the appropriate project scope for a repository.
+
+      3. **Reload and verify.** Run `/reload-plugins` or restart Claude Code, then try `/docs:review-docs` on a documentation change. See [Claude Code's plugin installation guide](https://code.claude.com/docs/en/discover-plugins).
+    </Steps>
+  </TabItem>
+
+  <TabItem label="Codex">
+    These are terminal commands for the Codex CLI, not in-app commands. Flags like `--ref` and `--json` are shell arguments. If you are not comfortable with the command line, ask a teammate who is.
+
+    <Steps>
+      1. **Add the marketplace and install the plugins.** With a Codex CLI that supports plugins, run:
+
+         ```bash
+         codex plugin marketplace add https://github.com/acme/acme-instruction-hub.git --ref main
+         codex plugin add pig@acme-instruction-hub
+         codex plugin add docs@acme-instruction-hub
+         codex plugin add dev@acme-instruction-hub
+         codex plugin list --marketplace acme-instruction-hub --json
+         ```
+
+      2. **Review the installed plugins in the Codex app.** Open **Plugins**, find the installed Acme plugins, and review the skills. Where the task's **Sources → Use plugins** control is available, select the relevant installed plugin. Availability and labels depend on the Codex surface and workspace settings; see [OpenAI's plugin guide](https://help.openai.com/en/articles/20001256/).
+
+      3. **Verify in a task.** Start a task and ask Codex to use the Acme documentation review skill on a small change. Confirm that it can read the skill and any supporting files. A marketplace listing alone does not verify installation in the desktop app.
+    </Steps>
+  </TabItem>
+
+  <TabItem label="Cursor">
+    <Steps>
+      1. **Import the marketplace (team administrator, once).** Your team administrator does this one time for a GitHub-hosted hub. Open **Dashboard → Plugins → Team Marketplaces → Add Marketplace** and use **Import from Repo** with the source repository. Review the imported `pig`, `docs`, and `dev` plugins and the marketplace access settings.
+
+      2. **Install the plugins you need (each developer).** Once the marketplace is imported, open **Customize**, find the Acme plugins, and install the ones you need. See [Cursor's team marketplace guide](https://cursor.com/docs/plugins).
+
+      3. **Verify in a new agent task.** Invoke the documentation review skill and confirm that its instructions are available. Skills remain skills in the generated Cursor plugin; they are not converted into always-on rules.
+    </Steps>
+
+    The toolchain also generates GitLab release references, but Cursor's documented team import flow is for GitHub. Confirm that your Cursor installation supports your chosen GitLab import route before committing to that distribution path. Git access and a valid generated manifest are separate from successful marketplace import.
+  </TabItem>
+
+  <TabItem label="Gemini CLI">
+    This path uses `git` and the Gemini CLI in your terminal. If you are not comfortable with the command line, ask a teammate who is to install the extensions for you.
+
+    <Steps>
+      1. **Clone the release branch and install the extension directories.**
+
+         ```bash
+         git clone --branch release/stable --single-branch \
+           https://github.com/acme/acme-instruction-hub.git acme-instruction-hub-release
+         gemini extensions install ./acme-instruction-hub-release/dist/gemini/pig
+         gemini extensions install ./acme-instruction-hub-release/dist/gemini/docs
+         gemini extensions install ./acme-instruction-hub-release/dist/gemini/dev
+         gemini extensions list
+         ```
+
+      2. **Restart and verify.** Restart Gemini CLI and try the documentation review skill. Installing from a local directory copies that extension into Gemini's installation; keeping the clone current alone does not update the installed extension. See the [Gemini CLI extension reference](https://geminicli.com/docs/extensions/reference/).
+    </Steps>
+  </TabItem>
+</Tabs>
+
+## Keep installations current
+
+Publication and host installation are separate steps. Do not assume that every agent refreshes every installed plugin whenever it starts.
+
+Claude and Codex receive an `update-instruction-hub` skill in `pig`, even when trace ingestion is disabled. Ask the agent to use that skill to update the Acme Instruction Hub. It updates the marketplace and installed plugins and reloads them where the host supports it. Check the installed version afterward. In Claude Code, you can also manage updates through `/plugin`; in Codex, a marketplace refresh by itself does not prove installed plugins were updated.
+
+For Cursor, configure marketplace refresh with your team administrator, then verify the version on a developer's host. For Gemini, update the release checkout and run `gemini extensions update docs` for each installed extension before restarting the CLI.
+
+## Troubleshooting
+
+| Symptom                                       | What to check                                                                                                                                                                                                          |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI validates but cannot publish               | Workflow write permissions, protected branch rules, and the GitLab job token push setting                                                                                                                              |
+| Publication stops after a newer commit        | Update from the latest source and rerun; another source or release change made the run stale                                                                                                                           |
+| Marketplace is visible but installation fails | The user's Git credentials must read the repository and its `release/stable` branch                                                                                                                                    |
+| A plugin or skill is missing                  | With hub access, check `stable_plugins`, the plugin's `includes`, target support, and the installed version. Without it, ask your hub's publisher to confirm the plugin is in the release and supported for your agent |
+| Updated instructions are not used             | Refresh installed plugins and reload the agent; check for older local copies of the same skill                                                                                                                         |
+
+Once an installed skill works in a real task, your hub is ready for team use. To learn from agent sessions, continue to [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) after your analyzer is available.
