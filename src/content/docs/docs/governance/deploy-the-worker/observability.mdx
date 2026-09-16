@@ -1,52 +1,93 @@
 ---
-title: Observability
-description: How the worker emits structured logs to stdout and, when you opt in, Datadog APM traces and Sentry error events across the whole process.
+title: Observability and troubleshooting
+description: Observe host uploads, durable trace storage, analysis, and hosted synchronization, and diagnose failures without losing trace data.
 slug: docs/governance/deploy-the-worker/observability
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
-  order: 3
+  order: 9
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis completes, and findings and status synchronize to the Promptless Dashboard. A healthy pod covers only part of that flow.
 
-Observability spans the whole worker, not just analysis. Structured logging is always on; Datadog APM and Sentry are opt-in. You set these variables alongside the worker's other configuration when you [deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+The analyzer emits structured logs by default. Datadog tracing and Sentry error reporting are optional. The [supervisor](/docs/governance/deploy-the-worker/manage-updates-and-recovery) reports release and migration status for deployments with automatic updates.
 
-## Structured logging
+## Checks to keep visible
 
-The worker emits structured JSON logs (one JSON object per line) from both the service process and the analysis child. Logging is always on and needs no configuration. Those logs reach Datadog on the container's stdout, classified with the correct severity.
+| Stage                  | Evidence of progress                                                                                                  | Investigate when                                                                             |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Host collection        | Recent successful collector status and host check-in.                                                                 | An active pilot host stops checking in or uploading.                                         |
+| Durable storage        | Recent `agent_traces.last_ingested_at`, a completed canonical object, and a readable object at the recorded location. | Storage errors appear, objects remain pending, or active hosts stop producing stored traces. |
+| Analysis               | `Trace analysis run succeeded`, correlated by `trace_record_id` and `analysis_run_id`.                                | Failures repeat or eligible quiet sessions do not complete.                                  |
+| Hosted synchronization | Deployment status and newly projected trace metadata or findings reach Promptless.                                    | Local work completes but hosted state remains stale.                                         |
+| Remediation            | An outcome explaining a pull request, external owner, or missing evidence.                                            | A finding has no visible progress after prerequisites are met.                               |
 
-The analysis child runs as its own process. Its own stdout pipe stays reserved as the machine-readable result channel back to the parent service. Its structured logs still reach the container's stdout alongside the service's. Both processes are observable in one stream without disturbing that result channel.
+Set thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
 
-## Datadog tracing
+## Read structured logs
 
-The worker's container entrypoint is `ddtrace-run instruction-hub-worker`, so the whole process starts under the Datadog tracer. APM tracing is off by default and opt-in: set `DD_TRACE_ENABLED="true"` to enable it. When tracing is on, the worker honors the standard Datadog environment variables you set, and analysis runs with LLM Observability enabled.
+For the deployment name used in the default Helm guide:
 
-| Variable           | Purpose                                                      |
-| ------------------ | ------------------------------------------------------------ |
-| `DD_TRACE_ENABLED` | Set to `"true"` to enable Datadog APM. Off by default.       |
-| `DD_ENV`           | The environment tag applied to worker spans.                 |
-| `DD_SITE`          | The Datadog site the agent reports to.                       |
-| `DD_AGENT_HOST`    | The host of the Datadog agent that receives the spans.       |
-| `DD_TRACE_*`       | The standard Datadog tracer settings, passed through as set. |
+```bash
+kubectl --namespace pig logs deployment/acme-analyzer --since=1h
+kubectl --namespace pig get pods
+```
 
-If you already run a Datadog agent, set these variables in your [worker configuration](/docs/governance/deploy-the-worker/configuration-reference) so worker and analysis spans reach it.
+The worker writes structured JSON logs to container stdout. Analysis-process logs join the service's log stream. Your platform's log collector must forward those logs if you want retention or centralized search; stdout alone does not send them to Datadog.
 
-## Sentry
+Correlate analysis messages with `analysis_run_id`, `trace_record_id`, `analyzer_version`, and `repository_sha`. Successful runs include `successful_finding_write_count`; failed runs include `failure_category`. Keep these identifiers when contacting support, along with the PIG release and time window.
 
-The worker reports errors to Sentry when you set a DSN. Sentry is gated on the DSN being present, sends each `ERROR`-level event as a Sentry event, and does not enable performance tracing.
+If a pod is restarting, inspect its previous logs with `kubectl -n pig logs POD_NAME --previous`. Avoid dumping Secret contents or full session transcripts into a support ticket.
 
-| Variable             | Purpose                                                 |
-| -------------------- | ------------------------------------------------------- |
-| `SENTRY_DSN`         | The Sentry DSN to report to. Setting it enables Sentry. |
-| `SENTRY_ENVIRONMENT` | The environment tag applied to events.                  |
-| `SENTRY_RELEASE`     | The release identifier applied to events.               |
+## Optional telemetry integrations
 
-<Aside type="note">
-  `SENTRY_DSN` is the variable a self-hosting operator sets on the worker. Set it through your secret store, since a DSN is credential material.
-</Aside>
+Forward structured stdout logs with your existing cluster log collector. Apply your organization's access and retention controls to operational context and any session data collected by optional telemetry.
+
+For the operator-managed worker chart, the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#enable-datadog) covers Datadog and Sentry settings. Those chart values are not `PIGDeployment` fields.
+
+## Diagnose by the first failing stage
+
+### Host cannot enroll or upload
+
+Check the host credential, hosted deployment registration, hostname, TLS certificate, and connectivity from the host's network. Enrollment and upload routes must reach the worker, not just `/healthz`. Review [host enrollment troubleshooting](/docs/governance/get-started/enroll-your-hosts).
+
+### Host checks in, but storage does not complete
+
+Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and object-storage authorization, location, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
+
+### Storage succeeds, but analysis fails
+
+Confirm that analysis is enabled, the session is eligible after its quiet window, and the repository and model settings are complete. Use the run's failure category to narrow the investigation. Test repository read access and model authorization independently; neither follows from successful object-storage access.
+
+The worker retries transient failures during an analysis run. If the run reaches `failed`, fix the dependency and contact Promptless for supported re-analysis. Preserve its run ID and stored traces. An unchanged failed session revision does not automatically retry after recovery. Avoid ad hoc backfill Jobs or edits to analysis rows.
+
+### Local analysis succeeds, but hosted state is stale
+
+Check outbound access to Promptless and the registered install token, deployment ID, and configuration hash. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
+
+### An upgrade is blocked or fails
+
+Inspect the current and target releases, conditions, and supervisor logs:
+
+```bash
+kubectl describe pigdeployment acme --namespace pig
+kubectl logs deployment/pig-supervisor --namespace pig-system --since=1h
+kubectl get jobs --namespace pig
+```
+
+Preserve the failed migration Job's logs before retrying. Resolve the reported dependency through its owner: Terraform for cloud resources, your secret manager for credentials, and PIG for application releases. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before choosing a rollback.
+
+For the manual worker chart, inspect `job/instruction-hub-worker-migrate` and `helm history instruction-hub-worker --namespace pig`. The chart removes successful hook Jobs and replaces the earlier hook on the next attempt.
+
+## Preserve data during recovery
+
+Keep PostgreSQL backups and object-storage retention and version recovery under your organization's recovery policy. Rehearse restoring them as a consistent set: restoring only the database or only objects can leave records and content out of sync.
+
+Restarting the worker can rebuild its disposable repository mirror. It should retain the same registered deployment identity, PostgreSQL database, and trace prefix. Do not clear host collection state, delete traces, or reset database tables to force a retry.
+
+For Helm-managed releases, coordinate restoration and any compatible application rollback with Promptless. For the supervisor's pause, blocked-upgrade, and recovery behavior, see [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
