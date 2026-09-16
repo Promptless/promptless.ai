@@ -524,6 +524,48 @@ Set any combination of the three. The same presence semantics as `notification` 
   `auto_create_pr` gates only *automatic* PR creation. When it's off, Promptless leaves suggestions as drafts and doesn't open a documentation PR on its own. You can still open one on demand. Ask the agent directly, click the **Create PR** button in Slack, or create it from the dashboard. `auto_merge` applies only to PRs that Promptless creates automatically.
 </Aside>
 
+**drafting**
+
+The `drafting` block controls how much Promptless drafts automatically. A warranted change that falls below the threshold becomes a [doc update finding](/docs/for-docs/work-the-queue/doc-plans) for you to review. Promptless records the plan and holds off drafting it.
+
+| Field                  | Description                                                                                                                                                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_draft_threshold` | Lowest priority tier Promptless drafts automatically. One of `p0`, `p1`, `p2`, `p3`, `all`, or `none`. Defaults to `all`, so every warranted change is drafted. A change below the tier is recorded as a doc update finding. |
+| `work_item`            | Optional. Files a tracker issue alongside the drafting decision. See the fields below.                                                                                                                                       |
+
+`auto_draft_threshold` follows the same presence semantics as the other policy fields. Omit it to inherit the value from `policies.default` or an earlier rule. Set it to override that scope. It's a plain enum: setting it to `null` doesn't disable it, unlike the other policy fields.
+
+The `work_item` block names the tracker to file into:
+
+| Field         | Description                                          |
+| ------------- | ---------------------------------------------------- |
+| `tracker`     | The tracker to file into: `jira` or `linear`.        |
+| `project_key` | Jira project key. Required when `tracker` is `jira`. |
+| `issue_type`  | Jira issue type. Defaults to `Task`.                 |
+| `team_key`    | Linear team key. Used when `tracker` is `linear`.    |
+
+```yaml
+policies:
+  default:
+    drafting:
+      auto_draft_threshold: p1
+      work_item:
+        tracker: jira
+        project_key: DOCS
+        issue_type: Task
+
+  rules:
+    - if:
+        doc_collection: acme/docs
+      then:
+        drafting:
+          auto_draft_threshold: none
+```
+
+<Aside type="note">
+  `auto_draft_threshold` defaults to `all`, so Promptless keeps drafting every warranted change until you lower it. `work_item` with `tracker: jira` files a Jira issue. `tracker: linear` passes config validation. Filing to Linear depends on write access the Linear integration doesn't have yet, so no issue is created for it.
+</Aside>
+
 **archiving**
 
 Promptless automatically archives suggestions that have gone stale, so your dashboard stays focused on active work. The `archiving` block controls this behavior.
