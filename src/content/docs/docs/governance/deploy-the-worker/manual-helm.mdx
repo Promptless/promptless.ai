@@ -16,7 +16,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-The trace analyzer runs as the `instruction-hub-worker` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
+The trace analyzer runs as the `pig-trace-analyzer` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
 
 This guide uses worker chart `0.3.0` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
@@ -153,7 +153,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Replace `repository.id: 123456789` with Acme's actual repository ID. Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
 
-     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `instruction-hub-worker` in `pig` on port 8080.
+     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
@@ -162,20 +162,20 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
   3. **Render and install.** Download the pinned public worker chart, then render it to catch missing required values without changing the cluster:
 
      ```bash
-     helm pull oci://ghcr.io/promptless/charts/instruction-hub-worker \
+     helm pull oci://ghcr.io/promptless/charts/pig-trace-analyzer \
        --version 0.3.0 --untar
-     helm lint ./instruction-hub-worker --values values.yaml
-     helm template instruction-hub-worker ./instruction-hub-worker \
+     helm lint ./pig-trace-analyzer --values values.yaml
+     helm template pig-trace-analyzer ./pig-trace-analyzer \
        --namespace pig --values values.yaml > rendered-worker.yaml
      ```
 
      Review the image digest, ingress, service account, CA mount, and Secret references. The published chart supplies `image.digest`; when rendering from a source checkout, set it to the verified worker digest from the matching release. Then install:
 
      ```bash
-     helm upgrade --install instruction-hub-worker ./instruction-hub-worker \
+     helm upgrade --install pig-trace-analyzer ./pig-trace-analyzer \
        --namespace pig \
        --values values.yaml \
-       --atomic --wait --timeout 20m
+       --wait --timeout 20m
      ```
 
      A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. Both workloads use the existing `pig-analyzer` ServiceAccount in this example. A ServiceAccount created by the worker chart is unavailable to its pre-install hook, so keep the account under your platform or GitOps workflow.
@@ -195,14 +195,14 @@ Install the pinned target chart with your reviewed values, then repeat the compl
 
 ## Verify a complete session
 
-Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment). Use `deployment/instruction-hub-worker` for analyzer log commands. The same enrollment, storage, analysis, and dashboard checks apply to this installation.
+Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment). Use `deployment/pig-trace-analyzer` for analyzer log commands. The same enrollment, storage, analysis, and dashboard checks apply to this installation.
 
 ## Troubleshooting
 
 | Symptom                                 | Check and next action                                                                                                                                                                                     |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `helm template` reports a missing value | Fill in the required deployment settings and all model and repository settings when `activationAt` is set.                                                                                                |
-| Migration fails                         | Read `kubectl -n pig logs job/instruction-hub-worker-migrate`. Check PostgreSQL reachability, TLS, schema permissions, and the migration service account. Successful hook Jobs are deleted automatically. |
+| Migration fails                         | Read `kubectl -n pig logs job/pig-trace-analyzer-migrate`. Check PostgreSQL reachability, TLS, schema permissions, and the migration service account. Successful hook Jobs are deleted automatically. |
 | Pod cannot start                        | Inspect pod events for missing Secret keys or image-pull failures, then worker logs for configuration validation errors.                                                                                  |
 | HTTPS fails                             | Check DNS, certificate coverage, IngressClass, and the route to Service port 8080.                                                                                                                        |
 | Host checks in but traces do not arrive | Check collector status, capture policy, and host-to-worker upload access. Preserve the host's local collection state.                                                                                     |
