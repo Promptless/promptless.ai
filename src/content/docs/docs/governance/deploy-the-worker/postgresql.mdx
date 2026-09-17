@@ -7,56 +7,76 @@ tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-15T00:00:00Z"
+timestamp: "2026-09-17T00:00:00Z"
 ---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
 
 PIG uses PostgreSQL for trace metadata, ingestion progress, analysis runs, and synchronization state. Give each deployment a dedicated database and retain it across application upgrades.
 
 ## Database requirements
 
 - Use a PostgreSQL version supported by your selected PIG release.
-- Give the application database role ownership of the PIG schema and permission to run its migrations. It does not need cloud administrator permissions.
+- Grant the application database role ownership of the PIG schema and permission to run its migrations. Do not grant it cloud administrator permissions.
 - Allow the analyzer and migration Jobs to reach the database, normally on TCP 5432, over private networking.
-- Require TLS and validate the database certificate with the provider's CA bundle and supported verification mode.
+- Require TLS and validate the database certificate with the provider's CA bundle and a supported verification mode.
 - Configure automated backups, recovery retention, availability, and deletion protection through your infrastructure workflow.
 
-The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Flexible Server, and Google Cloud SQL for PostgreSQL. A workload identity for the trace bucket does not automatically provide database authentication.
+The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Flexible Server, and Google Cloud SQL for PostgreSQL.
 
-## Deliver the connection string
+<Aside type="caution">
+  Database authentication is separate from a trace bucket's workload identity. Configure it explicitly.
+</Aside>
 
-Use your secret manager to deliver `pig-credentials/postgres-dsn` in namespace `pig`. URL-encode reserved characters in the username and password. For a database with a hostname-verifiable certificate:
+## Deliver the connection string and CA certificate
 
-```text
-postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
-```
+<Steps>
+  1. **Deliver the DSN through your secret manager.**
 
-Set the TLS mode for the actual certificate configuration. Cloud SQL CA modes and server certificates differ; follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance. Do not disable TLS to bypass a certificate error.
+     Provide `pig-credentials/postgres-dsn` in namespace `pig`, and URL-encode reserved characters in the username and password. Set the TLS mode for the actual certificate configuration. For a database with a hostname-verifiable certificate:
 
-Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle. Reference it in `PIGDeployment`:
+     ```text
+     postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
+     ```
 
-```yaml
-storage:
-  postgres:
-    dsnSecretRef:
-      name: pig-credentials
-      key: postgres-dsn
-    caConfigMapRef:
-      name: pig-postgres-ca
-      key: ca.pem
-```
+     Cloud SQL CA modes and server certificates differ, so follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance.
 
-The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers. Omit `caConfigMapRef` only when the container's trust store already validates the certificate and the DSN does not reference this file.
+     <Aside type="caution">
+       Keep TLS enabled, and resolve a certificate error at its source.
+     </Aside>
+
+  2. **Create the CA ConfigMap.**
+
+     Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle.
+
+  3. **Reference the DSN and CA in `PIGDeployment`.**
+
+     ```yaml
+     storage:
+       postgres:
+         dsnSecretRef:
+           name: pig-credentials
+           key: postgres-dsn
+         caConfigMapRef:
+           name: pig-postgres-ca
+           key: ca.pem
+     ```
+
+     The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers. Omit `caConfigMapRef` only when the container's trust store already validates the certificate and the DSN does not reference this file.
+</Steps>
 
 ## Migrations and connection capacity
 
-PIG coordinates schema migrations with application releases. Keep migration access available during upgrades. Reserve database connections for migrations and operations as well as analyzer replicas.
-
-Terraform owns the database instance's version, size, networking, and backups. PIG owns its application schema. Do not use Terraform to manage PIG tables or run competing schema migrations.
+- PIG coordinates schema migrations with application releases, so keep migration access available during upgrades.
+- Reserve database connections for migrations and operations, plus your analyzer replicas.
+- Terraform owns the database instance's version, size, networking, and backups. PIG owns its application schema, including its tables and schema migrations. Leave those to PIG so Terraform does not run competing migrations.
 
 ## Back up and restore
 
-Set your recovery objectives before choosing backup retention. Record a recovery point that preserves database object references and their corresponding trace objects. Object lifecycle rules must retain data needed by your database backups.
-
-Before a destructive migration, provide [recovery confirmation for the exact target release](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-recovery-before-a-destructive-migration). Your backup workflow supplies the recovery-point identifiers; PIG does not create cloud backups.
-
-Rehearse restoration with an isolated database and trace location. Never run two active deployments against one database during recovery. Follow [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before restoring production or changing application versions.
+- Set your recovery objectives before choosing backup retention.
+- Record a recovery point that preserves database object references and their corresponding trace objects.
+- Configure object lifecycle rules to retain the data your database backups need.
+- Before a destructive migration, provide [recovery confirmation for the exact target release](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-recovery-before-a-destructive-migration).
+- Your backup workflow owns cloud backups and supplies the recovery-point identifiers.
+- Rehearse restoration with an isolated database and trace location. Keep exactly one active deployment against the database during recovery. Do not run a second deployment against it until recovery finishes.
+- Follow [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before restoring production or changing application versions.
