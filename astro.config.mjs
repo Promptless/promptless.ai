@@ -42,6 +42,7 @@ const redirects = {
   '/home': '/',
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
+  '/lavacon/book': '/lavacon#book',
   '/wtd': '/',
   '/wtd-portland-2026': '/',
   '/wtd-portland-2026.ics': '/',
