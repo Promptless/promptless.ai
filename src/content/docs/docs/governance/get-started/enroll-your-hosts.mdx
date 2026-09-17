@@ -1,69 +1,128 @@
 ---
 title: Enroll your hosts
-description: Approve each host with promptless-host-runtime, then let generated lifecycle hooks collect native session traces on their own.
+description: Enable optional trace collection, authorize a Claude or Codex host, and verify that its sessions reach your trace analyzer.
 slug: docs/governance/get-started/enroll-your-hosts
 type: guide
 tags:
   - agent-instructions
   - governance
   - guide
-timestamp: "2026-08-20T00:00:00Z"
+timestamp: "2026-09-14T00:00:00Z"
 sidebar:
   hidden: false
-  order: 3
+  order: 4
 ---
+
+import PigFlow from '../../../../../components/docs/PigFlow.astro';
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Once a host installs your Claude or Codex plugins, the injected [host runtime](/docs/governance/start-here/key-concepts) (`promptless-host-runtime`) is present. It is ready to enroll with your worker and collect that host's session traces.
+Host enrollment connects a person's agent installation to your trace analyzer. Instructions work without enrollment. Enable collection when you want PIG to analyze how those instructions perform in real sessions.
 
-## Point the host at your worker
+This guide continues the Acme example. It covers Claude Code and Codex; the Claude collector can also discover Claude Desktop traces on the same machine. Cursor and Gemini plugins do not currently collect native traces.
 
-The host runtime reads the worker base URL from the `PROMPTLESS_WORKER_BASE_URL` environment variable. A self-hosted deployment must set `PROMPTLESS_WORKER_BASE_URL` on each host to your own worker's hostname before you enroll that host. That is the hostname you expose in [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The compiled-in default points at Promptless's own hosted worker, so it is not a general-purpose fallback for a self-hosted deployment.
+<PigFlow variant="enrollment" />
 
-The browser approval step runs through the Promptless dashboard at `https://app.gopromptless.ai`, which is separate from the worker endpoint. Approval authorizes the host; the host learns where the worker is from `PROMPTLESS_WORKER_BASE_URL`.
+## Before you start
 
-## Enroll a host
+You need an [available analyzer](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), a published hub, and the installed `pig` plugin. Install Python 3.9 or later on the host. A signed-in Promptless organization member must approve enrollment. Claude's generated launcher also needs Node.js. Codex's generated hooks use a POSIX shell.
 
-Enrollment uses a browser approval, so a signed-in member of your Promptless organization authorizes each host. Any signed-in member can approve a host (org-admin is not required). The approval is attributed to the approving user, recorded server-side as who approved that host.
-
-<Steps>
-  1. **Run enroll on the host**, naming the host family with `--host`.
-
-     ```bash
-     promptless-host-runtime enroll --host claude
-     ```
-
-     Use `--host codex` or `--host claude-desktop` for those families.
-
-  2. **Approve in the browser.** The runtime opens the enrollment page and listens on a `127.0.0.1` loopback callback. A signed-in organization member approves the host there.
-
-  3. **Let the runtime cache the credential.** After approval, the runtime polls for the one-time per-host credential (a `plihost_` token) and caches it locally.
-</Steps>
+Your operator should provide the analyzer's HTTPS address and confirm its organization identity. For Acme, this guide uses `https://traces.acme.example`. The host must reach that address and the Promptless enrollment service.
 
 <Aside type="note">
-  The per-host credential is returned in plaintext exactly once and stored owner-only on the host. For how it is verified, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+  Trace collection can include prompts, responses, tool calls, and code or documents present in sessions. On first discovery, the collector can upload existing session history, not just sessions started after enrollment. Review the [data boundaries](/docs/governance/start-here/trust-and-data-model) and agree on the pilot hosts and repositories before enabling collection.
 </Aside>
 
-## How collection runs
+<Steps>
+  1. **Enable collection in the hub**
 
-After enrollment, collection runs on its own through generated lifecycle hooks. You do not schedule it:
+     Change the existing setting in `hub.yaml`:
 
-- On **`SessionStart`**, the Codex and Claude Code hooks ensure the host configuration and run a quiet collection pass. The Claude Code hook also runs a best-effort pass for `--host claude-desktop`.
-- On **terminal events** (`Stop`, `SessionEnd`, and `SubagentStop` where supported), the hooks run collection only.
+     ```yaml title="hub.yaml"
+     trace_ingestion:
+       enabled: true
+     ```
 
-Every collection pass runs detached and non-blocking, so a worker, policy, or upload problem never interrupts the agent session. Collection uploads only new byte ranges past the local ledger watermark. For what those uploads contain and how sessions are reconstructed, see [Trace object and sources](/docs/governance/reference/trace-object-and-sources).
+     Run `pig verify`, commit the change, and publish it through your hub's CI. Then [update the installed plugins](/docs/governance/get-started/publish-and-install-plugins#keep-installations-current) on your pilot host.
 
-## Check status or reset
+     The compiler adds the host runtime and collection hooks to the literal `pig` plugin for Claude and Codex. It does not add them to `docs` or `dev`, and it does not provision an analyzer. With the setting omitted or `false`, generated runtime files and collection hooks are absent.
 
-To inspect a host's enrollment and configuration, run:
+  2. **Set the analyzer address**
+
+     Set this environment variable in the environment that actually launches the agent:
+
+     ```bash
+     export PROMPTLESS_WORKER_BASE_URL="https://traces.acme.example"
+     ```
+
+     For a terminal agent, launch it from that shell. For a desktop agent, use your organization's desktop environment configuration and restart the application. A variable exported in a separate terminal may not reach an already running GUI application.
+
+     Do this before the first session with collection enabled. The runtime has a compiled-in Promptless worker default; a customer deployment must explicitly point hosts at its own analyzer.
+
+  3. **Approve the host**
+
+     Start a new Claude Code or Codex session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
+
+     The approval page is hosted at `https://app.gopromptless.ai/instruction-hub/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
+
+     If you need to start enrollment manually, find the installed `pig` plugin directory in your agent's plugin installation details and substitute its absolute path:
+
+     ```bash
+     PIG_PLUGIN_ROOT="/absolute/path/to/installed/pig"
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex
+     ```
+
+     Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
+
+     The host stores its `plihost_` credential locally with owner-only access. It is different from the analyzer's deployment credential. Do not copy host credentials between machines or into your hub.
+
+  4. **Verify collection and analysis**
+
+     After manual enrollment, start a new session to let the startup hook fetch the host's configuration. You can also request that initialization explicitly:
+
+     ```bash
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" ensure --host codex
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" status --host codex
+     ```
+
+     Use the same host family as in enrollment. Run a small, non-sensitive task in a repository configured for analysis, then finish the session. The operator should verify all three outcomes:
+
+     1. **Enrollment.** The analyzer recognizes the host and accepts its check-in.
+     2. **Stored trace.** The native session has reached the analyzer and its raw data is stored in the configured trace bucket.
+     3. **Completed analysis.** After the configured quiet period, the session has a completed analysis run for the expected repository.
+
+     A completed run can produce no findings. That is a valid result; pod readiness, enrollment, and an upload acknowledgment alone are not evidence that analysis completed. Use the operator's [deployment verification steps](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) to inspect the server-side result.
+</Steps>
+
+## How collection continues
+
+Generated hooks run collection in the background during session startup and supported terminal events. They do not require a scheduled task. Claude Code also attempts to collect Claude Desktop traces it can discover locally. Installing a plugin only in another application does not create a standalone Claude Desktop collection schedule.
+
+The runtime tracks source progress locally and uploads incremental trace data. A connectivity problem can delay collection without interrupting the agent task. Keep the native session files and runtime state intact while troubleshooting so the collector can retry. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources) for source details.
+
+## Troubleshooting
+
+| Symptom                                        | What to check                                                                                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js |
+| The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                  |
+| The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                      |
+| Host is enrolled but no trace appears          | Complete a supported native session; inspect runtime diagnostics and check the host's collection policy and network access          |
+| Trace is stored but analysis does not complete | Ask the operator to check repository binding, quiet-period eligibility, model configuration, and the analysis queue                 |
+| A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support   |
+
+Local diagnostics are stored under `~/.promptless/instruction-hub/`, including `last-bootstrap-status.json` and `host-runtime-diagnostics.jsonl`. Review them for the failed stage before sharing a redacted excerpt with your operator. Enrollment state contains credentials and should not be pasted into a ticket.
+
+To clear local enrollment for one host family before approving it again:
 
 ```bash
-promptless-host-runtime status
+python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" reset --host codex --yes
 ```
 
-To clear a host's local enrollment state (for example, before re-enrolling), run:
+Reset is a troubleshooting action. It does not remove server-side traces or implement organization-wide revocation.
 
-```bash
-promptless-host-runtime reset
-```
+## Stop or expand collection
+
+To remove generated collection hooks, set `trace_ingestion.enabled: false`, publish, and update the installed plugins on affected hosts. Hosts still running an older enabled release retain its hooks until updated. Existing traces are not deleted by this configuration change.
+
+After the pilot meets all three verification outcomes, enroll the next agreed group of hosts. Continue to [findings and remediation](/docs/governance/findings-and-remediation/understand-findings) to turn analysis into reviewed instruction improvements.
