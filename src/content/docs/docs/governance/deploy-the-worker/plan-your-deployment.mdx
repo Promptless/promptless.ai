@@ -7,14 +7,14 @@ tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-15T00:00:00Z"
+timestamp: "2026-09-18T00:00:00Z"
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 Deploy the trace analyzer in your infrastructure to analyze agent sessions using your model provider. Session data lives in your PostgreSQL database and trace bucket. The Promptless Dashboard shows findings, remediations, analyzer status, and agent instruction health.
 
-Installation has two stages: prepare your cloud infrastructure, then bootstrap PIG with Helm. The analyzer and its update controller, the supervisor, follow stable releases automatically. You can pause updates or pin a release.
+Register your analyzer in the Dashboard, prepare your cloud infrastructure, then bootstrap PIG with Helm. The analyzer and its update controller, the supervisor, follow stable releases automatically. You can pause updates or pin a release.
 
 The 0.3.0 release targets clean installations on AWS/EKS. Azure/AKS and Google Cloud/GKE are experimental and are not covered by the first release's cloud acceptance.
 
@@ -40,11 +40,32 @@ The cloud guides create dedicated PIG infrastructure in your existing network. T
 | PostgreSQL              | A dedicated database, schema-owner credentials, TLS, backups, and private connectivity from the analyzer and migration Jobs.             |
 | Trace bucket            | Private S3, Azure Blob Storage, or Google Cloud Storage with a dedicated prefix and a workload identity that can read and write objects. |
 | HTTPS endpoint          | A hostname, certificate, and ingress reachable from enrolled hosts. Every proxy must accept encoded uploads of at least 10 MiB.          |
-| Promptless registration | Your deployment ID, runtime URL, and installation token. Keep this identity stable across upgrades and recovery.                         |
+| Promptless registration | An organization admin account and the [registration download](#register-an-analyzer) containing your deployment ID, runtime URL, and installation token. |
 | Instruction Hub         | A GitHub repository with a readable `main` branch, its canonical URL and numeric ID, and read credentials if private.                    |
 | Model access            | A supported Responses API endpoint, model name, authorization, and enough quota for analysis.                                            |
 
 Select infrastructure regions to meet your data residency requirements. The model provider can be in a different cloud; choose it independently from your trace bucket. See [model providers](/docs/governance/deploy-the-worker/model-providers) for supported endpoints.
+
+## Register an analyzer
+
+Sign in to the [Promptless Dashboard](https://app.gopromptless.ai/instruction-hub/settings) as an organization admin and select the organization that will own the analyzer.
+
+1. Open **PIG → Settings**. Under **System overview → Instruction Hub repository**, select your governed repository and click **Bind repository**. If no repositories appear, connect the primary Promptless GitHub App from Integrations. The repository binding is shared by all analyzers in this organization.
+2. Under **Register analyzer**, enter a name such as `production-us-east-2` and click **Register analyzer**.
+3. Click **Download credentials** and save `pig-installation.json` securely. The install token is available only in this dialog; it cannot be retrieved later. Click **Done** after saving it.
+
+The download contains these installation values:
+
+| Download field | Use |
+| --- | --- |
+| `runtime_url` | Set `spec.hosted.runtimeURL` in your `PIGDeployment`. |
+| `deployment_id` | Set `spec.hosted.deploymentID`. Keep it stable across upgrades and recovery. |
+| `install_token` | Store in your secret manager and deliver through the Kubernetes Secret referenced by `spec.hosted.installTokenSecretRef`. |
+| `org_id`, `install_token_id` | Identify the organization and credential record for your installation records. |
+
+Keep the download out of Git and chat. It does not contain your database, repository, or model credentials; prepare those separately. Creating credentials does not start an analyzer. The analyzer appears in **System overview** after its first check-in from your cluster.
+
+If creation fails, click **Refresh credentials** before trying again: the token may already exist. If you lose a token before using it, revoke the unused credential in Settings and register again. Use the new download's deployment ID. Revocation stops hosted access for every analyzer using that token. A new token cannot take over an existing deployment ID; contact Promptless support to recover a connected installation whose token was lost.
 
 ## Assign ownership
 
