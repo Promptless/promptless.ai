@@ -306,6 +306,7 @@ export default defineConfig({
                       label: 'Operate',
                       collapsed: true,
                       items: [
+                        { label: 'Enable trace analysis', slug: 'docs/governance/deploy-the-worker/enable-trace-analysis' },
                         { label: 'Verify your deployment', slug: 'docs/governance/deploy-the-worker/verify-your-deployment' },
                         { label: 'Updates and recovery', slug: 'docs/governance/deploy-the-worker/manage-updates-and-recovery' },
                         { label: 'Observability', slug: 'docs/governance/deploy-the-worker/observability' },

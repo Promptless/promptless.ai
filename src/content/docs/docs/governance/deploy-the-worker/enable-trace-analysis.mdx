@@ -1,0 +1,75 @@
+---
+title: Enable and pause trace analysis
+description: Turn trace analysis on or off for a worker installation from the Promptless Dashboard, and choose how much accumulated trace history the analyzer processes.
+slug: docs/governance/deploy-the-worker/enable-trace-analysis
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - operations
+timestamp: "2026-09-18T00:00:00Z"
+sidebar:
+  order: 5
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+From the Promptless Dashboard, you turn the **Trace analyzer** toggle on or off for a worker installation. Enabling it opens a dialog where you choose the backlog, the cutoff for how much accumulated trace history the analyzer processes. This guide covers enabling analysis, choosing that backlog, and pausing and resuming it.
+
+## Before you begin
+
+You need:
+
+- Organization-administrator access to the Promptless Dashboard.
+- A deployed analyzer worker, from [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) or [Plan your deployment](/docs/governance/deploy-the-worker/plan-your-deployment).
+- [Enrolled hosts](/docs/governance/get-started/enroll-your-hosts) uploading traces to that worker.
+
+This page covers turning analysis on or off for a worker installation. Host-side trace collection is a separate control, described on [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts). Analyzer deployment is described under [Deploy the analyzer worker](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+
+This dashboard choice is independent of the deployment-time analysis configuration (`activationAt`) an operator may set when deploying the worker. The toggle and dialog write a separate, per-installation setting that applies the same way in any deployment mode. The deployed `activationAt` value stays as configured. For that operator-level setting, see [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+
+## Enable trace analysis
+
+<Steps>
+  1. In the dashboard, locate the worker installation.
+  2. Turn on the **Trace analyzer** toggle. The **Enable trace analysis** dialog opens.
+  3. In the dialog, choose **All traces** or **Since date or time**.
+  4. For **Since date or time**, set a required **Since date** and an optional **Time**.
+  5. Select **Enable analysis**.
+</Steps>
+
+Analysis begins at the next worker check-in. Your browser reads the **Since date** and **Time** in its local timezone. An empty time starts the cutoff at midnight, local time.
+
+## Choose the backlog to process
+
+The backlog is the accumulated trace history the analyzer processes when you enable analysis. Two choices set it:
+
+- **All traces** processes the full available history for the installation.
+- **Since date or time** sets a cutoff, so the analyzer processes traces from that point onward.
+
+Choosing **All traces** sends your organization's full eligible trace history to your configured model provider for analysis. See [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+The analyzer cannot start earlier than a floor set by two dates:
+
+- When this organization's instruction-hub repository was connected within Promptless.
+- The analysis start date (`activationAt`) an operator configured when deploying the worker, when one is set. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+
+The floor is whichever of these dates is later. Your chosen cutoff can move the start point later than the floor. A cutoff earlier than the floor starts the analyzer at the floor.
+
+If you later choose an earlier cutoff date, the backlog expands at the next worker check-in. The analyzer processes the newly included traces and keeps completed analyses as they are.
+
+## Pause and resume trace analysis
+
+Pausing needs no dialog. Turning off the **Trace analyzer** toggle submits the change right away, and analysis stops at the next worker check-in.
+
+Your backlog selection persists per worker installation and survives a pause. Turning the toggle back on reopens the **Enable trace analysis** dialog, where you choose a backlog again.
+
+This pause applies to trace analysis. The separate release-pause control on [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) pauses automatic version updates to the worker software.
+
+## If enabling doesn't succeed
+
+If the request to enable analysis does not succeed, the **Enable trace analysis** dialog stays open with your selection intact. Select **Enable analysis** again to retry. The dialog shows the reason the request failed. If it keeps failing after you retry, contact your Promptless support contact.
+
+## Confirm and next steps
+
+After analysis begins, confirm that a real session moves from collection through a completed analysis run. Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment) for that check.
