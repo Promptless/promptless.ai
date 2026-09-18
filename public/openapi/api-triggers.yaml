@@ -83,6 +83,152 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
       security:
       - bearerAuth: []
+  /v1/doc-update-findings:
+    get:
+      tags:
+      - Doc update findings
+      summary: List doc update findings
+      description: |
+        List the doc update findings Promptless recorded instead of drafting, newest first. Authenticate with your organization's API key as a bearer token.
+      operationId: listDocUpdateFindings
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: Restrict results to findings in one status.
+        schema:
+          type: string
+          enum:
+          - open
+          - drafting
+          - drafted
+          - dismissed
+      - name: doc_collection_id
+        in: query
+        required: false
+        description: Restrict results to one doc collection.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Maximum findings to return.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      responses:
+        '200':
+          description: The matching doc update findings, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocUpdateFindingListResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/doc-update-findings/{id}/draft:
+    post:
+      tags:
+      - Doc update findings
+      summary: Draft a doc update finding
+      description: |
+        Draft a recorded finding into a suggestion. Promptless resumes the original trigger with the finding's research attached and starts authoring. Only an open finding can be drafted.
+      operationId: draftDocUpdateFinding
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The finding to draft.
+        schema:
+          type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftDocUpdateFindingRequest'
+      responses:
+        '202':
+          description: The drafting task was started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DraftDocUpdateFindingResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '404':
+          description: No finding matches the given ID (`finding_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The finding is already drafting, drafted, or dismissed (`finding_not_open`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '503':
+          description: The drafting task could not be started (`draft_not_started`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/doc-update-findings/{id}/dismiss:
+    post:
+      tags:
+      - Doc update findings
+      summary: Dismiss a doc update finding
+      description: |
+        Dismiss an open finding so it no longer waits for review. Authenticate with your organization's API key as a bearer token.
+      operationId: dismissDocUpdateFinding
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: The finding to dismiss.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: The finding was dismissed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DismissDocUpdateFindingResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '404':
+          description: No finding matches the given ID (`finding_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The finding is already drafting, drafted, or dismissed (`finding_not_open`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
   /v1/triggers:
     post:
       tags:
@@ -509,6 +655,145 @@ components:
       - instructions
       title: ApiTriggerIntakeRequest
       description: JSON request body for API-triggered task intake.
+    DocUpdateFinding:
+      type: object
+      title: DocUpdateFinding
+      description: A docs update Promptless recorded instead of drafting.
+      properties:
+        id:
+          type: string
+          description: The finding's unique identifier.
+        title:
+          type: string
+          description: The planned update's title.
+        url:
+          type: string
+          description: Link to the finding on the Doc Plans page.
+        summary:
+          type: string
+          description: What the planned update covers.
+        rationale:
+          type: string
+          description: Why Promptless recorded the finding.
+        priority:
+          type: string
+          description: The rubric priority tier.
+          enum:
+          - p0
+          - p1
+          - p2
+          - p3
+        status:
+          type: string
+          description: The finding's current status.
+          enum:
+          - open
+          - drafting
+          - drafted
+          - dismissed
+        affected_paths:
+          type: array
+          description: The documentation paths the update would touch.
+          items:
+            type: string
+        affected_path_count:
+          type: integer
+          description: How many paths affected_paths holds.
+        doc_collection_id:
+          type: string
+          description: The doc collection the finding targets.
+        doc_collection_name:
+          type: string
+          description: The doc collection's repository name.
+        file_count:
+          type: integer
+          description: How many files the finding's research covers.
+        draft_trigger_event_id:
+          type:
+          - string
+          - "null"
+          description: The drafting task's ID once the finding is drafted, otherwise null.
+        suggestion_id:
+          type:
+          - string
+          - "null"
+          description: The suggestion produced once the finding is drafted, otherwise null.
+        created_at:
+          type: string
+          format: date-time
+          description: When Promptless recorded the finding.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the finding last changed.
+        dismissed_at:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: When the finding was dismissed, otherwise null.
+        dismissed_via:
+          type:
+          - string
+          - "null"
+          description: How the finding was dismissed, such as api, otherwise null.
+      required:
+      - id
+      - title
+      - url
+      - summary
+      - rationale
+      - priority
+      - status
+      - affected_paths
+      - affected_path_count
+      - doc_collection_id
+      - doc_collection_name
+      - file_count
+      - created_at
+      - updated_at
+    DocUpdateFindingListResponse:
+      type: object
+      title: DocUpdateFindingListResponse
+      description: Response body listing doc update findings, newest first.
+      properties:
+        doc_update_findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocUpdateFinding'
+      required:
+      - doc_update_findings
+    DraftDocUpdateFindingRequest:
+      type: object
+      title: DraftDocUpdateFindingRequest
+      description: Optional request body for drafting a doc update finding.
+      additionalProperties: false
+      properties:
+        instructions:
+          type: string
+          description: Extra guidance for the resulting suggestion.
+    DraftDocUpdateFindingResponse:
+      type: object
+      title: DraftDocUpdateFindingResponse
+      description: Response body returned when a finding's drafting task is started.
+      properties:
+        trigger_event_id:
+          type: string
+          description: Identifier of the drafting task. Use it to correlate with trigger history.
+        finding:
+          $ref: '#/components/schemas/DocUpdateFinding'
+      required:
+      - trigger_event_id
+      - finding
+    DismissDocUpdateFindingResponse:
+      type: object
+      title: DismissDocUpdateFindingResponse
+      description: Response body returned when a finding is dismissed.
+      properties:
+        finding:
+          $ref: '#/components/schemas/DocUpdateFinding'
+      required:
+      - finding
     HTTPValidationError:
       type: object
       title: HTTPValidationError

@@ -135,10 +135,10 @@ A token is tied to one organization. To connect a second organization, authorize
 
 ## Available tools
 
-Through your editor, these 11 tools let you check on your collections, tasks, and suggestions, or queue and change your documentation work. Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Six tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
+Through your editor, these 13 tools let you check on your collections, tasks, and suggestions, or queue and change your documentation work. Six tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, `list_doc_update_findings`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Seven tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, `draft_doc_update_finding`, and `close_suggestion`. These always ask before they run.
 
 <Aside type="note">
-  If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, and `wait_for_task_update` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
+  If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, `wait_for_task_update`, `list_doc_update_findings`, and `draft_doc_update_finding` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
 </Aside>
 
 ### `submit_documentation_task`
@@ -298,6 +298,31 @@ Searches your existing suggestions by keyword and status. Use it to check whethe
 
 When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Calling with no arguments returns your suggestions up to the limit. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the suggestion-triage workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
 
+### `list_doc_update_findings`
+
+Lists your recorded doc update findings, newest first. Use it to see what Promptless planned but hasn't drafted, and to get a `finding_id` to pass to `draft_doc_update_finding`. It's read-only, and your editor can auto-approve it.
+
+| Argument            | Required | Description                                                                       |
+| ------------------- | -------- | --------------------------------------------------------------------------------- |
+| `doc_collection_id` | No       | Restrict results to one collection. Omit to list findings across all collections. |
+| `status`            | No       | Restrict results to one of `open`, `drafting`, `drafted`, or `dismissed`.         |
+| `limit`             | No       | Caps how many findings come back, from 1 to 100. Defaults to 25.                  |
+
+The response returns the matching findings in `doc_update_findings`, the `limit` applied, and a `truncated` flag that's true when more findings match than were returned.
+
+### `draft_doc_update_finding`
+
+Drafts a recorded doc update finding, turning the plan into an ordinary suggestion. Promptless resumes the original trigger with the finding's research attached and starts authoring. Only an `open` finding can be drafted.
+
+| Argument       | Required | Description                                             |
+| -------------- | -------- | ------------------------------------------------------- |
+| `finding_id`   | Yes      | The finding to draft (from `list_doc_update_findings`). |
+| `instructions` | No       | Extra guidance for the resulting suggestion.            |
+
+It returns the `trigger_event_id`, the `finding_id`, the finding's new `status`, a `message`, and a `next_call`. Follow `next_call` with `wait_for_task_update` to reach the suggestion it produces. Like the other work-changing tools, it prompts before it runs and isn't auto-approved.
+
+There's no MCP tool to dismiss a finding. Dismiss one from the Doc Plans page, or call [`POST /v1/doc-update-findings/{id}/dismiss`](/docs/for-docs/connect/triggers/api#dismiss-a-doc-update-finding).
+
 ## Answer a clarifying question
 
 A task can finish by marking one clarifying question in your editor. This applies to a task you started over MCP. Answering it starts a new continuation task. That task carries the original request, the original context, the clarification history, and links to any results already produced. You pick up directly from the clarification.
@@ -387,6 +412,8 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
 - **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
 - **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
+- **Drafting a finding that isn't open**: `draft_doc_update_finding` reports that the finding isn't open, naming its current status. Call `list_doc_update_findings` with `status: open` to find a finding you can draft.
+- **An unrecognized finding id**: `draft_doc_update_finding` reports that no finding matches the given ID. Call `list_doc_update_findings` for a valid id.
 - **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues

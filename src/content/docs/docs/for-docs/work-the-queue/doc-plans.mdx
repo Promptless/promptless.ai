@@ -1,0 +1,99 @@
+---
+title: Doc Plans
+description: >-
+  Review the docs updates Promptless plans but hasn't drafted, and control how
+  much Promptless drafts on its own
+slug: docs/for-docs/work-the-queue/doc-plans
+type: guide
+tags:
+  - work-the-queue
+  - guide
+timestamp: "2026-09-15T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 30
+  label: Doc Plans
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Doc Plans is where you review a docs update that Promptless planned but held off drafting on its own. Each planned update is a **doc update finding**: a recorded, reviewable description of a change Promptless would make, without the drafted content behind it yet. From the Doc Plans page you decide which findings become suggestions, and which you dismiss.
+
+This guide assumes you're familiar with Promptless suggestions. If suggestions are new to you, start with [Use the web interface](/docs/for-docs/work-the-queue/web-interface). That page still covers reviewing drafted suggestions, and the YAML equivalents of the settings here live in the [Configuration reference](/docs/for-docs/reference/configuration-reference#policies).
+
+## What Doc Plans are
+
+A doc update finding is a plan for a docs update. Promptless has judged the change worth making and recorded what it would do, without writing the content yet.
+
+A suggestion is a drafted change, ready to review and publish, that you find on the Suggestions page in [the web interface](/docs/for-docs/work-the-queue/web-interface). A finding turns into a suggestion once you draft it.
+
+## When Promptless records a finding instead of drafting
+
+Promptless scores each warranted docs change against a **drafting threshold**. Every change gets a priority tier from a rubric, from P0 down to P3. A change at or above the threshold is drafted right away as a suggestion. A change below the threshold is recorded as a doc update finding for you to review.
+
+The threshold defaults to **All**, so Promptless drafts every warranted change and records no findings. This all-drafting default continues until an admin lowers the threshold. Set it to **None** to record every warranted change as a finding and draft nothing automatically. P3 is the rubric's lowest tier, so setting the threshold to `p3` behaves the same as `all`: every change clears it.
+
+Lowering the threshold trades drafting noise for a second queue to check by hand. Doc Plans has no notification yet (see [What Doc Plans don't do yet](#what-doc-plans-dont-do-yet)), so a lower threshold means more findings to remember to check. Start with a higher threshold, and lower it once checking Doc Plans is part of your routine.
+
+The priority tier measures how wrong or missing the documentation is. It says nothing about whether the underlying change has shipped. To hold drafting back until a change reaches a release stage you trust, such as merge or a feature-flag rollout, use [release timing](/docs/for-docs/tune/release-timing). Use it alongside, or instead of, the drafting threshold.
+
+The default rubric sorts changes into four tiers:
+
+- **P0**: readers are blocked or misled today, such as a removed command or endpoint, a wrong documented default, or an undocumented security or billing consequence.
+- **P1**: a shipped, user-visible capability has no docs, or a page needs a new section.
+- **P2**: existing content is correct but incomplete or stale, such as a new option, a changed error message, or an outdated example.
+- **P3**: polish, such as wording, old screenshots, or links to a renamed page.
+
+The rubric is yours to edit, so you can change what lands in each tier. Treat the tier and rationale Promptless assigns as a starting judgment to check. Review them the same way you'd review a drafted suggestion before publishing it.
+
+## Review a doc plan
+
+Open Doc Plans to see the findings Promptless has recorded and decide what to do with each one.
+
+<Steps>
+  1. In the dashboard sidebar, select **Doc Plans**.
+
+  2. Optional. Select the **Open**, **Drafting**, or **Dismissed** tab to filter the list.
+
+  3. Select a finding to open its detail page.
+</Steps>
+
+The detail page shows the finding's title, summary, rationale, affected paths, and priority tier, and you can edit any of these fields. It also lists the research report files Promptless attached while forming the finding, so you can check the evidence behind the plan.
+
+Once you draft a finding, it leaves the Doc Plans list. From then on its suggestion on the Suggestions page represents that work.
+
+## Draft a doc plan
+
+Draft a finding when you want Promptless to author the update it planned. The finding must be open.
+
+- On the finding's detail page, select **Create suggestion**.
+
+Promptless resumes the original trigger with the finding's research attached, so authoring starts right away. The finding produces an ordinary suggestion, which you review and publish from the Suggestions page.
+
+## Dismiss a doc plan
+
+Dismiss a finding when you don't want the planned update. Only an open finding can be dismissed.
+
+- On the finding's detail page, select **Dismiss**.
+
+## Configure how much Promptless drafts
+
+Set the drafting threshold in the dashboard under [Settings → Autonomy](https://app.gopromptless.ai/settings/autonomy), available to admins.
+
+- Under **Drafting threshold**, set the segmented control: **P0**, **P1+**, **P2+**, **All**, or **None**. In YAML these map to `p0`, `p1`, `p2`, `all`, and `none`. P3 has no dedicated button, so it folds into `all`.
+- Under **PR generation**, toggle **Open pull requests automatically** for the suggestions Promptless drafts. This is the dashboard control for `publishing.auto_create_pr`.
+- Under **Drafting rubric**, edit the rubric that sorts changes into the priority tiers.
+
+The Autonomy page sets your organization's default threshold, writing `policies.default`. To use a different threshold for one doc collection, set `drafting.auto_draft_threshold` in a `policies.rules` entry scoped to that collection instead. See the [Configuration reference](/docs/for-docs/reference/configuration-reference#policies) for both the default and the per-collection YAML.
+
+## What Doc Plans don't do yet
+
+Findings arrive silently. Check the Doc Plans page on a schedule, or poll `list_doc_update_findings` or [`GET /v1/doc-update-findings`](/docs/for-docs/connect/triggers/api#doc-update-findings) from your own automation, to find new ones.
+
+- A recorded finding stays silent on Slack and Microsoft Teams.
+- The weekly digest covers suggestions only, not findings.
+- A finding stays until you draft or dismiss it.
+- A trigger that produced no suggestion may still have recorded a finding. On the [Triggers page](/docs/for-docs/work-the-queue/web-interface#triggers-page) and over MCP, "no suggestion created" doesn't rule that out. Check Doc Plans or call `list_doc_update_findings` to be sure.
+- MCP lists and drafts findings with `list_doc_update_findings` and `draft_doc_update_finding`; dismissing a finding needs the dashboard or the [API](/docs/for-docs/connect/triggers/api#dismiss-a-doc-update-finding).
+
+Need help with Doc Plans? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).

@@ -533,3 +533,181 @@ When you submit an API request:
 <Aside type="note">
   API triggers use the same processing pipeline as other trigger types. The suggestions appear in your dashboard and follow your configured [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
 </Aside>
+
+## Doc update findings
+
+A [doc update finding](/docs/for-docs/work-the-queue/doc-plans) is a docs update Promptless planned and recorded instead of drafting. These endpoints list your findings, draft one into a suggestion, or dismiss one. All three authenticate with the same `sk-pl-` bearer token as the rest of this page, sent in the `Authorization` header.
+
+### List doc update findings
+
+#### Endpoint
+
+```
+GET /v1/doc-update-findings
+```
+
+#### Request format
+
+Pass filters as query parameters:
+
+| Parameter           | Type    | Required | Description                                                               |
+| ------------------- | ------- | -------- | ------------------------------------------------------------------------- |
+| `status`            | string  | No       | Restrict results to one of `open`, `drafting`, `drafted`, or `dismissed`. |
+| `doc_collection_id` | string  | No       | Restrict results to one doc collection.                                   |
+| `limit`             | integer | No       | Maximum findings to return, from 1 to 100. Defaults to 50.                |
+
+#### Example request
+
+```bash
+curl "https://api.gopromptless.ai/v1/doc-update-findings?status=open&limit=25" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+#### Response
+
+A successful request returns `200 OK` with the findings under `doc_update_findings`, newest first:
+
+```json
+{
+  "doc_update_findings": [
+    {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "title": "Document the new rate-limit response headers",
+      "url": "https://app.gopromptless.ai/doc-plans/f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "summary": "The v2.5 release adds X-RateLimit headers that aren't documented.",
+      "rationale": "Readers can't see their rate-limit budget without the header reference.",
+      "priority": "p2",
+      "status": "open",
+      "affected_paths": ["docs/api/rate-limits.md"],
+      "affected_path_count": 1,
+      "doc_collection_id": "8f14e45f-ceea-467d-9a1b-2c3d4e5f6a7b",
+      "doc_collection_name": "acme/docs",
+      "file_count": 1,
+      "draft_trigger_event_id": null,
+      "suggestion_id": null,
+      "created_at": "2026-09-15T00:00:00Z",
+      "updated_at": "2026-09-15T00:00:00Z",
+      "dismissed_at": null,
+      "dismissed_via": null
+    }
+  ]
+}
+```
+
+Each finding carries these fields:
+
+| Field                    | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- |
+| `id`                     | The finding's unique identifier.                                     |
+| `title`                  | The planned update's title.                                          |
+| `url`                    | Link to the finding on the Doc Plans page.                           |
+| `summary`                | What the planned update covers.                                      |
+| `rationale`              | Why Promptless recorded the finding.                                 |
+| `priority`               | The rubric tier: `p0`, `p1`, `p2`, or `p3`.                          |
+| `status`                 | `open`, `drafting`, `drafted`, or `dismissed`.                       |
+| `affected_paths`         | The documentation paths the update would touch.                      |
+| `affected_path_count`    | How many paths `affected_paths` holds.                               |
+| `doc_collection_id`      | The doc collection the finding targets.                              |
+| `doc_collection_name`    | The doc collection's repository name.                                |
+| `file_count`             | How many files the finding's research covers.                        |
+| `draft_trigger_event_id` | The drafting task's ID once you draft the finding, otherwise null.   |
+| `suggestion_id`          | The suggestion produced once the finding is drafted, otherwise null. |
+| `created_at`             | When Promptless recorded the finding.                                |
+| `updated_at`             | When the finding last changed.                                       |
+| `dismissed_at`           | When the finding was dismissed, otherwise null.                      |
+| `dismissed_via`          | How the finding was dismissed, such as `api`, otherwise null.        |
+
+### Draft a doc update finding
+
+Drafts a finding into an ordinary suggestion. Promptless resumes the original trigger with the finding's research attached and starts authoring.
+
+#### Endpoint
+
+```
+POST /v1/doc-update-findings/{id}/draft
+```
+
+#### Request format
+
+The body is optional. Include `instructions` to guide the resulting suggestion:
+
+```json
+{
+  "instructions": "Focus on the response headers and their reset timing"
+}
+```
+
+#### Example request
+
+```bash
+curl -X POST "https://api.gopromptless.ai/v1/doc-update-findings/f47ac10b-58cc-4372-a567-0e02b2c3d479/draft" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{"instructions": "Focus on the response headers and their reset timing"}'
+```
+
+#### Response
+
+A successful request returns `202 Accepted` with the drafting task's ID and the updated finding, whose `status` is now `drafting`. The `finding` object carries the same fields as a finding in the list response, shown abbreviated here:
+
+```json
+{
+  "trigger_event_id": "abc123-...",
+  "finding": {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "status": "drafting",
+    "draft_trigger_event_id": "abc123-..."
+  }
+}
+```
+
+#### Error responses
+
+| Status | Error               | Description                                                     |
+| ------ | ------------------- | --------------------------------------------------------------- |
+| 404    | `finding_not_found` | No finding matches the given ID.                                |
+| 409    | `finding_not_open`  | The finding is already drafting, drafted, or dismissed.         |
+| 503    | `draft_not_started` | Promptless couldn't start the drafting task. Retry the request. |
+
+### Dismiss a doc update finding
+
+Dismisses an open finding, removing it from the review queue.
+
+#### Endpoint
+
+```
+POST /v1/doc-update-findings/{id}/dismiss
+```
+
+#### Request format
+
+Send no body.
+
+#### Example request
+
+```bash
+curl -X POST "https://api.gopromptless.ai/v1/doc-update-findings/f47ac10b-58cc-4372-a567-0e02b2c3d479/dismiss" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+#### Response
+
+A successful request returns `200 OK` with the updated finding, whose `status` is `dismissed` and whose `dismissed_via` is `api`. The `finding` object carries the same fields as a finding in the list response, shown abbreviated here:
+
+```json
+{
+  "finding": {
+    "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "status": "dismissed",
+    "dismissed_at": "2026-09-15T00:00:00Z",
+    "dismissed_via": "api"
+  }
+}
+```
+
+#### Error responses
+
+| Status | Error               | Description                                             |
+| ------ | ------------------- | ------------------------------------------------------- |
+| 404    | `finding_not_found` | No finding matches the given ID.                        |
+| 409    | `finding_not_open`  | The finding is already drafting, drafted, or dismissed. |
