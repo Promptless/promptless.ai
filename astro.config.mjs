@@ -8,6 +8,7 @@ import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import vercel from '@astrojs/vercel';
 import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import starlightSearch, { searchIncludeFiles } from './packages/starlight-search/src/index.ts';
 import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 import { DOCS_PRODUCTS } from './src/lib/docs-products.ts';
 
@@ -35,11 +36,13 @@ const hiddenSitemapPaths = new Set([
 // static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
 // ---------------------------------------------------------------------------
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
+const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
 
 const redirects = {
   '/home': '/',
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
+  '/lavacon/book': '/lavacon#book',
   '/wtd': '/',
   '/wtd-portland-2026': '/',
   '/wtd-portland-2026.ics': '/',
@@ -67,7 +70,7 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
-  adapter: MCP_ENABLED ? vercel() : undefined,
+  adapter: MCP_ENABLED || ASSISTANT_ENABLED ? vercel({ includeFiles: searchIncludeFiles }) : undefined,
   redirects,
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
@@ -96,6 +99,24 @@ export default defineConfig({
       favicon: '/favicon.ico',
       customCss: ['./src/styles/custom.css', './src/styles/site.css'],
       plugins: [
+        starlightSearch({
+          assistant: ASSISTANT_ENABLED,
+          starterLinks: {
+            en: [
+              { title: 'Quickstart', url: '/docs/for-docs/start-here/quickstart/', description: 'Connect your first integrations and start updating docs.' },
+              { title: 'Set up Slack', url: '/docs/for-docs/reference/integrations/slack/', description: 'Connect Slack so conversations can become documentation updates.' },
+              { title: 'Configuration reference', url: '/docs/for-docs/reference/configuration-reference/', description: 'Understand the settings in promptless.yaml.' },
+              { title: 'Promptless for Agent Instructions', url: '/docs/governance/', description: 'Keep the instructions your coding agents use up to date.' },
+            ],
+          },
+          ranking: {
+            fields: { title: 4, description: 3, heading: 2, body: 1 },
+            contentTypes: { docs: 1.15, api: 1.15, blog: 1, marketing: 1 },
+          },
+          apiPaths: ['/docs/for-docs/api'],
+          docsPaths: ['/docs'],
+          exclude: [...hiddenSitemapPaths, '/report/*', '/docs/internal/*', '/docs/marketing-images/*'],
+        }),
         starlightOpenAPI([
           {
             base: 'docs/for-docs/api',
@@ -225,6 +246,16 @@ export default defineConfig({
                   ],
                 },
                 ...openAPISidebarGroups,
+                // Starport: the managed docs-as-code platform. Sits after the
+                // API Reference group (which ...openAPISidebarGroups spreads in).
+                // Blanket autogenerate over the flat starport/ directory, ordered
+                // by each page's sidebar.order (index.mdx first). Label set
+                // explicitly so the group renders as "Starport", not the raw
+                // folder segment.
+                // Group-level `badge` renders next to the "Starport" category
+                // label (distinct from per-page sidebar.badge). Matches the
+                // `New` badge on the Agent Instructions topic (docs-products.ts).
+                { label: 'Starport', collapsed: true, badge: { text: 'New', variant: 'note' }, items: [{ autogenerate: { directory: 'docs/for-docs/starport', collapsed: true } }] },
               ],
             },
             {
@@ -236,16 +267,63 @@ export default defineConfig({
                 : {}),
               items: [
                 {
-                  label: 'Start here',
+                  label: 'Understand PIG',
                   collapsed: true,
                   items: [
                     { label: 'Overview', slug: 'docs/governance' },
                     { autogenerate: { directory: 'docs/governance/start-here', collapsed: true } },
                   ],
                 },
-                { label: 'Get started', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/get-started', collapsed: true } }] },
-                { label: 'Deploy the worker', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/deploy-the-worker', collapsed: true } }] },
-                { label: 'Findings & remediation', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/findings-and-remediation', collapsed: true } }] },
+                { label: 'Set up an instruction hub', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/get-started', collapsed: true } }] },
+                {
+                  label: 'Deploy trace analysis',
+                  collapsed: true,
+                  // Group deployment tasks separately from infrastructure and operations.
+                  items: [
+                    { label: 'Overview', slug: 'docs/governance/deploy-the-worker/plan-your-deployment' },
+                    {
+                      label: 'Install',
+                      collapsed: true,
+                      items: [
+                        { label: 'Kubernetes with Helm', slug: 'docs/governance/deploy-the-worker/deploy-the-analyzer-worker' },
+                        { label: 'AWS with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-aws' },
+                        { label: 'Azure with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-azure' },
+                        { label: 'Google Cloud with Terraform', slug: 'docs/governance/deploy-the-worker/deploy-on-gcp' },
+                      ],
+                    },
+                    {
+                      label: 'Infrastructure',
+                      collapsed: true,
+                      items: [
+                        { label: 'Compute and sizing', slug: 'docs/governance/deploy-the-worker/compute-and-sizing' },
+                        { label: 'PostgreSQL', slug: 'docs/governance/deploy-the-worker/postgresql' },
+                        { label: 'Object storage', slug: 'docs/governance/deploy-the-worker/object-storage' },
+                        { label: 'Networking and identity', slug: 'docs/governance/deploy-the-worker/networking-and-identity' },
+                        { label: 'Model providers', slug: 'docs/governance/deploy-the-worker/model-providers' },
+                      ],
+                    },
+                    {
+                      label: 'Operate',
+                      collapsed: true,
+                      items: [
+                        { label: 'Verify your deployment', slug: 'docs/governance/deploy-the-worker/verify-your-deployment' },
+                        { label: 'Updates and recovery', slug: 'docs/governance/deploy-the-worker/manage-updates-and-recovery' },
+                        { label: 'Observability', slug: 'docs/governance/deploy-the-worker/observability' },
+                        { label: 'GitOps ownership', slug: 'docs/governance/deploy-the-worker/gitops-ownership' },
+                      ],
+                    },
+                    {
+                      label: 'Reference',
+                      collapsed: true,
+                      items: [
+                        { label: 'Deployment configuration', slug: 'docs/governance/deploy-the-worker/configuration-reference' },
+                        { label: 'Manual Helm installation', slug: 'docs/governance/deploy-the-worker/manual-helm' },
+                        { label: 'Manual Helm reference', slug: 'docs/governance/deploy-the-worker/manual-helm-reference' },
+                      ],
+                    },
+                  ],
+                },
+                { label: 'Operate PIG', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/findings-and-remediation', collapsed: true } }] },
                 { label: 'Reference', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/reference', collapsed: true } }] },
               ],
             },
