@@ -10,7 +10,7 @@ const tasks = [
   { query: 'slack setup', path: '/docs/for-docs/connect/triggers/slack-messages/', within: 3 },
   { query: 'slcak', path: '/docs/for-docs/reference/integrations/slack/', within: 3 },
   { query: 'slack_listen', path: '/docs/for-docs/connect/triggers/slack-messages/', within: 3 },
-  { query: 'INSTRUCTION_HUB_ANALYSIS_MODEL_NAME', path: '/docs/governance/deploy-the-worker/configuration-reference/', within: 1 },
+  { query: 'INSTRUCTION_HUB_ANALYSIS_MODEL_NAME', path: '/docs/governance/deploy-the-worker/manual-helm-reference/', within: 1 },
   { query: 'API authentication', path: '/docs/for-docs/connect/triggers/api/', within: 3 },
   { query: 'API triggers error responses', path: '/docs/for-docs/connect/triggers/api/', within: 1 },
   { query: 'promptless ingestion', path: '/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs/', within: 3 },
