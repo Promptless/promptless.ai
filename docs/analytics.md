@@ -24,7 +24,12 @@ setup, the event catalog, known gaps, and recommendations.
 | `demo_requested` | `location` (hero / demo_page), `$set.email` | Hero.astro, DemoBooking.astro |
 | `blog_demo_requested` | `location` (blog), `$set.email` | BlogRequestDemo.astro |
 | `broken_link_report_submitted` | `target_url`, `check_external`, `check_anchors`, `max_pages`, `$set.email` | BrokenLinkReportForm.astro |
-| `site_searched` | `query`, `page_url` | posthog.astro (MutationObserver on Pagefind input) |
+| `site_searched` | `query`, `page_url` | posthog.astro (Starport search event bridge) |
+| `site_search_result_clicked` | `query`, `url`, `position`, `source`, `page_url` | posthog.astro (Starport search event bridge) |
+
+Search result clicks identify their `source` as `search`, `recent`, or `starter`.
+Recent and starter destinations use an empty `query`; simply opening the search
+dialog does not emit `site_searched`.
 
 ### Poorly-instrumented events
 
