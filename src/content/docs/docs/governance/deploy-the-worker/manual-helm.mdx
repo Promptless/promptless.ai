@@ -38,6 +38,10 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
 ## Install the analyzer
 
+<Aside type="caution">
+  If an analyzer is already installed under another Helm release name, complete the [release replacement](#replace-an-instruction-hub-worker-release) first. Installing `pig-trace-analyzer` creates a separate release; it does not stop the existing analyzer.
+</Aside>
+
 <Steps>
   1. **Prepare the namespace, identity, and secrets.** Confirm the cluster you intend to change:
 
@@ -128,9 +132,6 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        create: false
        name: pig-analyzer
 
-     migrationJob:
-       serviceAccountName: pig-analyzer
-
      gateway:
        enabled: true
        className: nginx
@@ -181,7 +182,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
      A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. Both workloads use the existing `pig-analyzer` ServiceAccount in this example. A ServiceAccount created by the worker chart is unavailable to its pre-install hook, so keep the account under your platform or GitOps workflow.
 
      <Aside type="caution">
-       Helm's `--atomic` handles failed Kubernetes release changes. It does not undo database migrations or restore trace objects. Back up your database before upgrades and confirm the previous application version supports the resulting schema before rolling it back.
+       Back up your database before upgrades. A failed Helm release does not undo schema changes or restore trace objects. Follow the release's recovery procedure with an image compatible with the current database schema.
      </Aside>
 </Steps>
 
@@ -192,6 +193,35 @@ Review the target release's database, storage, and schema requirements before ea
 Schedule a maintenance window, stop new analyzer traffic, and quiesce the existing analyzer before running `helm upgrade`. Confirm that its pods have stopped before the pre-upgrade migration Job starts. Helm runs this hook before updating the Deployment; the Deployment's `Recreate` strategy alone does not prevent the old analyzer from accessing the database during migration. Coordinate this with GitOps reconciliation so it does not restart the old workload.
 
 Install the pinned target chart with your reviewed values, then repeat the complete-session verification below. If migration fails, preserve the Job logs and inspect the schema before restarting the previous image. Follow the release's recovery procedure; an application rollback does not reverse database changes.
+
+## Replace an instruction-hub-worker release
+
+Use this procedure when the existing Helm release is named `instruction-hub-worker`. Substitute your actual namespace, release, and Deployment names if they differ. Keep the registered deployment identity, database, native object-storage location, and host credentials.
+
+1. Suspend GitOps reconciliation and automated deployments for the existing release. Review the target release's schema requirements and recovery procedure, and verify your database and object-storage recovery points.
+2. Prepare the target values using the existing external Secret, ServiceAccount, CA ConfigMap, and TLS Secret. If the old release owns any of these resources, provision externally owned replacements before uninstalling it. Copy credential values through your secret-management workflow without printing them, update the values references, and verify workload-identity trust for the target ServiceAccount.
+3. Stop incoming analyzer traffic and scale every existing analyzer Deployment to zero. For the default old release, run:
+
+   ```bash
+   kubectl --namespace pig scale deployment instruction-hub-worker --replicas=0
+   kubectl --namespace pig wait --for=delete pod \
+     -l app.kubernetes.io/instance=instruction-hub-worker,pod-template-hash \
+     --timeout=5m
+   ```
+
+   Confirm all analyzer Deployment pods have terminated before proceeding. The selector excludes retained migration Job pods.
+4. Remove the old Helm release while retaining its history:
+
+   ```bash
+   helm uninstall instruction-hub-worker --namespace pig \
+     --keep-history --wait --timeout 20m
+   kubectl --namespace pig get deployment instruction-hub-worker --ignore-not-found
+   ```
+
+   The Deployment lookup must return no object. Preserve the namespace, external credentials and identity resources, database, and object store.
+5. Follow [Render and install](#install-the-analyzer) with the reviewed target chart and values. Update any external route or DNS alias after the new ingress exists, then [verify a complete session](#verify-a-complete-session).
+
+If replacement fails, keep the analyzer stopped and repair forward with an image compatible with the database's current schema. Do not restart a schema-1 image after schema revision 2 has been applied.
 
 ## Verify a complete session
 
