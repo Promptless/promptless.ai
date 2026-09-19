@@ -1,0 +1,81 @@
+---
+title: 'API Reference Documentation: Best Practices for the Failure Path'
+subtitle: Published September 2026
+description: >-
+  Most API reference docs invest in the happy path. Here are the four sections that degrade fastest, and what developers need when integration breaks.
+date: '2026-09-17T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer calls an endpoint with what looks like a valid request. The response comes back: `VALIDATION_ERROR`. The reference lists this code as "A validation error occurred." No field name. No expected format. The developer opens a support ticket.
+
+That ticket exists because the reference invested in making the first API call easy. It did not invest in making the next debugging session fast.
+
+## API reference docs are not written for failure
+
+The parts of a reference that get the most attention are the ones that appear in demos: authentication, the getting-started guide, primary endpoints with working code samples. These matter. [Postman's 2025 State of the API report](https://www.postman.com/state-of-api/) found that 73% of developers rank documentation quality as the primary factor in deciding whether to use an API.
+
+What that survey measures is whether developers choose to start integrating. It does not measure whether they succeed.
+
+The failure path is where most references run thin: error codes, edge-case parameter behavior, rate limit semantics, and deprecation timelines. These sections are hard to generate from a spec because they contain context the spec does not have. Why this error fires on this specific condition. What the retry window actually means. Which fields have conditional requirements that are not obvious from the schema.
+
+They are also the exact sections developers need when something goes wrong.
+
+A [report on API drift](https://zivodoc.com/blog/api-documentation-drift-prevention/) found that 75% of production APIs do not conform to their own OpenAPI specifications. Teams that use spec-first tooling get accurate reference on launch day. Within a few sprints, the spec drifts. The sections with the weakest process for staying current are the ones that require context beyond what the spec captures: error codes, conditional parameter rules, deprecated feature timelines.
+
+<BlogNewsletterCTA />
+
+## Four sections that degrade fastest
+
+### Error codes
+
+Most API references document HTTP status codes: 400, 401, 404, 500. A few add API-specific error strings. Fewer still explain what caused the error and what would fix it.
+
+A developer debugging a 422 does not want "Unprocessable Entity." They want to know which field failed validation, what a valid value looks like, and whether the fix is in the request body or a missing header. This detail lives with the engineers who built the endpoint. It has to be written explicitly. A generator cannot infer it from the schema.
+
+Error code documentation also goes stale in a predictable way. New validation rules get added to an endpoint. The error table does not update. The developer encounters a code that is not in the reference, or a code listed with the wrong description. According to [IEEE research on API documentation failures](https://www.cs.mcgill.ca/~martin/papers/ieeesw2015.pdf), the three most severe documentation problems are ambiguity, incompleteness, and incorrectness. Error codes score poorly on all three.
+
+### Optional parameters with conditional requirements
+
+OpenAPI marks parameters as `required: true` or `required: false`. It rarely captures relationships between parameters.
+
+If field A is present, field B becomes required. If field C is set to `monthly`, field D must be a date in the first week of the month. If the request includes a webhook URL, the event filter is mandatory. These conditions are invisible in the schema and almost never documented in the reference.
+
+A developer who reads the spec and sends a technically valid request will hit a confusing error when they miss a conditional requirement. These support tickets are expensive because the developer did everything the documented interface asked.
+
+### Rate limits
+
+Most references state: "You are limited to X requests per minute." Fewer explain what happens after that limit is hit.
+
+What is the reset window (rolling or fixed)? What header signals how much quota remains? What backoff strategy works? What distinguishes a 429 from a capacity-related 503? Developers building production integrations need these details. Rate limit behavior also changes as APIs scale. The documented limit may be current, but the documented reset semantics may reflect an older implementation.
+
+### Deprecated endpoints
+
+When a team marks an endpoint deprecated, the OpenAPI spec gets `deprecated: true`. That flag rarely answers what a developer needs: when does this endpoint stop accepting requests, what is the replacement, and what changes in the replacement's interface that the migration has to handle.
+
+Without a sunset date and a migration example, deprecated endpoints create a split. Developers already integrated with the deprecated endpoint cannot prioritize the migration because there is no deadline. Developers new to the API may choose the deprecated path because the replacement is less documented, or because an AI coding tool generates code for the deprecated endpoint when it cannot determine which is preferred.
+
+## Why AI coding tools raise the cost of these gaps
+
+AI coding assistants generate integration code from reference documentation. When a developer uses Cursor, GitHub Copilot, or a similar tool to integrate an API, the assistant reads the reference directly or works from context the developer provides. It generates code based on what the reference says.
+
+A reference with thin error code documentation produces integration code with thin error handling. A reference with undocumented conditional parameter requirements produces code that fails on those conditions. The [documentation drift](/blog/technical/documentation-drift-detection-problem) that previously produced one support ticket per affected developer now produces systematically broken generated code for every developer using AI assistance.
+
+In 2025, [Postman found that 41% of developers used AI to generate API documentation](https://www.postman.com/state-of-api/). By 2026, the same tools read documentation for developers and generate integration code from it. The four sections above, already underdocumented, become more expensive to leave thin.
+
+## What to fix first
+
+Look at your support tickets from the last 90 days. Group the ones that started with "I got a specific error and the docs do not explain it." Group the ones that started with "I sent what looks like a valid request and received an unexpected error."
+
+Those tickets point directly to the failure path sections with the most gaps.
+
+Fix error code documentation before structure: write what caused each error and what fixes it. Write conditional parameter requirements as prose, not just as schema annotations. Add sunset dates and migration examples when marking something deprecated. Publish rate limit reset semantics with the same rigor you give a new endpoint.
+
+Your [automated API documentation workflows](/blog/technical/automated-api-documentation-updates) can keep the success path current. The failure path needs the same discipline, applied to sections that automated generation does not reach. And since these are the sections developers turn to when integrations fail, fixing them reduces support load faster than any equivalent investment in the happy path.
+
+<BlogRequestDemo />
