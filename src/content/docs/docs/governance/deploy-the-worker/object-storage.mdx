@@ -56,9 +56,15 @@ The cloud modules define the provider-specific grants. Review those grants with 
 
 Workload identities should refresh credentials without copying temporary tokens into Kubernetes Secrets. Application data access does not require permission to create buckets, resize databases, or change IAM.
 
+## Canonical object writes
+
+The analyzer writes each canonical trace object to a content-addressed key derived from the object's contents, under the configured prefix. A write that loses its database lock produces a different key from newer content, so a delayed writer keeps a newer canonical version intact. Objects written by earlier releases stay readable at their original keys.
+
+The analyzer retries an interrupted or failed canonical write in the background, with a persisted backoff between attempts. A single trace that stays pending or failed does not hold back writes for other traces. Confirm the exact recorded object location during verification rather than inferring a key from the session ID.
+
 ## Retention and recovery
 
-Set object retention, version recovery, and backup policies alongside your PostgreSQL recovery policy. Do not expire objects while live rows or retained database backups still reference them. Archive tiers that require restoration can prevent analysis from reading a trace.
+Set object retention, version recovery, and backup policies alongside your PostgreSQL recovery policy. Retain objects while live rows, retained database backups, or a pending background write still reference them. Archive tiers that require restoration can prevent analysis from reading a trace.
 
 Changing the configured bucket, container, or prefix does not migrate existing objects. Plan a storage migration with Promptless before changing it for an active deployment. Preserve both raw and canonical objects needed for recovery and analysis.
 

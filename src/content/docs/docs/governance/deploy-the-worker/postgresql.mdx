@@ -14,11 +14,11 @@ PIG uses PostgreSQL for trace metadata, ingestion progress, analysis runs, and s
 
 ## Database requirements
 
-- Use a PostgreSQL version supported by your selected PIG release.
-- Give the application database role ownership of the PIG schema and permission to run its migrations. It does not need cloud administrator permissions.
+- Run PostgreSQL 15, 16, 17, or 18. The current release supports these major versions and blocks a database outside this range during its preflight check.
+- Grant a role permission to run the PIG schema migrations: ownership of the PIG tables and `CREATE` on the schema. The runtime analyzer needs data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. Use one role for both, or [separate the migration credential](#separate-the-migration-credential) so schema ownership stays distinct from application data access. Neither role needs cloud administrator permissions.
 - Allow the analyzer and migration Jobs to reach the database, normally on TCP 5432, over private networking.
-- Require TLS and validate the database certificate with the provider's CA bundle and supported verification mode.
-- Configure automated backups, recovery retention, availability, and deletion protection through your infrastructure workflow.
+- Require TLS and validate the database certificate with the provider's CA bundle. Every analyzer and migration connection requires `sslmode=verify-full`.
+- Configure automated backups, recovery retention, availability, and deletion protection through your infrastructure workflow. The default configuration retains all trace data.
 
 The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Flexible Server, and Google Cloud SQL for PostgreSQL. A workload identity for the trace bucket does not automatically provide database authentication.
 
@@ -49,9 +49,22 @@ The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration co
 
 ## Migrations and connection capacity
 
-PIG coordinates schema migrations with application releases. Keep migration access available during upgrades. Reserve database connections for migrations and operations as well as analyzer replicas.
+PIG coordinates schema migrations with application releases and applies them as a distinct step before the analyzer serves traffic. The analyzer validates the schema revision at startup and serves only when it matches; it runs no schema changes itself. Keep migration access available during upgrades.
+
+Each analyzer replica opens a fixed-size connection pool, and the migration step opens its own connections. Reserve database connections for the analyzer replicas, the migration step, and your own operational access.
 
 Terraform owns the database instance's version, size, networking, and backups. PIG owns its application schema. Do not use Terraform to manage PIG tables or run competing schema migrations.
+
+## Separate the migration credential
+
+Schema migrations and normal analyzer traffic can use one database role or two. Supply a second connection string to give the migration step its own credential:
+
+- The **migration role** owns the PIG tables and holds `CREATE` on the schema. The migration step uses it to apply schema changes.
+- The **application role** holds data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. The serving analyzer uses it and cannot alter the schema.
+
+Both credentials must reach the same database over `sslmode=verify-full`; PIG confirms this before it migrates. When you supply only the application credential, that single role runs migrations and serves traffic.
+
+Deliver the migration credential the way your installation path expects: the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references) for a manual installation, or [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage) for a supervisor-managed one. The migration credential reaches only the preflight and migration Jobs, never the serving analyzer.
 
 ## Back up and restore
 

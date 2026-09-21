@@ -115,6 +115,16 @@ Create `postgres-ca` with the trusted database CA bundle under `ca.pem`, or chan
 
 The published chart pins the worker image through `image.repository` and `image.digest`. A source checkout requires a verified `image.digest` in the form `sha256:<64 lowercase hex characters>`. Use the digest from the matching release; do not replace it with a mutable tag.
 
+## Health and readiness probes
+
+The chart configures the analyzer's Kubernetes probes. Your ingress and monitoring route around these endpoints:
+
+- **Readiness (`/readyz`)** gates upload and analysis traffic on recent database and object-storage checks. A storage failure withdraws the analyzer from Service endpoints until it recovers. Point load-balancer health checks here.
+- **Liveness (`/healthz`)** detects a worker whose background tasks have stopped.
+- **Startup (`/healthz`)** gives storage time to become ready before the liveness check applies.
+
+The analyzer's `terminationGracePeriodSeconds` is 120 seconds, so in-flight work settles during a rollout.
+
 ## Analysis activation
 
 All Helm keys below are under `instructionHub.analysis`. The environment-variable suffixes have the prefix `INSTRUCTION_HUB_ANALYSIS_`.
@@ -161,8 +171,11 @@ Use `secrets.existingSecretName` to reference a Secret in the worker namespace. 
 | `secrets.installTokenKey`        | `install-token`          | `INSTRUCTION_HUB_INSTALL_TOKEN`          |
 | `secrets.customerPostgresDsnKey` | `customer-postgres-dsn`  | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`  |
 | `secrets.analysisModelApiKeyKey` | `analysis-model-api-key` | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` |
+| `secrets.migrationPostgresDsnKey` | none (unset by default) | `INSTRUCTION_HUB_MIGRATION_POSTGRES_DSN` |
 
 The model key is referenced when an activation time is configured with `api_key`. The analyzer receives GitHub App tokens for the selected instruction repositories from Promptless, so the worker Secret holds no repository credential.
+
+Set `secrets.migrationPostgresDsnKey` to run schema migrations with a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). The chart injects `INSTRUCTION_HUB_MIGRATION_POSTGRES_DSN` into the migration Job only; the serving analyzer never receives it. Both credentials must reach the same database over `sslmode=verify-full`. Leaving this key unset runs migrations with `customer-postgres-dsn`.
 
 The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
 
