@@ -84,6 +84,82 @@ paths:
       security:
       - bearerAuth: []
   /v1/triggers:
+    get:
+      tags:
+      - Read endpoints
+      summary: List finished tasks
+      description: |
+        Read the organization's finished tasks, newest completion first. Poll this feed to learn that a task ended, including a task that deliberately produced no documentation change. Only finished tasks appear; follow a running task with `GET /v1/triggers/{trigger_event_id}`. Filter with `source`, bound with `since`, and page with `limit` and `offset`.
+      operationId: listFinishedTasks
+      parameters:
+      - name: since
+        in: query
+        required: false
+        description: ISO 8601 timestamp used as an inclusive lower limit on the completion
+          timestamp. A trailing `Z` is accepted, and a value without a timezone is read
+          as UTC. A task whose completion timestamp equals this value is returned again,
+          so deduplicate by `trigger_event_id`.
+        schema:
+          type: string
+          format: date-time
+      - name: source
+        in: query
+        required: false
+        description: Exact trigger source to return, such as `api`. Omit to return every
+          source.
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        description: Maximum number of tasks to return.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      - name: offset
+        in: query
+        required: false
+        description: Number of tasks to skip before returning results.
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      responses:
+        '200':
+          description: A page of finished tasks, newest completion first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinishedTasksResponse'
+        '400':
+          description: The `since` parameter is not a valid ISO 8601 timestamp (`invalid_since`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: A query parameter is out of range, such as a `limit` above 100
+            or a negative `offset`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
     post:
       tags:
       - Triggers
@@ -931,8 +1007,23 @@ components:
           - string
           - 'null'
           title: Resolution
-          description: A note that distinguishes a deliberate no-op from a run that could
-            not finish.
+          description: A human-readable note that explains the outcome in prose. Read
+            it for context after finished is true.
+        outcome:
+          type:
+          - string
+          - 'null'
+          title: Outcome
+          description: How the task ended, as a fixed value an automation can branch on.
+            Null until the task finishes, and for a task from a source other than the
+            API or MCP. Handle an unrecognized value gracefully, because Promptless can
+            add an outcome.
+          enum:
+          - suggestions_created
+          - no_change_needed
+          - needs_input
+          - failed
+          - null
         suggestions:
           type: array
           title: Suggestions
@@ -960,6 +1051,7 @@ components:
       - source
       - request
       - resolution
+      - outcome
       - suggestions
       - status_guidance
       - messages
@@ -996,6 +1088,82 @@ components:
       required:
       - message
       - deduplicated
+    FinishedTask:
+      type: object
+      title: FinishedTask
+      description: One finished task in the finished-task feed.
+      properties:
+        trigger_event_id:
+          type: string
+          format: uuid
+          title: Trigger Event Id
+          description: The task's id, the same id POST /v1/triggers returned. Deduplicate
+            a feed on this value.
+          examples:
+          - d3aa7c40-5ec4-48c6-8d10-81c2ee042690
+        source:
+          type: string
+          title: Source
+          description: The task's origin, such as api.
+        request:
+          type:
+          - string
+          - 'null'
+          title: Request
+          description: A one-line summary of the submitted request.
+        outcome:
+          type:
+          - string
+          - 'null'
+          title: Outcome
+          description: How the task ended, as a fixed value an automation can branch on.
+            Null for a task that finished before Promptless recorded outcomes, and for
+            a task from a source other than the API or MCP. Handle an unrecognized value
+            gracefully, because Promptless can add an outcome.
+          enum:
+          - suggestions_created
+          - no_change_needed
+          - needs_input
+          - failed
+          - null
+        resolution:
+          type:
+          - string
+          - 'null'
+          title: Resolution
+          description: A human-readable note that explains the same verdict in prose.
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+          description: ISO 8601 time the task was submitted.
+        finished_at:
+          type: string
+          format: date-time
+          title: Finished At
+          description: ISO 8601 time the task finished.
+      required:
+      - trigger_event_id
+      - source
+      - request
+      - outcome
+      - resolution
+      - submitted_at
+      - finished_at
+    FinishedTasksResponse:
+      type: object
+      title: FinishedTasksResponse
+      description: A page of finished tasks from the finished-task feed, newest completion
+        first.
+      properties:
+        tasks:
+          type: array
+          title: Tasks
+          description: The finished tasks in this page, newest completion first.
+          items:
+            $ref: '#/components/schemas/FinishedTask'
+      required:
+      - tasks
   securitySchemes:
     bearerAuth:
       type: http
