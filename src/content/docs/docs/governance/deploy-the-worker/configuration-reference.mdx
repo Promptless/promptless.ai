@@ -1,6 +1,6 @@
 ---
 title: Deployment configuration
-description: Reference the PIGDeployment fields for automatic updates, storage, repository access, models, and Secret references.
+description: Reference the PIGDeployment fields for automatic updates, storage, models, and Secret references.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
@@ -45,17 +45,17 @@ The confirmation ConfigMap binds `releaseDigest` and `deploymentID`. Recovery co
 
 Fields are under `spec`:
 
-| Field                          | Meaning                                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.          |
-| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in. |
-| `hosted.runtimeURL`            | Runtime URL from your Promptless deployment registration.                                           |
-| `hosted.deploymentID`          | Stable registered deployment identifier.                                                            |
-| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                            |
-| `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                    |
-| `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                               |
-| `endpoint.tlsSecretName`       | TLS Secret covering the hostname.                                                                   |
-| `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.        |
+| Field                          | Meaning                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.                             |
+| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in.                    |
+| `hosted.runtimeURL`            | Runtime URL from your Promptless deployment registration.                                                              |
+| `hosted.deploymentID`          | Stable registered deployment identifier.                                                                               |
+| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                                               |
+| `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                                       |
+| `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                                                  |
+| `endpoint.tlsSecretName`       | Optional TLS Secret covering the hostname; omit when the ingress controller uses an external certificate, such as ACM. |
+| `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.                           |
 
 The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token is separate from individual host credentials.
 
@@ -73,27 +73,23 @@ Fields are under `spec.storage`. Configure `postgres` and **exactly one** of `s3
 
 Storage configuration grants no cloud management authority. Changing a location does not move existing data. Plan that transition using the [object-storage guidance](/docs/governance/deploy-the-worker/object-storage).
 
-## Analysis and repository
+## Analysis
 
 Fields are under `spec.analysis`:
 
-| Field                       | Meaning                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `activationAt`              | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.                  |
-| `quietWindowHours`          | Positive interval after session activity before analysis; the example uses `0.5` hours.                 |
-| `repository.url`            | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`. |
-| `repository.id`             | Positive numeric GitHub repository ID.                                                                  |
-| `repository.fullName`       | Matching owner and repository, such as `acme/acme-instruction-hub`.                                     |
-| `repository.tokenSecretRef` | Secret `name` and `key` for private-repository read access; omit for a public hub.                      |
-| `model.provider`            | `openai`, `azure_openai`, or `aws_bedrock`.                                                             |
-| `model.authentication`      | `api_key`, or `aws_sigv4` for Bedrock.                                                                  |
-| `model.baseURL`             | A supported HTTPS Responses API endpoint.                                                               |
-| `model.name`                | The model or deployment name available in your provider account.                                        |
-| `model.apiKeySecretRef`     | Secret `name` and `key`; omit for Signature Version 4.                                                  |
+| Field                   | Meaning                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `activationAt`          | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.  |
+| `quietWindowHours`      | Positive interval after session activity before analysis; the example uses `0.5` hours. |
+| `model.provider`        | `openai`, `azure_openai`, or `aws_bedrock`.                                             |
+| `model.authentication`  | `api_key`, or `aws_sigv4` for Bedrock.                                                  |
+| `model.baseURL`         | A supported HTTPS Responses API endpoint.                                               |
+| `model.name`            | The model or deployment name available in your provider account.                        |
+| `model.apiKeySecretRef` | Secret `name` and `key`; omit for Signature Version 4.                                  |
 
-A nonempty activation time requires complete repository and model settings. The repository must have a readable `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
+A nonempty activation time requires complete model settings. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories); the analyzer reads GitHub repositories with a `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
 
-Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. Promptless's connected repository integration separately authorizes finding and remediation workflows; a successful analyzer clone does not verify that integration.
+Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. GitHub issues and proposed fixes use write access granted to the connected GitHub App for the selected repositories. A successful analysis clone does not verify that access.
 
 ## Validate a change
 

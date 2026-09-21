@@ -12,7 +12,9 @@ timestamp: "2026-09-15T00:00:00Z"
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Configure a `PIGDeployment` resource to connect your database, trace bucket, Instruction Hub, and model. PIG then updates the analyzer and supervisor automatically to stable releases.
+Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Configure a `PIGDeployment` resource to connect your database, trace bucket, and model. PIG then updates the analyzer and supervisor automatically to stable releases.
+
+The 0.3.0 release targets AWS/EKS clean installations. Azure/AKS and GCP/GKE are experimental.
 
 ## Before you begin
 
@@ -60,14 +62,13 @@ Keep the chart archive, its release digest, and your bootstrap values with your 
      kubectl apply -f analyzer-service-account.yaml
      ```
 
-  3. **Deliver secrets and certificates.** Use your secret manager to create `pig-credentials` in `pig` with the keys below. Create TLS Secret `pig-tls` for your analyzer hostname. If PostgreSQL requires a CA bundle, create ConfigMap `pig-postgres-ca` with key `ca.pem`.
+  3. **Deliver secrets and certificates.** Use your secret manager to create `pig-credentials` in `pig` with the keys below. If your ingress controller uses Kubernetes TLS Secrets, create `pig-tls` for your analyzer hostname. AWS ALB installations use ACM and omit that Secret; follow the [AWS HTTPS setup](/docs/governance/deploy-the-worker/deploy-on-aws). If PostgreSQL requires a CA bundle, create ConfigMap `pig-postgres-ca` with key `ca.pem`.
 
-     | Secret key         | Value                                                                   |
-     | ------------------ | ----------------------------------------------------------------------- |
-     | `install-token`    | This deployment's Promptless installation token.                        |
-     | `postgres-dsn`     | Its dedicated database connection string with TLS settings.             |
-     | `model-api-key`    | Your analysis model key; omit for Bedrock Signature Version 4.          |
-     | `repository-token` | Read access to a private Instruction Hub; omit for a public repository. |
+     | Secret key      | Value                                                          |
+     | --------------- | -------------------------------------------------------------- |
+     | `install-token` | This deployment's Promptless installation token.               |
+     | `postgres-dsn`  | Its dedicated database connection string with TLS settings.    |
+     | `model-api-key` | Your analysis model key; omit for Bedrock Signature Version 4. |
 
      Keep credential values out of Git and Helm arguments. [PostgreSQL configuration](/docs/governance/deploy-the-worker/postgresql) explains the CA mount and connection string.
 </Steps>
@@ -146,13 +147,6 @@ spec:
   analysis:
     activationAt: "2026-09-15T00:00:00Z"
     quietWindowHours: 0.5
-    repository:
-      url: https://github.com/acme/acme-instruction-hub.git
-      id: 123456789
-      fullName: acme/acme-instruction-hub
-      tokenSecretRef:
-        name: pig-credentials
-        key: repository-token
     model:
       provider: openai
       authentication: api_key
@@ -163,7 +157,7 @@ spec:
         key: model-api-key
 ```
 
-Replace the repository example with your GitHub hub's canonical URL, numeric repository ID, and full name. It must have a readable `main` branch. Remove `tokenSecretRef` for a public hub. Choose your collection rollout time for `activationAt`; analysis waits for the session's quiet window.
+Choose your collection rollout time for `activationAt`; analysis waits for the session's quiet window. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings, described in [Select instruction repositories](#5-select-instruction-repositories).
 
 Use an existing ingress class and a certificate covering your hostname. The ingress-nginx annotation permits 10 MiB uploads; configure the equivalent for your controller and every proxy on the path. Omit the PostgreSQL CA reference only if your DSN uses the container's trusted certificate store.
 
@@ -179,7 +173,21 @@ kubectl get pigdeployment acme --namespace pig --watch
 
 The supervisor checks dependencies, applies schema migrations, and starts `acme-analyzer`. It derives the registered configuration from the deployment settings; you do not invent a configuration hash.
 
-## 5. Verify and operate
+## 5. Select instruction repositories
+
+After the analyzer registers and first checks in, it appears in the Promptless Dashboard. An organization administrator then chooses which repositories the analyzer reads. In **PIG Settings**, open the **Instruction repositories** card to select where your instructions live; analysis reads every selected repository.
+
+<Steps>
+  1. **Add a repository.** Choose one from the dropdown and select **Add**. The dropdown lists the repositories the connected GitHub App can access. To add a repository that is not listed, grant the GitHub App access to it.
+  2. **Set per-repository options.** Turn on **GitHub issues** to project a repository's findings into GitHub issues. Turn on **Proposed fixes** to let remediation open pull requests against it; **Proposed fixes** becomes available once **GitHub issues** is on.
+  3. **Remove a repository** with **Remove**.
+</Steps>
+
+Reading instructions requires Contents read access. GitHub issues and proposed fixes require write access when enabled. Removing a repository preserves existing findings and pull requests.
+
+Members who are not administrators see the selected repositories as a read-only list. For how a finding maps to a repository and its GitHub issue, see [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+
+## 6. Verify and operate
 
 Check the deployment conditions and endpoint:
 
