@@ -7,7 +7,7 @@ tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-19T00:00:00Z"
+timestamp: "2026-09-21T00:00:00Z"
 ---
 
 import { CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
@@ -34,15 +34,15 @@ The cloud guides create dedicated PIG infrastructure in your existing network. T
 
 ## Before you begin
 
-| Requirement             | What to prepare                                                                                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Kubernetes              | An existing cluster, `kubectl`, Helm 3 or later, and permission to install the PIG custom resource definition and scoped RBAC.                           |
-| PostgreSQL              | A dedicated database, schema-owner credentials, TLS, backups, and private connectivity from the analyzer and migration Jobs.                             |
-| Trace bucket            | Private S3, Azure Blob Storage, or Google Cloud Storage with a dedicated prefix and a workload identity that can read and write objects.                 |
-| HTTPS endpoint          | A hostname, certificate, and ingress reachable from enrolled hosts. Every proxy must accept encoded uploads of at least 10 MiB.                          |
-| Promptless registration | An organization admin account and the [registration download](#register-an-analyzer) containing your deployment ID, runtime URL, and installation token. |
-| Instruction Hub         | A GitHub repository with a readable `main` branch, its canonical URL and numeric ID, and read credentials if private.                                    |
-| Model access            | A supported Responses API endpoint, model name, authorization, and enough quota for analysis.                                                            |
+| Requirement             | What to prepare                                                                                                                          |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Kubernetes              | An existing cluster, `kubectl`, Helm 3 or later, and permission to install the PIG custom resource definition and scoped RBAC.           |
+| PostgreSQL              | A dedicated database, schema-owner credentials, TLS, backups, and private connectivity from the analyzer and migration Jobs.             |
+| Trace bucket            | Private S3, Azure Blob Storage, or Google Cloud Storage with a dedicated prefix and a workload identity that can read and write objects. |
+| HTTPS endpoint          | A hostname, certificate, and ingress reachable from enrolled hosts. Every proxy must accept encoded uploads of at least 10 MiB.          |
+| Promptless registration | An organization admin account and an [analyzer credential](#register-an-analyzer) stored in your secret manager.                         |
+| Instruction Hub         | A GitHub repository with a readable `main` branch, its canonical URL and numeric ID, and read credentials if private.                    |
+| Model access            | A supported Responses API endpoint, model name, authorization, and enough quota for analysis.                                            |
 
 Select infrastructure regions to meet your data residency requirements. The model provider can be in a different cloud; choose it independently from your trace bucket. See [model providers](/docs/governance/deploy-the-worker/model-providers) for supported endpoints.
 
@@ -52,22 +52,18 @@ Sign in to the [Promptless Dashboard](https://app.gopromptless.ai/instruction-hu
 
 <Steps>
   1. Open **PIG → Settings**. Under **System overview → Instruction Hub repository**, select your governed repository and click **Bind repository**. If no repositories appear, connect the primary Promptless GitHub App from Integrations. The repository binding is shared by all analyzers in this organization.
-  2. Under **Register analyzer**, enter a name such as `production-us-east-2` and click **Register analyzer**.
-  3. Click **Download credentials** and save `pig-installation.json` securely. The install token cannot be retrieved after you close the dialog, leave Settings, or switch organizations. Click **Done** after saving it.
+  2. Under **Add analyzer**, enter a name such as `production-us-east-2` and click **Add analyzer**.
+  3. Copy the credential into your secret manager. It is shown once and cannot be retrieved after you dismiss it, leave Settings, or switch organizations.
+  4. Deliver the credential through the Kubernetes Secret referenced by `spec.hosted.installTokenSecretRef`. Follow the installation instructions for your cluster.
 </Steps>
 
-The download contains these installation values:
+The installation appears as **Awaiting connection** until the analyzer checks in. The analyzer uses the credential to discover its installation identity and connects to Promptless's hosted endpoint by default. You do not need to copy a deployment ID or configure a Runtime URL. Creating an installation does not start workloads in your cluster.
 
-| Download field               | Use                                                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `runtime_url`                | Set `spec.hosted.runtimeURL` in your `PIGDeployment`.                                                                     |
-| `deployment_id`              | Set `spec.hosted.deploymentID`. Keep it stable across upgrades and recovery.                                              |
-| `install_token`              | Store in your secret manager and deliver through the Kubernetes Secret referenced by `spec.hosted.installTokenSecretRef`. |
-| `org_id`, `install_token_id` | Identify the organization and credential record for your installation records.                                            |
+Keep the credential out of Git and chat. It grants access only to this analyzer installation; prepare your database, repository, and model credentials separately. All replicas of this installation use the same credential.
 
-Keep the download out of Git and chat. It does not contain your database, repository, or model credentials; prepare those separately. Creating credentials does not start an analyzer. The analyzer appears in **System overview** after its first check-in from your cluster.
+If you lose the credential, choose **Rotate credential** on the same installation. Rotation immediately revokes the previous credential, so hosted access is interrupted until you update your Secret and the analyzer restarts. The installation, its history, and enrolled hosts keep their identities. You can rotate again if the replacement is lost. **Revoke credential** disables the credential without deleting the installation or its history.
 
-If creation fails, click **Refresh credentials** before trying again: the token may already exist. If you lose a token before using it, revoke the unused credential in Settings and register again. Use the new download's deployment ID. Revocation stops hosted access for every analyzer using that token. A new token cannot take over an existing deployment ID; contact Promptless support to recover a connected installation whose token was lost.
+Use `spec.hosted.runtimeURL` only when connecting to another Promptless environment, such as a dedicated deployment. The default is `https://api.gopromptless.ai`. This endpoint is separate from the analyzer's customer-managed HTTPS hostname.
 
 ## Assign ownership
 
