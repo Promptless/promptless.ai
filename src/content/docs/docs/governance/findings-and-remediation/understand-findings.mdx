@@ -38,11 +38,17 @@ The analyzer uses a readable session digest to cite evidence. A `digest_range` i
 
 ## Follow the finding into your repository
 
-The worker sends finding updates to Promptless. Promptless creates or updates a GitHub issue in the connected Instruction Hub, with the finding's title, impact, instruction failure, severity, confidence, and evidence.
+PIG analyzes every instruction repository your organization selects in PIG Settings. Each finding records the instruction source it came from: the repository and the exact commit the analyzer read. The finding lists these sources under **Instruction sources**, each linked to that commit.
 
-Recurring evidence can update an existing finding rather than opening a new issue for every session. Use the finding identity and linked issue to follow that history. Issue projection is a separate step from local analysis: a completed run does not by itself prove that GitHub access is working.
+The worker sends finding updates to Promptless. Promptless creates or updates a GitHub issue for the finding in its destination repository. The issue carries the finding's title, impact, instruction failure, severity, confidence, and evidence. A destination repository must have **GitHub issues** enabled in PIG Settings.
 
-Finding text and evidence summaries can include session details. Make sure the issue repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+Promptless creates the issue automatically when the finding's recorded sources resolve to one selected repository that has GitHub issues enabled. Sometimes the finding needs a destination first. This happens when the sources span more than one selected repository. It also happens when the finding records no source and your organization has more than one repository selected. An organization administrator then opens the finding, selects a repository under **Instruction sources**, and chooses **Use repository**. The destination is set once per finding. Promptless then creates the issue and any proposed fix in that repository.
+
+Removing an instruction repository in PIG Settings stops future analysis and issue automation for that source. Findings already recorded against it keep their instruction sources, issues, and pull requests.
+
+Recurring evidence can update an existing finding and its issue as more sessions are analyzed. Use the finding identity and linked issue to follow that history. Issue projection is a separate step from local analysis: a completed run does not by itself prove that GitHub access is working.
+
+Finding text and evidence summaries can include session details. Make sure the destination repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
 
 ## Decide the next action
 
@@ -55,12 +61,13 @@ The expected outcome is a clear owner and a justified next action. Every finding
 
 ## Troubleshooting
 
-| Situation                                        | What to check                                                                                                                                                           |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The run succeeded, but no finding appeared       | Zero findings is valid. Confirm the run belongs to the session you intended to analyze.                                                                                 |
-| A local finding has no GitHub issue              | Ask the operator to check hosted synchronization and the repository connection.                                                                                         |
-| Evidence seems inconsistent with the current hub | Compare the analyzed repository revision with the current instructions and the session's installed plugin version.                                                      |
-| No remediation pull request opened               | Check confidence, ownership notes, pending decisions, repository access, and the remediation outcome.                                                                   |
-| Similar issues appear to overlap                 | Compare their failure mechanism and evidence before treating them as duplicates; different symptoms can have one cause, and similar symptoms can have different causes. |
+| Situation                                                        | What to check                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The run succeeded, but no finding appeared                       | Zero findings is valid. Confirm the run belongs to the session you intended to analyze.                                                                                                                             |
+| A local finding has no GitHub issue                              | Ask the operator to check hosted synchronization and the repository connection.                                                                                                                                     |
+| The finding asks you to select a repository for its GitHub issue | Its recorded sources map to more than one selected repository, or to none. An organization administrator opens the finding and, under **Instruction sources**, selects a repository that has GitHub issues enabled. |
+| Evidence seems inconsistent with the current hub                 | Compare the analyzed repository revision with the current instructions and the session's installed plugin version.                                                                                                  |
+| No remediation pull request opened                               | Check confidence, ownership notes, pending decisions, repository access, and the remediation outcome.                                                                                                               |
+| Similar issues appear to overlap                                 | Compare their failure mechanism and evidence before treating them as duplicates; different symptoms can have one cause, and similar symptoms can have different causes.                                             |
 
 Next, [review and ship a remediation](/docs/governance/findings-and-remediation/remediate-findings).
