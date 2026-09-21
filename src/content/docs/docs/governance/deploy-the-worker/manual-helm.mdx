@@ -66,11 +66,11 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Create a Secret named `acme-pig-worker` in `pig` through your secret-management system. It must contain these keys:
 
-     | Key                      | Value                                                                                             |
-     | ------------------------ | ------------------------------------------------------------------------------------------------- |
-     | `install-token`          | Deployment credential supplied by Promptless. This is separate from a host enrollment credential. |
-     | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                  |
-     | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                  |
+     | Key                      | Value                                                                                                                                                                                                                                                                                           |
+     | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+     | `install-token`          | Deployment credential supplied by Promptless. This is separate from a host enrollment credential.                                                                                                                                                                                               |
+     | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                                                                                                                                                                                                                |
+     | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                                                                                                                                                                                                                |
      | `migration-postgres-dsn` | Optional. Connection string for a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). Add it and set `secrets.migrationPostgresDsnKey` to run migrations with a distinct role; omit both to migrate with `customer-postgres-dsn`. |
 
      For a manual pilot, run the following in Bash. It prompts without echoing credentials, creates the Secret, and removes its temporary file. Keep credentials out of committed manifests and values files.
@@ -222,12 +222,12 @@ If replacement fails, keep the analyzer stopped and repair forward with an image
 
 The worker image provides maintenance commands for schema and object-store operations. Each reads its configuration from the same environment as the analyzer, including the database credentials and `sslmode=verify-full`, and prints a JSON result. Run one in a one-off pod from the worker image, or with `kubectl exec` against a running analyzer pod.
 
-| Command                                       | Use                                                                                                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pig-trace-analyzer db-status`                | Report the schema revision, whether it matches the release, and a count of pending object writes and queued analyses. Read-only.                             |
-| `pig-trace-analyzer db-check`                 | Run the migration preflight (role permissions and schema layout) without applying changes.                                                                   |
-| `pig-trace-analyzer migrate`                  | Apply schema migrations up to the current revision. The install and upgrade Jobs run this for you.                                                            |
-| `pig-trace-analyzer rebuild-canonical-objects`| Requeue every trace's canonical object for a background rewrite. Run it only while the analyzer is stopped and after an offline restore has replaced the immutable raw and context objects. |
+| Command                                        | Use                                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pig-trace-analyzer db-status`                 | Report the schema revision, whether it matches the release, and a count of pending object writes and queued analyses. Read-only.                                                            |
+| `pig-trace-analyzer db-check`                  | Run the migration preflight (role permissions and schema layout) without applying changes.                                                                                                  |
+| `pig-trace-analyzer migrate`                   | Apply schema migrations up to the current revision. The install and upgrade Jobs run this for you.                                                                                          |
+| `pig-trace-analyzer rebuild-canonical-objects` | Requeue every trace's canonical object for a background rewrite. Run it only while the analyzer is stopped and after an offline restore has replaced the immutable raw and context objects. |
 
 Run `db-status` and `db-check` against a live deployment when you need them. Stop the analyzer before `rebuild-canonical-objects` so a running writer does not compete with the requeue.
 
