@@ -1,0 +1,51 @@
+---
+title: 'Your Editor Now Follows Promptless Documentation Tasks to Completion'
+subtitle: Published September 2026
+description: >-
+  Submit a Promptless documentation task from Claude Code, Cursor, VS Code, or Codex CLI and your editor follows it in the same conversation. Progress and the docs PR link arrive as the task runs.
+date: '2026-09-15T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Submit a documentation task from your editor over MCP and your editor follows it to completion in the same conversation. Updates arrive as Promptless works. When the task finishes, the result and docs PR link appear where you already are. No status polling required.
+
+## The problem
+
+The MCP connection let you submit documentation tasks from Claude Code, Cursor, VS Code, or Codex CLI without leaving your editor. The problem was what came next. After submission you received a task ID and nothing else. Checking progress meant calling `get_task_status` manually, waiting, calling again.
+
+If the task ran for a few minutes, you'd either interrupt your work to check or forget about it and discover the docs PR later in the dashboard. Neither is the flow you want when you're in an active editor session reviewing a PR and asking Promptless to generate the accompanying docs.
+
+## What it does now
+
+When you submit a documentation task using `submit_documentation_task`, the MCP server now returns a `next_call` alongside the task ID. Your editor calls `wait_for_task_update`, which blocks until Promptless has a new status to report. The tool returns the update and a new `next_call`. This continues until `next_call` is null, signaling the task is complete.
+
+In practice, your editor shows you what Promptless is doing: that it's researching the change, that it's generating the suggestion, that the docs PR is open. The full sequence appears in the same conversation where you submitted the task.
+
+The same following loop applies when you ask Promptless to revise an existing suggestion using `request_changes`. Promptless updates the existing docs PR rather than opening a new one, and your editor follows that revision to completion.
+
+If you want a point-in-time status check outside the following loop, `get_task_status` still works as before.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Teams using the MCP connection for active documentation work. If you're in a PR review session and ask Promptless to generate docs for the change, the result arrives in the same conversation. You can review the docs PR link immediately, ask for revisions, and follow those too, without switching context.
+
+It also matters for revision requests specifically. Because `request_changes` updates the existing docs PR rather than opening a new one, knowing when that update lands is more actionable. Task following makes that feedback immediate.
+
+## How to use it
+
+There's nothing to configure. If you're already connected to Promptless over MCP, task following starts on your next submission. The feature is available to every organization.
+
+Supported editors today: Claude Code, Cursor, VS Code, and Codex CLI.
+
+If your editor does not yet implement `wait_for_task_update`, it falls back to the existing behavior and returns the task ID and current status. You can call `get_task_status` manually in that case.
+
+See [MCP triggers](/docs/for-docs/connect/triggers/mcp) for the full tool reference, including `wait_for_task_update` and `request_changes`.
+
+<BlogRequestDemo />
