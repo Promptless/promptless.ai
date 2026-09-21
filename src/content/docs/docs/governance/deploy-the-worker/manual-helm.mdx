@@ -8,7 +8,7 @@ tags:
   - governance
   - kubernetes
   - helm
-timestamp: "2026-09-15T00:00:00Z"
+timestamp: "2026-09-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 6
@@ -25,7 +25,7 @@ This guide uses worker chart `0.3.0` for operator-managed releases. The publishe
 Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/plan-your-deployment). You need:
 
 - An existing Kubernetes cluster, Helm 3, and `kubectl` configured for that cluster.
-- The public worker chart, a deployment install token beginning with `plih_`, a deployment instance ID, and a configuration hash from Promptless. Obtain these registration values from Promptless.
+- The public worker chart and an [analyzer credential from PIG Settings](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Deliver the credential through the install-token Secret key. The analyzer discovers its installation identity and uses the hosted Promptless endpoint by default. Obtain the configuration hash for your manual deployment from Promptless.
 - A dedicated PostgreSQL database, version 15, 16, 17, or 18, with its trusted CA bundle. Its TLS connection string verifies the server hostname with `sslmode=verify-full`. The role that runs migrations needs table ownership and `CREATE` on the schema. You can optionally give migrations a [separate credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential) from the analyzer's data-access role.
 - An S3 bucket, Azure Blob container, or Google Cloud Storage bucket, with read and write access through workload identity.
 - An existing ServiceAccount named `pig-analyzer` in namespace `pig`, bound to that identity. Both the analyzer and migration Job use it.
@@ -68,7 +68,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      | Key                      | Value                                                                                                                                                                                                                                                                                           |
      | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-     | `install-token`          | Deployment credential supplied by Promptless. This is separate from a host enrollment credential.                                                                                                                                                                                               |
+     | `install-token`          | The credential issued for this analyzer installation. This is separate from a host enrollment credential.                                                                                                                                                                                       |
      | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                                                                                                                                                                                                                |
      | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                                                                                                                                                                                                                |
      | `migration-postgres-dsn` | Optional. Connection string for a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). Add it and set `secrets.migrationPostgresDsnKey` to run migrations with a distinct role; omit both to migrate with `customer-postgres-dsn`. |
@@ -105,9 +105,6 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        # migrationPostgresDsnKey: migration-postgres-dsn  # optional: run migrations with a separate credential
 
      instructionHub:
-       runtimeBaseUrl: https://runtime.gopromptless.ai
-       deploymentName: acme-production
-       deploymentInstanceId: REPLACE_DEPLOYMENT_INSTANCE_ID
        configHash: REPLACE_CONFIG_HASH
        storageBackend: postgres_s3
        postgresCaConfigMapName: postgres-ca
