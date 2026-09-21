@@ -30,9 +30,9 @@ Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/
 - An S3 bucket, Azure Blob container, or Google Cloud Storage bucket, with read and write access through workload identity.
 - An existing ServiceAccount named `pig-analyzer` in namespace `pig`, bound to that identity. Both the analyzer and migration Job use it.
 - A reachable HTTPS hostname, a certificate, and an existing ingress controller or equivalent route to the worker Service on port 8080.
-- A GitHub Instruction Hub, its numeric repository ID, and credentials for repository access and your analysis model.
+- Credentials for your analysis model. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories) after the analyzer registers.
 
-The complete example below uses Acme's private GitHub hub and S3 on EKS. For AKS or GKE, substitute the native storage and identity settings in the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#native-storage-and-workload-identity). The [cloud deployment guides](/docs/governance/deploy-the-worker/plan-your-deployment#choose-an-installation-path) cover the infrastructure requirements.
+The complete example below uses Acme's S3 on EKS. For AKS or GKE, substitute the native storage and identity settings in the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#native-storage-and-workload-identity). The [cloud deployment guides](/docs/governance/deploy-the-worker/plan-your-deployment#choose-an-installation-path) cover the infrastructure requirements.
 
 Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and the model endpoint. Nodes also need container-registry access. See [network and data boundaries](/docs/governance/deploy-the-worker/plan-your-deployment).
 
@@ -66,12 +66,11 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Create a Secret named `acme-pig-worker` in `pig` through your secret-management system. It must contain these keys:
 
-     | Key                         | Value                                                                                             |
-     | --------------------------- | ------------------------------------------------------------------------------------------------- |
-     | `install-token`             | Deployment credential supplied by Promptless. This is separate from a host enrollment credential. |
-     | `customer-postgres-dsn`     | PostgreSQL connection string, including the TLS settings your database requires.                  |
-     | `analysis-model-api-key`    | API key for the model endpoint in the next step.                                                  |
-     | `analysis-repository-token` | GitHub credential scoped to the Instruction Hub.                                                  |
+     | Key                      | Value                                                                                             |
+     | ------------------------ | ------------------------------------------------------------------------------------------------- |
+     | `install-token`          | Deployment credential supplied by Promptless. This is separate from a host enrollment credential. |
+     | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                  |
+     | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                  |
 
      For a manual pilot, run the following in Bash. It prompts without echoing credentials, creates the Secret, and removes its temporary file. Keep credentials out of committed manifests and values files.
 
@@ -81,7 +80,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
      umask 077
      secret_file=$(mktemp)
      trap 'rm -f "$secret_file"' EXIT
-     for key in install-token customer-postgres-dsn analysis-model-api-key analysis-repository-token; do
+     for key in install-token customer-postgres-dsn analysis-model-api-key; do
        read -r -s -p "$key: " secret_value </dev/tty
        printf '\n' >/dev/tty
        printf '%s=%s\n' "$key" "$secret_value" >>"$secret_file"
@@ -92,9 +91,9 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
      BASH
      ```
 
-     For a private hub, the analysis repository token needs read access so the worker can clone and refresh its mirror. Promptless separately needs a repository connection for finding issues. It provides a scoped GitHub credential when a remediation task must push a branch and open a pull request. Coordinate that connection during deployment registration; a working clone alone does not prove both paths are configured.
+     The analyzer reads the selected instruction repositories with GitHub App tokens Promptless supplies, scoped to Contents read. GitHub issues and proposed fixes use write access granted to the same GitHub App, which an administrator enables per repository in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories). Confirm the connected GitHub App can access each repository you select.
 
-  2. **Configure the worker.** Save this as `values.yaml`. Replace every `REPLACE_` value and the hostname with your environment's values. Get the numeric repository ID with `gh api repos/acme/acme-instruction-hub --jq .id` using an account that can read the hub. Choose a model name your provider account can use.
+  2. **Configure the worker.** Save this as `values.yaml`. Replace every `REPLACE_` value and the hostname with your environment's values. Choose a model name your provider account can use.
 
      ```yaml title="values.yaml"
      secrets:
@@ -102,7 +101,6 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        installTokenKey: install-token
        customerPostgresDsnKey: customer-postgres-dsn
        analysisModelApiKeyKey: analysis-model-api-key
-       analysisRepositoryTokenKey: analysis-repository-token
 
      instructionHub:
        runtimeBaseUrl: https://runtime.gopromptless.ai
@@ -122,11 +120,6 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
            authentication: api_key
            baseUrl: https://api.openai.com/v1
            model: REPLACE_MODEL_NAME
-         repository:
-           url: https://github.com/acme/acme-instruction-hub.git
-           id: 123456789
-           fullName: acme/acme-instruction-hub
-           tokenSecretEnabled: true
 
      serviceAccount:
        create: false
@@ -152,13 +145,13 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
          memory: 2Gi
      ```
 
-     Replace `repository.id: 123456789` with Acme's actual repository ID. Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
+     Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
 
      The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
-     For an ingestion-only pilot, leave both `instructionHub.analysis.activationAt` and `instructionHub.analysis.repository.url` empty. The chart then omits model and repository settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
+     For an ingestion-only pilot, leave `instructionHub.analysis.activationAt` empty. The chart then omits the model settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
 
   3. **Render and install.** Download the pinned public worker chart, then render it to catch missing required values without changing the cluster:
 
@@ -231,13 +224,13 @@ Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-d
 
 | Symptom                                 | Check and next action                                                                                                                                                                                 |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `helm template` reports a missing value | Fill in the required deployment settings and all model and repository settings when `activationAt` is set.                                                                                            |
+| `helm template` reports a missing value | Fill in the required deployment settings and all model settings when `activationAt` is set.                                                                                                          |
 | Migration fails                         | Read `kubectl -n pig logs job/pig-trace-analyzer-migrate`. Check PostgreSQL reachability, TLS, schema permissions, and the migration service account. Successful hook Jobs are deleted automatically. |
 | Pod cannot start                        | Inspect pod events for missing Secret keys or image-pull failures, then worker logs for configuration validation errors.                                                                              |
 | HTTPS fails                             | Check DNS, certificate coverage, IngressClass, and the route to Service port 8080.                                                                                                                    |
 | Host checks in but traces do not arrive | Check collector status, capture policy, and host-to-worker upload access. Preserve the host's local collection state.                                                                                 |
 | Trace object remains pending or failed  | Check workload identity, bucket or container permissions, encryption-key access, and `trace_object_last_error`.                                                                                       |
-| Analysis never starts                   | Confirm activation time, a complete canonical trace, the quiet window, and repository/model configuration.                                                                                            |
+| Analysis never starts                   | Confirm activation time, a complete canonical trace, the quiet window, model configuration, and selected instruction repositories with analysis enabled in PIG Settings.                              |
 | Analysis fails                          | Use `analysis_run_id` and `error_category` to investigate repository access, provider authentication, rate limits, and worker resources.                                                              |
 
 Do not delete database rows, the trace-object prefix, or collection watermarks to clear a stalled deployment. Preserve the evidence, fix the failing dependency, and use the [observability and recovery guidance](/docs/governance/deploy-the-worker/observability).
