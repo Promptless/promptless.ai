@@ -37,6 +37,8 @@ High severity does not automatically mean high confidence. A serious suspected f
 
 The analyzer uses a readable session digest to cite evidence. A `digest_range` identifies a location in that digest; it is unrelated to the cryptographic hashes used to verify stored traces.
 
+A finding also carries an open or closed lifecycle, reflected in the dashboard and in the finding's linked GitHub issue. Its `status` field is `open` or `closed`. The `closed_at` timestamp records when the finding closed, and stays empty while the finding is open. Its `lifecycle_updated_at` timestamp records when that open or closed state last changed. A verified close or reopen also increments the finding's `version`.
+
 ## Follow the finding into your repository
 
 PIG analyzes every instruction repository your organization selects in PIG Settings. Each finding records the instruction source it came from: the repository and the exact commit the analyzer read. The finding lists these sources under **Instruction sources**, each linked to that commit.
@@ -50,6 +52,18 @@ Removing an instruction repository in PIG Settings stops future analysis and iss
 Recurring evidence can update an existing finding and its issue as more sessions are analyzed. Use the finding identity and linked issue to follow that history. Issue projection is a separate step from local analysis: a completed run does not by itself prove that GitHub access is working.
 
 Finding text and evidence summaries can include session details. Make sure the destination repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+**Lifecycle sync.** Once a finding has a linked GitHub issue, the finding and that issue always share the same open or closed state. Promptless keeps the two in sync in both directions.
+
+When you close or reopen a finding from the dashboard, Promptless updates the linked GitHub issue to match. It then re-reads the issue and records GitHub's verified state.
+
+The sync runs the other way too: when you close or reopen the finding's GitHub issue, Promptless updates the finding the same way. It re-reads the current issue rather than trusting the lifecycle fields in the webhook delivery.
+
+In the dashboard, each finding shows a status pill that reads **Open** or **Closed**. It also shows a control labeled **Close finding** while the finding is open, and **Reopen finding** once it is closed. Any member of your organization can close or reopen a finding. A closed finding stays visible in the dashboard, and you can reopen it there.
+
+Concurrent or conflicting close and reopen actions cannot leave a finding and its issue out of sync. The most recent verified state from GitHub wins, and older reads are rejected.
+
+GitHub webhooks are the immediate sync path. If a webhook delivery is missed, a background repair re-reads the issue's open/closed state from GitHub and resyncs the finding automatically. This repair only reads GitHub; it updates the finding and leaves the GitHub issue as it is.
 
 ## Decide the next action
 
