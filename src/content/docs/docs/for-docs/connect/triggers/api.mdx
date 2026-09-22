@@ -509,6 +509,108 @@ Both operations return `401 authentication_failed` when the key is missing, inva
 | 401    | `authentication_failed`     | The API key is missing, invalid, or revoked.                                                                                                                                                                                                                            | both       |
 | 503    | `runtime_store_unavailable` | Task intake or lookup is temporarily unavailable.                                                                                                                                                                                                                       | both       |
 
+## Agent Knowledge Base access
+
+Your organization's [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) holds the personas, style rules, and product context Promptless reads on every task. Reach it from your own tooling with the same API key. Clone the repository to read it, and write one file at a time over the API. Both surfaces resolve the repository from the organization your key belongs to, so a key reaches only its own organization's Knowledge Base.
+
+### Clone the Knowledge Base
+
+Cloning is the read path. Clone the repository and your tooling holds the whole tree with its history:
+
+```bash
+git clone https://api.gopromptless.ai/v1/knowledge-base.git
+```
+
+Git prompts for credentials. Enter any username and your API key as the password. Supply both at once to skip the prompt:
+
+```bash
+git clone https://x-access-token:sk-pl-your-api-key@api.gopromptless.ai/v1/knowledge-base.git
+```
+
+`git fetch` and `git pull` authenticate the same way. Git refuses `git push` and prints the reason, so a key that clones the Knowledge Base cannot rewrite its history, delete a branch, or force-push.
+
+### Create a file
+
+`POST /v1/knowledge-base/file` creates a file that does not exist yet. Authenticate with your API key as a bearer token, the same header the trigger endpoints use.
+
+| Field     | Type   | Required | Description                                                                             |
+| --------- | ------ | -------- | --------------------------------------------------------------------------------------- |
+| `path`    | string | Yes      | Path of the new file, relative to the Knowledge Base root.                              |
+| `content` | string | Yes      | The file's full contents.                                                               |
+| `message` | string | No       | Commit message. Promptless writes one naming your key's owner when you omit it.         |
+
+```bash
+curl -X POST "https://api.gopromptless.ai/v1/knowledge-base/file" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "personas/new.md",
+    "content": "# New persona\n",
+    "message": "Add a persona"
+  }'
+```
+
+A successful request returns `201 Created` with the new file's blob SHA and the commit that recorded it:
+
+```json
+{
+  "path": "personas/new.md",
+  "full_path": "knowledge_base/personas/new.md",
+  "sha": "4c7e0a1...",
+  "commit_sha": "b81f33d..."
+}
+```
+
+### Replace a file
+
+`PUT /v1/knowledge-base/file` replaces a file that already exists. Name the blob SHA you expect to overwrite in the `sha` field. Promptless commits the change only while that SHA is still current. An edit built from a stale copy returns `409 sha_conflict`, keeping the revision that landed while you worked. Read the SHA from your clone:
+
+```bash
+git rev-parse HEAD:personas/new.md
+```
+
+| Field     | Type   | Required | Description                                                                             |
+| --------- | ------ | -------- | --------------------------------------------------------------------------------------- |
+| `path`    | string | Yes      | Path of the file to replace, relative to the Knowledge Base root.                       |
+| `content` | string | Yes      | The file's new contents.                                                                |
+| `sha`     | string | Yes      | Blob SHA you expect to overwrite, from `git rev-parse HEAD:<path>` in your clone.       |
+| `message` | string | No       | Commit message. Promptless writes one naming your key's owner when you omit it.         |
+
+```bash
+curl -X PUT "https://api.gopromptless.ai/v1/knowledge-base/file" \
+  -H "Authorization: Bearer sk-pl-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "personas/new.md",
+    "content": "# Revised persona\n",
+    "sha": "4c7e0a1...",
+    "message": "Revise the persona"
+  }'
+```
+
+A successful request returns `200 OK` with the same shape as create. After a write, run `git pull` to bring your clone up to date before the next edit.
+
+Knowledge Base files are limited to 1,000,000 bytes. `promptless.yaml` is validated before it is committed, so edit it in the dashboard. To delete a file, use the dashboard under **Settings > Agent Knowledge Base**.
+
+### Knowledge Base error responses
+
+Both file endpoints return `401 authentication_failed` when the key is missing, invalid, or revoked, and `503 runtime_store_unavailable` when the Knowledge Base is temporarily unavailable.
+
+| Status | Error                       | Description                                                                                                                        |
+| ------ | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_path`              | `path` escapes the Knowledge Base or names internal state.                                                                        |
+| 404    | `file_not_found`            | No file exists at that path. Applies to `PUT`.                                                                                    |
+| 409    | `file_already_exists`       | `POST` targeted a file that already exists. Use `PUT` with its SHA to replace it.                                                 |
+| 409    | `sha_conflict`              | The file changed since you read its SHA. Pull the Knowledge Base, reapply your edit to the new content, and retry with the SHA your updated clone reports. |
+| 409    | `config_file_not_writable`  | `promptless.yaml` cannot be written through this endpoint. Edit it in the dashboard.                                              |
+| 413    | `file_too_large`            | The file is over 1,000,000 bytes.                                                                                                 |
+
+For the full request and response schemas, see the [Create a Knowledge Base file](/docs/for-docs/api/operations/createknowledgebasefile/) and [Replace a Knowledge Base file](/docs/for-docs/api/operations/updateknowledgebasefile/) references.
+
+### What agents see
+
+A write commits straight to the default branch, so the next Promptless task reads it. Changes you make over the API appear in the dashboard under **Settings > Agent Knowledge Base**, alongside edits made there and by Promptless.
+
 ## View API triggers
 
 API-triggered events appear in your dashboard with a distinct "API" label.

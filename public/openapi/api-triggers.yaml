@@ -440,6 +440,131 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
       security:
       - bearerAuth: []
+  /v1/knowledge-base/file:
+    post:
+      tags:
+      - Knowledge Base
+      summary: Create a Knowledge Base file
+      description: |
+        Create a new file in your organization's Agent Knowledge Base. Authenticate with your API key as a bearer token. The repository is resolved from the organization the key belongs to, so a key reaches only its own organization's Knowledge Base.
+
+        Reading the Knowledge Base is done by cloning it over Git at `https://api.gopromptless.ai/v1/knowledge-base.git`; this endpoint writes a single file.
+      operationId: createKnowledgeBaseFile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeBaseFileCreateRequest'
+        required: true
+      responses:
+        '201':
+          description: The file was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeBaseFileResponse'
+        '400':
+          description: The path escapes the Knowledge Base or names internal state (`invalid_path`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: A file already exists at that path (`file_already_exists`), or the path is `promptless.yaml`, which is not writable through this endpoint (`config_file_not_writable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '413':
+          description: The file is larger than 1,000,000 bytes (`file_too_large`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: The Knowledge Base is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+    put:
+      tags:
+      - Knowledge Base
+      summary: Replace a Knowledge Base file
+      description: |
+        Replace an existing file in your organization's Agent Knowledge Base. Name the blob SHA you expect to overwrite in `sha`; take it from `git rev-parse HEAD:<path>` in your clone. Promptless commits the change only while that SHA is current and returns `409 sha_conflict` otherwise. Authenticate with your API key as a bearer token.
+      operationId: updateKnowledgeBaseFile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeBaseFileUpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: The file was replaced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeBaseFileResponse'
+        '400':
+          description: The path escapes the Knowledge Base or names internal state (`invalid_path`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '404':
+          description: No file exists at that path (`file_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The file changed since you read its SHA (`sha_conflict`), or the path is `promptless.yaml`, which is not writable through this endpoint (`config_file_not_writable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '413':
+          description: The file is larger than 1,000,000 bytes (`file_too_large`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: The Knowledge Base is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
 components:
   schemas:
     ApiTriggerAcceptedResponse:
@@ -606,6 +731,110 @@ components:
             $ref: '#/components/schemas/DocCollection'
       required:
       - doc_collections
+    KnowledgeBaseFileCreateRequest:
+      type: object
+      title: KnowledgeBaseFileCreateRequest
+      description: JSON request body for creating one Agent Knowledge Base file.
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          title: Path
+          minLength: 1
+          description: Path of the new file, relative to the Knowledge Base root.
+          examples:
+          - personas/new.md
+        content:
+          type: string
+          title: Content
+          description: The file's full contents.
+          examples:
+          - |
+            # New persona
+        message:
+          type:
+          - string
+          - 'null'
+          title: Message
+          description: Commit message. Promptless writes one naming the key's owner when omitted.
+          examples:
+          - Add a persona
+      required:
+      - path
+      - content
+    KnowledgeBaseFileUpdateRequest:
+      type: object
+      title: KnowledgeBaseFileUpdateRequest
+      description: JSON request body for replacing one Agent Knowledge Base file at a known blob SHA.
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          title: Path
+          minLength: 1
+          description: Path of the file to replace, relative to the Knowledge Base root.
+          examples:
+          - personas/new.md
+        content:
+          type: string
+          title: Content
+          description: The file's new contents.
+          examples:
+          - |
+            # Revised persona
+        sha:
+          type: string
+          title: Sha
+          minLength: 1
+          description: Blob SHA the write expects to overwrite, from `git rev-parse HEAD:<path>` in your clone.
+          examples:
+          - 9f2b1c4e8a7d6f5c4b3a2918e7d6c5b4a3928170
+        message:
+          type:
+          - string
+          - 'null'
+          title: Message
+          description: Commit message. Promptless writes one naming the key's owner when omitted.
+          examples:
+          - Revise the persona
+      required:
+      - path
+      - content
+      - sha
+    KnowledgeBaseFileResponse:
+      type: object
+      title: KnowledgeBaseFileResponse
+      description: The result of an Agent Knowledge Base file write.
+      properties:
+        path:
+          type: string
+          title: Path
+          description: Path of the written file, relative to the Knowledge Base root.
+          examples:
+          - personas/new.md
+        full_path:
+          type: string
+          title: Full Path
+          description: Path of the written file within the repository.
+          examples:
+          - knowledge_base/personas/new.md
+        sha:
+          type: string
+          title: Sha
+          description: Blob SHA of the written file. Use it as the `sha` for the next replacement.
+          examples:
+          - 4c7e0a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e6f70
+        commit_sha:
+          type: string
+          title: Commit Sha
+          description: SHA of the commit that recorded the write.
+          examples:
+          - b81f33d2c1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6
+      required:
+      - path
+      - full_path
+      - sha
+      - commit_sha
     Suggestion:
       type: object
       title: Suggestion
