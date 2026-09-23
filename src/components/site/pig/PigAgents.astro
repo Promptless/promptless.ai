@@ -2,30 +2,32 @@
 // "One Hub For Every Team." — an accordion of who uses the hub and how, beside a
 // status board of installed targets and enrolled hosts. Facts: supported-agents,
 // enroll-your-hosts, gitops-ownership, trust-and-data-model, the launch post.
+// `focus` names the board column that answers each audience's question.
 const rows = [
   {
     title: 'Coding agents',
-    body: 'Claude Code, Codex, Cursor, and Gemini CLI install the same hub as native plugins. Claude Code and Codex can also send session traces; Cursor and Gemini do not collect traces today.',
-  },
-  {
-    title: 'Desktop agents',
-    body: 'Claude Desktop is not a separate build target. Once a host is enrolled, the Claude collector on the same machine can discover its native traces too.',
+    focus: 'target',
+    body: 'Claude Code, Codex, Cursor, and Gemini CLI install the same hub as native plugins. Claude Code, Claude Desktop, and Codex also send session traces; Cursor and Gemini install only.',
   },
   {
     title: 'Technical writers',
-    body: 'Install the docs plugin. A shared review-docs skill replaces five personal copies, and findings show where the procedure misleads an agent in practice.',
+    focus: 'plugins',
+    body: 'Install the docs plugin. One shared review-docs skill replaces everyone’s personal copy, and findings show where the procedure misleads an agent in practice.',
   },
   {
     title: 'Platform and DevOps',
+    focus: 'hosts',
     body: 'Deploy the analyzer with Helm or a cloud recipe on AWS, Azure, or GCP. Terraform owns the database, bucket, identity, and network; the analyzer updates itself to stable releases unless you pin one.',
   },
   {
     title: 'Security and compliance',
-    body: 'Raw traces never leave your infrastructure. Review the trust and data model page for what reaches your model provider and what reaches Promptless, then decide which hosts to enroll.',
+    focus: 'traces',
+    body: 'The trust and data model page lists exactly what reaches your model provider and what reaches Promptless. Read it, then decide which hosts to enroll.',
   },
   {
-    title: 'Every team that runs agents',
-    body: 'On our own fleet the loop improved engineering, GTM, and ops sessions alike: a re-login hook, an incident subagent, a sales-deck guard, one engineer’s dev setup shared with everyone.',
+    title: 'GTM and ops',
+    focus: 'plugins',
+    body: 'Sales-deck placeholders and expired-auth stalls showed up in GTM and ops sessions too. The same loop fixed both.',
   },
 ] as const;
 
@@ -37,6 +39,19 @@ const board = [
 ] as const;
 ---
 
+<script>
+  (() => {
+    const section = document.getElementById('pig-agents');
+    const board = section?.querySelector<HTMLElement>('[data-pig-board]');
+    const accordion = section?.querySelector<HTMLElement>('[data-pig-accordion]');
+    if (!section || !board || !accordion) return;
+    accordion.addEventListener('pig:accordion', (event) => {
+      const { trigger, open } = (event as CustomEvent<{ trigger: HTMLElement; open: boolean }>).detail;
+      if (open && trigger.dataset.boardFocus) board.dataset.focus = trigger.dataset.boardFocus;
+    });
+  })();
+</script>
+
 <section
   id="pig-agents"
   class="pig-section pig-agents"
@@ -47,8 +62,8 @@ const board = [
     <div class="pig-agents-copy">
       <div class="pig-section-head is-left" data-pig-reveal>
         <p class="pig-eyebrow">Who it is for</p>
-        <h2 id="pig-agents-title" class="pig-h2">One Hub For<br />Every Team.</h2>
-        <p class="pig-sub">For anyone whose agents do the same work more than once.</p>
+        <h2 id="pig-agents-title" class="pig-h2">One Hub For Every Team.</h2>
+        <p class="pig-sub">Every team whose agents repeat the same work: platform, docs, security, GTM.</p>
       </div>
 
       <div class="pig-accordion" data-pig-accordion="exclusive" data-pig-reveal>
@@ -60,12 +75,15 @@ const board = [
               aria-expanded={index === 0 ? 'true' : 'false'}
               aria-controls={`pig-agents-panel-${index}`}
               data-pig-accordion-trigger
+              data-board-focus={row.focus}
             >
               <span class="pig-accordion-title">{row.title}</span>
               <span class="pig-accordion-glyph" aria-hidden="true"></span>
             </button>
             <div id={`pig-agents-panel-${index}`} class="pig-accordion-panel" hidden={index !== 0}>
-              <p class="pig-accordion-body">{row.body}</p>
+              <div>
+                <p class="pig-accordion-body">{row.body}</p>
+              </div>
             </div>
           </div>
         ))}
@@ -74,19 +92,19 @@ const board = [
 
     <div class="pig-agents-media" data-pig-reveal style="--pig-reveal-delay: 120ms">
       <div class="pig-frame pig-board-frame">
-        <div class="pig-board" role="img" aria-label="A shared hub status board: four targets, one source. Claude and Codex hosts are enrolled for trace collection; Cursor and Gemini install plugins without collection.">
+        <div class="pig-board" data-pig-board data-focus="target" role="img" aria-label="A shared hub status board: four targets, one source. Claude and Codex hosts are enrolled for trace collection; Cursor and Gemini install plugins without collection.">
           <div class="pig-board-head">
             <span class="pig-board-title">Shared hub</span>
-            <span class="pig-board-sub pig-mono">4 targets, one source · acme-instruction-hub 0.1.1</span>
+            <span class="pig-board-sub pig-mono">acme-instruction-hub 0.1.1 · example</span>
           </div>
           <div class="pig-board-rows pig-mono">
-            <div class="pig-board-row is-head"><span>target</span><span>plugins</span><span>traces</span><span>hosts</span></div>
+            <div class="pig-board-row is-head"><span data-col="target">target</span><span data-col="plugins">plugins</span><span data-col="traces">traces</span><span data-col="hosts">hosts</span></div>
             {board.map((row) => (
               <div class="pig-board-row">
-                <span class="pig-board-agent"><img src={`/site/logos/agents/agent-${row.agent === 'gemini' ? 'gemini-cli' : row.agent}.png`} alt="" width="16" height="16" loading="lazy" />{row.agent}</span>
-                <span>{row.plugin}</span>
-                <span class:list={['pig-board-traces', { 'is-on': row.traces === 'enrolled' }]}><span class:list={['pig-dot', row.traces === 'enrolled' ? 'is-live' : 'is-zinc']} aria-hidden="true"></span>{row.traces}</span>
-                <span>{row.hosts}</span>
+                <span class="pig-board-agent" data-col="target"><img src={`/site/logos/agents/agent-${row.agent === 'gemini' ? 'gemini-cli' : row.agent}.png`} alt="" width="16" height="16" loading="lazy" />{row.agent}</span>
+                <span data-col="plugins">{row.plugin}</span>
+                <span data-col="traces" class:list={['pig-board-traces', { 'is-on': row.traces === 'enrolled' }]}><span class:list={['pig-dot', row.traces === 'enrolled' ? 'is-live' : 'is-zinc']} aria-hidden="true"></span>{row.traces}</span>
+                <span data-col="hosts">{row.hosts}</span>
               </div>
             ))}
           </div>
@@ -96,7 +114,6 @@ const board = [
           </div>
         </div>
       </div>
-      <p class="pig-agents-note pig-mono">Illustrative board. Numbers are placeholders, not customer data.</p>
     </div>
   </div>
 </section>
@@ -146,7 +163,7 @@ const board = [
     border: 0;
     background: transparent;
     color: var(--pig-zinc-400);
-    padding: 1.05rem clamp(1rem, 1.8vw, 1.6rem);
+    padding: 0.95rem clamp(1rem, 1.8vw, 1.4rem);
     text-align: left;
     cursor: pointer;
     transition: color 300ms ease;
@@ -281,6 +298,30 @@ const board = [
 
   .pig-board-traces.is-on { color: var(--pig-green-soft); }
 
+  /* The column that answers the open accordion row stays bright. */
+  .pig-board [data-col] {
+    transition: color 250ms ease, opacity 250ms ease;
+  }
+
+  .pig-board[data-focus] .pig-board-row:not(.is-head) [data-col] {
+    opacity: 0.45;
+  }
+
+  .pig-board[data-focus='target'] [data-col='target'],
+  .pig-board[data-focus='plugins'] [data-col='plugins'],
+  .pig-board[data-focus='traces'] [data-col='traces'],
+  .pig-board[data-focus='hosts'] [data-col='hosts'] {
+    opacity: 1 !important;
+    color: #fff;
+  }
+
+  .pig-board[data-focus='target'] .is-head [data-col='target'],
+  .pig-board[data-focus='plugins'] .is-head [data-col='plugins'],
+  .pig-board[data-focus='traces'] .is-head [data-col='traces'],
+  .pig-board[data-focus='hosts'] .is-head [data-col='hosts'] {
+    color: var(--pig-zinc-200);
+  }
+
   .pig-board-foot {
     display: flex;
     flex-wrap: wrap;
@@ -291,12 +332,6 @@ const board = [
 
   .pig-board-foot .pig-t-ok { margin-right: 0.35rem; }
 
-  .pig-agents-note {
-    margin: 0.75rem 0 0;
-    color: var(--pig-zinc-500);
-    font-size: var(--pig-fs-xs);
-    text-align: center;
-  }
 
   @media (max-width: 960px) {
     .pig-agents-grid {

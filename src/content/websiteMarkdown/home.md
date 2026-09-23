@@ -80,7 +80,7 @@ Plugs into your existing docs platform, repos, and tools. Promptless adapts to y
 
 ## Promptless for Agent Instructions
 
-Versioned, evidence-backed instructions for agents. Keep skills, rules, subagents, hooks, and MCP config in one Instruction Hub. Build them once for Claude, Codex, Cursor, and Gemini. Improve them with evidence from real sessions. Raw traces never leave your infrastructure.
+Agent instructions that improve with every session. One reviewed Instruction Hub for the skills, hooks, subagents, and tool config your agents share across Claude, Codex, Cursor, and Gemini. Real sessions show which instructions fail; Promptless opens the pull request that fixes them. Raw traces never leave your infrastructure.
 
 - Install the toolchain: `python -m pip install "git+https://github.com/Promptless/pig-toolchain.git@main"`
 - Public toolchain: https://github.com/Promptless/pig-toolchain

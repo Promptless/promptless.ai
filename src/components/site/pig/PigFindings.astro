@@ -1,35 +1,35 @@
 ---
-// "Findings From Our Own Sessions." — four expanding tiles, one per remediation
-// the loop produced on Promptless's own agents (launch post, July 2026). The
-// hovered or focused tile widens; the others compress to their vertical label.
+// "What The Loop Found In Our Own Sessions." — four tiles, one per change the
+// loop produced on Promptless's own agents (launch post, July 2026). The tint
+// encodes the asset kind each finding produced (hook, subagent, skill).
 const findings = [
   {
     kind: 'Hook',
     tint: 'sky',
     title: 'Expired auth stopped stalling sessions.',
     body: 'Claude and Codex kept churning after auth tokens expired. The pattern showed up across sessions; the fix was a hook that asks for a re-login before the agent continues.',
-    chips: ['finding → hook', 'Claude Code · Codex'],
+    chips: ['Claude Code · Codex', '→ new hook'],
   },
   {
     kind: 'Subagent',
     tint: 'purple',
-    title: 'Codex started using the observability tools.',
+    title: 'Codex picked up the Datadog tools it was skipping.',
     body: 'New Datadog LLM-observability tools were being ignored during incidents. The remediation updated AGENTS.md and added a specialized incident-investigation subagent.',
-    chips: ['finding → AGENTS.md + subagent', 'Codex'],
+    chips: ['Codex', '→ AGENTS.md + subagent'],
   },
   {
     kind: 'Skill',
     tint: 'orange',
     title: 'No more placeholders in customer decks.',
     body: 'Repeated corrections about sales-deck placeholders were sitting in the traces. The customize-sales-deck skill gained a guard, and placeholders stopped reaching prospects.',
-    chips: ['finding → skill', 'repeated corrections'],
+    chips: ['Sales-deck sessions', '→ skill updated'],
   },
   {
     kind: 'Skill',
-    tint: 'green',
+    tint: 'orange',
     title: 'One engineer’s dev setup became the team’s.',
     body: 'A streamlined local development environment lived in one person’s sessions. The analyzer noticed; it was imported as a skill everyone installs.',
-    chips: ['session → skill', 'one engineer’s setup'],
+    chips: ['One engineer’s sessions', '→ new shared skill'],
   },
 ] as const;
 ---
@@ -41,15 +41,14 @@ const findings = [
   data-section-tracked="agent-impact-examples"
 >
   <div class="pig-section-head" data-pig-reveal>
-    <p class="pig-eyebrow">From our own agents</p>
-    <h2 id="pig-findings-title" class="pig-h2">Findings From Our Own Sessions.</h2>
-    <p class="pig-sub">Four changes the loop proposed on Promptless’s engineering, GTM, and ops agents. Each started as evidence in a trace and ended as a reviewed release.</p>
+    <p class="pig-eyebrow">Dogfooding</p>
+    <h2 id="pig-findings-title" class="pig-h2">What The Loop Found In Our Own Sessions.</h2>
+    <p class="pig-sub">Four fixes from the Promptless fleet. Each began as a pattern in traces and ended as a reviewed release.</p>
   </div>
 
   <ul class="pig-tiles" data-pig-reveal>
-    {findings.map((f, index) => (
-      <li class:list={['pig-tile', `is-${f.tint}`, { 'is-open': index === 0 }]} tabindex="0">
-        <span class="pig-tile-vlabel pig-mono" aria-hidden="true">{f.kind}</span>
+    {findings.map((f) => (
+      <li class:list={['pig-tile', `is-${f.tint}`]}>
         <div class="pig-tile-body">
           <span class="pig-tile-kind pig-eyebrow">{f.kind}</span>
           <h3 class="pig-tile-title">{f.title}</h3>
@@ -58,7 +57,6 @@ const findings = [
             {f.chips.map((chip) => <span class="pig-chip">{chip}</span>)}
           </div>
         </div>
-        <span class="pig-tile-plus" aria-hidden="true">+</span>
       </li>
     ))}
   </ul>
@@ -85,72 +83,36 @@ const findings = [
   }
 
   .pig-tile {
-    --pig-tile-tint: var(--pig-tint-sky);
-    position: relative;
+    --pig-tile-tint: rgba(56, 189, 248, 0.12);
     display: flex;
     flex: 1 1 0;
     min-width: 0;
-    min-height: clamp(18rem, 26vw, 24rem);
     overflow: hidden;
     border: 1px solid var(--pig-line);
     border-radius: var(--pig-r-lg);
     background:
-      radial-gradient(ellipse 80% 60% at 50% 100%, var(--pig-tile-tint), transparent 70%),
+      radial-gradient(ellipse 90% 55% at 50% 100%, var(--pig-tile-tint), transparent 70%),
       linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(10, 10, 12, 0.98) 55%),
       var(--pig-surface-card);
-    cursor: default;
-    transition: flex 650ms cubic-bezier(0.25, 1, 0.5, 1), border-color 300ms ease;
+    transition: border-color 300ms ease;
   }
 
-  .pig-tile.is-sky { --pig-tile-tint: rgba(56, 189, 248, 0.14); }
-  .pig-tile.is-purple { --pig-tile-tint: rgba(183, 166, 255, 0.14); }
-  .pig-tile.is-orange { --pig-tile-tint: rgba(255, 147, 103, 0.14); }
-  .pig-tile.is-green { --pig-tile-tint: rgba(39, 201, 63, 0.12); }
+  /* Tint encodes the asset kind the finding produced. */
+  .pig-tile.is-sky { --pig-tile-tint: rgba(56, 189, 248, 0.12); }
+  .pig-tile.is-purple { --pig-tile-tint: rgba(183, 166, 255, 0.12); }
+  .pig-tile.is-orange { --pig-tile-tint: rgba(255, 147, 103, 0.11); }
 
-  .pig-tile:hover,
-  .pig-tile:focus-visible,
-  .pig-tile.is-open {
+  .pig-tile:hover {
     border-color: rgba(255, 255, 255, 0.22);
-  }
-
-  .pig-tile:focus-visible {
-    outline: 2px solid #fff;
-    outline-offset: 2px;
-  }
-
-  /* Desktop: hovering (or focusing) any tile widens it; the default open tile
-     is the first one until a pointer enters the row. */
-  @media (min-width: 961px) and (hover: hover) {
-    .pig-tile.is-open { flex-grow: 2.6; }
-    .pig-tiles:hover .pig-tile.is-open { flex-grow: 1; }
-    .pig-tiles:hover .pig-tile:hover,
-    .pig-tile:focus-visible { flex-grow: 2.6; }
-  }
-
-  .pig-tile-vlabel {
-    position: absolute;
-    top: 1.2rem;
-    right: 1.1rem;
-    color: #fff;
-    font-size: var(--pig-fs-sm);
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    writing-mode: vertical-rl;
-    opacity: 0.9;
-    transition: opacity 300ms ease;
   }
 
   .pig-tile-body {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
+    justify-content: flex-start;
     gap: 0.8rem;
     width: 100%;
-    padding: clamp(1.2rem, 2vw, 2rem);
-    padding-right: 3.8rem;
-    opacity: 1;
-    transform: none;
-    transition: opacity 250ms ease, transform 250ms ease;
+    padding: clamp(1.3rem, 2vw, 1.8rem);
   }
 
   .pig-tile-kind {
@@ -158,18 +120,16 @@ const findings = [
   }
 
   .pig-tile-title {
-    max-width: 22rem;
     margin: 0;
     color: #fff;
     font-size: var(--pig-fs-lg);
     font-weight: 400;
     letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.25;
     text-wrap: balance;
   }
 
   .pig-tile-text {
-    max-width: 26rem;
     margin: 0;
     color: var(--pig-zinc-400);
     font-size: var(--pig-fs-sm);
@@ -180,6 +140,8 @@ const findings = [
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
+    margin-top: auto;
+    padding-top: 0.4rem;
   }
 
   .pig-tile-chips .pig-chip {
@@ -187,64 +149,21 @@ const findings = [
     text-align: left;
   }
 
-  .pig-tile-plus {
-    position: absolute;
-    right: 1.1rem;
-    bottom: 1.1rem;
-    display: grid;
-    width: 2.2rem;
-    height: 2.2rem;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
-    color: #fff;
-    font-size: var(--pig-fs-md);
-    font-weight: 300;
-    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 0.6rem 2rem rgba(0, 0, 0, 0.6);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    opacity: 0.7;
-    transition: opacity 300ms ease;
-  }
-
-  @media (min-width: 961px) and (hover: hover) {
-    .pig-tile:not(.is-open) .pig-tile-body,
-    .pig-tiles:hover .pig-tile:not(:hover) .pig-tile-body {
-      opacity: 0;
-      transform: translateY(0.5rem);
-    }
-
-    .pig-tiles:hover .pig-tile:hover .pig-tile-body,
-    .pig-tile:focus-visible .pig-tile-body {
-      opacity: 1;
-      transform: none;
-      transition-delay: 350ms;
-    }
-
-    .pig-tile.is-open .pig-tile-vlabel,
-    .pig-tiles:hover .pig-tile:hover .pig-tile-vlabel { opacity: 0; }
-    .pig-tiles:hover .pig-tile.is-open:not(:hover) .pig-tile-vlabel { opacity: 0.9; }
-    .pig-tile:hover .pig-tile-plus { opacity: 1; }
-  }
-
   .pig-findings-foot {
     margin: clamp(1.5rem, 4vh, 2.25rem) 0 0;
     text-align: center;
   }
 
-  @media (max-width: 960px) {
+  @media (max-width: 1100px) {
     .pig-tiles {
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+  }
 
-    .pig-tile {
-      min-height: 0;
-    }
-
-    .pig-tile-vlabel,
-    .pig-tile-plus {
-      display: none;
+  @media (max-width: 640px) {
+    .pig-tiles {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>

@@ -60,8 +60,8 @@ Current `action` values:
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
-| `read_product_announcement` | `nav` (header pill), `hero`, `hero_stats`, `findings` (agent-instructions track; `campaign`: `agent_instructions_launch` or `agent_instructions`) |
-| `read_docs` | `hero`, `how_it_works`, `setup_steps`, `faq`, `agent_governance_midpage`, `agent_governance_footer` (agent-instructions track; `campaign` names the doc: `agent_instructions`, `supported_agents`, `trace_sources`, `pig_cli`, `layer_1`..`layer_4`) |
+| `read_product_announcement` | `nav` (header pill), `hero_stats`, `findings` (agent-instructions track; `campaign`: `agent_instructions_launch` or `agent_instructions`) |
+| `read_docs` | `hero`, `how_it_works`, `setup_steps`, `faq`, `agent_governance_midpage`, `agent_governance_footer` (agent-instructions track; `campaign` names the doc: `agent_instructions`, `supported_agents`, `trust_model`, `pig_cli`, `layer_1`..`layer_4`) |
 | `view_source` | `hero`, `agent_governance_footer` (link to the public `pig-toolchain` repository) |
 | `view_pricing` | `agent_governance_footer` |
 | `copy_command` | `hero` (the install command copy button; fired from `PigBehaviors.astro` rather than the click tracker, `funnel_stage` = `education`) |

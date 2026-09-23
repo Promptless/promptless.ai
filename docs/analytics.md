@@ -71,7 +71,7 @@ sends a parallel `gtag` event for Google Analytics.
 - `view_commits` -- demo_social_proof
 - `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
 - `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
-- `read_product_announcement` -- nav, hero, hero_stats, findings (agent-instructions track)
+- `read_product_announcement` -- nav, hero_stats, findings (agent-instructions track)
 - `read_docs` -- hero, how_it_works, setup_steps, faq, agent_governance_midpage, agent_governance_footer (doc named in `campaign`)
 - `view_source` -- hero, agent_governance_footer (pig-toolchain on GitHub)
 - `view_pricing` -- agent_governance_footer
