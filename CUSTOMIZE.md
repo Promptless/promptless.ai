@@ -25,7 +25,7 @@ those are noted inline.
 
 - **Promptless for Docs** — `src/content/docs/docs/for-docs/<section>/<page>.mdx`. Nav placement comes from each page's frontmatter (`slug`, `sidebar.order`, `sidebar.hidden`, `sidebar.label`).
 - **Promptless for Agent Instructions** — `src/content/docs/docs/governance.mdx`. This is intentionally a single landing page until detailed product documentation is ready.
-- **Homepage** — `src/pages/index.astro` → `src/content/website/home.mdx` → `HeroV2.astro`.
+- **Homepage** — `src/pages/index.astro` → `src/content/website/home.mdx` → `HeroV2.astro` (docs hero panel) and `src/components/site/pig/` (the agent-instructions track: `PigHero.astro` inside HeroV2's agents tabpanel, `PigHeroAside.astro` for the 30-day stats, `PigLanding.astro` assembling the below-the-fold sections). Its tokens and primitives live in `src/styles/pig-landing.css`; the fonts it adds (Geist Mono, Instrument Serif) are self-hosted under `public/fonts/` (licenses in `public/fonts/LICENSES.md`).
 - **Blog** — `src/content/blog/` (`generate-article` automation writes here).
 - **Changelog** — `src/content/changelog/` (`launch-post` automation reads here).
 - **Pricing / jobs / meet / demo / use-cases / free-tools / legal** — standalone routes under `src/pages/` and `src/content/legal/`.

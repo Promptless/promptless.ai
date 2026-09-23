@@ -1,0 +1,349 @@
+---
+// "Set Up In Three Steps." — a terminal window whose contents swap with the
+// selected step, beside three numbered cards. Commands and file names come from
+// the docs (set-up-your-instruction-hub, publish-and-install-plugins,
+// enroll-your-hosts, pig-cli-reference).
+const steps = [
+  {
+    id: 'author',
+    tab: 'Author',
+    n: '01',
+    title: 'Scaffold a hub in one command',
+    body: 'pig init writes hub.yaml, the required pig plugin, and the asset directories. Add a SKILL.md, group assets into plugins, then validate and verify a first release.',
+    terminalTitle: 'acme-instruction-hub — zsh',
+    lines: [
+      { k: 'cmd', t: 'pig init --hub . --org Acme \\' },
+      { k: 'cont', t: '  --marketplace-id acme-instruction-hub --version 0.1.0' },
+      { k: 'out', t: 'wrote hub.yaml, plugins/pig.yaml, assets/{skills,rules,agents,commands,hooks,mcps}' },
+      { k: 'blank' },
+      { k: 'cmd', t: 'mkdir -p assets/skills/review-docs' },
+      { k: 'cmd', t: '$EDITOR assets/skills/review-docs/SKILL.md plugins/docs.yaml' },
+      { k: 'blank' },
+      { k: 'cmd', t: 'pig validate --hub .' },
+      { k: 'ok', t: 'ok  2 stable assets · 3 plugins · 4 targets' },
+      { k: 'cmd', t: 'pig verify --hub .' },
+      { k: 'ok', t: 'ok  compiled claude codex cursor gemini · release 0.1.0-7f3a9c' },
+      { k: 'blank' },
+      { k: 'cmd', t: 'git add hub.yaml plugins assets' },
+      { k: 'cmd', t: 'git commit -m "Create Acme Instruction Hub"' },
+      { k: 'comment', t: '# open a pull request; CI runs the same validate and verify' },
+    ],
+  },
+  {
+    id: 'publish',
+    tab: 'Publish',
+    n: '02',
+    title: 'Publish once, install everywhere',
+    body: 'Two reusable workflows check pull requests and publish merges to a release branch. Each teammate installs the plugins they need; the pig plugin keeps them current.',
+    terminalTitle: '.github/workflows/instruction-hub-publish.yml',
+    lines: [
+      { k: 'key', t: 'name: Publish Instruction Hub' },
+      { k: 'key', t: 'on:' },
+      { k: 'dim', t: '  push: { branches: [main] }' },
+      { k: 'key', t: 'permissions:' },
+      { k: 'dim', t: '  contents: write' },
+      { k: 'key', t: 'jobs:' },
+      { k: 'dim', t: '  instruction-hub:' },
+      { k: 'accent', t: '    uses: Promptless/pig-toolchain/.github/workflows/publish.yml@main' },
+      { k: 'dim', t: '    with: { source-branch: main }' },
+      { k: 'blank' },
+      { k: 'comment', t: '# merged → release/stable updated → hub.stable.json 0.1.0' },
+      { k: 'blank' },
+      { k: 'comment', t: '# each teammate, in their agent:' },
+      { k: 'cmd', t: '/plugin marketplace add acme/acme-instruction-hub' },
+      { k: 'cmd', t: '/plugin install pig@acme-instruction-hub' },
+      { k: 'cmd', t: '/plugin install docs@acme-instruction-hub' },
+    ],
+  },
+  {
+    id: 'learn',
+    tab: 'Learn',
+    n: '03',
+    title: 'Enroll hosts, learn from sessions',
+    body: 'Deploy the analyzer in your cluster, flip trace_ingestion on, and approve each host in the browser. Findings arrive as issues; fixes arrive as pull requests.',
+    terminalTitle: 'enroll a pilot host — zsh',
+    lines: [
+      { k: 'comment', t: '# hub.yaml' },
+      { k: 'key', t: 'trace_ingestion:' },
+      { k: 'ok', t: '  enabled: true' },
+      { k: 'blank' },
+      { k: 'cmd', t: 'export PROMPTLESS_WORKER_BASE_URL="https://traces.acme.example"' },
+      { k: 'cmd', t: 'claude' },
+      { k: 'out', t: 'pig · enrolling this host → approve in your browser' },
+      { k: 'ok', t: 'ok  host enrolled · credential stored locally (plihost_…)' },
+      { k: 'blank' },
+      { k: 'blank' },
+      { k: 'comment', t: '# next session: collector uploads to your analyzer over HTTPS' },
+      { k: 'comment', t: '# quiet period → analysis run → 0..n findings → GitHub issue' },
+      { k: 'comment', t: '# high-confidence, hub-owned finding → pull request against main' },
+    ],
+  },
+] as const;
+
+const lineClass: Record<string, string> = {
+  cmd: 'pig-t-cmd',
+  cont: 'pig-t-cmd',
+  out: 'pig-t-dim',
+  ok: 'pig-t-ok',
+  key: 'pig-t-key',
+  dim: 'pig-t-dim',
+  accent: 'pig-t-accent',
+  comment: 'pig-t-comment',
+  blank: '',
+};
+---
+
+<section
+  id="pig-setup"
+  class="pig-section pig-setup"
+  aria-labelledby="pig-setup-title"
+  data-section-tracked="agent-setup-steps"
+>
+  <div class="pig-section-head" data-pig-reveal>
+    <p class="pig-eyebrow">Getting started</p>
+    <h2 id="pig-setup-title" class="pig-h2">Set Up In Three Steps.</h2>
+    <p class="pig-sub">Hub only: one Python package and two CI workflow files. Evidence: deploy the analyzer in your cluster, then one browser approval per host.</p>
+  </div>
+
+  <div class="pig-setup-stage" data-pig-tabs>
+    <div class="pig-setup-tabs" role="tablist" aria-label="Setup steps">
+      {steps.map((step, index) => (
+        <button
+          type="button"
+          class:list={['pig-setup-tab', 'pig-mono', { 'is-active': index === 0 }]}
+          role="tab"
+          id={`pig-setup-tab-${step.id}`}
+          aria-selected={index === 0 ? 'true' : 'false'}
+          aria-controls={`pig-setup-panel-${step.id}`}
+          tabindex={index === 0 ? 0 : -1}
+          data-pig-tab
+        >
+          <span class="pig-setup-tab-dot" aria-hidden="true"></span>
+          {step.tab}
+        </button>
+      ))}
+    </div>
+
+    <div class="pig-setup-grid">
+      <div class="pig-setup-terminal-col" data-pig-reveal>
+        {steps.map((step, index) => (
+          <div
+            class:list={['pig-setup-panel', { 'is-active': index === 0 }]}
+            id={`pig-setup-panel-${step.id}`}
+            role="tabpanel"
+            aria-labelledby={`pig-setup-tab-${step.id}`}
+            hidden={index !== 0}
+            data-pig-tabpanel
+          >
+            <div class="pig-frame">
+              <div class="pig-terminal pig-setup-terminal">
+                <div class="pig-terminal-bar">
+                  <div class="pig-terminal-bar-title">
+                    <span class="pig-lights" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>{step.terminalTitle}</span>
+                  </div>
+                  <span class="pig-chip">{step.n} / 03</span>
+                </div>
+                <pre class="pig-terminal-body"><code>{step.lines.map((line) => (
+                  line.k === 'blank' ? '\n' : <><span class={lineClass[line.k]}>{line.k === 'cmd' ? <><span class="pig-t-prompt">$ </span>{line.t}</> : line.t}</span>{'\n'}</>
+                ))}</code></pre>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <ol class="pig-setup-cards">
+        {steps.map((step, index) => (
+          <li class="pig-setup-card" data-pig-reveal style={`--pig-reveal-delay: ${index * 70}ms`}>
+            <span class="pig-setup-card-n pig-mono">{step.n}</span>
+            <h3 class="pig-setup-card-title">{step.title}</h3>
+            <p class="pig-setup-card-body">{step.body}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <p class="pig-setup-note pig-mono" data-pig-reveal>Transcripts abridged and stylized. Run <code>pig --help</code> for your version’s exact output.</p>
+
+    <div class="pig-setup-foot" data-pig-reveal>
+      <a
+        class="pig-btn pig-btn-glass"
+        href="/docs/governance/get-started/set-up-your-instruction-hub"
+        data-track-action="read_docs"
+        data-track-funnel="education"
+        data-track-location="setup_steps"
+        data-track-campaign="agent_instructions"
+      >Follow the setup guide</a>
+      <a
+        class="pig-link"
+        href="/docs/governance/reference/pig-cli-reference"
+        data-track-action="read_docs"
+        data-track-funnel="education"
+        data-track-location="setup_steps"
+        data-track-campaign="pig_cli"
+      >pig CLI reference</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pig-setup-tabs {
+    display: flex;
+    justify-content: center;
+    gap: clamp(1.25rem, 2.4vw, 2.25rem);
+    margin: 0 0 clamp(1.5rem, 4vh, 2.5rem);
+  }
+
+  .pig-setup-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border: 0;
+    background: transparent;
+    color: var(--pig-zinc-500);
+    padding: 0.35rem 0.1rem;
+    font-size: var(--pig-fs-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 200ms ease;
+  }
+
+  .pig-setup-tab:hover {
+    color: var(--pig-zinc-300);
+  }
+
+  .pig-setup-tab.is-active {
+    color: #fff;
+  }
+
+  .pig-setup-tab:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .pig-setup-tab-dot {
+    display: none;
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  .pig-setup-tab.is-active .pig-setup-tab-dot {
+    display: inline-block;
+  }
+
+  .pig-setup-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+
+  .pig-setup-terminal-col {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .pig-setup-panel {
+    grid-area: 1 / 1;
+    transition: opacity 400ms var(--pig-ease), transform 400ms var(--pig-ease);
+  }
+
+  .pig-setup-panel[hidden] {
+    display: none;
+  }
+
+  .pig-setup-terminal {
+    min-height: 24rem;
+  }
+
+  .pig-setup-terminal .pig-terminal-body {
+    flex: 1;
+    font-size: var(--pig-fs-code);
+    line-height: 1.75;
+  }
+
+  .pig-setup-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pig-setup-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    border: 1px solid var(--pig-line-soft);
+    border-radius: var(--pig-r-md);
+    background: linear-gradient(180deg, rgba(32, 32, 36, 0.5) 0%, transparent 35%), #0d0e12;
+    box-shadow: var(--pig-shadow-soft);
+    padding: clamp(1.1rem, 1.8vw, 1.6rem) clamp(1.2rem, 2vw, 1.9rem);
+  }
+
+  .pig-setup-card-n {
+    color: var(--pig-zinc-300);
+    font-size: var(--pig-fs-md);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .pig-setup-card-title {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.15rem, 1rem + 0.8vw, 1.6rem);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.18;
+  }
+
+  .pig-setup-card-body {
+    margin: 0;
+    color: var(--pig-zinc-400);
+    font-size: var(--pig-fs-sm);
+    line-height: 1.55;
+  }
+
+  .pig-setup-note {
+    margin: clamp(1rem, 3vh, 1.5rem) 0 0;
+    color: var(--pig-zinc-500);
+    font-size: var(--pig-fs-xs);
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .pig-setup-note code {
+    border: 0;
+    background: transparent;
+    color: var(--pig-zinc-300);
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+  }
+
+  .pig-setup-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem 1.75rem;
+    margin-top: clamp(1.75rem, 4vh, 2.5rem);
+  }
+
+  @media (max-width: 960px) {
+    .pig-setup-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pig-setup-terminal {
+      aspect-ratio: auto;
+      min-height: 0;
+    }
+  }
+</style>
