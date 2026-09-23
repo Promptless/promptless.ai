@@ -7,7 +7,7 @@ tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-09-15T00:00:00Z"
+timestamp: "2026-09-21T00:00:00Z"
 sidebar:
   hidden: false
   order: 9
@@ -68,7 +68,7 @@ The worker retries transient failures during an analysis run. If the run reaches
 
 ### Local analysis succeeds, but hosted state is stale
 
-Check outbound access to Promptless and the registered install token, deployment ID, and configuration hash. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
+Check outbound access to Promptless, the installation credential, and the configuration hash. If the credential was rotated, confirm that the Secret contains the replacement and the analyzer has restarted. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
 
 ### An upgrade is blocked or fails
 
@@ -82,7 +82,9 @@ kubectl get jobs --namespace pig
 
 Preserve the failed migration Job's logs before retrying. Resolve the reported dependency through its owner: Terraform for cloud resources, your secret manager for credentials, and PIG for application releases. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before choosing a rollback.
 
-For the manual worker chart, inspect `job/instruction-hub-worker-migrate` and `helm history instruction-hub-worker --namespace pig`. The chart removes successful hook Jobs and replaces the earlier hook on the next attempt.
+For the manual worker chart, inspect `job/pig-trace-analyzer-migrate` and `helm history pig-trace-analyzer --namespace pig`. The chart removes successful hook Jobs and replaces the earlier hook on the next attempt.
+
+These names assume the release replacement is complete. For an existing installation, find its names with `helm list --namespace pig` and `kubectl get deployments,jobs --namespace pig`. Follow the [manual release replacement](/docs/governance/deploy-the-worker/manual-helm#replace-an-instruction-hub-worker-release) before installing under the new name.
 
 ## Preserve data during recovery
 
