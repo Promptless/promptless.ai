@@ -7,7 +7,6 @@ tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-15T00:00:00Z"
 ---
 
 This reference covers the `PIGDeployment` resource used by the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) covers worker chart `0.3.0`; its values are a separate interface.
@@ -39,7 +38,7 @@ Fields are under `spec.release`:
 
 The policy coordinates the analyzer and supervisor together. A pin does not bypass compatibility or migration checks. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
-The confirmation ConfigMap binds `releaseDigest` and `deploymentID`. Recovery confirmation uses `confirmedAt`, `postgresRecoveryPoint`, and `objectRecoveryPoint`. Operator capacity acknowledgement uses `capacityConfirmedAt`, `capacityRequirementsDigest`, and `capacityEvidence`. Supply the fields required by the target release; see [confirm release prerequisites](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites). These acknowledgements do not replace live dependency checks or mirror Terraform state.
+The confirmation ConfigMap binds `releaseDigest` and the Kubernetes object's `deploymentUID`. Recovery confirmation uses `confirmedAt`, `postgresRecoveryPoint`, and `objectRecoveryPoint`. Operator capacity acknowledgement uses `capacityConfirmedAt`, `capacityRequirementsDigest`, and `capacityEvidence`. Supply the fields required by the target release; see [confirm release prerequisites](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites). These acknowledgements do not replace live dependency checks or mirror Terraform state.
 
 ## Identity and endpoint
 
@@ -49,15 +48,14 @@ Fields are under `spec`:
 | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
 | `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.                             |
 | `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in.                    |
-| `hosted.runtimeURL`            | Runtime URL from your Promptless deployment registration.                                                              |
-| `hosted.deploymentID`          | Stable registered deployment identifier.                                                                               |
+| `hosted.runtimeURL`            | Optional Promptless endpoint override. Defaults to `https://api.gopromptless.ai`.                                      |
 | `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                                               |
 | `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                                       |
 | `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                                                  |
 | `endpoint.tlsSecretName`       | Optional TLS Secret covering the hostname; omit when the ingress controller uses an external certificate, such as ACM. |
 | `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.                           |
 
-The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token is separate from individual host credentials.
+The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token identifies the installation and is separate from individual host credentials.
 
 ## Storage
 
