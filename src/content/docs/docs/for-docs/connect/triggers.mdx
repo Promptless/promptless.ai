@@ -35,6 +35,8 @@ Triggers are events that initiate automated documentation updates in Promptless.
 
   <LinkCard title="Jira" href="/docs/for-docs/connect/triggers/jira" description="Start a session from a Jira ticket and reply on the ticket" />
 
+  <LinkCard title="LaunchDarkly (Beta)" href="/docs/for-docs/connect/triggers/launchdarkly" description="Start documentation work when a LaunchDarkly feature flag changes" />
+
   <LinkCard title="API" href="/docs/for-docs/connect/triggers/api" description="Trigger documentation updates from external systems via HTTP API" />
 
   <LinkCard title="Schedule" href="/docs/for-docs/connect/triggers/schedule" description="Run standing instructions on a repeating cron schedule" />
@@ -65,6 +67,32 @@ See the [Configuration Reference](/docs/for-docs/reference/configuration-referen
   Need a trigger type that isn't currently supported? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai) - we regularly add new trigger types based on user feedback.
 </Aside>
 
+## Connect a provider before you add its triggers
+
+To add, rename, or modify a provider-backed trigger, first connect its provider on the [Integrations page](https://app.gopromptless.ai/integrations). Only organization administrators can connect integrations, so if you're not an admin, ask one.
+
+Promptless checks only the triggers you add, rename, or modify, so existing triggers and unrelated settings save as usual. A configuration pushed directly to your Agent Knowledge Base is validated as a whole. If any trigger added or changed in that push lacks its integration, Promptless rejects the entire push and keeps your last valid configuration active.
+
+Each provider-backed trigger type needs its matching integration:
+
+- GitHub PR and commit triggers need GitHub (including GitHub OSS or GitHub Enterprise).
+- GitLab merge-request triggers need GitLab.
+- Bitbucket PR triggers need Bitbucket.
+- Slack triggers need Slack.
+- Microsoft Teams triggers need Microsoft Teams.
+- ClickUp triggers need ClickUp.
+- LaunchDarkly flag triggers need LaunchDarkly.
+- Jira triggers need Jira, connected through Atlassian.
+- Schedule triggers need no integration.
+
+An integration counts as connected once its credentials are in place, even if no channels, repositories, or projects appear yet.
+
+If you disconnect a provider, its triggers stay in your `promptless.yaml` and show as inactive until you reconnect it. You can remove an inactive trigger at any time. To edit or rename one, reconnect its provider first, or convert it into a [Schedule trigger](/docs/for-docs/connect/triggers/schedule), which saves right away.
+
+Connections are organization-wide, so disconnecting a provider affects every team's triggers for it.
+
+For how these states appear in the editor, see [Provider connection and trigger availability](/docs/for-docs/reference/configuration-reference#provider-connection-and-trigger-availability). To check a connection, see [Connection health](/docs/for-docs/connect/connection-health).
+
 ## Automatic PR creation
 
 When automatic PR creation is enabled in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies), Promptless automatically creates pull requests in your documentation repository with suggested changes. For [commit triggers](/docs/for-docs/connect/triggers/github-commits), you can optionally enable auto-merge to automatically merge documentation PRs as soon as they're created.
@@ -83,7 +111,7 @@ Any organization member can view backfill status, progress, and the suggestions 
 
 Open the **Backfill suggestions** panel on a trigger row. Choose a window of the **last 7 days**, **last 14 days**, or **last 30 days**, and select **Preview**. The preview lists the pull requests opened or merged in that window that the trigger matches. It applies the same repository, topic, directory, and branch filters the trigger uses for live events. A trigger can scope repositories by GitHub topic (the **Trigger on repos with certain topics** option, covered in [Repository topics](/docs/for-docs/connect/triggers/github-prs#repository-topics)). For such a trigger, the preview lists pull requests only from repositories that carry a matching topic. Backfill covers up to 1,000 pull requests per repository in the window.
 
-Backfill matches pull requests that were opened or merged but it doesn't replay historical approvals. A trigger that activates only on first approval returns no backfill results because approval matching applies only to live events going forward.
+Backfill also replays first approvals for GitHub PR triggers that activate only on first approval. The preview then includes open pull requests whose first approval landed within the selected window, even those opened before it. GitLab merge request and Bitbucket PR triggers don't replay approvals, so a first-approval trigger on those platforms returns no backfill results.
 
 When the preview looks right, select **Launch backfill** to run it. Promptless processes each pull request live, exactly as it does for a new event. Your publishing policy applies, so backfilled pull requests can create documentation PRs and send notifications. The panel updates with progress as the run works through the list.
 
