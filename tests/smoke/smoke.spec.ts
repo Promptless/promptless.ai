@@ -344,9 +344,19 @@ test('each documentation product gets only its own active topic and product meta
   assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
   assert.match(
     governanceHtml,
-    /collects evidence from real agent sessions, finds where those instructions fail, and opens reviewed pull requests that fix them\./i
+    /Promptless Instruction Governance \(PIG\)/i
   );
   assert.match(governanceHtml, /href="\/docs\/governance\/start-here\/how-it-works"/i);
+  for (const journey of [
+    'get-started/set-up-your-instruction-hub',
+    'get-started/migrate-existing-instructions',
+    'deploy-the-worker/plan-your-deployment',
+    'deploy-the-worker/deploy-the-analyzer-worker',
+    'deploy-the-worker/manage-updates-and-recovery',
+  ]) {
+    assert.ok(governanceHtml.includes(`href="/docs/governance/${journey}"`));
+  }
+  assert.match(governanceHtml, /updates automatically to stable releases by default/i);
 
   for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
     assert.match(
@@ -508,32 +518,32 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /role="tablist"/);
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
 
   // Supporting regions follow the default-active product on the server. The
   // smoke harness does not execute the client-side tab-switching JavaScript.
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
   assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
