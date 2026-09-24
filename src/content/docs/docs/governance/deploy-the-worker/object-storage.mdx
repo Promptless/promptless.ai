@@ -1,0 +1,64 @@
+---
+title: Object storage
+description: Configure native S3, Azure Blob Storage, or Google Cloud Storage for private trace objects and recoverable retention.
+slug: docs/governance/deploy-the-worker/object-storage
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+The trace bucket holds raw uploads and canonical trace objects in your cloud account. PostgreSQL stores their references and processing state. Configure exactly one object-storage backend for each deployment.
+
+## Choose a native backend
+
+| Platform     | Storage                                              | Workload authentication                                             |
+| ------------ | ---------------------------------------------------- | ------------------------------------------------------------------- |
+| AWS          | Amazon S3 bucket and prefix.                         | An IAM role bound to the analyzer's Kubernetes ServiceAccount.      |
+| Azure        | Blob Storage account, private container, and prefix. | Microsoft Entra Workload ID bound to the analyzer's ServiceAccount. |
+| Google Cloud | Cloud Storage bucket and prefix.                     | Workload Identity Federation for GKE.                               |
+
+The Terraform guides configure native storage in the same cloud as the cluster. Your analysis model is a separate choice.
+
+## Configure the location
+
+Choose one block under `spec.storage`, alongside `postgres`:
+
+```yaml title="Amazon S3"
+s3:
+  region: us-west-2
+  bucket: acme-pig-traces
+  prefix: acme/traces
+```
+
+```yaml title="Azure Blob Storage"
+azureBlob:
+  accountURL: https://acmepig.blob.core.windows.net
+  container: traces
+  prefix: acme/traces
+```
+
+```yaml title="Google Cloud Storage"
+gcs:
+  bucket: acme-pig-traces
+  prefix: acme/traces
+```
+
+Use private storage with public access disabled, encryption at rest, and HTTPS in transit. Bind the data-access identity to `pig/pig-analyzer`. Keep storage credentials out of distributed host plugins.
+
+## Scope data access
+
+The analyzer must write trace objects and read them back. Scope permissions to the deployment's bucket or container and prefix where the provider supports it. Include required bucket metadata or listing permissions and encryption-key access for your selected configuration.
+
+The cloud modules define the provider-specific grants. Review those grants with the Terraform plan. Azure's built-in Storage Blob Data Contributor role includes deletion; use a custom role if your policy requires narrower access. See [Azure's Blob data roles](https://learn.microsoft.com/en-us/azure/storage/blobs/assign-azure-role-data-access).
+
+Workload identities should refresh credentials without copying temporary tokens into Kubernetes Secrets. Application data access does not require permission to create buckets, resize databases, or change IAM.
+
+## Retention and recovery
+
+Set object retention, version recovery, and backup policies alongside your PostgreSQL recovery policy. Do not expire objects while live rows or retained database backups still reference them. Archive tiers that require restoration can prevent analysis from reading a trace.
+
+Changing the configured bucket, container, or prefix does not migrate existing objects. Plan a storage migration with Promptless before changing it for an active deployment. Preserve both raw and canonical objects needed for recovery and analysis.
+
+During [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment), check an exact session's recorded object location and confirm it is readable. A successful upload request does not prove durable storage.

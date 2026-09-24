@@ -40,3 +40,6 @@ New, non-migration architecture decisions go here in `adrs/` using the MADR temp
 
 - [0001 — Generate Open Graph images incrementally](0001-incremental-og-image-generation.md) — accepted
 - [0002 — Split documentation by product](0002-split-documentation-by-product.md) — accepted
+
+- [0003 — Adopt Starport search and assistant](0003-starport-search-assistant.md) — accepted
+- [0004 — Drop the docmeta timestamp field](0004-drop-docmeta-timestamp.md) — accepted

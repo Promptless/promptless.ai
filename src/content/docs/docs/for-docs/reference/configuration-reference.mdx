@@ -5,7 +5,6 @@ slug: docs/for-docs/reference/configuration-reference
 type: reference
 tags:
   - reference
-timestamp: "2026-08-11T00:00:00Z"
 sidebar:
   hidden: false
   order: 61
@@ -28,6 +27,14 @@ When you need precise control over the file format, switch to **YAML** mode usin
 In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) is not a field you set. It comes from the integration that reaches the repository. The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too. You never end up with a rule pointing at something that no longer exists.
+
+### Provider connection and trigger availability
+
+In Form mode, a trigger type whose provider isn't connected is disabled, with a link to connect it on the Integrations page. Schedule triggers need no integration and are always available.
+
+A saved trigger whose provider is disconnected shows as inactive: its match fields are locked, but you can still select **Remove**. It reactivates when you reconnect the provider.
+
+Saving an added, renamed, or modified trigger while its provider is disconnected fails, and nothing is committed to your `promptless.yaml`. Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
 
 ### Set notifications, escalations, and publishing in Form mode
 
@@ -95,7 +102,6 @@ When you complete the setup wizard, Promptless creates your `promptless.yaml` wi
 | ---------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
 | GitHub (docs or trigger app) | `github_pr` (opened, first\_approval, merge) with `repos: all` | None                                        |
 | GitLab                       | `gitlab_mr` (opened, merge) with `repos: all`                  | None                                        |
-| Bitbucket                    | `bitbucket_pr` (opened, merge) with `repos: all`               | None                                        |
 | Jira / Confluence            | None                                                           | Unscoped `jira` and/or `confluence` entries |
 | Linear                       | None                                                           | Unscoped `linear` entry                     |
 | Notion                       | None                                                           | Unscoped `notion` entry                     |
@@ -281,6 +287,8 @@ triggers:
 
 ### Trigger types
 
+Provider-backed triggers require their integration to be connected. See [Provider connection and trigger availability](#provider-connection-and-trigger-availability).
+
 <details>
   <summary>github\_pr</summary>
 
@@ -337,25 +345,9 @@ triggers:
 </details>
 
 <details>
-  <summary>bitbucket\_pr</summary>
-
-  Triggers when pull requests are opened or merged in Bitbucket repositories.
-
-  **Match clause fields:**
-
-  | Field                 | Description                                                     |
-  | --------------------- | --------------------------------------------------------------- |
-  | `repos`               | Required. The literal `all` or a list of Bitbucket repositories |
-  | `excluded_repos`      | Repositories to exclude                                         |
-  | `trigger_on`          | Required. Events that activate the trigger: `opened`, `merge`   |
-  | `trigger_directories` | Only trigger when changes touch these directories               |
-  | `branches`            | Only trigger for PRs targeting these branches                   |
-</details>
-
-<details>
   <summary>slack\_listen</summary>
 
-  Passively monitors specified Slack channels for documentation-worthy conversations.
+  Passively monitors specified Slack channels for documentation-worthy conversations. When you configure a public channel, Promptless joins it. Private channels and channels shared with another workspace through Slack Connect need you to add Promptless in Slack before it can monitor them.
 
   **Match clause fields:**
 
@@ -390,6 +382,22 @@ triggers:
   | Field      | Description                                                     |
   | ---------- | --------------------------------------------------------------- |
   | `statuses` | Required. List of task statuses that trigger documentation work |
+</details>
+
+<details>
+  <summary>launchdarkly\_flag</summary>
+
+  Triggers when a matching feature flag changes in a connected LaunchDarkly account.
+
+  **Match clause fields:**
+
+  | Field             | Description                             |
+  | ----------------- | --------------------------------------- |
+  | `project_key`     | Restrict to these LaunchDarkly projects |
+  | `environment_key` | Restrict to these environments          |
+  | `flag_key`        | Restrict to these feature flags         |
+
+  At least one of `project_key`, `environment_key`, or `flag_key` must be set in each clause. An empty field matches every value in that dimension. Requires the [LaunchDarkly integration](/docs/for-docs/reference/integrations/launchdarkly) to be connected; the integration and this trigger are in beta. See [LaunchDarkly triggers](/docs/for-docs/connect/triggers/launchdarkly#match-a-flag-change) for the full match semantics and an example.
 </details>
 
 <details>
@@ -465,6 +473,7 @@ Some triggers are always active when their integration is connected and don't ap
 - **slack\_mention**: @Promptless mentions in Slack channels
 - **msteams\_mention**: @Promptless mentions in Microsoft Teams
 - **github\_mention**: @Promptless mentions in GitHub issues and PR comments
+- **gitlab\_mention**: @Promptless mentions in GitLab merge-request comments
 - **jira\_mention**: Assigning a Jira issue to the Promptless account, @mentioning it in a comment, or adding a `promptless`-prefixed label
 - **web**: Requests submitted through the web dashboard
 - **api**: Requests from the HTTP API
@@ -562,11 +571,12 @@ Set any combination of the three. The same presence semantics as `notification` 
 
 **publishing**
 
-| Field                         | Description                                                                                                                                                                                                                                                                                |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `auto_create_pr`              | Automatically open documentation PRs for suggestions, or merge requests on GitLab. Gates only automatic PR creation (see the note below)                                                                                                                                                   |
-| `auto_merge`                  | Automatically merge auto-created documentation PRs. On GitLab the merge is immediate and squashes. A merge request that can't merge right away stays open for you to merge manually ([full detail](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation)) |
-| `suppress_source_pr_comments` | Skip posting comments on source PRs                                                                                                                                                                                                                                                        |
+| Field                            | Description                                                                                                                                                                                                                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_create_pr`                 | Automatically open documentation PRs for suggestions, or merge requests on GitLab. Gates only automatic PR creation (see the note below)                                                                                                                                                          |
+| `auto_merge`                     | Automatically merge auto-created documentation PRs. On GitLab the merge is immediate and squashes. A merge request that can't merge right away stays open for you to merge manually ([full detail](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation))        |
+| `suppress_source_pr_comments`    | Skip posting comments on source PRs                                                                                                                                                                                                                                                               |
+| `suppress_pr_description_extras` | Omit the generated extras from documentation PR and merge request bodies: the "Open in Promptless" link, the trigger events section, and the tip. The body then contains only the suggestion's own description. Applies to dashboard-default and agent-composed bodies alike. Defaults to `false` |
 
 <Aside type="note">
   `auto_create_pr` gates only *automatic* PR creation. When it's off, Promptless leaves suggestions as drafts and doesn't open a documentation PR on its own. You can still open one on demand. Ask the agent directly, click the **Create PR** button in Slack, or create it from the dashboard. `auto_merge` applies only to PRs that Promptless creates automatically.
@@ -689,9 +699,10 @@ Common validation errors:
 - Missing required fields (e.g., `host` for `github_enterprise` platform)
 - Duplicate repository keys in `doc_collections`
 - Malformed `doc_collections` keys. A GitHub, GitHub OSS, or GitHub Enterprise key must be exactly `owner/repo`, with no extra path segments. A GitLab key is the project's full path, so nested namespace segments are valid. No key may carry surrounding whitespace.
+- A provider-backed trigger added, renamed, or modified while its integration is disconnected. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
 
 <Aside type="tip">
-  If you edit the configuration file directly via git push, invalid YAML keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
+  If you edit the configuration file directly via git push, an invalid configuration keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
 </Aside>
 
 ## Repository renames

@@ -1,4 +1,10 @@
 ---
+interface Props {
+  /** Campaign slug recorded on the Cal.com booking and the email-capture event. */
+  campaign?: string;
+}
+
+const { campaign } = Astro.props;
 ---
 
 <!--
@@ -10,10 +16,13 @@
   If the visitor already provided their email (stored in sessionStorage by
   the homepage hero or blog CTA), it's prefilled into the Cal.com embed.
 
+  A `campaign` prop tags the booking and the email-capture event so bookings
+  from a campaign page (e.g. /lavacon) can be attributed.
+
   No-JS fallback: a plain link to the Cal.com booking page via <noscript>.
 -->
 
-<div id="book">
+<div id="book" data-campaign={campaign}>
   <div id="demo-calendar" class="pl-site-meet-calendar">
     <div class="pl-site-meet-calendar-mount" id="cal-inline-demo-booking"></div>
   </div>
@@ -72,6 +81,8 @@
   var statusEl = document.getElementById('demo-email-status');
   var namespace = 'demo-booking';
   var elementSelector = '#cal-inline-demo-booking';
+  var bookEl = document.getElementById('book');
+  var campaign = (bookEl && bookEl.getAttribute('data-campaign')) || '';
 
   function getStoredEmail() {
     try { return sessionStorage.getItem(EMAIL_KEY); } catch { return null; }
@@ -127,6 +138,7 @@
     var params = new URLSearchParams();
     if (storedEmail) params.set('email', storedEmail);
     if (contentIntent) params.set('promptless-content', contentIntent);
+    if (campaign) params.set('metadata[campaign]', campaign);
     if (distinctId) params.set('metadata[posthog_distinct_id]', distinctId);
     if (sessionId) params.set('metadata[posthog_session_id]', sessionId);
     var qs = params.toString();
@@ -156,7 +168,6 @@
 
   // Scroll to #book if the URL hash targets it (e.g. /demo#book)
   if (window.location.hash === '#book') {
-    var bookEl = document.getElementById('book');
     if (bookEl) {
       setTimeout(function () { bookEl.scrollIntoView({ behavior: 'smooth' }); }, 100);
     }
@@ -187,7 +198,7 @@
         window.posthog.capture('email_captured', {
           intent: 'demo',
           location: 'demo_page',
-          campaign: '',
+          campaign: campaign,
           $set: { email: email },
         });
       }
