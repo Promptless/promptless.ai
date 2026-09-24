@@ -1,13 +1,12 @@
 ---
 title: Manual Helm reference
-description: Configure the current trace analyzer's deployment, storage, model, repository, and secrets, and map Helm values to worker settings.
+description: Configure the current trace analyzer's deployment, storage, model, and secrets, and map Helm values to worker settings.
 slug: docs/governance/deploy-the-worker/manual-helm-reference
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 8
@@ -25,17 +24,15 @@ This page describes the current worker chart, version `0.3.0`. Helm values becom
 
 Unless noted, Helm keys in this table are under `instructionHub`. Environment-variable suffixes have the prefix `INSTRUCTION_HUB_`.
 
-| Helm key               | Environment-variable suffix | Meaning                                                                                        |
-| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
-| `runtimeBaseUrl`       | `RUNTIME_BASE_URL`          | Promptless endpoint supplied during registration.                                              |
-| `deploymentName`       | `DEPLOYMENT_NAME`           | Human-readable deployment name; use `acme-production` in the Acme example.                     |
-| `deploymentInstanceId` | `DEPLOYMENT_INSTANCE_ID`    | Stable registered deployment identifier from Promptless.                                       |
-| `configHash`           | `CONFIG_HASH`               | Registered configuration hash from Promptless. Coordinate configuration changes with the team. |
-| `storageBackend`       | `STORAGE_BACKEND`           | `postgres_s3`, `postgres_azure_blob`, or `postgres_gcs`.                                       |
-| `traceObjectS3Bucket`  | `TRACE_OBJECT_S3_BUCKET`    | S3 bucket for raw ranges and canonical trace objects. Required for `postgres_s3`.              |
-| `traceObjectS3Prefix`  | `TRACE_OBJECT_S3_PREFIX`    | Object prefix; defaults to `trace-objects`. Acme uses `acme/traces`.                           |
-| `maxTraceBatchBytes`   | `MAX_TRACE_BATCH_BYTES`     | Maximum decoded trace-batch size, in bytes. Default `268435456` (256 MiB); must be positive.   |
-| `logLevel`             | `LOG_LEVEL`                 | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default `INFO`.                            |
+| Helm key              | Environment-variable suffix | Meaning                                                                                        |
+| --------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
+| `runtimeBaseUrl`      | `RUNTIME_BASE_URL`          | Optional Promptless endpoint override; defaults to `https://api.gopromptless.ai`.              |
+| `configHash`          | `CONFIG_HASH`               | Registered configuration hash from Promptless. Coordinate configuration changes with the team. |
+| `storageBackend`      | `STORAGE_BACKEND`           | `postgres_s3`, `postgres_azure_blob`, or `postgres_gcs`.                                       |
+| `traceObjectS3Bucket` | `TRACE_OBJECT_S3_BUCKET`    | S3 bucket for raw ranges and canonical trace objects. Required for `postgres_s3`.              |
+| `traceObjectS3Prefix` | `TRACE_OBJECT_S3_PREFIX`    | Object prefix; defaults to `trace-objects`. Acme uses `acme/traces`.                           |
+| `maxTraceBatchBytes`  | `MAX_TRACE_BATCH_BYTES`     | Maximum decoded trace-batch size, in bytes. Default `268435456` (256 MiB); must be positive.   |
+| `logLevel`            | `LOG_LEVEL`                 | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. Default `INFO`.                            |
 
 The install token and PostgreSQL DSN are also required. They come from Secret references, described below. Keep the database, bucket, and prefix stable across restarts and upgrades. Changing a storage location does not migrate existing data.
 
@@ -115,23 +112,19 @@ Create `postgres-ca` with the trusted database CA bundle under `ca.pem`, or chan
 
 The published chart pins the worker image through `image.repository` and `image.digest`. A source checkout requires a verified `image.digest` in the form `sha256:<64 lowercase hex characters>`. Use the digest from the matching release; do not replace it with a mutable tag.
 
-## Analysis activation and repository
+## Analysis activation
 
 All Helm keys below are under `instructionHub.analysis`. The environment-variable suffixes have the prefix `INSTRUCTION_HUB_ANALYSIS_`.
 
-| Helm key                        | Environment-variable suffix           | Meaning                                                                                                          |
-| ------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `activationAt`                  | `ACTIVATION_AT`                       | Timezone-aware ISO timestamp for enabling analysis. Empty leaves trace analysis inactive.                        |
-| `quietWindowHours`              | `QUIET_WINDOW_HOURS`                  | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
-| `repository.url`                | `REPOSITORY_URL`                      | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`.          |
-| `repository.id`                 | `REPOSITORY_ID`                       | Positive numeric GitHub repository ID.                                                                           |
-| `repository.fullName`           | `REPOSITORY_FULL_NAME`                | Matching owner and repository, such as `acme/acme-instruction-hub`.                                              |
-| `repository.tokenSecretEnabled` | Controls `REPOSITORY_TOKEN` injection | Set `true` for a private repository and supply the token Secret key.                                             |
-| `repository.mirrorRoot`         | `MIRROR_ROOT`                         | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
+| Helm key                | Environment-variable suffix | Meaning                                                                                                          |
+| ----------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `activationAt`          | `ACTIVATION_AT`             | Timezone-aware ISO timestamp for enabling analysis. Empty leaves trace analysis inactive.                        |
+| `quietWindowHours`      | `QUIET_WINDOW_HOURS`        | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
+| `repository.mirrorRoot` | `MIRROR_ROOT`               | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
 
-When `activationAt` or `repository.url` is nonempty, configure the complete repository identity and all model fields below. A configured repository can support remediation without activating trace analysis. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
+When `activationAt` is nonempty, configure all model fields below. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
 
-The repository URL and `fullName` must describe the same GitHub repository. The current analyzer validates `github.com` URLs; GitLab publishing support in the hub toolchain does not imply GitLab analyzer or remediation support. See [Supported agents and platforms](/docs/governance/reference/supported-agents) for the separate compatibility boundaries.
+An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories). The analyzer receives GitHub App tokens scoped to Contents read for those repositories from Promptless. The analyzer reads GitHub repositories with a `main` branch; GitLab publishing support in the hub toolchain does not imply GitLab analyzer or remediation support. See [Supported agents and platforms](/docs/governance/reference/supported-agents) for the separate compatibility boundaries.
 
 ## Model provider
 
@@ -160,14 +153,13 @@ The analyzer sends session content and relevant instruction context to this prov
 
 Use `secrets.existingSecretName` to reference a Secret in the worker namespace. The chart defaults to these keys:
 
-| Helm mapping                         | Default Secret key          | Worker environment variable                 |
-| ------------------------------------ | --------------------------- | ------------------------------------------- |
-| `secrets.installTokenKey`            | `install-token`             | `INSTRUCTION_HUB_INSTALL_TOKEN`             |
-| `secrets.customerPostgresDsnKey`     | `customer-postgres-dsn`     | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`     |
-| `secrets.analysisModelApiKeyKey`     | `analysis-model-api-key`    | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`    |
-| `secrets.analysisRepositoryTokenKey` | `analysis-repository-token` | `INSTRUCTION_HUB_ANALYSIS_REPOSITORY_TOKEN` |
+| Helm mapping                     | Default Secret key       | Worker environment variable              |
+| -------------------------------- | ------------------------ | ---------------------------------------- |
+| `secrets.installTokenKey`        | `install-token`          | `INSTRUCTION_HUB_INSTALL_TOKEN`          |
+| `secrets.customerPostgresDsnKey` | `customer-postgres-dsn`  | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`  |
+| `secrets.analysisModelApiKeyKey` | `analysis-model-api-key` | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` |
 
-The model key is referenced when an activation time or repository URL is configured with `api_key`. The repository key is referenced under the same condition when `repository.tokenSecretEnabled: true`.
+The model key is referenced when an activation time is configured with `api_key`. The analyzer receives GitHub App tokens for the selected instruction repositories from Promptless, so the worker Secret holds no repository credential.
 
 The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
 
@@ -177,7 +169,7 @@ Sentry uses a separate Secret reference. See [Enable Sentry](#enable-sentry) for
 
 Render the chart with your values and review the generated references and endpoints. Apply through the deployment's owner: your Helm workflow or its GitOps controller. Do not let a supervisor manage the same worker resources.
 
-After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/verify-your-deployment). Configuration validation and a healthy pod do not prove that credentials can access the database, bucket, repository, or model.
+After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/verify-your-deployment). Configuration validation and a healthy pod do not prove that credentials can access the database, bucket, or model.
 
 ## Enable Datadog
 

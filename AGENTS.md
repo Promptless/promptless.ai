@@ -124,9 +124,10 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
 - **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
   *content* against three schemas (Starlight mirror, Google OKF, extension
   seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags` and a quoted ISO 8601 `timestamp`. Add repo-specific
-  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
-  Runs on Node 24. See ADR 0006.
+  and should carry `tags`. Add repo-specific required fields in
+  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
+  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
+  which stopped populating `timestamp`.
 
 ## Diagrams
 

@@ -7,7 +7,6 @@ tags:
   - connect
   - triggers
   - reference
-timestamp: "2026-07-10T17:59:48Z"
 sidebar:
   hidden: false
   order: 14
@@ -179,7 +178,7 @@ A repeat with the same key returns the original trigger event:
 
 ## Read endpoints
 
-The `/v1` API also exposes read endpoints for polling integrations: a connection check, the list of your doc collections, and a suggestion lifecycle feed. All three take the same bearer token and return JSON. Each returns `401` when the key is missing, invalid, or revoked, and `503` when the read store is temporarily unavailable.
+The `/v1` API also exposes read endpoints for polling integrations. They cover a connection check, the list of your doc collections, a suggestion lifecycle feed, and a finished-task feed. All take the same bearer token and return JSON. Each returns `401` when the key is missing, invalid, or revoked, and `503` when the read store is temporarily unavailable.
 
 ### Account
 
@@ -336,6 +335,87 @@ repeat on an interval:
     since = newest                          # inclusive lower bound for next poll
 ```
 
+### Finished tasks
+
+```http
+GET /v1/triggers
+```
+
+Lists your organization's finished tasks, newest completion first, including tasks that made no documentation change. For the full schema, see the [List finished tasks reference](/docs/for-docs/api/operations/listfinishedtasks/).
+
+Only finished tasks appear in this feed. A task still running has no outcome yet, so follow one in flight with [`GET /v1/triggers/{trigger_event_id}`](#read-task-status). The feed omits Promptless's internal re-runs. If Promptless reopens a finished task to rework it, the task appears again when it finishes, with a new `finished_at` and possibly a different `outcome`.
+
+```bash
+curl "https://api.gopromptless.ai/v1/triggers?source=api&limit=50" \
+  -H "Authorization: Bearer sk-pl-your-api-key"
+```
+
+```json
+{
+  "tasks": [
+    {
+      "trigger_event_id": "d3aa7c40-5ec4-48c6-8d10-81c2ee042690",
+      "source": "api",
+      "request": "API: Update the retry documentation",
+      "outcome": "no_change_needed",
+      "resolution": "The retry guide already documents the new backoff, so no change was needed.",
+      "submitted_at": "2026-08-24T10:00:00+00:00",
+      "finished_at": "2026-08-24T10:18:00+00:00"
+    }
+  ]
+}
+```
+
+Each task carries these fields:
+
+| Field              | Type           | Description                                              |
+| ------------------ | -------------- | -------------------------------------------------------- |
+| `trigger_event_id` | string (UUID)  | The task's id, the same id `POST /v1/triggers` returned. |
+| `source`           | string         | The task's origin, such as `api`.                        |
+| `request`          | string \| null | A one-line summary of the submitted request.             |
+| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes).           |
+| `resolution`       | string \| null | A note that explains how the task ended.                 |
+| `submitted_at`     | string         | ISO 8601 time the task was submitted.                    |
+| `finished_at`      | string         | ISO 8601 time the task finished.                         |
+
+#### Outcomes
+
+`outcome` is one of these values:
+
+| Value                 | Meaning                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `suggestions_created` | The task produced at least one suggestion.                                                                 |
+| `no_change_needed`    | The task produced none because the docs already cover the change.                                          |
+| `needs_input`         | The task produced none and ended on a question the customer must answer. A later answer starts a new task. |
+| `failed`              | Promptless could not finish the work.                                                                      |
+
+`outcome` is `null` for tasks that finished before Promptless added the field and for tasks from sources other than the API or MCP. Promptless may add values later, so handle values not listed here.
+
+This feed omits the suggestions a task produced. Each suggestion in the [Suggestions](#suggestions) feed carries `trigger_event_id`, so join the two feeds on that field.
+
+#### Filtering
+
+Narrow the feed with these query parameters, all optional:
+
+| Parameter | Values             | Notes                                                                                                                         |
+| --------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `since`   | ISO 8601 timestamp | Inclusive lower limit on the completion timestamp. A trailing `Z` is accepted, and a value without a timezone is read as UTC. |
+| `source`  | trigger source     | Exact source to return, such as `api`. Omit to return every source.                                                           |
+| `limit`   | 1–100              | Number of tasks to return. Defaults to 50.                                                                                    |
+| `offset`  | 0 or greater       | Number of tasks to skip. Defaults to 0.                                                                                       |
+
+An invalid `since` returns `400 invalid_since`.
+
+#### Polling
+
+Poll this feed the way you poll the [Suggestions](#suggestions) feed, ordered by when each task completed:
+
+- Results come back newest-completion-first, ordered by completion timestamp and then by `id`.
+- Track the newest `finished_at` you have seen and pass it as `since` on the next poll. Because `since` is an inclusive lower limit, a task that finishes a moment after your last poll comes back on the next one.
+- Since `since` is inclusive, a task whose `finished_at` equals `since` comes back again. Deduplicate by `trigger_event_id` and `finished_at` together. A reopened task that finishes again keeps its `trigger_event_id` but carries a new `finished_at`, so deduplicating on the pair keeps its latest outcome instead of discarding it.
+- Page through a large result set with `limit` and `offset`. A response with fewer than `limit` tasks means you have reached the end of the current set.
+- A task finishing mid-poll moves rows to a higher offset, so a walk by `offset` returns it on a later page.
+
 ## Task status and messages
 
 After you submit a task, follow its progress and continue the conversation on the same trigger event. Both operations use the same `Authorization: Bearer sk-pl-...` token. The conversation is available for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`.
@@ -356,7 +436,8 @@ GET /v1/triggers/{trigger_event_id}
 | `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                                        |
 | `source`           | string         | The task's origin.                                                                                                                                                           |
 | `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                 |
-| `resolution`       | string \| null | A human-readable note, not a fixed set of codes, that distinguishes a deliberate no-op from a run that could not finish. Read it for context after `finished` is `true`.     |
+| `resolution`       | string \| null | A note that explains how the task ended. Read it after `finished` is `true`.                                                                                                 |
+| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes) for the values. `null` until the task finishes, and for tasks from sources other than the API or MCP.                          |
 | `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                   |
 | `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code. |
 | `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                            |
@@ -405,6 +486,7 @@ curl "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-4466554400
   "source": "api",
   "request": "Document the new rate limiting feature added in v2.5",
   "resolution": null,
+  "outcome": null,
   "suggestions": [
     {
       "id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
@@ -511,7 +593,7 @@ Both operations return `401 authentication_failed` when the key is missing, inva
 
 ## View API triggers
 
-API-triggered events appear in your dashboard with a distinct "API" label.
+API-triggered events appear in your dashboard with an **API Task** pill. A task that reaches the API through a Promptless-built client carries that client's own pill. A task submitted through the Promptless Zapier app shows a **Zapier Task** pill. A task submitted from your editor over [MCP](/docs/for-docs/connect/triggers/mcp) shows an **MCP Task** pill.
 
 ### Trigger history
 
