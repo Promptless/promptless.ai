@@ -62,11 +62,6 @@ const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: 
     title: 'Pricing that fits teams of all sizes',
     description: 'Plans for teams that want docs-native automation.',
   },
-  {
-    routePath: '/free-tools',
-    title: 'Free tools',
-    description: 'Free tools to help you quickly improve docs quality.',
-  },
 ];
 
 function buildPages(): OgPage[] {
