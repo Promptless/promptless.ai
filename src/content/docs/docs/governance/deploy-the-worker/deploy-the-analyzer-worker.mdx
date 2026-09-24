@@ -1,0 +1,198 @@
+---
+title: Install with Helm
+description: Bootstrap automatic trace analysis updates on Kubernetes, configure your storage and model, and verify a real session.
+slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Configure a `PIGDeployment` resource to connect your database, trace bucket, and model. PIG then updates the analyzer and supervisor automatically to stable releases.
+
+The 0.3.0 release targets AWS/EKS clean installations. Azure/AKS and GCP/GKE are experimental.
+
+## Before you begin
+
+Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment). You need a dedicated PostgreSQL database, native object storage, an analyzer workload identity, and an HTTPS endpoint. Use the AWS, Azure, or Google Cloud Terraform guide if you need to provision these resources.
+
+[Add the analyzer in PIG Settings](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer) and store its credential in your secret manager. The analyzer resolves its installation identity from this credential and connects to Promptless by default. The credential is separate from individual host enrollment credentials.
+
+Use `pig` for the analyzer namespace and `pig-system` for the supervisor. The example deployment name is `acme`. Replace the example names, URLs, and IDs throughout.
+
+## 1. Get a pinned bootstrap chart
+
+Choose a release from the public [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases). Read its requirements and use the exact supervisor chart version listed in that release. The chart version selects the bootstrap; your deployment's release policy controls subsequent updates.
+
+```bash
+PIG_CHART_VERSION='REPLACE_WITH_CHART_VERSION'
+helm pull oci://ghcr.io/promptless/charts/pig-supervisor \
+  --version "$PIG_CHART_VERSION" --destination .
+```
+
+Keep the chart archive, its release digest, and your bootstrap values with your recovery records. Verify the archive against the published release checksum before installing it.
+
+## 2. Prepare configuration and credentials
+
+<Steps>
+  1. **Confirm the cluster and create the namespaces.**
+
+     ```bash
+     kubectl config current-context
+     kubectl create namespace pig --dry-run=client -o yaml | kubectl apply -f -
+     kubectl create namespace pig-system --dry-run=client -o yaml | kubectl apply -f -
+     ```
+
+  2. **Configure the analyzer ServiceAccount.** Create `pig-analyzer` in `pig` with the workload identity annotations from your cloud guide. Terraform owns the cloud identity and trust policy; your Kubernetes workflow owns the ServiceAccount. Apply these before starting the analyzer.
+
+     ```yaml title="analyzer-service-account.yaml"
+     apiVersion: v1
+     kind: ServiceAccount
+     metadata:
+       name: pig-analyzer
+       namespace: pig
+       annotations: {} # Add your cloud identity annotations.
+     ```
+
+     ```bash
+     kubectl apply -f analyzer-service-account.yaml
+     ```
+
+  3. **Deliver secrets and certificates.** Use your secret manager to create `pig-credentials` in `pig` with the keys below. If your ingress controller uses Kubernetes TLS Secrets, create `pig-tls` for your analyzer hostname. AWS ALB installations use ACM and omit that Secret; follow the [AWS HTTPS setup](/docs/governance/deploy-the-worker/deploy-on-aws). If PostgreSQL requires a CA bundle, create ConfigMap `pig-postgres-ca` with key `ca.pem`.
+
+     | Secret key      | Value                                                          |
+     | --------------- | -------------------------------------------------------------- |
+     | `install-token` | This deployment's Promptless installation token.               |
+     | `postgres-dsn`  | Its dedicated database connection string with TLS settings.    |
+     | `model-api-key` | Your analysis model key; omit for Bedrock Signature Version 4. |
+
+     Keep credential values out of Git and Helm arguments. [PostgreSQL configuration](/docs/governance/deploy-the-worker/postgresql) explains the CA mount and connection string.
+</Steps>
+
+## 3. Bootstrap PIG
+
+Save the bootstrap values:
+
+```yaml title="supervisor-values.yaml"
+watchNamespace: pig
+```
+
+Render the pinned chart and review its image identities, Secret access, custom resource definition, and Kubernetes permissions:
+
+```bash
+helm lint "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+  --values supervisor-values.yaml
+helm template pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+  --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
+```
+
+Then install it:
+
+```bash
+helm install pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+  --namespace pig-system --values supervisor-values.yaml \
+  --wait --timeout 10m
+```
+
+The supervisor waits for a `PIGDeployment` before starting release transitions. It uses the chart's scoped Kubernetes permissions; it does not need a cloud management role.
+
+<Aside type="caution" title="One owner after bootstrap">
+  Keep this release outside Terraform's `helm_release` resources. If Flux performs the bootstrap, suspend its HelmRelease in Git before creating the deployment below. GitOps can continue managing your desired configuration and secret delivery. Follow [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) for the handoff.
+</Aside>
+
+## 4. Configure your deployment
+
+Save the following resource. This example uses S3 and OpenAI; substitute your [native storage block](/docs/governance/deploy-the-worker/object-storage#configure-the-location) and [model settings](/docs/governance/deploy-the-worker/model-providers).
+
+```yaml title="pig-deployment.yaml"
+apiVersion: governance.promptless.ai/v1alpha1
+kind: PIGDeployment
+metadata:
+  name: acme
+  namespace: pig
+spec:
+  release:
+    channel: stable
+    paused: false
+    pinnedVersion: ""
+  serviceAccountName: pig-analyzer
+  hosted:
+    installTokenSecretRef:
+      name: pig-credentials
+      key: install-token
+  endpoint:
+    hostname: traces.acme.example
+    ingressClassName: nginx
+    tlsSecretName: pig-tls
+    ingressAnnotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  storage:
+    postgres:
+      dsnSecretRef:
+        name: pig-credentials
+        key: postgres-dsn
+      caConfigMapRef:
+        name: pig-postgres-ca
+        key: ca.pem
+    s3:
+      region: us-west-2
+      bucket: REPLACE_TRACE_BUCKET
+      prefix: acme/traces
+  analysis:
+    activationAt: "2026-09-15T00:00:00Z"
+    quietWindowHours: 0.5
+    model:
+      provider: openai
+      authentication: api_key
+      baseURL: https://api.openai.com/v1
+      name: REPLACE_MODEL_NAME
+      apiKeySecretRef:
+        name: pig-credentials
+        key: model-api-key
+```
+
+Choose your collection rollout time for `activationAt`; analysis waits for the session's quiet window. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings, described in [Select instruction repositories](#5-select-instruction-repositories).
+
+Use an existing ingress class and a certificate covering your hostname. The ingress-nginx annotation permits 10 MiB uploads; configure the equivalent for your controller and every proxy on the path. Omit the PostgreSQL CA reference only if your DSN uses the container's trusted certificate store.
+
+On Azure, also add the pod labels from the Terraform guide under `spec.podLabels`. Workload identity must reach the pods as well as the ServiceAccount.
+
+Apply the resource after the bootstrap ownership handoff:
+
+```bash
+kubectl apply --dry-run=server -f pig-deployment.yaml
+kubectl apply -f pig-deployment.yaml
+kubectl get pigdeployment acme --namespace pig --watch
+```
+
+The supervisor checks dependencies, applies schema migrations, and starts `acme-analyzer`. It derives the registered configuration from the deployment settings; you do not invent a configuration hash.
+
+## 5. Select instruction repositories
+
+After the analyzer registers and first checks in, it appears in the Promptless Dashboard. An organization administrator then chooses which repositories the analyzer reads. In **PIG Settings**, open the **Instruction repositories** card to select where your instructions live; analysis reads every selected repository.
+
+<Steps>
+  1. **Add a repository.** Choose one from the dropdown and select **Add**. The dropdown lists the repositories the connected GitHub App can access. To add a repository that is not listed, grant the GitHub App access to it.
+  2. **Set per-repository options.** Turn on **GitHub issues** to project a repository's findings into GitHub issues. Turn on **Proposed fixes** to let remediation open pull requests against it; **Proposed fixes** becomes available once **GitHub issues** is on.
+  3. **Remove a repository** with **Remove**.
+</Steps>
+
+Reading instructions requires Contents read access. GitHub issues and proposed fixes require write access when enabled. Removing a repository preserves existing findings and pull requests.
+
+Members who are not administrators see the selected repositories as a read-only list. For how a finding maps to a repository and its GitHub issue, see [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+
+## 6. Verify and operate
+
+Check the deployment conditions and endpoint:
+
+```bash
+kubectl describe pigdeployment acme --namespace pig
+curl --fail https://traces.acme.example/healthz
+```
+
+Then [verify a complete session](/docs/governance/deploy-the-worker/verify-your-deployment): enrollment, durable readable objects, successful analysis, and visible dashboard status. A healthy endpoint completes only the routing check.
+
+Use [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) for pause and pin controls, and [observability](/docs/governance/deploy-the-worker/observability) for ongoing monitoring.

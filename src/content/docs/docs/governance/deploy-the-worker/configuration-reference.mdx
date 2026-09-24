@@ -1,0 +1,100 @@
+---
+title: Deployment configuration
+description: Reference the PIGDeployment fields for automatic updates, storage, models, and Secret references.
+slug: docs/governance/deploy-the-worker/configuration-reference
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+This reference covers the `PIGDeployment` resource used by the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) covers worker chart `0.3.0`; its values are a separate interface.
+
+## Resource identity
+
+```yaml
+apiVersion: governance.promptless.ai/v1alpha1
+kind: PIGDeployment
+metadata:
+  name: acme
+  namespace: pig
+```
+
+Keep the resource name, namespace, and registered deployment ID stable. The example generates analyzer Deployment and Service `acme-analyzer`. Secret and ConfigMap references resolve in the deployment's namespace.
+
+The bootstrap chart's `watchNamespace` selects the analyzer namespace. Install one supervisor for that scope and keep its bootstrap values with your recovery records.
+
+## Release policy
+
+Fields are under `spec.release`:
+
+| Field                            | Meaning                                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `channel`                        | `stable` follows every stable release, including major releases and schema migrations.                               |
+| `paused`                         | `false` permits release transitions. `true` stops new transitions while preserving service and credential refresh.   |
+| `pinnedVersion`                  | Empty follows the channel; an exact supported release pins the target. A pause takes precedence.                     |
+| `confirmation.configMapRef.name` | Customer-owned ConfigMap in the deployment namespace with confirmations for the exact deployment and target release. |
+
+The policy coordinates the analyzer and supervisor together. A pin does not bypass compatibility or migration checks. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+
+The confirmation ConfigMap binds `releaseDigest` and the Kubernetes object's `deploymentUID`. Recovery confirmation uses `confirmedAt`, `postgresRecoveryPoint`, and `objectRecoveryPoint`. Operator capacity acknowledgement uses `capacityConfirmedAt`, `capacityRequirementsDigest`, and `capacityEvidence`. Supply the fields required by the target release; see [confirm release prerequisites](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites). These acknowledgements do not replace live dependency checks or mirror Terraform state.
+
+## Identity and endpoint
+
+Fields are under `spec`:
+
+| Field                          | Meaning                                                                                                                |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.                             |
+| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in.                    |
+| `hosted.runtimeURL`            | Optional Promptless endpoint override. Defaults to `https://api.gopromptless.ai`.                                      |
+| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                                               |
+| `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                                       |
+| `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                                                  |
+| `endpoint.tlsSecretName`       | Optional TLS Secret covering the hostname; omit when the ingress controller uses an external certificate, such as ACM. |
+| `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.                           |
+
+The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token identifies the installation and is separate from individual host credentials.
+
+## Storage
+
+Fields are under `spec.storage`. Configure `postgres` and **exactly one** of `s3`, `azureBlob`, or `gcs`.
+
+| Field                                                             | Meaning                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `postgres.dsnSecretRef`                                           | Secret `name` and `key` containing the database connection string with TLS settings.              |
+| `postgres.caConfigMapRef`                                         | Optional ConfigMap `name` and `key` for a CA bundle mounted at `/etc/pig/postgres-ca/ca.pem`.     |
+| `s3.region`, `s3.bucket`, `s3.prefix`                             | AWS region, bucket, and dedicated trace prefix. Uses the analyzer's AWS workload identity.        |
+| `azureBlob.accountURL`, `azureBlob.container`, `azureBlob.prefix` | HTTPS storage account URL, private container, and trace prefix. Uses Microsoft Entra Workload ID. |
+| `gcs.bucket`, `gcs.prefix`                                        | Google Cloud Storage bucket and trace prefix. Uses Workload Identity Federation for GKE.          |
+
+Storage configuration grants no cloud management authority. Changing a location does not move existing data. Plan that transition using the [object-storage guidance](/docs/governance/deploy-the-worker/object-storage).
+
+## Analysis
+
+Fields are under `spec.analysis`:
+
+| Field                   | Meaning                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `activationAt`          | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.  |
+| `quietWindowHours`      | Positive interval after session activity before analysis; the example uses `0.5` hours. |
+| `model.provider`        | `openai`, `azure_openai`, or `aws_bedrock`.                                             |
+| `model.authentication`  | `api_key`, or `aws_sigv4` for Bedrock.                                                  |
+| `model.baseURL`         | A supported HTTPS Responses API endpoint.                                               |
+| `model.name`            | The model or deployment name available in your provider account.                        |
+| `model.apiKeySecretRef` | Secret `name` and `key`; omit for Signature Version 4.                                  |
+
+A nonempty activation time requires complete model settings. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories); the analyzer reads GitHub repositories with a `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
+
+Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. GitHub issues and proposed fixes use write access granted to the connected GitHub App for the selected repositories. A successful analysis clone does not verify that access.
+
+## Validate a change
+
+Review configuration through its owner, such as your GitOps repository. Validate the manifest against the installed release's custom resource definition:
+
+```bash
+kubectl apply --dry-run=server -f pig-deployment.yaml
+```
+
+Apply the change and inspect `kubectl describe pigdeployment acme --namespace pig`. Repeat [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment) after changes to storage, identities, model access, or endpoints. Schema validation alone cannot prove those dependencies are reachable.

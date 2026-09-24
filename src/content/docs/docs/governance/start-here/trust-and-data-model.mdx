@@ -1,0 +1,88 @@
+---
+title: Trust and data model
+description: Understand where PIG stores traces, what Promptless and your model provider receive, and which credentials connect each component.
+slug: docs/governance/start-here/trust-and-data-model
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - security
+  - reference
+sidebar:
+  hidden: false
+  order: 3
+---
+
+PIG stores raw traces and canonical trace objects in your infrastructure. Analysis sends session-derived input to the model provider you configure. Promptless receives trace status and findings, whose text can describe details from a session.
+
+Use this page to decide which hosts to enroll, where to run analysis, and who should have access to the resulting data. The [architecture overview](/docs/governance/start-here/how-it-works) shows how the components connect.
+
+## Where data goes
+
+| Data                                                     | Destination                                             | Purpose                                                    |
+| -------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Instruction assets and plugin definitions                | Your Git repository and CI                              | Review and publish shared instructions                     |
+| Compiled plugins                                         | Installed agent hosts                                   | Make instructions available during agent work              |
+| Native transcript records                                | Your analyzer and trace bucket                          | Preserve the source evidence for analysis                  |
+| Canonical traces and optional context snapshots          | Your customer-owned storage                             | Reconstruct sessions and the context available to an agent |
+| Host attribution, ingestion progress, and analysis state | Your PostgreSQL database                                | Track uploads and coordinate processing                    |
+| Session and instruction context                          | Your configured model provider                          | Analyze behavior and prepare proposed improvements         |
+| Trace identity, counts, and processing status            | Promptless                                              | Show collection and analysis progress                      |
+| Findings, evidence summaries, and remediation state      | Promptless and connected GitHub issues or pull requests | Explain problems and review proposed changes               |
+| Configured operational telemetry                         | Your selected observability systems                     | Diagnose deployment and analysis failures                  |
+
+A native transcript can contain prompts, tool arguments and outputs, file excerpts, and other content the agent records. Treat it according to the sensitivity of the work your agents perform. This collection path preserves native records; do not assume it removes secrets from transcripts before upload.
+
+## From hosts to your analyzer
+
+After you enable managed trace ingestion and enroll a host, its collector sends new complete records from supported session logs to your analyzer. Uploads use HTTPS and include source identity, offsets, checksums, and collector information so the analyzer can authenticate and reconcile them.
+
+Optional analysis-context snapshots describe what instructions, tools, or artifacts were available and which hub release was installed. The worker stores these alongside the session context in customer-owned storage.
+
+The collector keeps a local upload ledger that records acknowledged ranges. If an upload fails, it can retry those ranges on a later collection pass. A newly discovered source can upload its existing session history from the beginning; subsequent collection resumes from the acknowledged position. Do not delete local transcripts while relying on them to recover uploads that have not reached the analyzer.
+
+Collection only happens for enabled, supported host sources. Merely creating a hub does not enable it: `trace_ingestion.enabled` defaults to `false`. Disabling the setting and refreshing installed plugins removes the managed hooks from those new installations. Previously ingested data and your deployed analyzer remain unchanged.
+
+## From the analyzer to Promptless
+
+The analyzer sends a limited **trace-status projection**: identifiers, host attribution, timestamps, lifecycle and processing status, and event and turn counts. This projection excludes raw and canonical transcript content, prompts, tool activity, working directories, Git metadata, models, and source fingerprints.
+
+**Findings are a separate flow.** Their summaries, impact descriptions, explanations, and evidence occurrences are written to Promptless. These are model-authored descriptions and can refer to session content. Connected GitHub issues and remediation pull requests also make that information available to people who can access the repository.
+
+## From the analyzer to your model provider
+
+The analyzer sends session-derived input and relevant instruction context to the configured model endpoint. You choose the provider, endpoint, model, and authentication in the deployment configuration.
+
+Current providers are OpenAI, Azure OpenAI, and AWS Bedrock. Available authentication depends on the provider; Bedrock can use AWS identity, while API-key configurations require the corresponding key. Hosting the analyzer on Azure or GCP does not automatically select a model provider.
+
+Review the provider's data-handling terms and your organization's model-access policy for the workloads you will collect. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for the available settings.
+
+## Credentials and access
+
+| Credential or identity             | Used by                                        | Grants access to                                        |
+| ---------------------------------- | ---------------------------------------------- | ------------------------------------------------------- |
+| Deployment install token, `plih_…` | Your analyzer                                  | Promptless for the configured deployment                |
+| Per-host credential, `plihost_…`   | An enrolled host                               | Your analyzer's authenticated host endpoints            |
+| PostgreSQL credentials             | Analyzer and migration job                     | The customer database and required schema operations    |
+| Cloud workload identity            | Analyzer                                       | The configured trace bucket and authorized model access |
+| Model API key                      | Analyzer, for API-key authentication           | The configured model endpoint                           |
+| Analysis repository token          | Analyzer, when needed for a private repository | Read access to the configured GitHub hub                |
+| Remediation repository token       | An isolated remediation task                   | Repository-scoped operations to prepare its change      |
+
+An organization member approves enrollment in Promptless. The host caches its own credential locally and sends it to your analyzer for authenticated requests. The analyzer validates the credential through Promptless using its hash, deployment identity, and host target. A credential for one host family or deployment cannot be substituted for another.
+
+The deployment token belongs in your cluster's secret-management system, not in distributed plugins. Host credentials are individual credentials rather than one shared secret distributed to the whole team.
+
+Repository credentials have distinct roles. The analyzer's configured read token allows it to retrieve private hub source. Promptless uses the connected GitHub integration for issues and supplies a repository-scoped token for an isolated remediation task. Neither token is part of an uploaded trace or a published plugin.
+
+## Your operational responsibilities
+
+Choose database and bucket access, encryption, retention, backup, and restore settings according to your requirements. Configure HTTPS for host-to-analyzer traffic and use the intended network access path, such as your organization's VPN. Limit repository and observability access to the people who need the information they contain.
+
+Treat logs as another data surface. The worker emits structured diagnostics, and trace-related labels or analysis details may appear there. Apply your normal log access and retention controls when enabling an observability integration.
+
+Automatic updates maintain PIG application releases and schema migrations within the installed permissions. Your team owns cloud infrastructure, including database sizing, storage, IAM, and backups, through Terraform. See the [installation guide](/docs/governance/deploy-the-worker/gitops-ownership) for the permission and ownership model.
+
+## Next steps
+
+Review [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment) with your platform team, then deploy the analyzer [with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) or a cloud recipe. Next, [enroll a pilot host](/docs/governance/get-started/enroll-your-hosts) and verify its collection path before expanding to more users.

@@ -1,0 +1,77 @@
+---
+title: Remediate findings
+description: Turn supported findings into focused instruction changes, review remediation pull requests, and verify the next published release.
+slug: docs/governance/findings-and-remediation/remediate-findings
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+sidebar:
+  hidden: false
+  order: 2
+---
+
+import PigFlow from '../../../../../components/docs/PigFlow.astro';
+
+Remediation turns a supported finding into a proposed response. When the Instruction Hub owns the cause, a remediation agent can prepare a focused pull request. Your team decides whether to merge it under the repository's review and CI rules.
+
+A proposed fix opens in the finding's destination repository. That destination is the selected instruction repository chosen for its GitHub issue. It requires that repository to have **Proposed fixes** enabled in PIG Settings.
+
+For Acme, a missing product-version check might require a small change to the documentation skill. An expired deployment credential belongs to an infrastructure owner and should not become another paragraph in the skill.
+
+<PigFlow variant="remediation" />
+
+## Before you begin
+
+You need a high-confidence [finding](/docs/governance/findings-and-remediation/understand-findings), a connected GitHub Instruction Hub, and someone authorized to review proposed changes. The worker must have working model access, and Promptless must have the repository connection needed to issue remediation credentials.
+
+Remediation currently targets GitHub repositories. Publishing plugins from GitLab is a separate toolchain capability.
+
+## How remediation chooses a response
+
+The remediation agent reads the finding and its evidence, then inspects the relevant hub assets in an isolated checkout. It determines whether the hub can address the supported cause.
+
+| Outcome                                                                       | What happens next                                                                                                |
+| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| A narrow hub bug has one clear correction                                     | The agent prepares the focused change and checks it.                                                             |
+| The hub can address the problem, but the choice changes policy or capability  | The workflow can ask for a decision in Slack before editing. Review the options and their tradeoffs.             |
+| A tool, permission, credential, or instruction outside the hub owns the cause | The agent updates the finding notes with the external input and responsible owner. It does not invent a hub fix. |
+| The cause remains uncertain                                                   | The outcome explains the missing evidence and no pull request opens.                                             |
+
+The agent receives a repository-scoped GitHub credential for the remediation task and uses the configured model. Isolation separates the checkout and task execution; it does not mean analysis has no model credentials or no access to session evidence.
+
+## Review a proposed change
+
+For a hub change, the agent works on a dedicated branch and runs relevant checks. It then opens a pull request against `main` in the finding's destination repository. The workflow records the pull request against the finding. Repeated evidence and retried attempts should be followed through that recorded history rather than treated as independent fixes.
+
+Review the pull request in this order:
+
+1. **Match the change to the finding.** Confirm the proposed behavior addresses the observed failure and stays within the hub's ownership.
+2. **Check the scope.** Prefer a focused correction, simplification, or removal over an unrelated expansion of instructions.
+3. **Exercise a representative task.** For Acme's documentation example, try both the affected product version and a version that previously worked.
+4. **Review validation results.** Require the hub's validation and build checks, plus any repository-specific CI or evaluation you maintain.
+5. **Approve and merge through your normal controls.** CODEOWNERS, required reviews, and branch protection remain yours to configure.
+
+A recorded pull request proves a proposal exists. It does not prove that the change fixes every affected session. PIG does not supply a universal behavior-evaluation gate or automatically merge the proposal for you.
+
+## Publish and verify adoption
+
+After merge, use the hub's [publish workflow](/docs/governance/get-started/publish-and-install-plugins) to release the updated plugin artifacts. A merged source change and a published release are separate checkpoints; confirm the release completed before asking users to update.
+
+Refresh the plugin through the supported agent's installation or update flow. Confirm the expected plugin version on a pilot host, then run a new representative session. For enrolled hosts, check collection and subsequent analysis as well.
+
+Adoption across the team depends on hosts refreshing their installed plugins. Do not assume every machine has the fix because the release succeeded. Preserve the finding and release links so reviewers can relate later evidence to the version users actually ran.
+
+## Troubleshooting
+
+| Situation                                              | Next action                                                                                                                                      |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The finding is high confidence but has no pull request | Read its outcome and notes. It may need an external owner, a decision, or more ownership evidence.                                               |
+| The workflow is waiting for a decision                 | Have the appropriate owner choose the intended behavior; avoid approving a policy change solely to unblock automation.                           |
+| Repository access fails                                | Ask the operator to check the hosted repository connection and remediation credential path. The analyzer's clone token is a separate credential. |
+| CI rejects the proposal                                | Review the failure and update the branch through the normal repository workflow. Do not bypass required checks.                                  |
+| The source change merged but users see old behavior    | Confirm publication, the installed plugin version, and whether a conflicting local instruction still applies.                                    |
+| The problem recurs after update                        | Compare new evidence with the release and installed version before concluding the fix failed or opening a duplicate change.                      |
+
+Next, use [observability](/docs/governance/deploy-the-worker/observability) to monitor continued analysis and keep the hub's review and publishing workflow healthy.

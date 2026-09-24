@@ -18,18 +18,16 @@ Fires every time a visitor gives us their email, regardless of context.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `intent` | string | Why they gave it: `demo`, `newsletter`, `free_tool` |
-| `location` | string | Where: `hero`, `demo_page`, `blog`, `free_tools` |
+| `intent` | string | Why they gave it: `demo`, `newsletter` |
+| `location` | string | Where: `hero`, `demo_page`, `blog` |
 | `campaign` | string | Campaign slug or empty |
 | `$set: { email }` | string | Always set to identify the person |
 
 **Sources**: HeroV2.astro, DemoBooking.astro, BlogRequestDemo.astro,
-BlogNewsletterCTA.astro, BrokenLinkReportForm.astro
+BlogNewsletterCTA.astro
 
 Replaces the old `demo_requested`, `blog_demo_requested`, and
-`blog_newsletter_subscribed` events. The `broken_link_report_submitted` event
-still fires separately with tool-specific properties — but `email_captured`
-fires alongside it.
+`blog_newsletter_subscribed` events.
 
 ---
 
@@ -54,7 +52,6 @@ Current `action` values:
 | `sign_up` | `nav`, `mobile_menu`, `pricing_startup` |
 | `sign_in` | `nav`, `mobile_menu` |
 | `watch_demo` | `jobs_page` |
-| `use_free_tool` | `free_tools` |
 | `view_commits` | `demo_social_proof` |
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
@@ -159,29 +156,17 @@ Fires when a visitor changes the Growth plan page-range dropdown on /pricing.
 
 ## `site_searched`
 
-Fires when a visitor types 2+ characters in the Pagefind search input
-(debounced 1s). Already implemented in `posthog.astro`.
+Fires after a nonempty Starport search query completes and remains current for
+200ms. Queries run immediately; only analytics are debounced. The Starport event bridge in `posthog.astro` replaces the
+old Pagefind observer.
 
 | Property | Type | Description |
 |----------|------|-------------|
 | `query` | string | Search text |
 | `page_url` | string | Pathname where the search happened |
-
----
-
-## `broken_link_report_submitted`
-
-Fires when a visitor submits the broken link checker tool. Already implemented
-in `BrokenLinkReportForm.astro`. Note: `email_captured` also fires alongside
-this event.
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `target_url` | string | URL to scan |
-| `check_external` | boolean | Include external links |
-| `check_anchors` | boolean | Include anchor links |
-| `max_pages` | number \| null | Page limit |
-| `$set: { email }` | string | Identifies the visitor |
+| `results` | number | Number of displayed results |
+| `latency_ms` | number | Input-to-results duration, including initial loading but excluding the analytics debounce |
+| `query_ms` | number | Search execution time in the worker |
 
 ---
 
@@ -194,3 +179,22 @@ this event.
 5. `scroll_depth` — blog content engagement
 6. `video_played` — homepage is on YouTube as of 2026-04-16, ready to implement
 7. `video_progress` — homepage is on YouTube as of 2026-04-16, ready to implement
+
+## Search and assistant events
+
+The Starport plugin emits these through the existing PostHog setup. All events
+include `page_url`; no full answer text or tool-result transcripts are recorded.
+
+| Event | Additional properties |
+| --- | --- |
+| `site_search_result_clicked` | `query`, `url`, `position`, `source` (`search`, `recent`, or `starter`) |
+| `site_search_error` | `code` |
+| `docs_assistant_question` | `question`, `question_length` |
+| `docs_assistant_source_clicked` | `url` |
+| `docs_assistant_latency` | `stage` (`first_text` or `complete`), `latency_ms`, `interrupted` on completion |
+| `docs_assistant_error` | `code` |
+| `docs_assistant_feedback` | `message_id`, `value` (`up` or `down`) |
+
+Question and query events contain visitor input. They follow the site's existing
+PostHog configuration and consent behavior. Feedback IDs are browser message IDs,
+not stored server conversations.

@@ -1,0 +1,88 @@
+---
+title: Trace object and sources
+description: Native trace discovery, reliable uploads, and the session records your analyzer stores for investigation and analysis.
+slug: docs/governance/reference/trace-object-and-sources
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - reference
+sidebar:
+  hidden: false
+  order: 2
+---
+
+PIG reads native session files on an enrolled host and sends their contents to your analyzer. The analyzer stores the raw records and builds a canonical trace, a common representation of one agent session. This lets analysis work across different native formats while retaining the original evidence.
+
+## Native sources
+
+The collector supports three source families. Startup and terminal hooks can supply a transcript path directly. Background catch-up also discovers files in the following locations:
+
+| Source         | Host value       | Default discovery locations                                                                             |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Claude Code    | `claude`         | `~/.claude/projects/**/*.jsonl`                                                                         |
+| Codex          | `codex`          | `sessions/**/*.jsonl` and `archived_sessions/**/*.jsonl` beneath `CODEX_HOME`, or `~/.codex` when unset |
+| Claude Desktop | `claude-desktop` | `**/audit.jsonl` beneath the two supported session directories in Claude's application data             |
+
+For Claude Desktop, the supported session directories are `local-agent-mode-sessions` and `claude-code-sessions`. Their parent application directory depends on the operating system:
+
+| Platform | Claude application directory                                                       |
+| -------- | ---------------------------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/Claude/`                                            |
+| Windows  | `%APPDATA%/Claude/`, or `~/AppData/Roaming/Claude/` when `APPDATA` is unset        |
+| Linux    | `$XDG_CONFIG_HOME/Claude/`, or `~/.config/Claude/` when `XDG_CONFIG_HOME` is unset |
+
+These are discovery paths implemented by the collector. They do not mean every agent application is available on every platform or writes every listed format. Claude Desktop collection depends on the audit files being present and readable.
+
+Claude Code's generated hooks also attempt local Claude Desktop collection. Codex uses its own generated hooks. Cursor and Gemini currently distribute instructions without native trace collection. See [Supported agents](/docs/governance/reference/supported-agents) for the distinction.
+
+## Upload progress and retries
+
+The local ledger at `~/.promptless/instruction-hub/host-runtime-ledger.json` records progress for each source. The collector reads new ranges, compresses their contents with gzip, and base64-encodes them for transport. It sends authenticated batches to the analyzer's `POST /v0/traces/batches?target=<host>` endpoint, where `<host>` is a value from the table above.
+
+The worker validates the source and target, stores the native data, and returns acknowledged ranges. Only a matching acknowledgment advances the host's recorded progress. A retry can therefore resend a range whose response was lost. If the worker already accepted part of that range, the runtime checks the worker's content proof before reconciling its offset.
+
+Do not edit the ledger to force an upload or treat an HTTP success alone as evidence of completed analysis. Preserve native files while an outage is being resolved. File truncation, replaced content, malformed records, and oversized records require accounting beyond simply advancing a byte counter.
+
+When a file is first discovered, collection can begin at its start. Existing history can therefore be uploaded after first enrollment. Catch-up skips very recent files while they are inside the collector's idle grace period; a hook's explicit transcript path receives priority.
+
+## Stored trace records
+
+The analyzer stores raw native artifacts in your trace bucket and maintains canonical session objects alongside them. PostgreSQL holds the associated metadata, ingestion progress, and analysis state.
+
+A canonical object uses `schema_version: 1` and contains these top-level fields:
+
+| Field               | Meaning                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`    | The canonical object format version                                                                                          |
+| `session`           | Source and session identity, agent type, observed models, and optional repository or parent-agent context                    |
+| `lifecycle`         | Session state and timestamps, with native event time separate from ingestion time                                            |
+| `sources`           | Source file identities, raw artifact references, observed offsets, ingestion counts, and skipped or truncated content counts |
+| `rollups`           | Observed token usage, tool counts, compactions, and record accounting                                                        |
+| `context_artifacts` | Trace observations of instructions used, such as skill invocations or instruction-file references                            |
+| `preamble`          | Events before the first turn                                                                                                 |
+| `pending`           | Events not yet attached to a turn                                                                                            |
+| `turns`             | Ordered turns containing the session's events                                                                                |
+
+`context_artifacts` records what the trace reveals. It is separate from the instruction and repository snapshot prepared for analysis, described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+Events have a `kind`, a global sequence number `seq`, and source evidence where available. The kinds are:
+
+| Kind                | Content                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `user_message`      | User input that opens a turn                                 |
+| `assistant_message` | Assistant output, with its observed audience where available |
+| `reasoning`         | Reasoning content exposed by the native trace                |
+| `tool_call`         | A tool invocation and its input                              |
+| `tool_result`       | A tool's output or error                                     |
+| `compaction`        | A compaction summary                                         |
+| `session_event`     | Session lifecycle or other agent machinery                   |
+| `other`             | A record not represented by a more specific event kind       |
+
+Sequence numbers are contiguous in document order. Native events carry a `src` reference identifying their source entry, record, and byte offset. When the canonical view truncates a payload inline, the original uploaded bytes remain in the referenced raw artifact. Unknown event kinds and malformed records are different cases; parse coverage records what could not be decoded or modeled.
+
+## Use the records to investigate
+
+For an Acme pilot session, first check that the expected source and session ID appear in the analyzer. Then confirm the raw artifacts are stored, review ingestion or parse gaps, and check the analysis run's status. A stored trace can still be waiting for the quiet period, repository resolution, or model access.
+
+Use [observability](/docs/governance/deploy-the-worker/observability) to investigate those stages. If the session never reaches the analyzer, start with the host's [enrollment and collection checks](/docs/governance/get-started/enroll-your-hosts#troubleshooting).

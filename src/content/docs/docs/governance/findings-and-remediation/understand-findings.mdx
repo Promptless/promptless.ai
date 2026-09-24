@@ -1,0 +1,73 @@
+---
+title: Understand findings
+description: Read instruction-governance findings, distinguish severity from confidence, and decide who owns the next action.
+slug: docs/governance/findings-and-remediation/understand-findings
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+sidebar:
+  hidden: false
+  order: 1
+---
+
+A finding describes an instruction problem supported by evidence from real agent sessions. It helps your team decide what to change, why the change matters, and who should own it.
+
+For example, Acme's documentation skill might tell an agent to verify every example but omit how to choose the correct product version. A finding can connect repeated incorrect examples to that missing guidance. A failed API request caused by an expired credential may instead belong to the team that manages the credential.
+
+## Before you begin
+
+You need access to your connected Instruction Hub and the finding's issue or hosted record. An operator should already have [verified completed analysis](/docs/governance/deploy-the-worker/verify-your-deployment). A successful analysis can produce zero findings.
+
+## Read the evidence before choosing a fix
+
+Start with the summary, impact, and cited occurrences. Check that the described behavior happened and that the instruction failure explains it. Severity and confidence answer different questions:
+
+| Field                                         | What it tells you                                              | How to use it                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Severity: `low`, `medium`, `high`, `critical` | How serious the observed problem is.                           | Prioritize the effect on users and your systems.                                         |
+| Confidence: `low` or `high`                   | How strongly the evidence supports the finding.                | Separate a suspected problem from one supported well enough for remediation.             |
+| Instruction failure                           | The gap, conflict, or misleading guidance behind the behavior. | Locate the instruction that needs attention, or question whether the hub owns the cause. |
+| Evidence                                      | Cited occurrences and a summary of what happened.              | Compare the claim with the session details.                                              |
+| Notes                                         | Additional context, uncertainty, or an external owner.         | Check whether action belongs outside the hub.                                            |
+
+High severity does not automatically mean high confidence. A serious suspected failure may still need more evidence. Later analysis can add occurrences to an existing finding and promote its confidence when the evidence supports that change.
+
+The analyzer uses a readable session digest to cite evidence. A `digest_range` identifies a location in that digest; it is unrelated to the cryptographic hashes used to verify stored traces.
+
+## Follow the finding into your repository
+
+PIG analyzes every instruction repository your organization selects in PIG Settings. Each finding records the instruction source it came from: the repository and the exact commit the analyzer read. The finding lists these sources under **Instruction sources**, each linked to that commit.
+
+The worker sends finding updates to Promptless. Promptless creates or updates a GitHub issue for the finding in its destination repository. The issue carries the finding's title, impact, instruction failure, severity, confidence, and evidence. A destination repository must have **GitHub issues** enabled in PIG Settings.
+
+Promptless creates the issue automatically when the finding's recorded sources resolve to one selected repository that has GitHub issues enabled. Sometimes the finding needs a destination first. This happens when the sources span more than one selected repository. It also happens when the finding records no source and your organization has more than one repository selected. An organization administrator then opens the finding, selects a repository under **Instruction sources**, and chooses **Use repository**. The destination is set once per finding. Promptless then creates the issue and any proposed fix in that repository.
+
+Removing an instruction repository in PIG Settings stops future analysis and issue automation for that source. Findings already recorded against it keep their instruction sources, issues, and pull requests.
+
+Recurring evidence can update an existing finding and its issue as more sessions are analyzed. Use the finding identity and linked issue to follow that history. Issue projection is a separate step from local analysis: a completed run does not by itself prove that GitHub access is working.
+
+Finding text and evidence summaries can include session details. Make sure the destination repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+## Decide the next action
+
+1. **Confirm the observed problem.** Read the impact and evidence, including enough surrounding context to avoid correcting intentional behavior.
+2. **Identify the owner.** Shared hub instructions, a repository-local instruction, a tool bug, and a missing permission have different owners.
+3. **Check for an existing response.** Read the finding notes, linked pull request, and current hub instructions before proposing a duplicate fix.
+4. **Review the remediation outcome.** High-confidence findings can enter the [remediation workflow](/docs/governance/findings-and-remediation/remediate-findings). That workflow may propose a hub change, ask for a policy decision, or identify an external action.
+
+The expected outcome is a clear owner and a justified next action. Every finding does not need a new instruction or a pull request.
+
+## Troubleshooting
+
+| Situation                                                        | What to check                                                                                                                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The run succeeded, but no finding appeared                       | Zero findings is valid. Confirm the run belongs to the session you intended to analyze.                                                                                                                             |
+| A local finding has no GitHub issue                              | Ask the operator to check hosted synchronization and the repository connection.                                                                                                                                     |
+| The finding asks you to select a repository for its GitHub issue | Its recorded sources map to more than one selected repository, or to none. An organization administrator opens the finding and, under **Instruction sources**, selects a repository that has GitHub issues enabled. |
+| Evidence seems inconsistent with the current hub                 | Compare the analyzed repository revision with the current instructions and the session's installed plugin version.                                                                                                  |
+| No remediation pull request opened                               | Check confidence, ownership notes, pending decisions, repository access, and the remediation outcome.                                                                                                               |
+| Similar issues appear to overlap                                 | Compare their failure mechanism and evidence before treating them as duplicates; different symptoms can have one cause, and similar symptoms can have different causes.                                             |
+
+Next, [review and ship a remediation](/docs/governance/findings-and-remediation/remediate-findings).

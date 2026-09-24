@@ -219,7 +219,7 @@ test('website and docs pages render in permanent dark mode', async () => {
   }
 });
 
-test('primary nav keeps canonical routes with free tools tab', async () => {
+test('primary nav keeps canonical routes', async () => {
   const response = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(response.status, 200);
   const html = await response.text();
@@ -233,29 +233,25 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
   assert.match(nav, /class="pl-docs-product-badge">New<\/span>/i);
   assertLink(nav, '/blog', 'Blog');
   assertLink(nav, '/changelog', 'Changelog');
-  assertLink(nav, '/free-tools', 'Free tools');
 
-  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog', 'Free tools']);
+  assertLabelOrder(nav, ['Home', 'Pricing', 'Docs', 'Blog', 'Changelog']);
   assert.doesNotMatch(nav, /href="\/blog\/all"/);
   assert.doesNotMatch(nav, /href="\/changelog\/all"/);
 });
 
-test('website/docs/blog/changelog/free tools active state is correct', async () => {
+test('website/docs/blog/changelog active state is correct', async () => {
   const websiteHtml = await (await fetch(`${preview.baseUrl}/`)).text();
   const websitePricingHtml = await (await fetch(`${preview.baseUrl}/pricing`)).text();
   const meetHtml = await (await fetch(`${preview.baseUrl}/meet`)).text();
   const docsHtml = await (await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`)).text();
   const blogHtml = await (await fetch(`${preview.baseUrl}/blog`)).text();
   const changelogHtml = await (await fetch(`${preview.baseUrl}/changelog`)).text();
-  const freeToolsIndexHtml = await (await fetch(`${preview.baseUrl}/free-tools`)).text();
-  const freeToolsToolHtml = await (await fetch(`${preview.baseUrl}/free-tools/broken-link-report`)).text();
 
   const websiteNav = getPrimaryNav(websiteHtml);
   assertActiveLink(websiteNav, '/', 'Home');
   assertMenuState(websiteNav, 'Docs', false);
   assertInactiveLink(websiteNav, '/blog', 'Blog');
   assertInactiveLink(websiteNav, '/changelog', 'Changelog');
-  assertInactiveLink(websiteNav, '/free-tools', 'Free tools');
 
   const pricingNav = getPrimaryNav(websitePricingHtml);
   assertActiveLink(pricingNav, '/pricing', 'Pricing');
@@ -269,35 +265,18 @@ test('website/docs/blog/changelog/free tools active state is correct', async () 
   assertInactiveLink(docsNav, '/', 'Home');
   assertInactiveLink(docsNav, '/blog', 'Blog');
   assertInactiveLink(docsNav, '/changelog', 'Changelog');
-  assertInactiveLink(docsNav, '/free-tools', 'Free tools');
 
   const blogNav = getPrimaryNav(blogHtml);
   assertActiveLink(blogNav, '/blog', 'Blog');
   assertInactiveLink(blogNav, '/', 'Home');
   assertMenuState(blogNav, 'Docs', false);
   assertInactiveLink(blogNav, '/changelog', 'Changelog');
-  assertInactiveLink(blogNav, '/free-tools', 'Free tools');
 
   const changelogNav = getPrimaryNav(changelogHtml);
   assertActiveLink(changelogNav, '/changelog', 'Changelog');
   assertInactiveLink(changelogNav, '/', 'Home');
   assertMenuState(changelogNav, 'Docs', false);
   assertInactiveLink(changelogNav, '/blog', 'Blog');
-  assertInactiveLink(changelogNav, '/free-tools', 'Free tools');
-
-  const freeToolsIndexNav = getPrimaryNav(freeToolsIndexHtml);
-  assertActiveLink(freeToolsIndexNav, '/free-tools', 'Free tools');
-  assertInactiveLink(freeToolsIndexNav, '/', 'Home');
-  assertMenuState(freeToolsIndexNav, 'Docs', false);
-  assertInactiveLink(freeToolsIndexNav, '/blog', 'Blog');
-  assertInactiveLink(freeToolsIndexNav, '/changelog', 'Changelog');
-
-  const freeToolsToolNav = getPrimaryNav(freeToolsToolHtml);
-  assertActiveLink(freeToolsToolNav, '/free-tools', 'Free tools');
-  assertInactiveLink(freeToolsToolNav, '/', 'Home');
-  assertMenuState(freeToolsToolNav, 'Docs', false);
-  assertInactiveLink(freeToolsToolNav, '/blog', 'Blog');
-  assertInactiveLink(freeToolsToolNav, '/changelog', 'Changelog');
 });
 
 test('each documentation product gets only its own active topic and product metadata', async () => {
@@ -344,9 +323,19 @@ test('each documentation product gets only its own active topic and product meta
   assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
   assert.match(
     governanceHtml,
-    /uses evidence from agent sessions to help teams improve and govern skills, subagents, hooks, and other agent instructions\./i
+    /Promptless Instruction Governance \(PIG\)/i
   );
-  assert.match(governanceHtml, /Detailed documentation is coming soon\./i);
+  assert.match(governanceHtml, /href="\/docs\/governance\/start-here\/how-it-works"/i);
+  for (const journey of [
+    'get-started/set-up-your-instruction-hub',
+    'get-started/migrate-existing-instructions',
+    'deploy-the-worker/plan-your-deployment',
+    'deploy-the-worker/deploy-the-analyzer-worker',
+    'deploy-the-worker/manage-updates-and-recovery',
+  ]) {
+    assert.ok(governanceHtml.includes(`href="/docs/governance/${journey}"`));
+  }
+  assert.match(governanceHtml, /updates automatically to stable releases by default/i);
 
   for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
     assert.match(
@@ -508,32 +497,32 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /role="tablist"/);
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
 
   // Supporting regions follow the default-active product on the server. The
   // smoke harness does not execute the client-side tab-switching JavaScript.
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
   assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
@@ -812,11 +801,16 @@ test('website header replaces home search with the launch announcement', async (
     homeHtml,
     /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
   );
-  assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
+  // The global modal is mounted on the homepage for Cmd/Ctrl+K and chat
+  // persistence. Its header control is still replaced by the announcement.
+  const homeHeader = homeHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0];
+  assert.ok(homeHeader);
+  assert.doesNotMatch(homeHeader, /data-starport-search/i);
+  assert.match(homeHtml, /class="sp-modal"/i);
 
   const docsResponse = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(docsResponse.status, 200);
-  assert.match(await docsResponse.text(), /aria-label="Search"/i);
+  assert.match(await docsResponse.text(), /data-starport-search/i);
 });
 
 test('legal pages render', async () => {
@@ -833,37 +827,10 @@ test('legal pages render', async () => {
   assert.match(termsHtml, /hello@gopromptless\.ai/i);
 });
 
-test('free tool page renders its link and form contract', async () => {
-  const indexResponse = await fetch(`${preview.baseUrl}/free-tools`);
-  assert.equal(indexResponse.status, 200);
-  const indexHtml = await indexResponse.text();
-  assert.match(indexHtml, /href="\/free-tools\/broken-link-report"/);
-
-  const response = await fetch(`${preview.baseUrl}/free-tools/broken-link-report`);
-  assert.equal(response.status, 200);
-  const html = await response.text();
-
-  assert.match(html, /id="broken-link-report-form"/);
-  assert.match(html, /name="url"/);
-  assert.match(html, /name="email"/);
-  assert.match(html, /name="check_external"/);
-  assert.match(html, /name="check_anchors"/);
-  assert.match(html, /name="max_pages"/);
-  assert.doesNotMatch(html, /name="concurrency"/);
-  assert.doesNotMatch(html, /name="timeout_seconds"/);
-  assert.match(html, /name="website"/);
-  assert.match(html, /<button[^>]*type="submit"[^>]*>/);
-  assert.match(html, /aria-live="polite"/);
-
-  assert.doesNotMatch(html, /data-website-sidebar="true"/);
-});
-
 test('website markdown endpoints are available for agent-friendly content', async () => {
   const routes = [
     '/index.md',
     '/pricing.md',
-    '/free-tools.md',
-    '/free-tools/broken-link-report.md',
   ];
 
   for (const route of routes) {
