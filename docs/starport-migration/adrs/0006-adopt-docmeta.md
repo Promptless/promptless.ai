@@ -52,7 +52,10 @@ requires Node ≥ 24 while the rest of the toolchain runs Node 22.
   `packages/starlight-mcp`). This site **deferred the MCP package**
   ([ADR 0004](0004-adopt-capabilities.md) §3), so those keys do not exist here.
   If the MCP server is adopted later, add them back to the mirror.
-- **All 66 docs pages now carry `type`, `tags`, and `timestamp`.** The template
+
+- **All 66 docs pages now carry `type`, `tags`, and `timestamp`.** (Partially
+  superseded by [root ADR 0004](../../../adrs/0004-drop-docmeta-timestamp.md):
+  only the `timestamp` claim — `type`/`tags` remain accepted.) The template
   ships its six sample pages with these; our pages had none (`type` is
   OKF-required, so every page failed until added). `type` uses the template's
   taxonomy — `landing` (section overviews/hubs), `guide` (task/how-to prose), or
@@ -70,15 +73,19 @@ requires Node ≥ 24 while the rest of the toolchain runs Node 22.
   it. Drift fails safe: an unknown field passes docmeta
   (`additionalProperties: true`) and is still checked by zod at build; a stale
   constraint over-reports, which the annotation makes obvious.
-- **OKF `timestamp` is manually maintained** (date of last meaningful change),
-  distinct from Starlight's git-derived `lastUpdated`. It only format-fails when
-  malformed; a stale value does not fail CI. House style quotes the value.
+
+- **OKF `timestamp` is manually maintained** (date of last meaningful change) —
+  partially superseded by [root ADR 0004](../../../adrs/0004-drop-docmeta-timestamp.md),
+  which stopped requiring it; the OKF schema still format-checks it when present.
+  It is distinct from Starlight's git-derived `lastUpdated`, only format-fails
+  when malformed, and a stale value does not fail CI. House style quotes the value.
 - **Known limitation (inherent to the multi-schema stack):** a misspelled
   *optional* top-level key is not caught, because every schema must set root
   `additionalProperties: true` (an unknown key may belong to another schema).
   Typos inside nested objects (`sidebar`, `hero`) and required-field typos *are*
   caught.
 - **Content contract:** every new docs page needs `type` (and should carry
-  `tags`/`timestamp`). New dev dependency `docmeta@1.2.0`; running
+  `tags`; see [root ADR 0004](../../../adrs/0004-drop-docmeta-timestamp.md),
+  which stopped requiring `timestamp`). New dev dependency `docmeta@1.2.0`; running
   `lint:frontmatter` locally needs Node 24 (npm does not enforce `engines`, so
   the Node-22 install and other jobs are unaffected).
