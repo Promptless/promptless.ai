@@ -8,7 +8,6 @@ tags:
   - governance
   - operations
   - supervisor
-timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   order: 7
 ---
@@ -73,9 +72,9 @@ An old deployment can remain ready while its target release is blocked. Use `cur
 
 ## Confirm release prerequisites
 
-Keep confirmations in a customer-owned ConfigMap in the deployment's namespace. Reference its name from `spec.release.confirmation.configMapRef.name`. Your GitOps repository or backup workflow manages this object; the supervisor reads it without cloud-management permissions.
+Keep confirmations in a customer-owned ConfigMap in the deployment's namespace. Reference its name from `spec.release.confirmation.configMapRef`. Your GitOps repository or backup workflow manages this object; the supervisor reads it without cloud-management permissions.
 
-Every confirmation identifies the deployment and exact target release using `deploymentID` and `releaseDigest`. A confirmation for another deployment or release cannot authorize the transition.
+Every confirmation identifies the deployment and exact target release using `deploymentUID` and `releaseDigest`. A confirmation for another deployment or release cannot authorize the transition.
 
 From a pinned checkout of [pig-deploy](https://github.com/Promptless/pig-deploy), inspect the target release:
 
@@ -83,7 +82,13 @@ From a pinned checkout of [pig-deploy](https://github.com/Promptless/pig-deploy)
 uv run --frozen pig-release-inspect --version REPLACE_WITH_TARGET_VERSION
 ```
 
-The command validates the catalog and immutable release manifest, then prints `releaseDigest`, `capacityRequirementsDigest`, and the release requirements as JSON. Copy the digests exactly, including the `sha256:` prefix. Use the deployment's existing `spec.hosted.deploymentID` for `deploymentID`.
+The command validates the catalog and immutable release manifest, then prints `releaseDigest`, `capacityRequirementsDigest`, and the release requirements as JSON. Copy the digests exactly, including the `sha256:` prefix. Read `deploymentUID` from the Kubernetes object:
+
+```bash
+kubectl get pigdeployment REPLACE_NAME -n REPLACE_NAMESPACE -o jsonpath='{.metadata.uid}'
+```
+
+This UID binds the confirmation to that Kubernetes object. Recreating the object requires a new confirmation, even if its name and Promptless installation are unchanged.
 
 ### Confirm capacity that PIG cannot inspect
 
