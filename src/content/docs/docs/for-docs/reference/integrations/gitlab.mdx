@@ -15,184 +15,159 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 **Used for: Triggers, Context, and Publishing**
 
-Promptless connects to GitLab in two directions. Promptless uses a GitLab **access token** to pull information from GitLab: merge requests, repository files, and project metadata. The token can be a group access token or a personal access token with the `api` scope. GitLab uses **webhooks** to notify Promptless when merge requests change. A single group connection covers all three jobs: triggers, context, and publishing. Promptless supports both gitlab.com and self-hosted GitLab.
+Promptless uses a GitLab **access token** to read merge requests, repository files, and project metadata, and to publish documentation. The token can be a group access token or a personal access token with the `api` scope. GitLab sends **webhooks** to Promptless when merge requests change. One group connection covers triggers, context, and publishing, on gitlab.com and self-hosted GitLab.
 
 ## Installation
 
-Setup has two parts: create an access token in GitLab, then connect it in Promptless.
+Create an access token in GitLab, then connect it in Promptless.
 
 <Steps>
-  1. **Create a GitLab access token with the `api` scope.** This can be a group access token or a personal access token. Creating a *group* token requires the group Owner role. To create a group access token, go to your group's **Settings > Access Tokens** in GitLab and click **Add new token**. To create a personal access token, open your avatar menu and go to **Edit profile > Access > Personal access tokens**. Either way:
+  1. **Create a GitLab access token with the `api` scope.** Use either token type:
 
-     - Name it (for example, "Promptless").
-     - Set an expiration date (maximum one year).
-     - Select the **`api`** scope.
+     - Group access token: in your group, go to **Settings > Access Tokens** and click **Add new token**. This requires the group Owner role.
+     - Personal access token: open your avatar menu and go to **Edit profile > Access > Personal access tokens**.
 
-     Create the token and copy it immediately. GitLab shows it only once. For more details, see [GitLab's access token documentation](https://docs.gitlab.com/security/tokens/).
+     Name the token (for example, "Promptless"), set an expiration date (maximum one year), and select the **`api`** scope. Copy the token when you create it. GitLab shows it only once. See [GitLab's access token documentation](https://docs.gitlab.com/security/tokens/).
 
   2. **Open the [Integrations](https://app.gopromptless.ai/integrations) page** in the Promptless dashboard.
 
-  3. **Start the GitLab connection.** For a gitlab.com group, find the **Connect GitLab** tile and click **Connect**. For a self-hosted instance, use the **Connect self-hosted GitLab** tile instead and enter your **Instance hostname**. Enter just the host, with no `https://` and no path (for example, `gitlab.acme.com`).
+  3. **Start the GitLab connection.** For gitlab.com, click **Connect** on the **Connect GitLab** tile. For a self-hosted instance, use the **Connect self-hosted GitLab** tile and enter the **Instance hostname** without `https://` or a path (for example, `gitlab.acme.com`).
 
-  4. **Enter the group path and paste the token.** In the **Group path** field, enter the group's full path (for example, `acme/platform`). Paste the token into the **Access token** field, then click **Connect**.
+  4. **Enter the group path and paste the token.** In **Group path**, enter the group's full path (for example, `acme/platform`). Paste the token into **Access token**, then click **Connect**.
 
      <img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/gitlab-connect-modal-aeb67dd0.png" alt="Connect GitLab modal with Group path and Access token fields and a Connect button" />
 </Steps>
 
 <Aside type="caution" title="Required to connect">
-  Connecting needs an access token with the **`api`** scope, plus the target group's path. Promptless verifies the scope inline at connect time, before fetching any project. The **Maintainer** role governs per-project webhook eligibility. See [Token scope considerations](#token-scope-considerations) for how a token's role shapes which projects get automatic webhooks.
+  Promptless checks for the **`api`** scope when you connect and rejects a token without it. Promptless installs webhooks only on projects where the token has the **Maintainer** role. See [Token scope considerations](#token-scope-considerations).
 </Aside>
 
 <Aside type="note" title="Connect multiple GitLab groups">
-  Each GitLab connection covers one group and its subgroups. To cover more than one top-level group, connect one token per group. Connecting a second group keeps the first. Every group you connect stays active. You can connect any combination: sibling or nested (subgroup) groups, and groups on different GitLab instances (gitlab.com and self-hosted). To add another group, click **Connect GitLab** (or **Connect self-hosted GitLab**) again on the Integrations page. Repeat the installation steps with that group's token.
+  Each connection covers one group and its subgroups. To add another group, click **Connect GitLab** (or **Connect self-hosted GitLab**) again and repeat the steps with that group's token. All connected groups stay active, including nested groups and groups on different GitLab instances.
 </Aside>
 
 ## Connected groups
 
-Each connected group appears as its own card on the [Integrations](https://app.gopromptless.ai/integrations) page. Each card is titled `GitLab (gitlab.com)` for a gitlab.com connection, or `GitLab · <host>` for a self-hosted instance. Every card shows a `Host:` line (`gitlab.com` for a gitlab.com connection, or the self-hosted domain) and a `Group:` line with the connected group. The card lists the connected group's projects by full path (for example, `promptless-engineers/<repo>`), sorted alphabetically.
+Each connected group has its own card on the [Integrations](https://app.gopromptless.ai/integrations) page, titled `GitLab (gitlab.com)` or `GitLab · <host>`. The card shows `Host:` and `Group:` lines and lists the group's projects alphabetically by full path (for example, `promptless-engineers/<repo>`).
 
-The card also reports project counts by state: how many projects are visible, webhook-eligible, active, ineligible, and failed. Each state means:
+The card counts projects in each state:
 
 - **Visible**: the token can see the project.
-- **Webhook-eligible**: the token has Maintainer access on the project, so a webhook can be installed.
+- **Webhook-eligible**: the token has Maintainer access, so Promptless can install a webhook.
 - **Active**: a webhook is installed and confirmed.
-- **Ineligible**: the token sits below Maintainer, so Promptless doesn't install a webhook automatically.
-- **Failed**: Promptless attempted to install a webhook and it didn't succeed. Retry with the **Automatic webhooks** control, or check the token's role on that project.
+- **Ineligible**: the token is below Maintainer, so Promptless doesn't install a webhook.
+- **Failed**: Promptless couldn't install the webhook. Retry with the **Automatic webhooks** control, or check the token's role on that project.
 
-When a token has Maintainer access on only some of its visible projects, the card reads like "8 of 12 project webhooks active." It lists the rest as ineligible, because they sit below Maintainer.
+A summary such as "8 of 12 project webhooks active" means 8 of the 12 webhook-eligible projects have an active webhook. The card lists visible projects below Maintainer separately as ineligible.
 
-The card's manual **Refresh** re-syncs the project inventory. Projects added to a group after you connect it appear only after you refresh.
+To pick up projects added to the group after you connect, click **Refresh** on the card.
 
 ## Project setup
 
-After connecting your GitLab account, you can configure how Promptless interacts with your projects:
-
 ### Repository access
 
-When setting up a project with GitLab as a trigger source:
-
-1. Select the GitLab projects you want Promptless to monitor for changes. You choose from the projects that have a confirmed webhook; see [Project selection](/docs/for-docs/connect/triggers/gitlab-merge-requests#project-selection) for how the picker is populated.
-2. Optionally, configure directory-specific triggers to focus on particular parts of your codebase.
+When you set up a GitLab trigger, select the projects Promptless monitors. The picker lists projects that have a confirmed webhook. See [Project selection](/docs/for-docs/connect/triggers/gitlab-merge-requests#project-selection).
 
 ### Directory-specific triggers
 
-You can configure Promptless to only trigger documentation updates when changes are made to specific directories in your GitLab projects. This is useful for:
-
-- Focusing on code that directly impacts user-facing features
-- Monitoring API changes that require documentation updates
-- Ignoring internal tooling or test changes that don't affect documentation
-
-To set up directory-specific triggers:
+To trigger documentation updates only for changes in certain directories, such as API code, and ignore tooling or test changes:
 
 1. In your project configuration, select the GitLab project.
 2. Under **Advanced Options**, enable **Directory-Specific Triggers**.
-3. Enter the directories you want to monitor, separated by commas (for example, `src/api, docs/reference`).
+3. Enter the directories to monitor, separated by commas (for example, `src/api, docs/reference`).
 
 ## Merge request link resolution
 
-When you share a GitLab.com merge request link in a Slack message or other trigger, Promptless automatically fetches the MR content. This includes:
+When you share a gitlab.com merge request link in Slack or another trigger, Promptless fetches:
 
-- MR metadata (title, state, source/target branches, author)
+- MR metadata (title, state, source and target branches, author)
 - Discussion comments with file positions and resolved state
-- The full diff for analysis
-
-This allows Promptless to gather context from linked merge requests.
+- The full diff
 
 <Aside type="note">
-  Merge request link resolution currently works only for gitlab.com. Self-hosted GitLab instances are supported for webhook-based triggers but not for link resolution.
+  Merge request link resolution works only for gitlab.com.
 </Aside>
 
 ## Source code reading
 
-Promptless can read source files directly from your GitLab projects when processing merge requests or researching documentation updates. This provides context from implementation details that aren't visible in merge request diffs alone.
-
-Promptless uses the GitLab CLI (`glab`) to fetch file contents from your repositories. This is useful when:
-
-- A merge request references code in files that weren't changed
-- A new feature needs to be understood in the context of existing code
-- Documentation requires accurate details about implementation behavior
+When it processes a merge request or researches a documentation update, Promptless reads source files from your GitLab projects with the GitLab CLI (`glab`). This gives it details a diff doesn't show, such as code in files the merge request didn't change.
 
 <Aside type="note">
-  Source code reading works with gitlab.com projects. Self-hosted GitLab instances support webhook-based triggers but not source code reading.
+  Source code reading works only for gitlab.com projects.
 </Aside>
 
 ## Publishing documentation to GitLab
 
-Beyond triggers and context, a GitLab project can also be a doc collection: a place where your documentation lives and where Promptless publishes updates. When documentation needs to change, Promptless clones the project, edits files on a new branch, and pushes that branch. It then opens a merge request for you to review, the same way it opens pull requests on GitHub.
+A GitLab project can also be a doc collection, where Promptless publishes documentation updates. Promptless clones the project, edits files on a new branch, pushes the branch, and opens a merge request for you to review.
 
-To publish to GitLab, your connected access token needs the write-capable `api` scope, the same scope the integration already uses for triggers. Promptless writes only to the projects you set up as doc collections.
+Publishing uses the same `api`-scoped token. Promptless writes only to the projects you set up as doc collections.
 
-GitLab doc collections work on both gitlab.com and self-hosted GitLab, and both are set up the same way. The project picker lists your connected GitLab projects across every connected instance. A **GitLab host** field on the same form takes your self-hosted hostname; leave it blank for gitlab.com. See [GitLab projects](/docs/for-docs/connect/doc-locations/gitlab-projects) for setup details. See [the configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for the `platform: gitlab` and `host` fields.
+GitLab doc collections work on gitlab.com and self-hosted GitLab. The project picker lists connected projects from every instance. For a self-hosted project, enter the hostname in the **GitLab host** field. Leave it blank for gitlab.com. See [GitLab projects](/docs/for-docs/connect/doc-locations/gitlab-projects) for setup and [the configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for the `platform: gitlab` and `host` fields.
 
-Promptless tracks merge request status the same way it tracks GitHub pull request status. Because GitLab has no draft flag at creation time, Promptless marks a draft merge request with a `Draft:` title prefix.
+GitLab has no draft flag at creation time, so Promptless marks a draft merge request with a `Draft:` title prefix.
 
-Auto-merge differs from the GitHub path. On GitLab, Promptless attempts the merge immediately instead of waiting for a pipeline. See [Automatic merge request creation](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation) before you enable it.
+On GitLab, auto-merge attempts the merge immediately, without waiting for a pipeline. See [Automatic merge request creation](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation) before you enable it.
 
 ## Authentication model
 
-The GitLab integration authenticates with a GitLab access token:
+The GitLab integration authenticates with a group access token or personal access token that has the `api` scope. Feature support by instance:
 
-- **Access token**: A group access token or a personal access token with the `api` scope.
-- **Webhook Triggers**: Work with both gitlab.com and self-hosted GitLab instances. Automatic webhook setup runs per project, on the projects where the token has Maintainer access.
-- **Publishing (doc collections)**: Works with both gitlab.com and self-hosted GitLab instances.
-- **Link Resolution**: Works with gitlab.com only.
-- **Source Code Reading**: Works with gitlab.com only.
-
-The token's scope and role limit what Promptless can do. See [Token scope considerations](#token-scope-considerations) for which projects it can reach, and how Promptless enforces the per-project boundary.
+| Feature                       | gitlab.com | Self-hosted GitLab |
+| ----------------------------- | ---------- | ------------------ |
+| Webhook triggers              | Yes        | Yes                |
+| Publishing (doc collections)  | Yes        | Yes                |
+| Merge request link resolution | Yes        | No                 |
+| Source code reading           | Yes        | No                 |
 
 ### Token scope considerations
 
-The only hard requirement to connect is the **`api`** scope. The `api` scope is write-capable. A token that has it can push branches, open merge requests, and read project content. That covers everything Promptless needs to deliver a documentation change. Promptless checks for the scope inline when you connect, before it fetches or saves any project, so you can correct the token on the spot.
+Connecting requires only the **`api`** scope. The scope is write-capable: it lets Promptless read project content, push branches, and open merge requests. Promptless checks for it when you connect, so you can fix the token right away.
 
-A low group-level role still connects, because a token's direct project memberships can grant stronger access than its group role. Promptless evaluates access per project.
+Promptless checks access per project, so a token with a low group role still connects. A token's direct project memberships can grant more access than its group role.
 
-A group access token is a GitLab bot identity, so Promptless applies its bot avatar to the merge requests and comments it creates. A personal access token represents its human owner, so the merge requests and comments Promptless creates appear under that owner's GitLab account. The owner can still tag `@promptless` in their own merge-request comments to request documentation work. For a team or org-wide rollout, a group access token is org-owned and keeps working across staffing changes. A personal access token stays tied to its owner's continued access.
+Merge requests and comments Promptless creates appear under the token's identity. A group access token is a GitLab bot, and Promptless gives it a bot avatar. With a personal access token, they appear under the owner's GitLab account. The owner can still tag `@promptless` in their own comments to request documentation work. For a team rollout, use a group access token: your organization owns it, so it keeps working when people leave. A personal access token works only while its owner keeps access.
 
-The **Maintainer** role is a per-project webhook-eligibility condition. Promptless reads the full tree of visible projects, along with a Maintainer-level inventory. It then installs merge-request webhooks on the webhook-eligible projects. Those webhook-eligible projects include ones the token reaches through direct project membership. Projects below Maintainer stay visible for context and publishing, and you add a webhook for them by hand in GitLab. Adding a webhook by hand also requires the Maintainer role on that project. If you don't have it, ask a project Maintainer or Owner. To install webhooks across the eligible projects at once, use the **Automatic webhooks** control on the connection's card.
+Promptless installs merge-request webhooks on each project where the token has the **Maintainer** role, including through direct project membership. Projects below Maintainer stay available for context and publishing. To get triggers from one, add a webhook in GitLab by hand, which also requires the Maintainer role on that project. If you don't have it, ask a project Maintainer or Owner. To install webhooks on every eligible project at once, use the **Automatic webhooks** control on the connection's card.
 
-Promptless writes only to the projects you configure as doc collections. That is an application-level restriction Promptless enforces.
+To limit what Promptless can reach:
 
-Two layers limit what Promptless can reach. The first is a hard, token-level limit. Scope a group access token to a group or subgroup that contains only your documentation projects. The token then can't reach anything outside it. This is safe only when your trigger and context source projects and your docs-destination projects all live within that same group or subgroup. Otherwise the token can't reach the source projects outside it. A personal access token isn't scoped to a subgroup this way. Its reach is the projects its owner can access. Keep it least-privilege by limiting the owner's memberships or using a dedicated account. Alternatively, use a group access token scoped to a docs-only subgroup. The second layer is an application-level path scope on the doc collection, which limits which files Promptless can change.
+- **Token reach**: Scope a group access token to a group or subgroup that holds only your documentation projects. Do this only when your trigger and context-source projects live in that group too, because the token can't reach projects outside it. A personal access token reaches every project its owner can access, so limit the owner's memberships or use a dedicated account.
+- **Doc collections and path scope**: Promptless writes only to projects you configure as doc collections, and only to files within each collection's path scope.
 
 ## Webhook management
 
-Promptless installs webhooks on the GitLab projects where the token has Maintainer access, to monitor merge request events. These webhooks:
+Promptless installs webhooks on the projects where the token has Maintainer access. The webhooks notify Promptless when:
 
-- Trigger Promptless when merge requests are created or updated.
-- Deliver merge-request comments that mention Promptless, so a tagged comment can request documentation work. See [Request documentation via merge-request comments](/docs/for-docs/connect/triggers/gitlab-merge-requests#request-documentation-via-merge-request-comments).
-- Send only the necessary information about changes to Promptless.
-- Can be customized to focus on specific events.
+- A merge request is created or updated.
+- A merge-request comment mentions Promptless. See [Request documentation via merge-request comments](/docs/for-docs/connect/triggers/gitlab-merge-requests#request-documentation-via-merge-request-comments).
 
-The **Automatic webhooks** control on the connection's card reinstalls webhooks across the projects where the token has Maintainer access. See [Token scope considerations](#token-scope-considerations) for how webhook eligibility is determined per project.
+The **Automatic webhooks** control on the connection's card reinstalls webhooks on those projects.
 
 ## Usage
 
-Once configured, the GitLab integration works similarly to other code hosting integrations:
+1. When a merge request opens or updates in a monitored project, Promptless analyzes it.
+2. If documentation needs to change, Promptless drafts the change.
+3. Promptless comments on the merge request with a link to the suggested changes.
+4. Review and approve the suggestion in the Promptless dashboard.
 
-1. When a merge request is opened or updated in your monitored projects, Promptless is automatically triggered.
-2. Promptless analyzes the changes to determine if documentation updates are needed.
-3. If updates are needed, Promptless generates the appropriate documentation changes.
-4. Promptless adds a comment to your GitLab merge request with a link to review the documentation changes.
-5. You can review and approve the suggested documentation updates in the Promptless dashboard.
-
-For more information on how triggers work in general, see the [Triggers](/docs/for-docs/connect/triggers) documentation.
+See [Triggers](/docs/for-docs/connect/triggers) for how triggers work in general.
 
 ## Frequently asked questions
 
 <details>
-  <summary>I connected a GitLab group but no merge request triggers arrive. What's wrong?</summary>
+  <summary>Promptless rejects my token when I connect. Why?</summary>
 
-  A read-only `read_api` token can't create the merge-request webhooks a GitLab connection needs, so the group connects but stays inert. Recreate the token with the `api` scope and the Maintainer role, then reconnect. See [Token scope considerations](#token-scope-considerations) for why GitLab has no read-only option.
+  The token is missing the `api` scope. A `read_api` token can't open merge requests or install webhooks. Create a token with the `api` scope and connect again.
 </details>
 
 <details>
-  <summary>My token has the `api` scope but I still get no merge request triggers. Why?</summary>
+  <summary>My group connected, but no merge request triggers arrive. Why?</summary>
 
-  A Developer-role token can't create the merge-request webhooks a GitLab connection sets up, because only the Maintainer role can. Recreate the token with the Maintainer role and reconnect. See [Token scope considerations](#token-scope-considerations).
+  Check the project's state on the connection card. If the project is ineligible, the token is below Maintainer on it, so Promptless can't install a webhook. Raise the token's role to Maintainer in GitLab, or add the webhook by hand. See [Token scope considerations](#token-scope-considerations).
 </details>
 
 <details>
   <summary>A project I added to my group doesn't appear under the connected group. How do I fix it?</summary>
 
-  Promptless syncs the project inventory when you connect a group, so projects added later don't appear automatically. Open the group's card on the [Integrations](https://app.gopromptless.ai/integrations) page and click **Refresh** to re-sync the inventory.
+  Promptless syncs the project list when you connect a group. Open the group's card on the [Integrations](https://app.gopromptless.ai/integrations) page and click **Refresh**.
 </details>
