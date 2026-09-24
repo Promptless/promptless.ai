@@ -7,7 +7,6 @@ type: guide
 tags:
   - tune
   - guide
-timestamp: "2026-07-10T17:59:48Z"
 sidebar:
   hidden: false
   order: 24
@@ -48,7 +47,7 @@ policies:
 Slack channel names don't need the `#` prefix. When Slack channels are renamed, Promptless automatically updates your configuration. `slack_channel` and `msteams_channel` are independent. Set either, both, or neither.
 
 <Aside type="note">
-  You can route notifications to any Slack channel by name, including a channel created after you connected Slack. Promptless resolves it automatically when you save the config that routes to it, with no reconnect or manual channel-list refresh. Delivery to a private channel still requires that Promptless be manually invited to the channel, so run `/invite @Promptless`.
+  You can route notifications to any Slack channel by name, including a channel created after you connected Slack. Promptless resolves it automatically when you save the config that routes to it, with no reconnect or manual channel-list refresh. Mentioning `@Promptless` in a channel also makes that channel available in the dashboard channel pickers, independent of saving your routing config. Delivery to a private channel still requires that Promptless be manually invited to the channel, so run `/invite @Promptless`.
 </Aside>
 
 ### Disable an inherited channel
@@ -87,7 +86,7 @@ The preferences file lets you override:
 
 - **When to notify**: Control which events trigger notifications and when to skip them
 - **Delivery channels**: Set preferences for Slack vs. GitHub notifications
-- **Message style**: Adjust the tone and context included in notification messages
+- **Message format**: Define the fields, order, and links your suggestion notifications carry. This replaces Promptless's default message format rather than adding to it. A stated format is exhaustive, and Promptless adds nothing it doesn't list
 
 ### Example customizations
 
@@ -113,6 +112,37 @@ Use GitHub comments when reviewers are already engaged with the source PR.
 Use a casual, friendly tone in all notification messages.
 Include enough context that someone new to the thread can understand why Promptless is posting.
 ```
+
+An instruction that only sets tone, like this one, keeps the default fields and links while changing how the message reads.
+
+**Define a message format:**
+
+```
+Format suggestion notifications as:
+What changed: <one-line summary>
+Promptless suggestion: <dashboard link>
+MR: <docs PR/MR link>
+Assigned: <assignee>
+cc: <mentions>
+```
+
+Stating a full format like this replaces the default message format. Promptless posts exactly the fields and links you list, in the order you list them, and adds nothing else. The example above lists no Knowledge Base link, so its notifications carry none. A stated format applies to suggestion notifications only. Escalations keep their own format, and a blocker always ends with what Promptless needs from you and what happens next. A mention rule you state applies to every message Promptless sends.
+
+When no format is stated, Promptless sends one or two sentences on what changed and why, followed by labeled link lines:
+
+```
+<what changed and why it changed>
+
+Triggered by: <link to the pull request, merge request, or ticket that started the work>
+Review: <dashboard suggestion URL>
+Docs PR: <docs pull request or merge request URL>
+Recorded: <Knowledge Base file URL>
+Open question: <a decision only you can make>
+```
+
+`Recorded:` repeats once per changed Knowledge Base file, and `Open question:` appears at most once, only when a decision rests with you alone. Promptless drops any line whose value doesn't exist for a given notification rather than leaving it empty. A requested mention still appears where one applies. This default format applies when the preferences file is absent or still holds only its scaffolded placeholder text. If the file exists but can't be read, Promptless holds the notification rather than sending one in the default format.
+
+A message can name a ticket, issue, or merge-request key, such as `INC-879`. When Promptless knows that key's target, it renders the key as a link. The ticket that started the work is one such target. Any other key stays plain text. This linking adds no field, so it also applies when you've stated your own format.
 
 ## Slack notification features
 
@@ -221,7 +251,12 @@ To keep the Jira problem out of Teams, add `msteams_channel: null` under `escala
 
 List one or more addresses under `escalation.email`. Email is escalation-only. Suggestion notifications never arrive by email. `notification` has no email setting, so Promptless emails escalations only when you set `escalation.email`. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
 
-Trigger problems include a test or staging account that can't reach a needed screen, or an unreachable or unconfigured integration. They also include an expired or rejected credential, a missing permission, or a configuration mismatch. Each escalation names the resource, quotes what Promptless saw, notes the workaround it applied, and ends with the one action that clears the blocker.
+Trigger problems include a test or staging account that can't reach a needed screen, or an unreachable or unconfigured integration. They also include an expired or rejected credential, a missing permission, or a configuration mismatch.
+
+Every escalation opens with a bold banner line, so you can tell its kind at a glance:
+
+- `Blocked — one thing needed from you`: A blocker names the resource, quotes what Promptless saw, and notes any workaround it applied. It ends with a `Need:` line naming the one action that clears the blocker and a `Next:` line saying what happens once you answer.
+- `Heads up — worth a look`: A pointer names something Promptless noticed that you can act on. For example, a published page might link to an anchor that no longer exists. It ends with one `Suggested:` action.
 
 ## Suggestion status updates
 

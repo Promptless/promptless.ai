@@ -1,0 +1,51 @@
+---
+title: Model providers
+description: Choose the analyzer model endpoint and authentication independently from your Kubernetes and storage provider.
+slug: docs/governance/deploy-the-worker/model-providers
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+The trace analyzer can use the same supported model provider as your agents. Choose it independently from the cloud hosting PIG. For example, an analyzer on GKE with Cloud Storage can use OpenAI or Azure OpenAI.
+
+Support for Anthropic's Claude models is coming soon.
+
+## Supported endpoints
+
+| Provider value | Responses API base URL                                                                              | Authentication           |
+| -------------- | --------------------------------------------------------------------------------------------------- | ------------------------ |
+| `openai`       | `https://api.openai.com/v1`                                                                         | `api_key`                |
+| `azure_openai` | `https://RESOURCE.openai.azure.com/openai/v1` or `https://RESOURCE.services.ai.azure.com/openai/v1` | `api_key`                |
+| `aws_bedrock`  | `https://bedrock-mantle.REGION.api.aws/v1` or the same host with `/openai/v1`                       | `api_key` or `aws_sigv4` |
+
+Replace `RESOURCE` and `REGION` with your provider settings. Use a model or deployment name available to your account through that endpoint. Azure uses the model deployment name.
+
+URLs must use HTTPS without embedded credentials, an explicit port, query parameters, or a fragment. Ordinary Bedrock Runtime URLs and arbitrary OpenAI-compatible endpoints are not accepted. Deploying on Google Cloud does not add Vertex AI model support.
+
+## Configure API key authentication
+
+Set these fields under `spec.analysis` and deliver the key through your secret manager:
+
+```yaml
+model:
+  provider: openai
+  authentication: api_key
+  baseURL: https://api.openai.com/v1
+  name: REPLACE_MODEL_NAME
+  apiKeySecretRef:
+    name: pig-credentials
+    key: model-api-key
+```
+
+For Bedrock Signature Version 4, use `provider: aws_bedrock` and `authentication: aws_sigv4`, and omit `apiKeySecretRef`. Grant the analyzer's AWS identity access to the chosen model. Storage permissions alone do not authorize inference.
+
+## Plan access, quota, and data handling
+
+The analyzer sends session content and relevant instruction context to your selected model endpoint. Choose a region and provider policy that meet your requirements, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+Reserve quota for analysis alongside your agents' traffic. Monitor rate limits, latency, and analysis completion time before expanding collection. Changing cluster size does not increase model quota.
+
+The model configuration takes effect with the rest of the analysis settings: activation time and quiet window. Use a real session to [verify successful analysis](/docs/governance/deploy-the-worker/verify-your-deployment).
