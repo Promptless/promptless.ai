@@ -105,7 +105,15 @@ npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
 Three linters gate `src/content/docs` prose/structure/metadata, each in its own
 CI workflow; keep their scopes aligned (all target `src/content/docs`):
 
-- **Vale** (`.vale.ini`, `vale.yml`) — prose style.
+- **Vale** (`.vale.ini`, `vale/Promptless/`, `vale.yml`) — prose style. The
+  rules live in `vale/Promptless/`, a Vale package this repo publishes: the
+  `vale-package.yml` workflow zips it onto the `vale` GitHub release on every
+  push to `main` that touches it, and other Promptless repos sync it from
+  there. The site consumes the same package (`Packages = ./vale/Promptless`),
+  so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
+  synced output and is gitignored. Styles: `Promptless` (house terminology,
+  sentence-case headings) plus `Voices`, `Direct`, and `Moose` vendored from
+  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI auto-repairs (`--output` full reflow),
@@ -116,9 +124,10 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
 - **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
   *content* against three schemas (Starlight mirror, Google OKF, extension
   seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags` and a quoted ISO 8601 `timestamp`. Add repo-specific
-  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
-  Runs on Node 24. See ADR 0006.
+  and should carry `tags`. Add repo-specific required fields in
+  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
+  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
+  which stopped populating `timestamp`.
 
 ## Diagrams
 

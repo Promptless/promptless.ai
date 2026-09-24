@@ -1,0 +1,40 @@
+{
+  "specId": "api-key-access",
+  "description": "Guards the API Access settings destination (Settings > API Access, /settings/api) against drift from the corrected 'Create an API key' and 'Key management' sections of src/content/docs/docs/for-docs/connect/triggers/api.mdx: the Create API key section names a Name field and a Create key button, and the multi-key, per-integration model now documented there means each existing key carries its own independent Revoke control rather than one shared revoke for the whole org. Non-destructive: it reads labels and controls only, and never submits Create key or presses Revoke, so this run creates and removes no API key.",
+  "tests": [
+    {
+      "testId": "api-access-create-key-section-and-per-row-revoke",
+      "description": "The /settings/api destination renders the Create API key section with a Name field and a Create key button (per 'Create an API key'), and every existing key row carries its own Revoke control (per 'Key management' -> Independent revocation). Assumes the test org already holds at least one API key so the per-row Revoke check is not vacuous; Create key and Revoke are asserted present and never activated.",
+      "before": "login.spec.json",
+      "steps": [
+        {
+          "description": "Open the API Access settings destination the docs link to",
+          "goTo": "https://app.gopromptless.ai/settings/api"
+        },
+        {
+          "description": "Wait for the Create API key section to render",
+          "find": {
+            "elementText": "/Create API key/",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "The documented URL served this page without redirecting elsewhere, and the Create API key section carries the documented Name field and Create key button. The section is scoped to the smallest ancestor of its heading that holds an input, so a Name-like label elsewhere on the page cannot satisfy this on its own.",
+          "runBrowserScript": {
+            "script": "const own = (el) => Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\\s+/g, ' ').trim(); const flat = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim(); const upper = (el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase(); const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')); const heading = headings.find((h) => flat(h) === 'Create API key'); if (!heading) return 'path=' + window.location.pathname + ' createKeySection=missing'; let card = null; for (let el = heading.parentElement; el; el = el.parentElement) { if (el.querySelector('input')) { card = el; break; } } if (!card) return 'path=' + window.location.pathname + ' createKeySection=present createKeyScope=missing'; const nameLabel = Array.from(card.querySelectorAll('*')).some((el) => own(el) === 'Name') ? 'present' : 'missing'; const createBtn = Array.from(card.querySelectorAll('button, input[type=submit]')).find((el) => upper(el) === 'CREATE KEY'); return ['path=' + window.location.pathname, 'createKeySection=present', 'nameLabel=' + nameLabel, 'createKeyButton=' + (createBtn ? 'present' : 'missing')].join(' ');",
+            "output": "path=/settings/api createKeySection=present nameLabel=present createKeyButton=present",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Every existing key row carries its own Revoke control, as the corrected per-key revocation model promises. Row count is reported for debugging only -- how many keys the test org holds is its own live state, not a documented fact -- and the check is only meaningful once at least one key already exists.",
+          "runBrowserScript": {
+            "script": "const upper = (el) => (el.textContent || el.value || '').replace(/\\s+/g, ' ').trim().toUpperCase(); const table = document.querySelector('table'); const rows = table ? Array.from(table.querySelectorAll('tbody tr')) : []; const hasRevoke = (row) => Array.from(row.querySelectorAll('button, a, [role=button]')).some((el) => upper(el) === 'REVOKE'); const rowActions = rows.length === 0 ? 'no-existing-keys' : (rows.every(hasRevoke) ? 'complete' : 'incomplete'); return ['existingKeyRows=' + rows.length, 'keyRowRevokeControls=' + rowActions].join(' ');",
+            "output": "keyRowRevokeControls=complete",
+            "timeout": 15000
+          }
+        }
+      ]
+    }
+  ]
+}
