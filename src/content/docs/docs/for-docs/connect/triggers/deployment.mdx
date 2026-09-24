@@ -1,0 +1,158 @@
+---
+title: GitHub deployments
+description: Start a documentation review once per release when you push a release tag matching a pattern you choose.
+slug: docs/for-docs/connect/triggers/deployment
+type: reference
+tags:
+  - connect
+  - triggers
+  - reference
+timestamp: "2026-09-18T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 9.5
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  You can set up this trigger by hand, as this page describes. Or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add a deployment trigger for my acme/api repo on release tags like v1.0.0."
+
+  See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+A deployment trigger runs one documentation review per release. It activates when you push a release tag whose name matches a `tag_pattern` glob you choose. A tag push such as `v1.4.0` then starts a single review of everything in that release. It listens for tag pushes. It is unrelated to GitHub's own Deployments or Environments feature. Deleting a tag is a no-op for this trigger.
+
+<Aside type="note" title="Before you start">
+  A deployment trigger needs a usable GitHub, GitHub OSS, or GitHub Enterprise installation.
+
+  It reuses the same GitHub `push` webhook your existing GitHub triggers already use, so it needs no permission grant beyond that installation. If you already run a GitHub PR or GitHub commit trigger, you have what this trigger needs.
+
+  To connect GitHub to Promptless, see the [GitHub Integration](/docs/for-docs/reference/integrations/github) setup guide.
+
+  Only [organization admins](/docs/for-docs/reference/configuration-reference#permissions-and-conflict-detection) can create or edit triggers.
+</Aside>
+
+## Use cases
+
+Deployment triggers work well when you want to:
+
+- Review documentation once per release, when your team merges many pull requests between releases.
+- Cut agent-run cost and notification noise for a high-merge-volume repository that ships a few times a day.
+- Tie each documentation review to your release cadence.
+
+A deployment trigger reviews every change in a tagged release, including code that merged behind a feature flag. It does not inspect feature-flag state.
+
+## Set up a deployment trigger in the dashboard
+
+<Steps>
+  1. Open your organization's [Configuration page](https://app.gopromptless.ai/configuration) and select the **Triggers** tab.
+
+  2. In the **Code & pull requests** group, choose the **GitHub deployments** catalog entry.
+
+  3. In **Which tags are releases?**, enter the pattern that identifies your release tags, such as `v1.*`. This pattern is required and can't be blank.
+
+  4. Optional. Open **Advanced Filters** to narrow the trigger:
+
+     - **Only tags cut from these branches** limits matches to tags cut from the branches you list.
+     - **Only repos tagged with these GitHub topics** limits matches to repositories that carry those GitHub topics.
+     - **Only repos owned by these accounts** limits matches to repositories owned by those accounts.
+
+  5. Save your configuration. Promptless starts a review the next time you push a matching release tag.
+</Steps>
+
+## Configure in YAML
+
+For precise control, configure the deployment trigger in the `triggers` section of your `promptless.yaml` file:
+
+```yaml
+triggers:
+  release-reviews:
+    trigger_type: deployment
+    match:
+      - repos:
+          - acme/api
+        tag_pattern: "v1.*"       # required; the pushed tag name must match this glob
+        branches:
+          - main                  # optional; empty matches a tag cut from any branch
+```
+
+| Field            | Description                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `trigger_type`   | Set to `deployment`.                                                                                                       |
+| `repos`          | Required. The literal `all` or a list of repositories.                                                                     |
+| `tag_pattern`    | Required, non-blank. fnmatch glob the pushed tag name must match, such as `v1.*`. Case-sensitive.                          |
+| `branches`       | Optional. When set, the branch the tag was cut from must be one of these. An empty list matches a tag cut from any branch. |
+| `excluded_repos` | Optional. Repositories to exclude.                                                                                         |
+| `repo_topics`    | Optional. Only trigger for repositories that carry these GitHub topics.                                                    |
+| `repo_owners`    | Optional. Only trigger for repositories owned by these accounts.                                                           |
+
+A release spans many changes, so a deployment trigger reviews the whole release, and a deployment trigger's match clause has no `trigger_directories` field.
+
+A GitHub PR trigger for the same repositories can also carry `merge` in its `trigger_on` list. Remove `merge` there to avoid a review per merged pull request on top of the once-per-release review. See [Deployment triggers and PR triggers](#deployment-triggers-and-pr-triggers).
+
+## Branch matching
+
+Leave `branches` empty to match a release tag cut from any branch. A GitHub commit trigger's empty `branches` list matches only its default branch. Set `branches` to a list to match only tags cut from those branches.
+
+<Aside type="caution">
+  When you set `branches` and GitHub's push event carries no source branch for a pushed tag, the trigger does not activate for that push. A tag pushed through a force-push or the GitHub API can arrive without an associated branch reference, and so without a source branch. Leave `branches` empty if you need those tags to still trigger a review.
+</Aside>
+
+In a `tag_pattern`, `*` matches any sequence of characters, so `v1.*` matches `v1.2.0`, `v1.4.0`, and any other tag that starts with `v1.`. `tag_pattern` matching is case-sensitive. A pattern written as `V1.*` matches only tags that begin with an uppercase `V1`.
+
+## How Promptless reviews a release
+
+When a matching tag push arrives, Promptless reviews the changes for the whole release. The trigger passes Promptless a pointer to the release: the repository, the tag, and the branch the tag was cut from. It carries no diff or file list. From that pointer, the agent finds the earlier tag that marked the previous release and reviews the changes between that tag and the new one. That judgment is best-effort, informed by the tag naming and ordering conventions you teach it. The trigger does not re-check the earlier tag against your `tag_pattern`.
+
+Teach Promptless how your repository names and orders its release tags so it picks the right predecessor. See [Teach conventions with feedback](/docs/for-docs/tune/teaching-conventions) for how to record durable conventions like these.
+
+## Deployment triggers and PR triggers
+
+A deployment trigger and a GitHub PR trigger run independently. A GitHub PR trigger with a `merge` event still activates on each merged pull request, even for a repository that also has a deployment trigger.
+
+<Aside type="caution">
+  Remove `merge` from that GitHub PR trigger's `trigger_on` list. That avoids a review on each merged pull request on top of the once-per-release deployment review.
+</Aside>
+
+For example, a GitHub PR trigger clause with `merge` removed from `trigger_on`:
+
+```yaml
+triggers:
+  pr-reviews:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/api
+        trigger_on:
+          - opened
+          - first_approval   # merge removed so the deployment trigger reviews the release
+```
+
+## Notification channels
+
+A deployment trigger reviews a release that has no pull request or commit thread of its own. You hear about the suggestions it opens through a notification channel. Configure a Slack (or Microsoft Teams) channel in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+```
+
+<Aside type="note">
+  For private Slack channels, invite Promptless first by tagging `@Promptless` in the channel.
+</Aside>
+
+## What to expect
+
+- The [Triggers page](https://app.gopromptless.ai/triggers) identifies a deployment trigger by the literal word `deployment`, without a friendly label or logo yet.
+- Deployment-triggered suggestions appear in the main change-history list. A dedicated deployment source filter for them is not available yet, so you select them from the full list rather than by source.
+
+## Backfill
+
+[Backfill](/docs/for-docs/connect/triggers#backfill-suggestions) runs on saved pull request and merge request triggers. Deployment triggers are outside its scope.
+
+<Aside type="note">
+  See the [triggers section](/docs/for-docs/reference/configuration-reference#triggers) of the Configuration Reference for the full schema.
+</Aside>
