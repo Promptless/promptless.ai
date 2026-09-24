@@ -7,7 +7,6 @@ tags:
   - agent-instructions
   - governance
   - architecture
-timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
@@ -35,15 +34,15 @@ This page explains the components, where they run, and what each one depends on.
 
 ### Components used only for trace analysis
 
-| Component      | Where it runs                     | What it does                                                                                                | Depends on                                                                             |
-| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Trace analyzer | Your Kubernetes cluster           | Accept traces, reconstruct sessions, run analysis, and propose improvements                                 | PostgreSQL, native object storage, Promptless, model access, and hub repository access |
-| Trace bucket   | Your cloud account                | Store raw trace chunks and reconstructed sessions                                                           | Private object storage and analyzer access                                             |
-| PostgreSQL     | Your cloud account                | Store host identity, ingestion progress, and analysis state                                                 | Dedicated database and analyzer access                                                 |
-| Promptless     | Promptless infrastructure         | Manage enrollment and deployment coordination; record findings and coordinate GitHub issues and remediation | Your organization's deployment and repository connections                              |
-| Model provider | Your configured provider endpoint | Process session and instruction context for analysis and remediation                                        | Model access and configured credentials                                                |
+| Component      | Where it runs                     | What it does                                                                                                | Depends on                                                                                             |
+| -------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Trace analyzer | Your Kubernetes cluster           | Accept traces, reconstruct sessions, run analysis, and propose improvements                                 | PostgreSQL, native object storage, Promptless, model access, and the selected instruction repositories |
+| Trace bucket   | Your cloud account                | Store raw trace chunks and reconstructed sessions                                                           | Private object storage and analyzer access                                                             |
+| PostgreSQL     | Your cloud account                | Store host identity, ingestion progress, and analysis state                                                 | Dedicated database and analyzer access                                                                 |
+| Promptless     | Promptless infrastructure         | Manage enrollment and deployment coordination; record findings and coordinate GitHub issues and remediation | Your organization's deployment and repository connections                                              |
+| Model provider | Your configured provider endpoint | Process session and instruction context for analysis and remediation                                        | Model access and configured credentials                                                                |
 
-The deployed trace analyzer service is named `instruction-hub-worker`. Its analysis component is called the **Friction Analyzer**. These names refer to a service and a component inside it; you do not install two analysis services.
+The deployed trace analyzer service is named `pig-trace-analyzer`. Its analysis component is called the **Friction Analyzer**. These names refer to a service and a component inside it; you do not install two analysis services.
 
 ## Publish an instruction
 
@@ -74,7 +73,7 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
 <Steps>
   1. **Prepare the analyzer and enable collection**
 
-     Your platform team deploys the analyzer and connects its database, bucket, model provider, and instruction-hub repository. It configures a deployment with Promptless and makes the analyzer reachable from the hosts that will upload traces.
+     Your platform team deploys the analyzer and connects its database, bucket, and model provider. It configures a deployment with Promptless and makes the analyzer reachable from the hosts that will upload traces. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings.
 
      The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude and Codex versions of the `pig` plugin. The setting does not create infrastructure or enroll hosts by itself.
 
@@ -103,7 +102,7 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
      Acme's reviewer checks the evidence and the proposed instructions, runs the relevant checks, and merges an accepted fix. The hub's publishing pipeline distributes a new release. Refreshing the installed plugins makes the correction available to the team's agents.
 </Steps>
 
-The current analyzer repository binding and remediation integration require a GitHub repository with a `main` branch. GitLab hub publishing does not imply GitLab analyzer or remediation support.
+An organization administrator selects the instruction repositories the analyzer reads in PIG Settings. Each is a GitHub repository with a `main` branch, and the analyzer receives GitHub App tokens from Promptless to read them. GitLab hub publishing does not imply GitLab analyzer or remediation support.
 
 ## Keep the two update paths distinct
 

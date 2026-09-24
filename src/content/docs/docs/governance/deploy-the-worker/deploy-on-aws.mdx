@@ -7,7 +7,6 @@ tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-15T00:00:00Z"
 ---
 
 import { Steps } from '@astrojs/starlight/components';
@@ -103,7 +102,27 @@ s3:
 
 The model is a separate choice. Select a supported endpoint from [model providers](/docs/governance/deploy-the-worker/model-providers); the storage backend does not select or provision it.
 
-## 4. Bootstrap and verify
+## 4. Configure HTTPS ingress
+
+Install the [AWS Load Balancer Controller](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/installation/) with its own IAM role, and provision an ACM certificate for the analyzer hostname in the ALB's region. The PIG Terraform module does not create these resources.
+
+Use this `spec.endpoint` configuration in the common Helm installation example:
+
+```yaml
+endpoint:
+  hostname: pig.example.com
+  ingressClassName: alb
+  ingressAnnotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: REPLACE_ACM_CERTIFICATE_ARN
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+```
+
+Omit `tlsSecretName`: ALB uses the ACM certificate. Choose an internal scheme if every enrolled host can reach the private endpoint. After the supervisor creates the Ingress and the ALB has healthy targets, point the hostname's DNS record at the ALB. Verify HTTPS with that hostname before enrolling a host.
+
+## 5. Bootstrap and verify
 
 Continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). Apply the ServiceAccount annotations, pod labels, native storage block, and database Secret from this guide before creating the `PIGDeployment`.
 
