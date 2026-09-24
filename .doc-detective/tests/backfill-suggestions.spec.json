@@ -1,0 +1,63 @@
+{
+  "specId": "backfill-suggestions",
+  "description": "Guards the Backfill suggestions panel that the rewritten '## Backfill suggestions' section of `src/content/docs/docs/for-docs/connect/triggers.mdx` describes on a saved GitHub/GitLab/Bitbucket PR trigger row. The rewrite corrected a drifted window list (14/30/90 days) to the documented 7/14/30 days and changed the primary flow from Preview-first to a Launch backfill/Relaunch action with Preview as an optional secondary control, so this spec asserts those literal control labels are what a reader is told to expect. It never selects Launch backfill or Relaunch -- both run every matched pull request live per the page's own caution -- and never submits Preview, so it creates no documentation PRs and sends no notifications.",
+  "tests": [
+    {
+      "testId": "backfill-panel-window-and-action-labels",
+      "description": "Confirms the Backfill suggestions panel on an existing GitHub pull requests trigger row offers exactly the documented window options (last 7 days, last 14 days, last 30 days) as one choice group, a Preview control, and a primary action reading Launch backfill or Relaunch -- the two labels the docs say the button alternates between. The Skip previously submitted PRs checkbox and the primary button's current label are state that depends on this trigger's run history, so those are reported for debugging rather than asserted to one value.",
+      "before": "login.spec.json",
+      "steps": [
+        {
+          "description": "Open the Configuration page",
+          "goTo": "https://app.gopromptless.ai/configuration"
+        },
+        {
+          "description": "Open the Triggers tab, preferring a tab-role element named Triggers over any same-named sidebar link so the click stays on the Configuration page",
+          "runBrowserScript": {
+            "script": "const flat = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim(); const tabs = Array.from(document.querySelectorAll('[role=tab], button, a')); const tab = tabs.find((el) => flat(el) === 'Triggers' && (el.getAttribute('role') === 'tab' || el.tagName === 'BUTTON')) || tabs.find((el) => flat(el) === 'Triggers'); if (!tab) return 'triggersTab=missing'; tab.click(); return 'triggersTab=clicked';",
+            "output": "triggersTab=clicked",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Wait for a saved GitHub pull requests trigger row to render in the list",
+          "find": {
+            "elementText": "/^GitHub pull requests$/",
+            "timeout": 20000
+          }
+        },
+        {
+          "description": "Expand that trigger row",
+          "find": {
+            "elementText": "/^GitHub pull requests$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Open the Backfill suggestions panel on the expanded row",
+          "find": {
+            "elementText": "/^Backfill suggestions$/",
+            "click": true,
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Wait for the panel body to render its window options",
+          "find": {
+            "elementText": "/last 7 days/",
+            "timeout": 15000
+          }
+        },
+        {
+          "description": "Scoped to the smallest ancestor of the Backfill suggestions heading that also holds the window options, this reads: the window choice group has exactly the three documented options (last 7 days, last 14 days, last 30 days) as one group, a control labeled Preview, and a primary control whose label is one of the two documented values (Launch backfill or Relaunch). Which of those two labels currently shows, and whether the Skip previously submitted PRs checkbox is present and checked, are reported for debugging only -- both depend on this trigger's run history rather than on a fixed documented fact. If no ancestor holds both the heading and the window options, the scope is reported leaky and the panel-content assertions are not made.",
+          "runBrowserScript": {
+            "script": "const flat = (el) => (el.textContent || '').replace(/\\s+/g, ' ').trim(); const headings = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span,p,button')).filter((el) => el.children.length === 0); const heading = headings.find((el) => flat(el) === 'Backfill suggestions'); if (!heading) return 'panel=missing'; let scope = null; for (let el = heading.parentElement; el; el = el.parentElement) { if (flat(el).includes('last 7 days')) { scope = el; break; } } if (!scope) return 'panel=present scope=leaky'; const optionText = (t) => Array.from(scope.querySelectorAll('label, span, div, p, button')).some((el) => el.children.length === 0 && flat(el) === t); const windowGroup = Array.from(scope.querySelectorAll('input[type=radio]')); const groups = new Set(windowGroup.map((r) => r.name || '')); const buttonNamed = (t) => Array.from(scope.querySelectorAll('button, input[type=submit]')).find((el) => flat(el).toUpperCase() === t.toUpperCase() || (el.value || '').trim().toUpperCase() === t.toUpperCase()); const preview = buttonNamed('Preview'); const launch = buttonNamed('Launch backfill'); const relaunch = buttonNamed('Relaunch'); const primaryLabel = launch ? 'Launch backfill' : (relaunch ? 'Relaunch' : 'none'); const primaryLabelValid = (primaryLabel === 'Launch backfill' || primaryLabel === 'Relaunch') ? 'yes' : 'no'; const skipCheckbox = Array.from(scope.querySelectorAll('input[type=checkbox]')).find((cb) => { let node = cb; for (let i = 0; i < 5 && node; i++) { if (flat(node).includes('Skip previously submitted PRs')) return true; node = node.parentElement; } return false; }); return ['panel=present', 'scope=isolated', 'window7=' + (optionText('last 7 days') ? 'present' : 'missing'), 'window14=' + (optionText('last 14 days') ? 'present' : 'missing'), 'window30=' + (optionText('last 30 days') ? 'present' : 'missing'), 'windowOptionCount=' + windowGroup.length, 'windowGroupCount=' + groups.size, 'previewControl=' + (preview ? 'present' : 'missing'), 'primaryLabelValid=' + primaryLabelValid, 'primaryLabel=' + primaryLabel, 'skipPreviouslySubmittedCheckbox=' + (skipCheckbox ? 'present' : 'absent'), 'skipPreviouslySubmittedChecked=' + (skipCheckbox ? (skipCheckbox.checked ? 'yes' : 'no') : 'n-a')].join(' ');",
+            "output": "panel=present scope=isolated window7=present window14=present window30=present windowOptionCount=3 windowGroupCount=1 previewControl=present primaryLabelValid=yes",
+            "timeout": 15000
+          }
+        }
+      ]
+    }
+  ]
+}
