@@ -1,0 +1,196 @@
+---
+title: 'Doc Detective + Promptless: Test your docs like you test your code'
+subtitle: Published September 2026
+description: >-
+  When a doc collection uses Doc Detective, Promptless writes and updates the
+  tests for the procedures it documents, in the same pull request as the docs
+  change. Here's how that works and how we test the promptless.ai docs against
+  our own dashboard.
+date: '2026-09-24T00:00:00.000Z'
+section: Product Updates
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Manny Silva, the creator of Doc Detective, borrows a concept from security: apply
+zero trust to your documentation. Love your product team, but don't assume the
+docs and the product are in sync. Verify it.
+
+Manny was one of the first technical writers to give us feedback on Promptless,
+back in August 2024. He'd already been building Doc Detective for years, and the
+two tools looked like a natural fit. Today, when a doc collection uses Doc
+Detective, Promptless writes and maintains its tests as part of every
+documentation change. We also use Doc Detective on the docs you're reading now.
+
+## Two sides of the same coin
+
+Promptless catches documentation drift. When a pull request changes the product,
+Promptless drafts the docs update. Doc Detective _deterministically validates_
+that documentation, whether Promptless or a person wrote it, still matches the
+product it describes.
+
+Doc Detective is an open-source documentation testing framework. You describe a
+documented procedure as a test, and Doc Detective carries it out against the
+real product. It opens a browser, goes to pages, finds and clicks elements,
+types into fields, makes HTTP requests, and runs shell commands. When the
+product stops behaving the way the docs say it does, the test fails.
+
+The core project is at
+[doc-detective/doc-detective](https://github.com/doc-detective/doc-detective),
+and its documentation is at
+[docs.doc-detective.com](https://docs.doc-detective.com/).
+
+## What Promptless does with Doc Detective
+
+Turn on Doc Detective for a doc collection, and optionally point Promptless at
+your Doc Detective config file. Promptless also recognizes a collection that
+already uses Doc Detective from its config file, its existing specs, or a CI job
+that runs it. The [Doc Detective integration](/docs/for-docs/audit/doc-detective)
+page has the setup steps.
+
+From then on, writing tests is part of how Promptless writes docs for that
+collection:
+
+- When Promptless documents a new workflow, UI path, command, or setup
+  procedure, it adds a test for it.
+- When a product change makes a documented workflow stale, Promptless updates
+  the prose and the test that covers it.
+- The tests ship in the same pull request as the docs change, so your reviewers
+  see the prose and the proof side by side.
+- Promptless follows your existing config, spec layout, and conventions.
+- Tests target stable, accessible selectors and assert only what the docs
+  promise the reader.
+- Promptless works from the credentials and test data you've already set up. It
+  doesn't invent accounts, URLs, or data to make a test pass.
+- Promptless checks spec syntax when your repository has a command for it.
+
+Ask Promptless to run the tests, and it runs them in a browser against your
+product. Include the request when you assign the work or in a comment on the
+suggestion. Promptless reports the command it ran, what it covered, and the
+result. A syntax check alone never counts as a passing test. A run needs
+whatever the tests depend on, such as test account credentials stored as
+environment variables in Promptless.
+
+Doc Detective also runs wherever you already run it, such as in CI. When a
+GitHub check fails on a Promptless docs pull request, Promptless reads the
+failing checks and their logs. That includes Doc Detective and any other check.
+Promptless fixes the branch when the docs change caused the failure. It leaves
+the suggestion as it is when the failure is unrelated or was already there. The
+suggestion's timeline in the dashboard shows a CI failed event that names the
+failing checks.
+
+## How we use it on promptless.ai
+
+The promptless.ai docs live in the `Promptless/promptless.ai` repository, which
+is a doc collection in our own Promptless account with Doc Detective turned on.
+Here's what that setup looks like after seven months of iteration.
+
+### Test the product, not the page
+
+We first set up Doc Detective in February 2026 with a single test that signs in
+to the Promptless dashboard. In May, we asked Promptless to add tests to every
+how-to guide and set a new bar: a test has to drive the
+product the docs describe.
+
+### Specs that guard the walkthroughs
+
+Today the repository holds eight spec files under `.doc-detective/tests/`. With
+the exception of the original sign-in spec, Promptless wrote each one in the
+same pull request as the docs fix it protects. For example:
+
+- The Environment Variables guide names each control by its label, such as
+  Key Name, Value, Secret, and Add Variable. Those labels and their screenshots
+  had drifted once. When Promptless corrected them, it added a spec that opens
+  the settings page and asserts the documented labels and columns.
+- The Deep Analysis walkthrough describes the New Task composer's controls and
+  their defaults. After the composer redesign, Promptless rewrote the
+  walkthrough. It also added a spec for the labels and defaults the walkthrough
+  tells readers to look for.
+- The API triggers page describes creating and revoking API keys. Its spec
+  checks that the API Access page shows the documented fields and a Revoke
+  control on every key.
+- The GitLab reference and the Organization settings instructions send readers
+  to specific controls. Their specs confirm those controls still exist under
+  the names the docs use.
+
+Here's the start of the Environment Variables spec:
+
+```json
+"steps": [
+  {
+    "description": "Open the Agent Env Vars settings-sidebar destination directly",
+    "goTo": "https://app.gopromptless.ai/settings/env-vars"
+  },
+  {
+    "description": "Wait for the Agent Env Vars view to render",
+    "find": {
+      "elementText": "/Agent Env Vars/",
+      "timeout": 20000
+    }
+  }
+]
+```
+
+Later steps use `runBrowserScript` to read the table headers and compare them
+with the documented `Key`, `Value`, `Created`, and `Actions` columns.
+
+Every spec is non-destructive. It reads labels, fields, and controls, but it
+never submits a form, creates an API key, or presses Revoke. That lets us run
+the specs against our production dashboard with a real test account without
+changing anything.
+
+Each spec also opens with a short description of what it guards and why drift
+there matters. An engineer scanning a failing spec can tell in one read whether
+the failure matters, without studying the steps.
+
+We made the dashboard easier to test, too. The Promptless dashboard uses
+build-hashed CSS class names, which make fragile selectors, so we added stable
+semantic class names that tests can target.
+
+### Where the tests run
+
+The repository has two Doc Detective configs:
+
+- `.doc-detective.json` runs in Chrome on a laptop and loads a test account's
+  credentials from a local `.env` file. That's where the authenticated dashboard
+  specs run.
+- `.doc-detective.ci.json` runs headless Chrome in a GitHub Actions workflow
+  that we start on demand. It runs the homepage product switcher spec, which
+  needs no sign-in.
+
+Authentication is the hard part. Each Doc Detective test starts in a fresh
+browser, so a test either signs in every time or loads saved session cookies.
+Our sign-in provider keeps session cookies short-lived and refreshes them in the
+browser, so saved cookies expire quickly. The sign-in flow also proved unstable
+in CI. So the authenticated specs run from a laptop, using a small script in the
+repository that exports cookies from a signed-in Chrome session.
+
+<BlogNewsletterCTA />
+
+## What else Doc Detective can check
+
+Our specs focus on dashboard walkthroughs, because that's most of what the
+promptless.ai docs describe. Doc Detective covers more than that:
+
+- API docs: `httpRequest` sends documented requests and checks status codes,
+  headers, and response bodies. It can pull examples from an OpenAPI
+  specification and validate against its schemas.
+- Commands and code samples: `runShell` and `runCode` run the commands and
+  snippets in a tutorial and check their exit codes and output.
+- Screenshots: Doc Detective can retake a documented screenshot and compare it
+  with the reference image. The test fails when the difference passes a
+  threshold you set.
+- Browsers and platforms: one spec can run in Chrome, Firefox, and Safari
+  across operating systems.
+- Recordings: Doc Detective can record a procedure as a video each time the
+  tests run.
+
+## Final thoughts
+
+Doc Detective doesn't write your docs, and a docs change from Promptless is
+only as trustworthy as the check behind it. Used together, the docs change and
+the test that proves it arrive in the same pull request. The test keeps
+checking long after that pull request merges.
+
+<BlogRequestDemo />
