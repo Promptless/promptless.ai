@@ -341,7 +341,7 @@ repeat on an interval:
 GET /v1/triggers
 ```
 
-Read your organization's finished tasks, newest completion first. Poll this feed to learn that a task ended, including a task that deliberately produced no documentation change. For the full schema, see the [List finished tasks reference](/docs/for-docs/api/operations/listfinishedtasks/).
+Lists your organization's finished tasks, newest completion first, including tasks that made no documentation change. For the full schema, see the [List finished tasks reference](/docs/for-docs/api/operations/listfinishedtasks/).
 
 Only finished tasks appear in this feed. A task still running has no outcome yet, so follow one in flight with [`GET /v1/triggers/{trigger_event_id}`](#read-task-status). The feed omits Promptless's internal re-runs. If Promptless reopens a finished task to rework it, the task appears again when it finishes, with a new `finished_at` and possibly a different `outcome`.
 
@@ -373,14 +373,14 @@ Each task carries these fields:
 | `trigger_event_id` | string (UUID)  | The task's id, the same id `POST /v1/triggers` returned.                                     |
 | `source`           | string         | The task's origin, such as `api`.                                                            |
 | `request`          | string \| null | A one-line summary of the submitted request.                                                 |
-| `outcome`          | string \| null | How the task ended, as one of the fixed values below. Branch on this field.                  |
-| `resolution`       | string \| null | A human-readable note that explains the same verdict in prose, written for a person to read. |
+| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes).                                               |
+| `resolution`       | string \| null | A note that explains how the task ended.                                                     |
 | `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                        |
 | `finished_at`      | string         | ISO 8601 time the task finished.                                                             |
 
 #### Outcomes
 
-`outcome` is one of a fixed set of values an automation can filter or branch on:
+`outcome` is one of these values:
 
 | Value                 | Meaning                                                                                                    |
 | --------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -389,7 +389,7 @@ Each task carries these fields:
 | `needs_input`         | The task produced none and ended on a question the customer must answer. A later answer starts a new task. |
 | `failed`              | Promptless could not finish the work.                                                                      |
 
-`outcome` is `null` in two cases: a task that finished before Promptless recorded outcomes, and a task from a source other than the API or MCP. Those sources deliver the outcome as a reply in the source thread. Treat this list as the contract and handle an unrecognized value gracefully, because Promptless can add an outcome.
+`outcome` is `null` for tasks that finished before Promptless added the field and for tasks from sources other than the API or MCP. Promptless may add values later, so handle values not listed here.
 
 This feed omits the suggestions a task produced. Each suggestion in the [Suggestions](#suggestions) feed carries `trigger_event_id`, so join the two feeds on that field.
 
@@ -436,8 +436,8 @@ GET /v1/triggers/{trigger_event_id}
 | `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                                                                                           |
 | `source`           | string         | The task's origin.                                                                                                                                                                                                              |
 | `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                                                                    |
-| `resolution`       | string \| null | A human-readable note that explains the outcome in prose, written for a person to read. Read it for context after `finished` is `true`.                                                                                         |
-| `outcome`          | string \| null | How the task ended, as one of a fixed set of values an automation can branch on (see [Finished tasks](#finished-tasks) for the values). `null` until the task finishes, and for a task from a source other than the API or MCP. |
+| `resolution`       | string \| null | A note that explains how the task ended. Read it after `finished` is `true`.                                                                                                                                                    |
+| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes) for the values. `null` until the task finishes, and for tasks from sources other than the API or MCP.                                                                             |
 | `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                                                                      |
 | `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code.                                                    |
 | `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                                                                               |
