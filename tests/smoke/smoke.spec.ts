@@ -577,6 +577,7 @@ test('homepage product switcher renders accessible default state and product reg
     'agent-impact-examples',
     'agent-mid-cta',
     'agent-learning-loop',
+    'agent-setup-steps',
     'agent-governance',
     'agent-faq',
     'agent-final-cta',
@@ -600,6 +601,10 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /data-video-id="[A-Za-z0-9_-]+"/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
   assert.match(homeHtml, /id="book-a-demo"/);
+  // The agent-instructions track (src/components/site/pig/) ships its install
+  // command with a copy button and its FAQ as button-driven disclosures.
+  assert.match(homeHtml, /data-pig-copy="python -m pip install/);
+  assert.match(homeHtml, /<button(?=[^>]*aria-expanded="false")(?=[^>]*data-pig-accordion-trigger)[^>]*>/);
   assert.match(homeHtml, /id="book-a-demo-docs"/);
   assert.match(homeHtml, /data-track-action="ask_ai"/);
   assert.match(homeHtml, /data-track-location="homepage_ask_ai"/);

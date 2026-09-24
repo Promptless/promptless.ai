@@ -1,0 +1,435 @@
+---
+// "Four Layers, One Loop." — the four PIG layers arranged clockwise around a
+// device, so the layout is the loop: Instruction Hub → Traces → Findings →
+// Remediation → back to the hub. Each card is tethered to the device, and trace
+// events travel along the tethers. Hovering or focusing a card lights its plane
+// in the device; with no interaction the planes light in loop order.
+const layers = [
+  {
+    n: 1,
+    name: 'Instruction Hub',
+    lead: 'One reviewed source for every agent.',
+    body: 'Skills, rules, subagents, hooks, and MCP config in a Git repository, compiled into plugins for Claude, Codex, Cursor, and Gemini.',
+    tint: 'purple',
+    slot: 'tl',
+    link: { label: 'Key concepts', href: '/docs/governance/start-here/key-concepts' },
+  },
+  {
+    n: 2,
+    name: 'Traces',
+    lead: 'The raw record of an agent session.',
+    body: 'Enrolled Claude Code, Claude Desktop, and Codex hosts upload native session logs to the analyzer in your cluster.',
+    tint: 'sky',
+    slot: 'tr',
+    link: { label: 'Trace sources', href: '/docs/governance/reference/trace-object-and-sources' },
+  },
+  {
+    n: 3,
+    name: 'Findings',
+    lead: 'Repeated failures, stated as a claim with evidence.',
+    body: 'Severity, confidence, the sessions that show it, and the exact commit of the instructions the analyzer read.',
+    tint: 'orange',
+    slot: 'br',
+    link: { label: 'What a finding contains', href: '/docs/governance/findings-and-remediation/understand-findings' },
+  },
+  {
+    n: 4,
+    name: 'Remediation',
+    lead: 'A pull request, never an auto-merge.',
+    body: 'A finding with enough evidence becomes a focused pull request against your hub. Your reviewers merge it, or don’t.',
+    tint: 'green',
+    slot: 'bl',
+    link: { label: 'How remediation works', href: '/docs/governance/findings-and-remediation/remediate-findings' },
+  },
+] as const;
+---
+
+<section
+  id="pig-how-it-works"
+  class="pig-section pig-layers"
+  aria-labelledby="pig-layers-title"
+  data-section-tracked="agent-learning-loop"
+  data-pig-layers
+>
+  <div class="pig-section-head" data-pig-reveal>
+    <p class="pig-eyebrow">How it works</p>
+    <h2 id="pig-layers-title" class="pig-h2">Four Layers, One Loop.</h2>
+    <p class="pig-sub">
+      Promptless Instruction Governance (PIG) starts with a Git repository your team already knows how to review.
+      Enrolled agents send session traces to an analyzer in your cluster, the analyzer turns repeated failures into
+      findings, and findings come back as pull requests. Use the hub alone, or add the loop when you want the evidence.
+    </p>
+  </div>
+
+  <div class="pig-layers-stage">
+    <div class="pig-device" data-pig-device aria-hidden="true">
+      <canvas class="pig-device-traces" data-pig-traces="dense"></canvas>
+      <svg class="pig-device-mark" viewBox="0 0 160 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Four planes, bottom to top: hub, traces, findings, remediation. -->
+        <path class="pig-plane" data-plane="1" d="M20 106 L80 132 L140 106 L80 80 Z" />
+        <path class="pig-plane" data-plane="2" d="M20 86 L80 112 L140 86 L80 60 Z" />
+        <path class="pig-plane" data-plane="3" d="M20 66 L80 92 L140 66 L80 40 Z" />
+        <path class="pig-plane" data-plane="4" d="M20 46 L80 72 L140 46 L80 20 Z" />
+      </svg>
+      <p class="pig-device-caption pig-mono">Traces in · pull requests out</p>
+    </div>
+
+    <ol class="pig-layer-list">
+      {layers.map((layer, index) => (
+        <li
+          class:list={['pig-layer', `is-${layer.tint}`, `is-${layer.slot}`]}
+          data-pig-layer={layer.n}
+          data-pig-reveal
+          style={`--pig-reveal-delay: ${index * 60}ms`}
+        >
+          <span class="pig-layer-tether" aria-hidden="true"><i></i></span>
+          <article class="pig-layer-card">
+            <header class="pig-layer-head">
+              <span class="pig-badge">Layer {layer.n}</span>
+              <h3 class="pig-layer-name pig-mono">{layer.name}</h3>
+            </header>
+            <p class="pig-layer-lead">{layer.lead}</p>
+            <p class="pig-layer-body">{layer.body}</p>
+            <a
+              class="pig-layer-link pig-mono"
+              href={layer.link.href}
+              data-track-action="read_docs"
+              data-track-funnel="education"
+              data-track-location="how_it_works"
+              data-track-campaign={`layer_${layer.n}`}
+            >{layer.link.label} <span aria-hidden="true">→</span></a>
+          </article>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <p class="pig-layers-foot pig-mono" data-pig-reveal>
+    Layer 1 works alone. Layers 2 to 4 close the loop, and every fix lands as a pull request in your repository.
+  </p>
+</section>
+
+<script>
+  (() => {
+    const section = document.querySelector<HTMLElement>('[data-pig-layers]');
+    const device = section?.querySelector<HTMLElement>('[data-pig-device]');
+    if (!section || !device) return;
+    const layers = Array.from(section.querySelectorAll<HTMLElement>('[data-pig-layer]'));
+    const set = (n: string | null) => {
+      if (n) device.dataset.active = n;
+      else delete device.dataset.active;
+      layers.forEach((el) => el.classList.toggle('is-active', el.dataset.pigLayer === n));
+    };
+    layers.forEach((layer) => {
+      const n = layer.dataset.pigLayer || null;
+      layer.addEventListener('pointerenter', () => set(n));
+      layer.addEventListener('pointerleave', () => set(null));
+      layer.addEventListener('focusin', () => set(n));
+      layer.addEventListener('focusout', () => set(null));
+    });
+  })();
+</script>
+
+<style>
+  .pig-layers-stage {
+    --pig-tether: clamp(1.75rem, 4vw, 3.5rem);
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: var(--pig-tether);
+    row-gap: 1.25rem;
+    align-items: stretch;
+  }
+
+  .pig-device {
+    --pig-device-tint: 177, 159, 255;
+    position: relative;
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    min-height: 20rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 1.75rem;
+    background: #000;
+    box-shadow: 0 0 5rem rgba(0, 0, 0, 0.95), inset 0 0 5rem rgba(var(--pig-device-tint), 0.08);
+    transition: box-shadow 400ms ease;
+  }
+
+  .pig-device[data-active='1'] { --pig-device-tint: 177, 159, 255; }
+  .pig-device[data-active='2'] { --pig-device-tint: 56, 189, 248; }
+  .pig-device[data-active='3'] { --pig-device-tint: 255, 147, 103; }
+  .pig-device[data-active='4'] { --pig-device-tint: 39, 201, 63; }
+
+  .pig-device-traces {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 72% 60% at 50% 45%, transparent 30%, #000 70%);
+    mask-image: radial-gradient(ellipse 72% 60% at 50% 45%, transparent 30%, #000 70%);
+  }
+
+  .pig-device-mark {
+    position: relative;
+    z-index: 1;
+    width: 58%;
+    max-width: 12rem;
+    height: auto;
+  }
+
+  .pig-plane {
+    fill: #000;
+    stroke: rgba(255, 255, 255, 0.35);
+    stroke-width: 1.25;
+    transition: stroke 300ms ease, fill 300ms ease;
+  }
+
+  /* With no interaction, the planes light in loop order, one every 1.5s. */
+  .pig-device:not([data-active]) .pig-plane {
+    animation: pig-plane-cycle 6s ease-in-out infinite;
+  }
+
+  .pig-device:not([data-active]) .pig-plane[data-plane='2'] { animation-delay: 1.5s; }
+  .pig-device:not([data-active]) .pig-plane[data-plane='3'] { animation-delay: 3s; }
+  .pig-device:not([data-active]) .pig-plane[data-plane='4'] { animation-delay: 4.5s; }
+
+  .pig-plane[data-plane='1'] { --plane: 177, 159, 255; }
+  .pig-plane[data-plane='2'] { --plane: 56, 189, 248; }
+  .pig-plane[data-plane='3'] { --plane: 255, 147, 103; }
+  .pig-plane[data-plane='4'] { --plane: 39, 201, 63; }
+
+  @keyframes pig-plane-cycle {
+    0%, 30%, 100% { stroke: rgba(255, 255, 255, 0.35); fill: #000; }
+    8%, 22% { stroke: rgb(var(--plane)); fill: rgba(var(--plane), 0.12); }
+  }
+
+  .pig-device[data-active='1'] .pig-plane[data-plane='1'],
+  .pig-device[data-active='2'] .pig-plane[data-plane='2'],
+  .pig-device[data-active='3'] .pig-plane[data-plane='3'],
+  .pig-device[data-active='4'] .pig-plane[data-plane='4'] {
+    stroke: rgb(var(--plane));
+    fill: rgba(var(--plane), 0.14);
+  }
+
+  .pig-device-caption {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    color: var(--pig-zinc-400);
+    font-size: var(--pig-fs-xs);
+    letter-spacing: var(--pig-track-wide);
+    text-transform: uppercase;
+  }
+
+  .pig-layer-list {
+    display: contents;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pig-layer {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+
+  /* Clockwise: 1 top-left, 2 top-right, 3 bottom-right, 4 bottom-left. */
+  .pig-layer.is-tl { grid-column: 1; grid-row: 1; }
+  .pig-layer.is-tr { grid-column: 3; grid-row: 1; }
+  .pig-layer.is-br { grid-column: 3; grid-row: 2; }
+  .pig-layer.is-bl { grid-column: 1; grid-row: 2; }
+
+  .pig-layer.is-green { --pig-layer-accent: var(--pig-green); --pig-layer-tint: var(--pig-tint-green); }
+  .pig-layer.is-orange { --pig-layer-accent: var(--pig-orange); --pig-layer-tint: var(--pig-tint-orange); }
+  .pig-layer.is-sky { --pig-layer-accent: var(--pig-sky); --pig-layer-tint: var(--pig-tint-sky); }
+  .pig-layer.is-purple { --pig-layer-accent: var(--pig-purple); --pig-layer-tint: var(--pig-tint-purple); }
+
+  /* The tether spans the column gap from the card edge to the device edge. */
+  .pig-layer-tether {
+    position: absolute;
+    top: 50%;
+    width: var(--pig-tether);
+    height: 1px;
+    background: rgba(255, 255, 255, 0.3);
+    transition: background 300ms ease;
+  }
+
+  .pig-layer.is-tl .pig-layer-tether,
+  .pig-layer.is-bl .pig-layer-tether { left: 100%; }
+
+  .pig-layer.is-tr .pig-layer-tether,
+  .pig-layer.is-br .pig-layer-tether { right: 100%; }
+
+  .pig-layer-tether::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--pig-layer-accent);
+  }
+
+  .pig-layer.is-tl .pig-layer-tether::before,
+  .pig-layer.is-bl .pig-layer-tether::before { left: -3px; }
+
+  .pig-layer.is-tr .pig-layer-tether::before,
+  .pig-layer.is-br .pig-layer-tether::before { right: -3px; }
+
+  /* A trace event travelling along the tether into the device. */
+  .pig-layer-tether i {
+    position: absolute;
+    top: -1.5px;
+    width: 0.8rem;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--pig-layer-accent);
+    opacity: 0;
+    animation: pig-tether-in-right 2.4s linear infinite;
+  }
+
+  .pig-layer.is-tr .pig-layer-tether i,
+  .pig-layer.is-br .pig-layer-tether i { animation-name: pig-tether-in-left; }
+
+  .pig-layer.is-tr .pig-layer-tether i { animation-delay: 0.6s; }
+  .pig-layer.is-br .pig-layer-tether i { animation-delay: 1.2s; }
+  .pig-layer.is-bl .pig-layer-tether i { animation-delay: 1.8s; }
+
+  @keyframes pig-tether-in-right {
+    0% { left: 0; opacity: 0; }
+    20%, 80% { opacity: 0.95; }
+    100% { left: calc(100% - 0.8rem); opacity: 0; }
+  }
+
+  @keyframes pig-tether-in-left {
+    0% { right: 0; opacity: 0; }
+    20%, 80% { opacity: 0.95; }
+    100% { right: calc(100% - 0.8rem); opacity: 0; }
+  }
+
+  .pig-layer.is-active .pig-layer-tether {
+    background: rgba(255, 255, 255, 0.7);
+  }
+
+  .pig-layer-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-width: 0;
+    border: 1px solid var(--pig-line);
+    border-radius: var(--pig-r-md);
+    background:
+      linear-gradient(180deg, rgba(11, 12, 16, 0.95), rgba(4, 5, 7, 0.96)),
+      var(--pig-layer-tint);
+    box-shadow: 0 1.2rem 3rem rgba(0, 0, 0, 0.9);
+    padding: clamp(1rem, 1.5vw, 1.4rem);
+    transition: border-color 300ms ease;
+  }
+
+  .pig-layer.is-active .pig-layer-card {
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .pig-layer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .pig-layer-name {
+    margin: 0;
+    color: #fff;
+    font-size: var(--pig-fs-md);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .pig-layer-lead {
+    margin: 0;
+    color: var(--pig-zinc-100);
+    font-size: var(--pig-fs-md);
+    line-height: 1.35;
+  }
+
+  .pig-layer-body {
+    margin: 0;
+    color: var(--pig-zinc-400);
+    font-size: var(--pig-fs-sm);
+    line-height: 1.55;
+  }
+
+  .pig-layer-link {
+    margin-top: auto;
+    padding-top: 0.4rem;
+    color: var(--pig-zinc-300);
+    font-size: var(--pig-fs-xs);
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-transform: uppercase;
+    text-underline-offset: 4px;
+  }
+
+  .pig-layer-link:hover,
+  .pig-layer-link:focus-visible {
+    color: #fff;
+    text-decoration: underline;
+  }
+
+  .pig-layers-foot {
+    max-width: 44rem;
+    margin: clamp(1.5rem, 4vh, 2.5rem) auto 0;
+    color: var(--pig-zinc-500);
+    font-size: var(--pig-fs-xs);
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  @media (max-width: 960px) {
+    .pig-layers-stage {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: none;
+      row-gap: 0.9rem;
+    }
+
+    .pig-device {
+      grid-column: 1;
+      grid-row: auto;
+      order: -1;
+      width: min(100%, 18rem);
+      min-height: 13rem;
+      margin: 0 auto 0.5rem;
+    }
+
+    .pig-layer.is-tl,
+    .pig-layer.is-tr,
+    .pig-layer.is-br,
+    .pig-layer.is-bl {
+      grid-column: 1;
+      grid-row: auto;
+    }
+
+    .pig-layer-tether {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pig-device:not([data-active]) .pig-plane,
+    .pig-layer-tether i {
+      animation: none;
+    }
+  }
+</style>

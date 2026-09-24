@@ -28,6 +28,7 @@ src/
 +-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/)
 +-- components/
 |   +-- site/           # Marketing page components (Hero, DemoBooking, PricingCards, VideoEmbed, etc.)
+|   |   +-- pig/         # Agent-instructions homepage track (PigHero, PigLanding + one component per section; tokens in src/styles/pig-landing.css)
 |   +-- starlight/      # Starlight component overrides (Header, Footer, Sidebar, etc.)
 |   +-- shared/         # Cross-cutting components (AnalyticsClickTracker, AnnouncementBanner, TopHeader)
 |   +-- posthog.astro   # PostHog analytics init snippet
@@ -38,7 +39,7 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
-+-- styles/             # Global CSS (custom.css, site.css)
++-- styles/             # Global CSS (custom.css, site.css, pig-landing.css for the agent-instructions homepage track)
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
 scripts/                # Build/migration scripts

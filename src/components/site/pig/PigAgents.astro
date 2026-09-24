@@ -1,0 +1,355 @@
+---
+// "One Hub For Every Team." — an accordion of who uses the hub and how, beside a
+// status board of installed targets and enrolled hosts. Facts: supported-agents,
+// enroll-your-hosts, gitops-ownership, trust-and-data-model, the launch post.
+// `focus` names the board column that answers each audience's question.
+const rows = [
+  {
+    title: 'Coding agents',
+    focus: 'target',
+    body: 'Claude Code, Codex, Cursor, and Gemini CLI install the same hub as native plugins. Claude Code, Claude Desktop, and Codex also send session traces; Cursor and Gemini install only.',
+  },
+  {
+    title: 'Technical writers',
+    focus: 'plugins',
+    body: 'Install the docs plugin. One shared review-docs skill replaces everyone’s personal copy, and findings show where the procedure misleads an agent in practice.',
+  },
+  {
+    title: 'Platform and DevOps',
+    focus: 'hosts',
+    body: 'Deploy the analyzer with Helm or a cloud recipe on AWS, Azure, or GCP. Terraform owns the database, bucket, identity, and network; the analyzer updates itself to stable releases unless you pin one.',
+  },
+  {
+    title: 'Security and compliance',
+    focus: 'traces',
+    body: 'The trust and data model page lists exactly what reaches your model provider and what reaches Promptless. Read it, then decide which hosts to enroll.',
+  },
+  {
+    title: 'GTM and ops',
+    focus: 'plugins',
+    body: 'Sales-deck placeholders and expired-auth stalls showed up in GTM and ops sessions too. The same loop fixed both.',
+  },
+] as const;
+
+const board = [
+  { agent: 'claude', plugin: 'pig · docs · dev', release: '0.1.1', traces: 'enrolled', hosts: 14 },
+  { agent: 'codex', plugin: 'pig · dev', release: '0.1.1', traces: 'enrolled', hosts: 9 },
+  { agent: 'cursor', plugin: 'pig · docs', release: '0.1.1', traces: 'no collection', hosts: 6 },
+  { agent: 'gemini', plugin: 'pig · dev', release: '0.1.1', traces: 'no collection', hosts: 3 },
+] as const;
+---
+
+<script>
+  (() => {
+    const section = document.getElementById('pig-agents');
+    const board = section?.querySelector<HTMLElement>('[data-pig-board]');
+    const accordion = section?.querySelector<HTMLElement>('[data-pig-accordion]');
+    if (!section || !board || !accordion) return;
+    accordion.addEventListener('pig:accordion', (event) => {
+      const { trigger, open } = (event as CustomEvent<{ trigger: HTMLElement; open: boolean }>).detail;
+      if (open && trigger.dataset.boardFocus) board.dataset.focus = trigger.dataset.boardFocus;
+    });
+  })();
+</script>
+
+<section
+  id="pig-agents"
+  class="pig-section pig-agents"
+  aria-labelledby="pig-agents-title"
+  data-section-tracked="agent-differentiation"
+>
+  <div class="pig-agents-grid">
+    <div class="pig-agents-copy">
+      <div class="pig-section-head is-left" data-pig-reveal>
+        <p class="pig-eyebrow">Who it is for</p>
+        <h2 id="pig-agents-title" class="pig-h2">One Hub For Every Team.</h2>
+        <p class="pig-sub">Every team whose agents repeat the same work: platform, docs, security, GTM.</p>
+      </div>
+
+      <div class="pig-accordion" data-pig-accordion="exclusive" data-pig-reveal>
+        {rows.map((row, index) => (
+          <div class:list={['pig-accordion-item', { 'is-open': index === 0 }]} data-pig-accordion-item>
+            <button
+              type="button"
+              class="pig-accordion-trigger"
+              aria-expanded={index === 0 ? 'true' : 'false'}
+              aria-controls={`pig-agents-panel-${index}`}
+              data-pig-accordion-trigger
+              data-board-focus={row.focus}
+            >
+              <span class="pig-accordion-title">{row.title}</span>
+              <span class="pig-accordion-glyph" aria-hidden="true"></span>
+            </button>
+            <div id={`pig-agents-panel-${index}`} class="pig-accordion-panel" hidden={index !== 0}>
+              <div>
+                <p class="pig-accordion-body">{row.body}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div class="pig-agents-media" data-pig-reveal style="--pig-reveal-delay: 120ms">
+      <div class="pig-frame pig-board-frame">
+        <div class="pig-board" data-pig-board data-focus="target" role="img" aria-label="A shared hub status board: four targets, one source. Claude and Codex hosts are enrolled for trace collection; Cursor and Gemini install plugins without collection.">
+          <div class="pig-board-head">
+            <span class="pig-board-title">Shared hub</span>
+            <span class="pig-board-sub pig-mono">acme-instruction-hub 0.1.1 · example</span>
+          </div>
+          <div class="pig-board-rows pig-mono">
+            <div class="pig-board-row is-head"><span data-col="target">target</span><span data-col="plugins">plugins</span><span data-col="traces">traces</span><span data-col="hosts">hosts</span></div>
+            {board.map((row) => (
+              <div class="pig-board-row">
+                <span class="pig-board-agent" data-col="target"><img src={`/site/logos/agents/agent-${row.agent === 'gemini' ? 'gemini-cli' : row.agent}.png`} alt="" width="16" height="16" loading="lazy" />{row.agent}</span>
+                <span data-col="plugins">{row.plugin}</span>
+                <span data-col="traces" class:list={['pig-board-traces', { 'is-on': row.traces === 'enrolled' }]}><span class:list={['pig-dot', row.traces === 'enrolled' ? 'is-live' : 'is-zinc']} aria-hidden="true"></span>{row.traces}</span>
+                <span data-col="hosts">{row.hosts}</span>
+              </div>
+            ))}
+          </div>
+          <div class="pig-board-foot pig-mono">
+            <span><span class="pig-t-ok">✓</span> 32 hosts on release 0.1.1</span>
+            <span>23 enrolled · 9 install-only</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .pig-agents-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 5rem);
+  }
+
+  .pig-agents-copy .pig-section-head {
+    margin-bottom: clamp(1.5rem, 4vh, 2.5rem);
+  }
+
+  .pig-accordion {
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: #000;
+    box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.8);
+  }
+
+  .pig-accordion-item {
+    border-top: 1px solid var(--pig-line);
+    transition: background 300ms ease;
+  }
+
+  .pig-accordion-item:first-child {
+    border-top: 0;
+  }
+
+  .pig-accordion-item.is-open {
+    background: radial-gradient(ellipse at top, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, transparent 100%), #0a0b0e;
+  }
+
+  .pig-accordion-item:not(.is-open):hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .pig-accordion-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--pig-zinc-400);
+    padding: 0.95rem clamp(1rem, 1.8vw, 1.4rem);
+    text-align: left;
+    cursor: pointer;
+    transition: color 300ms ease;
+  }
+
+  .pig-accordion-trigger:hover {
+    color: var(--pig-zinc-200);
+  }
+
+  .pig-accordion-trigger:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -4px;
+  }
+
+  .pig-accordion-item.is-open .pig-accordion-trigger {
+    color: #fff;
+  }
+
+  .pig-accordion-title {
+    font-family: var(--pig-font-sans);
+    font-size: var(--pig-fs-md);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  .pig-accordion-item.is-open .pig-accordion-title {
+    font-weight: 500;
+  }
+
+  .pig-accordion-glyph::before {
+    content: '+';
+    font-family: var(--pig-font-sans);
+    font-size: var(--pig-fs-md);
+    font-weight: 300;
+  }
+
+  .pig-accordion-item.is-open .pig-accordion-glyph::before {
+    content: '−';
+  }
+
+  .pig-accordion-body {
+    max-width: 34rem;
+    margin: 0;
+    padding: 0 clamp(1rem, 1.8vw, 1.6rem) 1.15rem;
+    color: var(--pig-zinc-400);
+    font-size: var(--pig-fs-sm);
+    line-height: 1.6;
+  }
+
+  .pig-board-frame {
+    border-radius: var(--pig-r-lg);
+  }
+
+  .pig-board {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    border: 1px solid var(--pig-line-soft);
+    border-radius: var(--pig-r-md);
+    background: var(--pig-surface-terminal);
+    padding: 1.1rem 1.15rem 1rem;
+    font-size: var(--pig-fs-xs);
+  }
+
+  .pig-board-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .pig-board-title {
+    color: #fff;
+    font-family: var(--pig-font-sans);
+    font-size: var(--pig-fs-lg);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  .pig-board-sub {
+    color: var(--pig-zinc-500);
+  }
+
+  .pig-board-rows {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--pig-line-soft);
+    border-radius: var(--pig-r-sm);
+    background: var(--pig-surface-deep);
+    overflow: hidden;
+  }
+
+  .pig-board-row {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr) 7.5rem 3rem;
+    align-items: center;
+    gap: 0.6rem;
+    border-top: 1px solid var(--pig-line-soft);
+    padding: 0.55rem 0.75rem;
+    color: var(--pig-zinc-300);
+  }
+
+  .pig-board-row.is-head {
+    border-top: 0;
+    color: var(--pig-zinc-500);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .pig-board-row > span:last-child { text-align: right; }
+
+  .pig-board-agent {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #fff;
+  }
+
+  .pig-board-agent img {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: #f4f5f7;
+    padding: 1px;
+  }
+
+  .pig-board-traces {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--pig-zinc-500);
+  }
+
+  .pig-board-traces.is-on { color: var(--pig-green-soft); }
+
+  /* The column that answers the open accordion row stays bright. */
+  .pig-board [data-col] {
+    transition: color 250ms ease, opacity 250ms ease;
+  }
+
+  .pig-board[data-focus] .pig-board-row:not(.is-head) [data-col] {
+    opacity: 0.45;
+  }
+
+  .pig-board[data-focus='target'] [data-col='target'],
+  .pig-board[data-focus='plugins'] [data-col='plugins'],
+  .pig-board[data-focus='traces'] [data-col='traces'],
+  .pig-board[data-focus='hosts'] [data-col='hosts'] {
+    opacity: 1 !important;
+    color: #fff;
+  }
+
+  .pig-board[data-focus='target'] .is-head [data-col='target'],
+  .pig-board[data-focus='plugins'] .is-head [data-col='plugins'],
+  .pig-board[data-focus='traces'] .is-head [data-col='traces'],
+  .pig-board[data-focus='hosts'] .is-head [data-col='hosts'] {
+    color: var(--pig-zinc-200);
+  }
+
+  .pig-board-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    color: var(--pig-zinc-400);
+  }
+
+  .pig-board-foot .pig-t-ok { margin-right: 0.35rem; }
+
+
+  @media (max-width: 960px) {
+    .pig-agents-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pig-board-row {
+      grid-template-columns: 4.5rem minmax(0, 1fr) 6.5rem 2.5rem;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .pig-board-row {
+      grid-template-columns: 4rem minmax(0, 1fr) 2.5rem;
+    }
+
+    .pig-board-row > span:nth-child(3) {
+      display: none;
+    }
+  }
+</style>

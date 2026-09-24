@@ -1,0 +1,153 @@
+---
+// Shared, dependency-free behaviors for the agent-instructions homepage track.
+// Rendered once by PigLanding.astro. Everything here is progressive
+// enhancement: the markup reads correctly without it.
+//
+//   [data-pig-reveal]          fade/translate in when scrolled into view
+//                              (respects prefers-reduced-motion; the CSS in
+//                              pig-landing.css shows content immediately when
+//                              the observer never runs).
+//   [data-pig-copy="<text>"]   copy <text> to the clipboard and flash a label.
+//   [data-pig-accordion]       container; each [data-pig-accordion-trigger]
+//                              toggles the [data-pig-accordion-panel] that
+//                              follows it (one open at a time, aria-expanded).
+//   [data-pig-tabs]            container; [data-pig-tab] buttons swap
+//                              [data-pig-tabpanel] siblings by index.
+---
+
+<script>
+  (() => {
+    const root = document.documentElement;
+    root.classList.remove('no-js');
+
+    // --- Reveal on scroll -------------------------------------------------
+    const revealTargets = Array.from(document.querySelectorAll<HTMLElement>('[data-pig-reveal]'));
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (revealTargets.length) {
+      if (reduceMotion || !('IntersectionObserver' in window)) {
+        revealTargets.forEach((el) => el.classList.add('is-visible'));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            }
+          },
+          { rootMargin: '0px 0px 20% 0px', threshold: 0 }
+        );
+        revealTargets.forEach((el) => observer.observe(el));
+        // Failsafe: nothing meant to be read may stay hidden behind an observer.
+        window.setTimeout(() => revealTargets.forEach((el) => el.classList.add('is-visible')), 1800);
+      }
+    }
+
+    // --- Copy buttons -------------------------------------------------------
+    document.querySelectorAll<HTMLButtonElement>('[data-pig-copy]').forEach((button) => {
+      const text = button.dataset.pigCopy || '';
+      const label = button.querySelector<HTMLElement>('[data-pig-copy-label]');
+      const idle = label?.textContent ?? '';
+      let timer: number | undefined;
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          if (label) label.textContent = 'Copied';
+          button.dataset.copied = 'true';
+        } catch {
+          if (label) label.textContent = 'Select to copy';
+        }
+        (window as any).posthog?.capture('cta_clicked', {
+          action: 'copy_command',
+          funnel_stage: 'education',
+          location: button.dataset.trackLocation || 'pig_landing',
+          campaign: 'agent_instructions',
+          link_url: '',
+        });
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          if (label) label.textContent = idle;
+          delete button.dataset.copied;
+        }, 1800);
+      });
+    });
+
+    // --- Accordions ---------------------------------------------------------
+    document.querySelectorAll<HTMLElement>('[data-pig-accordion]').forEach((accordion) => {
+      const triggers = Array.from(accordion.querySelectorAll<HTMLButtonElement>('[data-pig-accordion-trigger]'));
+      const panelFor = (trigger: HTMLButtonElement) => {
+        const id = trigger.getAttribute('aria-controls');
+        return id ? document.getElementById(id) : null;
+      };
+      const setOpen = (trigger: HTMLButtonElement, open: boolean) => {
+        trigger.setAttribute('aria-expanded', String(open));
+        trigger.closest('[data-pig-accordion-item]')?.classList.toggle('is-open', open);
+        const panel = panelFor(trigger);
+        if (panel) {
+          panel.classList.toggle('is-open', open);
+          if (open) panel.removeAttribute('hidden');
+          else if (!panel.classList.contains('is-open')) panel.setAttribute('hidden', '');
+        }
+        accordion.dispatchEvent(new CustomEvent('pig:accordion', { detail: { trigger, open } }));
+      };
+      // The panels start hidden for no-JS readers; once enhanced, the first
+      // (or the pre-marked) item opens and the rest animate via .pig-collapse.
+      triggers.forEach((trigger) => {
+        const panel = panelFor(trigger);
+        if (panel) {
+          panel.removeAttribute('hidden');
+          panel.classList.add('pig-collapse');
+        }
+        setOpen(trigger, trigger.getAttribute('aria-expanded') === 'true');
+        trigger.addEventListener('click', () => {
+          const willOpen = trigger.getAttribute('aria-expanded') !== 'true';
+          if (accordion.dataset.pigAccordion === 'exclusive') {
+            triggers.forEach((other) => other !== trigger && setOpen(other, false));
+          }
+          setOpen(trigger, willOpen || accordion.dataset.pigAccordion === 'exclusive');
+        });
+      });
+    });
+
+    // --- Tabs ---------------------------------------------------------------
+    document.querySelectorAll<HTMLElement>('[data-pig-tabs]').forEach((tabs) => {
+      const buttons = Array.from(tabs.querySelectorAll<HTMLButtonElement>('[data-pig-tab]'));
+      const panels = Array.from(tabs.querySelectorAll<HTMLElement>('[data-pig-tabpanel]'));
+      const activate = (index: number) => {
+        buttons.forEach((button, i) => {
+          const active = i === index;
+          button.classList.toggle('is-active', active);
+          button.setAttribute('aria-selected', String(active));
+          button.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach((panel, i) => {
+          const active = i === index;
+          panel.classList.toggle('is-active', active);
+          if (active) panel.removeAttribute('hidden');
+          else panel.setAttribute('hidden', '');
+        });
+        tabs.dataset.pigActive = String(index);
+        // Optional companions (e.g. the step cards beside a terminal) follow the tab.
+        tabs.querySelectorAll<HTMLElement>('[data-pig-tabcard]').forEach((card, i) => {
+          card.classList.toggle('is-active', i === index);
+        });
+      };
+      buttons.forEach((button, index) => {
+        button.addEventListener('click', () => activate(index));
+        button.addEventListener('keydown', (event) => {
+          let next = -1;
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % buttons.length;
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length;
+          if (event.key === 'Home') next = 0;
+          if (event.key === 'End') next = buttons.length - 1;
+          if (next < 0) return;
+          event.preventDefault();
+          activate(next);
+          buttons[next].focus();
+        });
+      });
+      const initial = buttons.findIndex((b) => b.getAttribute('aria-selected') === 'true');
+      activate(initial < 0 ? 0 : initial);
+    });
+  })();
+</script>
