@@ -1,6 +1,6 @@
 ---
 title: Trust and data model
-description: The exact data that crosses each boundary (host to worker, worker to hosted Promptless, worker to your model provider), and how host credentials are issued and verified.
+description: Understand where PIG stores traces, what Promptless and your model provider receive, and which credentials connect each component.
 slug: docs/governance/start-here/trust-and-data-model
 type: reference
 tags:
@@ -8,62 +8,81 @@ tags:
   - governance
   - security
   - reference
-timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
   order: 3
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+PIG stores raw traces and canonical trace objects in your infrastructure. Analysis sends session-derived input to the model provider you configure. Promptless receives trace status and findings, whose text can describe details from a session.
 
-Promptless for Agent Instructions is built for data minimization. Trace content (prompts, tool activity, reasoning, and everything else in a session) flows from each host to the worker. You run that worker in your own infrastructure. When the worker analyzes a session, it sends trace-derived analysis input to the model provider you configure. The [hosted Promptless Runtime](/docs/governance/start-here/key-concepts#hosted-promptless-runtime) receives a limited metadata projection and never the content itself. This page states exactly what crosses each boundary.
+Use this page to decide which hosts to enroll, where to run analysis, and who should have access to the resulting data. The [architecture overview](/docs/governance/start-here/how-it-works) shows how the components connect.
 
-| Data                                | Where it lives                                          | What it contains                                                                  |
-| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Native session traces               | Your worker, your S3 bucket, and your Postgres database | Verbatim transcript content: prompts, tool calls and outputs, reasoning summaries |
-| Source ledger and cached credential | The host, owner-only                                    | Byte offsets already read, and the per-host credential                            |
-| Metadata projection                 | Hosted Promptless                                       | Identifiers, counts, and lifecycle, ingestion, and analysis status only           |
+## Where data goes
 
-## What the host sends the worker
+| Data                                                     | Destination                                             | Purpose                                                    |
+| -------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| Instruction assets and plugin definitions                | Your Git repository and CI                              | Review and publish shared instructions                     |
+| Compiled plugins                                         | Installed agent hosts                                   | Make instructions available during agent work              |
+| Native transcript records                                | Your analyzer and trace bucket                          | Preserve the source evidence for analysis                  |
+| Canonical traces and optional context snapshots          | Your customer-owned storage                             | Reconstruct sessions and the context available to an agent |
+| Host attribution, ingestion progress, and analysis state | Your PostgreSQL database                                | Track uploads and coordinate processing                    |
+| Session and instruction context                          | Your configured model provider                          | Analyze behavior and prepare proposed improvements         |
+| Trace identity, counts, and processing status            | Promptless                                              | Show collection and analysis progress                      |
+| Findings, evidence summaries, and remediation state      | Promptless and connected GitHub issues or pull requests | Explain problems and review proposed changes               |
+| Configured operational telemetry                         | Your selected observability systems                     | Diagnose deployment and analysis failures                  |
 
-The host runtime uploads to the worker you control:
+A native transcript can contain prompts, tool arguments and outputs, file excerpts, and other content the agent records. Treat it according to the sensitivity of the work your agents perform. This collection path preserves native records; do not assume it removes secrets from transcripts before upload.
 
-- **Verbatim native trace bytes**: new byte ranges of each native session ledger, gzip-compressed and base64-encoded, with a SHA-256 digest the worker verifies. This is the transcript content the agent CLI wrote locally.
-- **Batch metadata**: a batch identifier, the source and host, session identity when present, and plugin, policy, and collector versions.
-- **Analysis-context snapshots**: optional immutable snapshots of instruction availability and the installed Instruction Hub release identity.
-- **Check-in reports**: a configuration hash and booleans, and redacted drift reports.
-- **Enrollment metadata**, sent once at enrollment: a host instance identifier, a host label built from the local username and hostname, and the host platform.
+## From hosts to your analyzer
 
-## What stays local on the host
+After you enable managed trace ingestion and enroll a host, its collector sends new complete records from supported session logs to your analyzer. Uploads use HTTPS and include source identity, offsets, checksums, and collector information so the analyzer can authenticate and reconcile them.
 
-Two things never leave the host, and both are stored with owner-only permissions:
+Optional analysis-context snapshots describe what instructions, tools, or artifacts were available and which hub release was installed. The worker stores these alongside the session context in customer-owned storage.
 
-- **The source ledger**, which records the byte offsets already read from each native ledger so only new ranges upload.
-- **The cached per-host credential** minted at enrollment.
+The collector keeps a local upload ledger that records acknowledged ranges. If an upload fails, it can retry those ranges on a later collection pass. A newly discovered source can upload its existing session history from the beginning; subsequent collection resumes from the acknowledged position. Do not delete local transcripts while relying on them to recover uploads that have not reached the analyzer.
 
-The source ledger only starts recording once a host enrolls. History from before enrollment never uploads, because the first collection pass records those byte offsets as already read rather than sending them.
+Collection only happens for enabled, supported host sources. Merely creating a hub does not enable it: `trace_ingestion.enabled` defaults to `false`. Disabling the setting and refreshing installed plugins removes the managed hooks from those new installations. Previously ingested data and your deployed analyzer remain unchanged.
 
-## What the worker sends hosted Promptless
+## From the analyzer to Promptless
 
-The worker sends hosted Promptless only a limited metadata projection of each trace. That projection carries worker and session identifiers, lineage identifiers, and the host instance identifier and label. It also carries lifecycle, ingestion, and analysis status, timestamps, and event and turn counts. The projection deliberately excludes all trace content: prompts, tool activity, working directories, git metadata, models, and source fingerprints.
+The analyzer sends a limited **trace-status projection**: identifiers, host attribution, timestamps, lifecycle and processing status, and event and turn counts. This projection excludes raw and canonical transcript content, prompts, tool activity, working directories, Git metadata, models, and source fingerprints.
 
-Findings authored locally by the Friction Analyzer are also written to hosted Promptless, with provenance recorded server-side. A finding's text (its summary, impact, `instruction_failure`, notes, and each evidence occurrence summary) is model-authored prose describing what happened in the session. It can reference session detail even though it is not the verbatim trace content the projection excludes.
+**Findings are a separate flow.** Their summaries, impact descriptions, explanations, and evidence occurrences are written to Promptless. These are model-authored descriptions and can refer to session content. Connected GitHub issues and remediation pull requests also make that information available to people who can access the repository.
 
-## What the worker sends your model provider
+## From the analyzer to your model provider
 
-To produce findings, the Friction Analyzer sends trace-derived analysis input to the external model provider you configure. That input is the session digest and trace it builds from the raw session. You control which provider and endpoint receive it through `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER` (`openai`, `azure_openai`, or `aws_bedrock`), `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`, and `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY`. This is analysis input drawn from the session and sent to whichever provider endpoint you point the worker at. It is distinct from the limited metadata the worker sends hosted Promptless. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference).
+The analyzer sends session-derived input and relevant instruction context to the configured model endpoint. You choose the provider, endpoint, model, and authentication in the deployment configuration.
 
-## Credential model
+Current providers are OpenAI, Azure OpenAI, and AWS Bedrock. Available authentication depends on the provider; Bedrock can use AWS identity, while API-key configurations require the corresponding key. Hosting the analyzer on Azure or GCP does not automatically select a model provider.
 
-Four credentials separate the boundaries:
+Review the provider's data-handling terms and your organization's model-access policy for the workloads you will collect. See [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference) for the available settings.
 
-- **`plih_` install token**: authenticates your worker deployment to hosted Promptless. Set it as `INSTRUCTION_HUB_INSTALL_TOKEN`.
-- **`plihost_` per-host credential**: a host uses this to talk to your worker.
-- **`plihenroll_` codes**: opaque browser-approval and polling codes used during enrollment.
-- **Repository-scoped GitHub token**: held only by the isolated remediation agent to open a pull request against your Instruction Hub. It is scoped to that one repository and the worker uses it for nothing else.
+## Credentials and access
 
-Hosted Promptless stores only the SHA-256 hash of each `plih` credential and returns the plaintext exactly once, to the approved poller. Your worker holds no shared plugin secret. It verifies every incoming host credential through hosted introspection, keyed on the deployment instance identifier, the credential hash, and the target. Introspection is target-scoped, so a credential minted for one host family or deployment cannot authenticate as another. Hosted Promptless projects findings to GitHub issues on its own side, so the worker's ingestion and analysis paths never handle GitHub credentials. The repository-scoped token above is the only GitHub credential in the loop.
+| Credential or identity             | Used by                                        | Grants access to                                        |
+| ---------------------------------- | ---------------------------------------------- | ------------------------------------------------------- |
+| Deployment install token, `plih_…` | Your analyzer                                  | Promptless for the configured deployment                |
+| Per-host credential, `plihost_…`   | An enrolled host                               | Your analyzer's authenticated host endpoints            |
+| PostgreSQL credentials             | Analyzer and migration job                     | The customer database and required schema operations    |
+| Cloud workload identity            | Analyzer                                       | The configured trace bucket and authorized model access |
+| Model API key                      | Analyzer, for API-key authentication           | The configured model endpoint                           |
+| Analysis repository token          | Analyzer, when needed for a private repository | Read access to the configured GitHub hub                |
+| Remediation repository token       | An isolated remediation task                   | Repository-scoped operations to prepare its change      |
 
-## Known limitation
+An organization member approves enrollment in Promptless. The host caches its own credential locally and sends it to your analyzer for authenticated requests. The analyzer validates the credential through Promptless using its hash, deployment identity, and host target. A credential for one host family or deployment cannot be substituted for another.
 
-A host's policy is the configuration that governs what that enrolled host collects and uploads. In the current runtime, the signed policy a host fetches is shape-checked and expiry-checked rather than cryptographically verified; transport security relies on HTTPS. Asymmetric signature verification is a known gap noted in the code and not yet shipped.
+The deployment token belongs in your cluster's secret-management system, not in distributed plugins. Host credentials are individual credentials rather than one shared secret distributed to the whole team.
+
+Repository credentials have distinct roles. The analyzer's configured read token allows it to retrieve private hub source. Promptless uses the connected GitHub integration for issues and supplies a repository-scoped token for an isolated remediation task. Neither token is part of an uploaded trace or a published plugin.
+
+## Your operational responsibilities
+
+Choose database and bucket access, encryption, retention, backup, and restore settings according to your requirements. Configure HTTPS for host-to-analyzer traffic and use the intended network access path, such as your organization's VPN. Limit repository and observability access to the people who need the information they contain.
+
+Treat logs as another data surface. The worker emits structured diagnostics, and trace-related labels or analysis details may appear there. Apply your normal log access and retention controls when enabling an observability integration.
+
+Automatic updates maintain PIG application releases and schema migrations within the installed permissions. Your team owns cloud infrastructure, including database sizing, storage, IAM, and backups, through Terraform. See the [installation guide](/docs/governance/deploy-the-worker/gitops-ownership) for the permission and ownership model.
+
+## Next steps
+
+Review [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment) with your platform team, then deploy the analyzer [with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) or a cloud recipe. Next, [enroll a pilot host](/docs/governance/get-started/enroll-your-hosts) and verify its collection path before expanding to more users.

@@ -1,58 +1,88 @@
 ---
 title: Trace object and sources
-description: The three native session sources the host runtime reads and the canonical trace object the worker builds for each session.
+description: Native trace discovery, reliable uploads, and the session records your analyzer stores for investigation and analysis.
 slug: docs/governance/reference/trace-object-and-sources
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
   order: 2
 ---
 
-The host runtime reads native session ledgers written locally by each agent CLI and reconstructs one canonical object per session in your worker. This page describes the sources it reads and the object it produces.
+PIG reads native session files on an enrolled host and sends their contents to your analyzer. The analyzer stores the raw records and builds a canonical trace, a common representation of one agent session. This lets analysis work across different native formats while retaining the original evidence.
 
-## Ingest sources
+## Native sources
 
-There are exactly three ingest sources, each discovered with a capture glob:
+The collector supports three source families. Startup and terminal hooks can supply a transcript path directly. Background catch-up also discovers files in the following locations:
 
-| Source         | Host value       | Capture glob                         |
-| -------------- | ---------------- | ------------------------------------ |
-| Claude Code    | `claude`         | `~/.claude/projects/**/*.jsonl`      |
-| Codex          | `codex`          | `${CODEX_HOME:-~/.codex}/**/*.jsonl` |
-| Claude Desktop | `claude-desktop` | `**/audit.jsonl`                     |
+| Source         | Host value       | Default discovery locations                                                                             |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| Claude Code    | `claude`         | `~/.claude/projects/**/*.jsonl`                                                                         |
+| Codex          | `codex`          | `sessions/**/*.jsonl` and `archived_sessions/**/*.jsonl` beneath `CODEX_HOME`, or `~/.codex` when unset |
+| Claude Desktop | `claude-desktop` | `**/audit.jsonl` beneath the two supported session directories in Claude's application data             |
 
-A local source ledger records the byte offset already read from each file. On each collection pass, the runtime reads only the new byte ranges past that watermark and chunks them. It gzip-compresses and base64-encodes each chunk, then uploads them with `POST /v0/traces/batches?target=<host>`. Byte ranges are contiguous and non-overlapping per source, and uploads are forward-only.
+For Claude Desktop, the supported session directories are `local-agent-mode-sessions` and `claude-code-sessions`. Their parent application directory depends on the operating system:
 
-For how a host starts sending these traces, see [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+| Platform | Claude application directory                                                       |
+| -------- | ---------------------------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/Claude/`                                            |
+| Windows  | `%APPDATA%/Claude/`, or `~/AppData/Roaming/Claude/` when `APPDATA` is unset        |
+| Linux    | `$XDG_CONFIG_HOME/Claude/`, or `~/.config/Claude/` when `XDG_CONFIG_HOME` is unset |
 
-## The canonical trace object
+These are discovery paths implemented by the collector. They do not mean every agent application is available on every platform or writes every listed format. Claude Desktop collection depends on the audit files being present and readable.
 
-The worker stores one self-contained JSON document per session, at schema version 1. Its top-level fields are:
+Claude Code's generated hooks also attempt local Claude Desktop collection. Codex uses its own generated hooks. Cursor and Gemini currently distribute instructions without native trace collection. See [Supported agents](/docs/governance/reference/supported-agents) for the distinction.
 
-| Field               | Description                                                                                                                                                                                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `session`           | Session identity: source, session id, `harness`, models, and more.                                                                                                                                                                                                             |
-| `lifecycle`         | Status and timestamps, keeping native event time separate from ingestion time.                                                                                                                                                                                                 |
-| `sources`           | Per native file: offsets, byte and record counts, and skip counts.                                                                                                                                                                                                             |
-| `rollups`           | Session-level rollups such as token usage.                                                                                                                                                                                                                                     |
-| `context_artifacts` | Trace-derived observations of governable artifacts the session used, such as Skill invocations and CLAUDE.md/AGENTS.md references. Distinct from the separate analysis-context snapshot described in [Trust and data model](/docs/governance/start-here/trust-and-data-model). |
-| `preamble`          | Events before the first turn.                                                                                                                                                                                                                                                  |
-| `pending`           | Events not yet attached to a turn.                                                                                                                                                                                                                                             |
-| `turns`             | The session's turns, the only containment grouping.                                                                                                                                                                                                                            |
+## Upload progress and retries
 
-Each event is a discriminated union with a global, monotonic `seq` that is never renumbered. The event kinds are:
+The local ledger at `~/.promptless/instruction-hub/host-runtime-ledger.json` records progress for each source. The collector reads new ranges, compresses their contents with gzip, and base64-encodes them for transport. It sends authenticated batches to the analyzer's `POST /v0/traces/batches?target=<host>` endpoint, where `<host>` is a value from the table above.
 
-- `user_message`: a user prompt, which opens a turn.
-- `assistant_message`: assistant output.
-- `reasoning`: a reasoning summary.
-- `tool_call`: a tool invocation with its input.
-- `tool_result`: a tool's output or error.
-- `compaction`: a compaction summary.
-- `session_event`: session machinery.
-- `other`: an unmodeled record, which never rejects a batch.
+The worker validates the source and target, stores the native data, and returns acknowledged ranges. Only a matching acknowledgment advances the host's recorded progress. A retry can therefore resend a range whose response was lost. If the worker already accepted part of that range, the runtime checks the worker's content proof before reconciling its offset.
 
-For which sources map to which agents, see [Supported agents](/docs/governance/reference/supported-agents). For what leaves the host, see [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+Do not edit the ledger to force an upload or treat an HTTP success alone as evidence of completed analysis. Preserve native files while an outage is being resolved. File truncation, replaced content, malformed records, and oversized records require accounting beyond simply advancing a byte counter.
+
+When a file is first discovered, collection can begin at its start. Existing history can therefore be uploaded after first enrollment. Catch-up skips very recent files while they are inside the collector's idle grace period; a hook's explicit transcript path receives priority.
+
+## Stored trace records
+
+The analyzer stores raw native artifacts in your trace bucket and maintains canonical session objects alongside them. PostgreSQL holds the associated metadata, ingestion progress, and analysis state.
+
+A canonical object uses `schema_version: 1` and contains these top-level fields:
+
+| Field               | Meaning                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`    | The canonical object format version                                                                                          |
+| `session`           | Source and session identity, agent type, observed models, and optional repository or parent-agent context                    |
+| `lifecycle`         | Session state and timestamps, with native event time separate from ingestion time                                            |
+| `sources`           | Source file identities, raw artifact references, observed offsets, ingestion counts, and skipped or truncated content counts |
+| `rollups`           | Observed token usage, tool counts, compactions, and record accounting                                                        |
+| `context_artifacts` | Trace observations of instructions used, such as skill invocations or instruction-file references                            |
+| `preamble`          | Events before the first turn                                                                                                 |
+| `pending`           | Events not yet attached to a turn                                                                                            |
+| `turns`             | Ordered turns containing the session's events                                                                                |
+
+`context_artifacts` records what the trace reveals. It is separate from the instruction and repository snapshot prepared for analysis, described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+Events have a `kind`, a global sequence number `seq`, and source evidence where available. The kinds are:
+
+| Kind                | Content                                                      |
+| ------------------- | ------------------------------------------------------------ |
+| `user_message`      | User input that opens a turn                                 |
+| `assistant_message` | Assistant output, with its observed audience where available |
+| `reasoning`         | Reasoning content exposed by the native trace                |
+| `tool_call`         | A tool invocation and its input                              |
+| `tool_result`       | A tool's output or error                                     |
+| `compaction`        | A compaction summary                                         |
+| `session_event`     | Session lifecycle or other agent machinery                   |
+| `other`             | A record not represented by a more specific event kind       |
+
+Sequence numbers are contiguous in document order. Native events carry a `src` reference identifying their source entry, record, and byte offset. When the canonical view truncates a payload inline, the original uploaded bytes remain in the referenced raw artifact. Unknown event kinds and malformed records are different cases; parse coverage records what could not be decoded or modeled.
+
+## Use the records to investigate
+
+For an Acme pilot session, first check that the expected source and session ID appear in the analyzer. Then confirm the raw artifacts are stored, review ingestion or parse gaps, and check the analysis run's status. A stored trace can still be waiting for the quiet period, repository resolution, or model access.
+
+Use [observability](/docs/governance/deploy-the-worker/observability) to investigate those stages. If the session never reaches the analyzer, start with the host's [enrollment and collection checks](/docs/governance/get-started/enroll-your-hosts#troubleshooting).
