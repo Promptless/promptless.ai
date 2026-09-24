@@ -1,0 +1,70 @@
+---
+title: GitOps ownership
+description: Keep Terraform, GitOps, and PIG from reconciling the same resources after the one-time bootstrap.
+slug: docs/governance/deploy-the-worker/gitops-ownership
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+Terraform prepares cloud infrastructure. Helm bootstraps PIG once. After bootstrap, PIG owns its application releases, including supervisor updates. GitOps can continue to own your desired deployment configuration and secret delivery.
+
+## Resource ownership
+
+| Owner                         | Resources                                                                                                                                            |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Terraform                     | Cloud databases, storage, workload identity trust and grants, networking, backup and retention settings.                                             |
+| Your Kubernetes configuration | Namespaces, analyzer ServiceAccount and identity annotations, `PIGDeployment.spec`, external secret delivery, and certificates.                      |
+| PIG                           | Generated analyzer workloads, migration Jobs, supervisor application resources, and the PIG custom resource definition within installed permissions. |
+
+The supervisor cannot widen its own permission grants. A release requiring new bootstrap permissions blocks until an administrator reviews and installs those grants. Cloud management permissions remain with Terraform.
+
+Do not put the bootstrap in a Terraform `helm_release` resource, or reconcile PIG-generated workloads through another controller. PIG's release policy is the single owner of their versions. Keep the bootstrap chart and values for recovery, without periodically reapplying them.
+
+## Direct Helm bootstrap
+
+Run the [Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) once. Helm itself does not continuously reconcile resources. After creating `PIGDeployment`, use its `release` fields for application updates, pauses, and pins.
+
+Do not run a later `helm upgrade` over the self-updated supervisor unless following the release's recovery procedure.
+
+## Bootstrap with Flux
+
+If Flux installs the bootstrap, hand ownership to PIG before enabling application updates.
+
+1. Create an `OCIRepository` for `oci://ghcr.io/promptless/charts/pig-supervisor`, pinned to the chart digest from your selected release. Create a `HelmRelease` in `pig-system`, with `watchNamespace: pig` in its values. Use the same reviewed chart and values as the direct Helm guide.
+
+2. Keep `PIGDeployment` out of the reconciled path while Flux installs the chart. The supervisor waits for this resource before starting release transitions.
+
+3. Wait for the bootstrap HelmRelease to become ready:
+
+   ```bash
+   kubectl wait helmrelease/pig-supervisor --namespace pig-system \
+     --for=condition=ready --timeout=10m
+   ```
+
+4. Commit `spec.suspend: true` on that **HelmRelease** in Git. Let Flux apply the change, then verify it:
+
+   ```bash
+   kubectl get helmrelease pig-supervisor --namespace pig-system \
+     -o jsonpath='{.spec.suspend}{"\n"}'
+   ```
+
+5. Once the value is `true`, add your `PIGDeployment` to the GitOps path that owns desired configuration. Keep its secret delivery and analyzer ServiceAccount in that path too.
+
+Suspending only the OCIRepository does not suspend the installed release. See Flux's [HelmRelease suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend).
+
+Keep the bootstrap HelmRelease suspended and present in Git. Deleting it can trigger Helm uninstall; resuming it can restore an older chart over PIG's self-updates. Do not separately reconcile the chart's rendered resources through a Kustomization.
+
+## Other GitOps controllers
+
+Use a direct Helm bootstrap outside the controller's managed application set. Let the controller manage only customer-owned configuration from the table above. Turning off automatic sync alone is not a durable ownership boundary if manual sync or pruning can still touch PIG's generated resources.
+
+If your policy requires continuous Helm reconciliation, choose [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) and make your platform workflow responsible for every release.
+
+## Changes and recovery
+
+Commit pause or pin changes to the GitOps source of `PIGDeployment.spec.release`. A live patch can be reverted by your controller if Git still declares another value.
+
+For cluster recovery, restore the same deployment identity and customer-owned configuration. Repeat the bootstrap handoff before creating the restored `PIGDeployment`. Follow [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) to reconnect retained storage safely.

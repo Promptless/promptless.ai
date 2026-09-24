@@ -1,0 +1,46 @@
+---
+title: Compute and sizing
+description: Size the trace analyzer from representative sessions, database load, object growth, and model throughput.
+slug: docs/governance/deploy-the-worker/compute-and-sizing
+type: reference
+tags:
+  - agent-instructions
+  - governance
+  - deployment
+---
+
+The trace analyzer needs compute for receiving uploads, preparing traces, and running analysis. PostgreSQL stores ingestion and analysis state; the trace bucket stores session objects. Repository mirrors are disposable local storage.
+
+## Start with a measured pilot
+
+There is no single capacity target for a number of developers. Session size, agent activity, analysis duration, and model rate limits determine the load. Start with one analyzer replica, then measure representative sessions before increasing concurrency or replicas.
+
+As an initial allocation, the manual Helm example requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. These values are a pilot starting point, not a throughput guarantee. The automatic installation uses its release's workload defaults; review the generated pod requests and limits before admitting production traffic.
+
+```bash
+kubectl get deployment acme-analyzer --namespace pig \
+  -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
+kubectl top pods --namespace pig
+```
+
+`kubectl top` requires your cluster's metrics service. Use your existing monitoring system for measurements over time.
+
+## Measure each constraint
+
+| Constraint          | Measure                                                          | Adjust                                                                         |
+| ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Analyzer compute    | CPU saturation, memory peaks, restarts, processing time.         | Kubernetes capacity and the supported workload configuration for your release. |
+| Analysis throughput | Eligible sessions waiting, time to completion, model throttling. | Model quota and analysis capacity together.                                    |
+| PostgreSQL          | Connections, query latency, storage growth, disk throughput.     | Database size and capacity through Terraform.                                  |
+| Trace bucket        | Uploaded bytes, object counts, request rates, retrieval errors.  | Storage policy and network capacity; keep required objects available.          |
+| Repository mirror   | Checkout size, temporary disk usage, refresh failures.           | Node ephemeral storage and repository access.                                  |
+
+A backlog caused by model throttling does not improve by adding pods. Account for database connection growth and model quotas before scaling analysis.
+
+## Availability and upgrades
+
+Use managed database availability and backups appropriate to your recovery objectives. Budget cluster capacity for migration Jobs and rolling releases in addition to steady-state pods. Distribute workloads according to the release's supported scheduling settings.
+
+PIG reports infrastructure requirements that block an update. Apply the required cloud change through Terraform and let PIG retry its live checks. For capacity PIG cannot inspect, such as managed database disk headroom, [confirm the target release's requirements](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-capacity-that-pig-cannot-inspect) using current provider metrics. PIG does not mirror Terraform capacity. Avoid editing generated Deployments: the supervisor reconciles those resources.
+
+Validate any capacity change with the same [complete-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) used at installation.
