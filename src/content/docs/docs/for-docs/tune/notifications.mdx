@@ -83,8 +83,7 @@ The preferences file lets you override:
 
 - **When to notify**: Control which events trigger notifications and when to skip them
 - **Delivery channels**: Set preferences for Slack vs. GitHub notifications
-- **Message format**: Define the fields, order, and links your notifications carry. This replaces Promptless's default message format rather than adding to it. A stated format is exhaustive, and Promptless adds nothing it doesn't list
-- **Ticket link patterns**: State the URL pattern for each ticket key prefix your team uses, like `INC-`. A key that Promptless can't already resolve from the triggering work or the suggestion record then renders as a link to its tracker
+- **Message format**: Define the fields, order, and links your suggestion notifications carry. This replaces Promptless's default message format rather than adding to it. A stated format is exhaustive, and Promptless adds nothing it doesn't list
 
 ### Example customizations
 
@@ -124,29 +123,23 @@ Assigned: <assignee>
 cc: <mentions>
 ```
 
-**Link ticket keys to their tracker:**
+Stating a full format like this replaces the default message format. Promptless posts exactly the fields and links you list, in the order you list them, and adds nothing else. The example above lists no Knowledge Base link, so its notifications carry none. A stated format applies to suggestion notifications only. Escalations keep their own format, and a blocker always ends with what Promptless needs from you and what happens next. A mention rule you state applies to every message Promptless sends.
 
-```markdown
-## Ticket Link Patterns
-INC- keys resolve to https://example.atlassian.net/browse/<KEY>
-```
-
-Promptless links a ticket, issue, or merge-request key that your notification names, such as `INC-879`, whenever it can resolve that key's target. It resolves the target from this stated pattern, from the trigger that started the work, or from the suggestion record. You don't need the exact `## Ticket Link Patterns` heading. State the pattern anywhere in the file, like every other override in this scaffold, and Promptless picks it up. A key with no known target stays plain text, since Promptless never guesses which tracker or project a prefix belongs to. This linking is markup on text the message already carries, so it applies even when you've stated your own message format above.
-
-Stating a full format like this replaces the default message format. Promptless posts exactly the fields and links you list, in the order you list them, and adds nothing else. The example above lists no Knowledge Base link, so its notifications carry none.
-
-When no format is stated, Promptless sends a fixed block of labeled lines:
+When no format is stated, Promptless sends one or two sentences on what changed and why, followed by labeled link lines:
 
 ```
-What changed: <the change and the pages it touches>
-Why: <what triggered it>
+<what changed and why it changed>
+
+Triggered by: <link to the pull request, merge request, or ticket that started the work>
 Review: <dashboard suggestion URL>
 Docs PR: <docs pull request or merge request URL>
 Recorded: <Knowledge Base file URL>
-Open question: <a decision only the customer can make>
+Open question: <a decision only you can make>
 ```
 
-`Recorded:` repeats once per changed Knowledge Base file, and `Open question:` appears at most once, only when a decision rests with you alone. Promptless drops any line whose value doesn't exist for a given notification rather than leaving it empty. A requested mention still appears where one applies. This default block applies when the preferences file is absent or still holds only its scaffolded placeholder text. If the file exists but can't be read, Promptless holds the notification rather than sending one in this default block.
+`Recorded:` repeats once per changed Knowledge Base file, and `Open question:` appears at most once, only when a decision rests with you alone. Promptless drops any line whose value doesn't exist for a given notification rather than leaving it empty. A requested mention still appears where one applies. This default format applies when the preferences file is absent or still holds only its scaffolded placeholder text. If the file exists but can't be read, Promptless holds the notification rather than sending one in the default format.
+
+A message can name a ticket, issue, or merge-request key, such as `INC-879`. When Promptless knows that key's target, it renders the key as a link. The ticket that started the work is one such target. Any other key stays plain text. This linking adds no field, so it also applies when you've stated your own format.
 
 ## Slack notification features
 
@@ -217,7 +210,10 @@ List one or more addresses under `escalation.email`. Email is escalation-only. S
 
 Blockers flagged here include a test or staging account that can't reach a needed screen, or an unreachable or unconfigured integration. They also include an expired or rejected credential, a missing permission, or a configuration mismatch.
 
-Every escalation opens with a bold banner line, so you can tell its kind at a glance before reading further. A blocker's banner reads **Blocked** and names the one thing needed from you. An informational pointer, something worth a look that needs no action from you, carries a **Heads up** banner instead. A blocker names the resource, quotes what Promptless saw, notes the workaround it applied, and ends with the one action that clears the blocker.
+Every escalation opens with a bold banner line, so you can tell its kind at a glance:
+
+- **Blocked — one thing needed from you**: A blocker names the resource, quotes what Promptless saw, and notes any workaround it applied. It ends with a `Need:` line naming the one action that clears the blocker and a `Next:` line saying what happens once you answer.
+- **Heads up — worth a look**: A pointer names something Promptless noticed that you can act on. For example, a published page might link to an anchor that no longer exists. It ends with one `Suggested:` action.
 
 ## Suggestion status updates
 
