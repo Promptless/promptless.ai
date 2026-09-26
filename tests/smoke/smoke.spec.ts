@@ -425,6 +425,49 @@ test('the frozen pre-split route inventory redirects once to successful canonica
   }
 });
 
+test('every redirects.json source redirects once, with or without a trailing slash', async () => {
+  const { redirects } = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, 'src', 'lib', 'generated', 'redirects.json'), 'utf8')
+  ) as { redirects: Array<{ source: string; destination: string }> };
+
+  // Search engines indexed the trailing-slash form of pages that now redirect,
+  // so both forms must reach a successful page in one hop. Sources with a file
+  // extension (.md, .png) are requested only in their published form.
+  const cases = redirects.flatMap(({ source, destination }) =>
+    path.extname(source)
+      ? [{ source, destination }]
+      : [
+          { source, destination },
+          { source: `${source}/`, destination },
+        ]
+  );
+
+  for (let index = 0; index < cases.length; index += 20) {
+    await Promise.all(
+      cases.slice(index, index + 20).map(async ({ source, destination }) => {
+        const response = await fetch(`${preview.baseUrl}${source}`, { redirect: 'manual' });
+        let location: string | undefined;
+
+        if (response.status >= 300 && response.status < 400) {
+          assert.ok([301, 308].includes(response.status), `${source} was not a permanent redirect.`);
+          const header = response.headers.get('location');
+          assert.ok(header, `${source} did not provide a Location header.`);
+          const url = new URL(header, preview.baseUrl);
+          location = `${url.pathname}${url.hash}`;
+        } else {
+          // Static builds (MCP_ENABLED=false) serve Astro's redirect stub page instead.
+          assert.equal(response.status, 200, `${source} did not redirect.`);
+          location = (await response.text()).match(/Redirecting to:\s*([^\s<"']+)/)?.[1];
+        }
+
+        assert.equal(location, destination, `${source} must redirect directly to ${destination}.`);
+        const target = await fetch(`${preview.baseUrl}${destination.split('#')[0]}`, { redirect: 'manual' });
+        assert.equal(target.status, 200, `${destination} (from ${source}) must be a successful page.`);
+      })
+    );
+  }
+});
+
 test('/blog/all and /changelog/all remain compatibility redirects', async () => {
   const blogAll = await fetch(`${preview.baseUrl}/blog/all`, { redirect: 'manual' });
   if (blogAll.status >= 300 && blogAll.status < 400) {

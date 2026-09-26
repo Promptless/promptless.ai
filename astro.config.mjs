@@ -38,6 +38,9 @@ const hiddenSitemapPaths = new Set([
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
 
+// Each redirect source here and in redirects.json also matches with one
+// trailing slash, because scripts/normalize-vercel-redirects.ts relaxes the
+// Vercel adapter's exact-match regexes after build. List only the no-slash form.
 const redirects = {
   '/home': '/',
   '/docs': '/docs/for-docs/start-here/welcome',
