@@ -516,7 +516,7 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
 
   // Alias → canonical destination (see the `redirects` map in astro.config.mjs;
   // /api-reference points at the API reference, not the homepage).
-  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/', '/api-reference': '/docs/for-docs/api/' };
+  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/docs/for-docs/reference/faq', '/api-reference': '/docs/for-docs/api/' };
   for (const [alias, destination] of Object.entries(aliases)) {
     const aliasResponse = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (aliasResponse.status >= 300 && aliasResponse.status < 400) {
@@ -900,7 +900,7 @@ test('website compatibility routes redirect to canonical destinations', async ()
     '/docs': '/docs/for-docs/start-here/welcome',
     '/oss': '/docs/for-docs/start-here/open-source-quickstart',
     '/use-cases': '/',
-    '/faq': '/',
+    '/faq': '/docs/for-docs/reference/faq',
     '/api-reference': '/docs/for-docs/api/',
     '/page': '/',
     '/wtd': '/',

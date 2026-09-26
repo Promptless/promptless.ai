@@ -55,7 +55,7 @@ const redirects = {
   '/video-demo': '/#demo',
   '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
   '/use-cases': '/',
-  '/faq': '/',
+  '/faq': '/docs/for-docs/reference/faq',
   // Retired free tools (the broken-link report was the only one). Redirect the
   // old routes to home so existing links degrade gracefully instead of 404ing.
   '/free-tools': '/',
