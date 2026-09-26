@@ -38,6 +38,9 @@ const hiddenSitemapPaths = new Set([
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
 
+// Each redirect source here and in redirects.json also matches with one
+// trailing slash, because scripts/normalize-vercel-redirects.ts relaxes the
+// Vercel adapter's exact-match regexes after build. List only the no-slash form.
 const redirects = {
   '/home': '/',
   '/docs': '/docs/for-docs/start-here/welcome',
@@ -52,7 +55,7 @@ const redirects = {
   '/video-demo': '/#demo',
   '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
   '/use-cases': '/',
-  '/faq': '/',
+  '/faq': '/docs/for-docs/reference/faq',
   // The dynamic source/destination pair is supported by Astro. The Vercel
   // adapter's generated regex is made trailing-slash-tolerant after build so
   // the previously published /api/.../ URLs remain one-hop redirects too.
