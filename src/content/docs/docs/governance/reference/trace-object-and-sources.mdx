@@ -16,13 +16,14 @@ PIG reads native session files on an enrolled host and sends their contents to y
 
 ## Native sources
 
-The collector supports three source families. Startup and terminal hooks can supply a transcript path directly. Background catch-up also discovers files in the following locations:
+The collector supports four source families. Startup and terminal hooks can supply a transcript path directly. Background catch-up also discovers files in the following locations:
 
-| Source         | Host value       | Default discovery locations                                                                             |
-| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
-| Claude Code    | `claude`         | `~/.claude/projects/**/*.jsonl`                                                                         |
-| Codex          | `codex`          | `sessions/**/*.jsonl` and `archived_sessions/**/*.jsonl` beneath `CODEX_HOME`, or `~/.codex` when unset |
-| Claude Desktop | `claude-desktop` | `**/audit.jsonl` beneath the two supported session directories in Claude's application data             |
+| Source         | Host value       | Default discovery locations                                                                                                                |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code    | `claude`         | `~/.claude/projects/**/*.jsonl`                                                                                                            |
+| Codex          | `codex`          | `sessions/**/*.jsonl` and `archived_sessions/**/*.jsonl` beneath `CODEX_HOME`, or `~/.codex` when unset                                    |
+| Claude Desktop | `claude-desktop` | `**/audit.jsonl` beneath the two supported session directories in Claude's application data                                                |
+| Cursor         | `cursor`         | Desktop transcripts under `~/.cursor/projects/*/agent-transcripts/**/*.jsonl`, plus the Cursor session database (see platform paths below) |
 
 For Claude Desktop, the supported session directories are `local-agent-mode-sessions` and `claude-code-sessions`. Their parent application directory depends on the operating system:
 
@@ -32,9 +33,17 @@ For Claude Desktop, the supported session directories are `local-agent-mode-sess
 | Windows  | `%APPDATA%/Claude/`, or `~/AppData/Roaming/Claude/` when `APPDATA` is unset        |
 | Linux    | `$XDG_CONFIG_HOME/Claude/`, or `~/.config/Claude/` when `XDG_CONFIG_HOME` is unset |
 
+For Cursor, the collector reads the desktop session database. Its default location depends on the operating system, and `PROMPTLESS_CURSOR_DATABASE` overrides it:
+
+| Platform | Cursor session database                                               |
+| -------- | --------------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
+| Windows  | `%APPDATA%/Cursor/User/globalStorage/state.vscdb`                     |
+| Linux    | `${XDG_CONFIG_HOME:-~/.config}/Cursor/User/globalStorage/state.vscdb` |
+
 These are discovery paths implemented by the collector. They do not mean every agent application is available on every platform or writes every listed format. Claude Desktop collection depends on the audit files being present and readable.
 
-Claude Code's generated hooks also attempt local Claude Desktop collection. Codex uses its own generated hooks. Cursor and Gemini currently distribute instructions without native trace collection. See [Supported agents](/docs/governance/reference/supported-agents) for the distinction.
+Claude Code's generated hooks also attempt local Claude Desktop collection. Codex and Cursor use their own generated hooks. Gemini currently distributes instructions without native trace collection. See [Supported agents](/docs/governance/reference/supported-agents) for the distinction.
 
 ## Upload progress and retries
 
