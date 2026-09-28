@@ -53,6 +53,6 @@ export function getActiveSection(pathname: string): SiteSection {
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
   if (normalized.startsWith('/free-tools')) return 'free_tools';
-  if (normalized === '/meet') return 'none';
+  if (normalized === '/meet' || normalized === '/customers') return 'none';
   return 'website';
 }

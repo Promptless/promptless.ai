@@ -351,6 +351,7 @@ export default defineConfig({
             exclude: [
               '/',
               '/pricing',
+              '/customers',
               '/meet',
               '/jobs',
               '/privacy',

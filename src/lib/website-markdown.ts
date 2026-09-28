@@ -40,14 +40,25 @@ export async function getWebsiteMarkdownDocument(routePath: string) {
   return byRoute.get(normalizeRoutePath(routePath));
 }
 
-export async function createWebsiteMarkdownResponse(routePath: string) {
+interface WebsiteMarkdownResponseOptions {
+  // Rewrites the body before it is served, for sections generated from content
+  // collections (for example, the customer story list on /customers.md).
+  transformBody?: (body: string) => string | Promise<string>;
+}
+
+export async function createWebsiteMarkdownResponse(
+  routePath: string,
+  options: WebsiteMarkdownResponseOptions = {},
+) {
   const entry = await getWebsiteMarkdownDocument(routePath);
   if (!entry) return new Response('Not found', { status: 404 });
+
+  const body = options.transformBody ? await options.transformBody(entry.body) : entry.body;
 
   const lines = [`# ${entry.title}`];
   lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
   if (entry.description) lines.push('', entry.description);
-  if (entry.body) lines.push('', entry.body);
+  if (body) lines.push('', body);
 
   return new Response(lines.join('\n'), {
     headers: { 'Content-Type': 'text/markdown; charset=utf-8' },

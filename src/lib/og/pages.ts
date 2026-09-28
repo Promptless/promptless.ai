@@ -63,6 +63,12 @@ const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: 
     description: 'Plans for teams that want docs-native automation.',
   },
   {
+    routePath: '/customers',
+    title: 'Teams that keep their docs current with Promptless',
+    description:
+      'Open-source projects and software companies, including Vitess, Helm, Runpod, Bazel, and Vellum, keep their docs current with Promptless.',
+  },
+  {
     routePath: '/free-tools',
     title: 'Free tools',
     description: 'Free tools to help you quickly improve docs quality.',

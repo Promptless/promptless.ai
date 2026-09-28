@@ -25,6 +25,8 @@ const blog = defineCollection({
     date: z.coerce.date(),
     hidden: z.boolean().optional().default(false),
     socialImage: z.string().optional(),
+    // One headline result from a customer story, shown on its /customers card.
+    highlight: z.string().optional(),
   }),
 });
 
