@@ -100,7 +100,7 @@ async function buildSections(): Promise<LlmsSection[]> {
         link(
           'Promptless pull requests in Vitess',
           'https://github.com/vitessio/website/pulls?q=is%3Apr+author%3Aapp%2Fpromptless',
-          'public PRs on a CNCF project, reviewed and merged by the Vitess docs maintainers',
+          'public PRs on a CNCF project, each reviewed by the Vitess docs maintainers',
         ),
         link(
           'Promptless pull requests in Helm',
