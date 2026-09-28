@@ -18,6 +18,7 @@ those are noted inline.
 - **Site title / description** — the `starlight({ title, description })` options in `astro.config.mjs`.
 - **Canonical URL** — `SITE_URL` env var (falls back to `https://promptless.ai`); drives sitemap and canonical tags.
 - **Logo** — `public/assets/logo.svg` (wired via the Starlight `logo.src` option).
+- **Email logo** — `public/assets/logo_email.png`, served at `https://promptless.ai/assets/logo_email.png`. The same logo as a PNG trimmed to the wordmark, for emails and other places that can't render SVG (Gmail and Outlook don't display SVG images). Sharp at display widths up to 340px.
 - **Brand colors & fonts** — `src/styles/custom.css` and `src/styles/site.css`.
 - **Header / footer / title chrome** — the seven Starlight component overrides in `src/components/starlight/` (`Header`, `Footer`, `Sidebar`, `SiteTitle`, `PageTitle`, `MobileMenuFooter`, `ThemeProviderDarkOnly`).
 
