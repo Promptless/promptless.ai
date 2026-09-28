@@ -1,0 +1,164 @@
+---
+title: Build your own docs agent with Claude Code or a GitHub Action, or buy one?
+description: What a DIY docs agent needs after the first prompt, what it costs to run, and when building it yourself is the right call.
+routePath: /guides/build-vs-buy-docs-agent
+---
+By [AUTHOR FULL NAME], [AUTHOR ROLE] · Published September 28, 2026
+
+Promptless makes a docs agent, and we built this comparison from vendor documentation, our published pricing, and our own docs, with our estimates labeled.
+
+If your team already uses Claude Code or Codex, "why not have it update the docs when code merges?" is a fair question. The vendors document how to run both tools in CI, and a first version that opens a docs pull request after a merge takes an afternoon. The prompt is the easy part. The cost comes afterwards. Someone has to decide which changes deserve docs, keep drafts on-style, and own the pipeline once other people depend on it.
+
+This page covers when building is the better call, what the minimal recipe looks like, what version one leaves out, and what each option costs.
+
+## When building it yourself makes sense
+
+Build it yourself when most of these are true:
+
+- You have one code repository and one docs platform, and the docs live in a Git repository.
+- Documentation changes start from code only. Nobody expects a Slack thread, a Jira ticket, or a support conversation to produce a docs update.
+- An engineer wants to own the workflow, including its prompt, credentials, and failures.
+- Volume is low. You merge a few dozen pull requests a month, and a handful of them touch documented behavior.
+
+In that situation DIY is cheaper. Model spend for a few dozen runs a month is tens of dollars. GitHub-hosted runner minutes are [free for public repositories](https://docs.github.com/en/billing/concepts/product-billing/github-actions), and private repositories get a monthly quota of free minutes. Promptless starts at $500 a month. If your volume and scope look like the list above, start with the recipe below.
+
+## The minimal DIY recipe
+
+The recipe has four parts. You need a trigger on merged pull requests, a coding agent running in CI, a prompt, and access to open the docs pull request.
+
+1. Trigger on merges. In GitHub Actions, use the `pull_request` event with the `closed` type and a condition on `merged`. GitHub's [events reference](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows) documents this pattern:
+
+   ```yaml
+   on:
+     pull_request:
+       types:
+         - closed
+   jobs:
+     if_merged:
+       if: github.event.pull_request.merged == true
+       runs-on: ubuntu-latest
+       steps:
+       - run: |
+           echo The PR was merged
+   ```
+
+2. Run the agent. Replace the `echo` step with [Claude Code GitHub Actions](https://code.claude.com/docs/en/github-actions) (`anthropics/claude-code-action@v1`) or the [Codex GitHub Action](https://learn.chatgpt.com/docs/github-action) (`openai/codex-action@v1`). Anthropic's setup runs `/install-github-app` from Claude Code, which installs the Claude GitHub App and adds your authentication secret to the repository. When you pass a `prompt` input, Claude runs in automation mode on any GitHub event. It gets shell and GitHub API access only for the tools you allow, through `--allowedTools` in `claude_args` or a permission rule in the `settings` input. The Codex action installs the Codex CLI and runs [`codex exec`](https://learn.chatgpt.com/docs/non-interactive-mode) under the [safety strategy](https://github.com/openai/codex-action) you choose.
+3. Write the prompt. Tell the agent to read the merged diff and decide whether any documented behavior changed. If it did, the agent edits the matching pages and opens a pull request against your docs.
+4. Grant access to the docs repository. The default `GITHUB_TOKEN` is [limited to the repository that contains the workflow](https://docs.github.com/en/actions/concepts/security/github_token). A separate docs repository needs a GitHub App installation token or a personal access token.
+
+On GitLab, Anthropic documents a [Claude Code job for GitLab CI/CD](https://code.claude.com/docs/en/gitlab-ci-cd). It is in beta and maintained by GitLab. It runs `claude -p` in a job with your API key stored as a masked CI/CD variable. OpenAI has no GitLab counterpart to its action, and its [Codex cookbook](https://developers.openai.com/cookbook/examples/codex/build_code_review_with_codex_sdk) runs `codex exec` directly in a GitLab CI/CD job.
+
+We have not included a complete workflow file because neither vendor publishes an official one for this exact merge-to-docs-PR job. Combine the trigger above with the vendor's own examples.
+
+## What version one leaves out
+
+Version one answers "can the agent write a docs change?" The rows below are what teams usually add once the agent runs on every merge and people start relying on it. You need only the rows that match your situation.
+
+| Capability | What owning it requires | Ongoing cost |
+| --- | --- | --- |
+| Deciding which PRs need docs (noise control) | Rules or a classification step that skips refactors, dependency bumps, and CI changes. A record of each "no" tells a skipped change apart from a failed run. | Prompt tuning as false positives and misses come in |
+| Finding the right pages in a large docs set | Search or an index over the docs, so the agent edits every affected page and not only the obvious one | Keeping the index current as pages move |
+| Triggers from outside code | Integrations for Slack or Teams threads, Jira tickets, and support conversations, each with its own authentication and event handling | One integration to maintain per source |
+| Context across several repos | Read access to every repository that affects the docs, and logic to follow a change across them | Token and permission upkeep per repository |
+| Style guide and Vale enforcement | Style rules in the prompt, a Vale run on each draft, and a loop that fixes findings before the PR opens | Updating rules as the style guide changes |
+| Grouping and deduplicating PRs | Logic to fold related merges into one docs change and to update an open docs PR | Handling overlapping and conflicting drafts |
+| Routing reviewers | Mapping each change to an author or owner, including across GitHub and Slack identities | Keeping the map current as the team changes |
+| Screenshots | A browser, test-account credentials, and logic to find and replace outdated images | Test-account and UI-change upkeep |
+| Translations | A prompt or pipeline per locale and review by speakers of each language | Model spend multiplied by locale count |
+| Model spend | Budgets, [turn limits and timeouts](https://code.claude.com/docs/en/github-actions), and alerts | Monthly bill that grows with merge volume |
+| Credentials and permissions across repos | GitHub App or token setup per repository, secret storage, and rotation | Rotation and audit |
+| Checking whether drafts were right | Tracking which docs PRs merge, which get rewritten, and which get closed | Someone reviewing that data regularly |
+| Retries and failures | Handling API errors, runner timeouts, and half-finished branches | On-call attention when runs fail |
+| Security review | Reviewing what the agent can read, write, and run, and the permissions its GitHub App or token grants | Repeat review when the workflow changes |
+
+Two details from the vendor docs are worth knowing before you start. Claude's GitHub App [requests read and write access](https://code.claude.com/docs/en/github-actions) to contents, issues, and pull requests, among others, and Anthropic documents a custom-app path for a narrower scope. Commits made with the default `GITHUB_TOKEN` [do not trigger other workflows](https://code.claude.com/docs/en/github-actions). If you pass that token to the action, CI may not run on the docs PR.
+
+## What it costs
+
+These figures are ranges with the assumptions stated. The engineer-time figures are Promptless estimates based on the table above, not measurements from a specific team.
+
+### Engineer time (Promptless estimate)
+
+| Stage | Estimate |
+| --- | --- |
+| Version one, with the trigger, agent step, prompt, and docs PR | 4 to 16 hours |
+| Adding the table rows most teams need, such as noise control, page search, Vale, reviewer routing, and cross-repo credentials | 2 to 8 weeks, usually spread over the first few months |
+| Ongoing upkeep at low volume | 1 to 4 hours a month |
+| Ongoing upkeep once several teams depend on it | 4 to 16 hours a month |
+
+Assume a fully loaded engineering cost of $100 to $150 an hour. Low-volume upkeep is then $100 to $600 a month. Upkeep for a pipeline several teams depend on is $400 to $2,400 a month. The initial build is a separate one-time cost.
+
+### Model spend
+
+Anthropic prices [Claude Sonnet 5 at $2 per million input tokens and $10 per million output tokens, and Claude Opus 5 at $5 and $25](https://platform.claude.com/docs/en/about-claude/pricing). OpenAI prices [gpt-5.3-codex at $1.75 input and $14 output per million tokens](https://developers.openai.com/api/docs/pricing).
+
+Assume each run reads the diff and several docs pages. That is 200,000 to 800,000 input tokens and 5,000 to 30,000 output tokens. On Sonnet 5, that is roughly $0.45 to $1.90 a run:
+
+| Merged PRs a month | Sonnet 5 estimate |
+| --- | --- |
+| 30 | $14 to $57 |
+| 100 | $45 to $190 |
+| 300 | $135 to $570 |
+
+Opus 5 costs about 2.5 times as much for the same tokens. Prompt caching and batch processing lower the input cost; see Anthropic's [pricing page](https://platform.claude.com/docs/en/about-claude/pricing). Runner minutes are extra on private repositories beyond your plan's [included quota](https://docs.github.com/en/billing/concepts/product-billing/github-actions), and on GitLab they count against your plan's [runner time](https://code.claude.com/docs/en/gitlab-ci-cd).
+
+### Promptless pricing
+
+From the [pricing page](https://promptless.ai/pricing), for documentation:
+
+| Plan | Price | Scope |
+| --- | --- | --- |
+| Startup | $500 a month | Up to 200 pages, Slack and GitHub integrations, and a 14-day free trial |
+| Growth | $500 to $4,000 a month, by page count | 200 to 5,000 pages, plus expanded integrations, translations, and screenshot updates |
+| Enterprise | Custom | Unlimited pages, custom integrations, audit logs, and governance controls |
+
+Pages are normalized. A long API reference counts as several pages, and short changelog entries may share one. Every plan includes unlimited triggers and documentation updates.
+
+At 30 merged PRs a month, DIY runs roughly $114 to $657 a month including upkeep. Most of that range is below the $500 Startup plan. As volume, integrations, and the number of teams relying on it grow, the upkeep line grows faster than the model bill.
+
+## What Promptless adds, and what it does not
+
+What Promptless adds:
+
+- Triggers beyond code. Promptless starts work from GitHub pull requests, commits, and issues, GitLab merge requests, Slack, Jira, a schedule, an API, and MCP. See [triggers](https://promptless.ai/docs/for-docs/connect/triggers). Microsoft Teams support is in beta.
+- Context sources. Promptless reads Linear, Jira, Confluence, Notion, Google Drive, and Slite for product context, with read-only access. See [context sources](https://promptless.ai/docs/for-docs/connect/context-sources).
+- Knowledge of your docs and style. Promptless indexes your existing docs, maps your product's features and terms to pages, matches your voice, and reads `AGENTS.md` or `CLAUDE.md` in your docs repository. See [how Promptless learns your docs](https://promptless.ai/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs). When your docs repository has a Vale configuration, Promptless lints each draft and fixes findings before it creates the suggestion. See [standards enforcement](https://promptless.ai/docs/for-docs/audit/standards-enforcement).
+- Noise filtering. Promptless skips draft PRs and tooling-only changes, assesses whether each change needs documentation, and shows each "no" decision on the Triggers page. See [noise and relevance filtering](https://promptless.ai/docs/for-docs/tune/noise-and-relevance-filtering).
+- Screenshots. Promptless Capture logs in with a test account you provide, finds screenshots that need updating, and regenerates them. See [screenshots](https://promptless.ai/docs/for-docs/get-the-most-out/screenshots).
+- Citations and review. Each docs PR links to a dashboard view with the files, PRs, and commits Promptless referenced and the reasoning behind the change. See [reviewing Promptless PRs](https://promptless.ai/docs/for-docs/work-the-queue/reviewing-prs). You can also review from [Slack and Teams](https://promptless.ai/docs/for-docs/work-the-queue/reviewing-from-slack-and-teams). Feedback you save becomes a [convention](https://promptless.ai/docs/for-docs/tune/teaching-conventions) Promptless applies to later suggestions.
+- Reviewer routing. By default Promptless assigns the docs PR to the source PR's author or the Slack requester. See [assignment and routing](https://promptless.ai/docs/for-docs/work-the-queue/assignment-and-routing).
+
+What Promptless does not do:
+
+- It does not merge docs changes by default. You review every pull or merge request unless you turn on auto-merge. See [access and permissions](https://promptless.ai/docs/for-docs/security/access-and-permissions).
+- It needs docs in a Git repository. Promptless publishes to GitHub and GitLab. See [why docs-as-code](https://promptless.ai/docs/for-docs/migrate/why-docs-as-code).
+- It has no dedicated helpdesk trigger. Support conversations reach Promptless through Slack channels it listens to. See [Slack triggers](https://promptless.ai/docs/for-docs/connect/triggers/slack-messages).
+- It has no built-in reporting dashboard or metrics export. See [reporting and ROI](https://promptless.ai/docs/for-docs/measure/reporting-and-roi).
+- It has no translation management system integration. See [localization](https://promptless.ai/docs/for-docs/get-the-most-out/localization).
+
+Promptless output is public in pull requests to [Vitess](https://github.com/vitessio/website/pulls?q=is%3Apr+author%3Aapp%2Fpromptless), [Helm](https://github.com/helm/helm-www/pulls?q=is%3Apr+author%3Apromptless-for-oss), [Runpod](https://github.com/runpod/docs/pulls?q=is%3Apr+author%3Aapp%2Fpromptless), [Mautic](https://github.com/mautic/user-documentation/pulls?q=is%3Apr+author%3Apromptless-for-oss), and [Bazel](https://github.com/bazel-contrib/bazel-docs/pulls?q=is%3Apr+author%3Aapp%2Fpromptless) docs, and the [Vellum customer story](https://promptless.ai/blog/customer-stories/vellum).
+
+## Which option fits your situation
+
+| Situation | Better fit |
+| --- | --- |
+| One repo, one docs platform, a few dozen merges a month, and an engineer who wants to own it | Build it yourself |
+| You want to test whether an agent writes useful docs changes before committing budget | Build a version one, or run the Promptless 14-day trial alongside it |
+| Docs changes start in Slack, Teams, or Jira as often as in code | Promptless |
+| Several code repositories feed one docs site, or several docs sites share code | Promptless |
+| You need screenshots or translations kept current | Promptless |
+| Your docs are not in a Git repository | Neither, until the docs move to Git |
+
+## Frequently asked questions
+
+### Can Claude Code update docs on every PR?
+
+Yes. Claude Code GitHub Actions runs in [automation mode on any GitHub event](https://code.claude.com/docs/en/github-actions) when you give it a `prompt`, and GitHub's [merged-PR condition](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows) limits it to merges. The work is in the prompt and the docs repository permissions. You also decide which PRs should produce no docs change at all.
+
+### What does a DIY docs agent cost to run?
+
+Under the assumptions above, Sonnet 5 model spend is roughly $0.45 to $1.90 per run, or $14 to $57 a month at 30 merged PRs. Add runner minutes on private repositories and engineer upkeep. We estimate upkeep at 1 to 4 hours a month at low volume, and 4 to 16 hours once several teams rely on it.
+
+### Can I start with DIY and switch later?
+
+Yes. Both options open ordinary pull requests against the same docs repository, so a DIY workflow does not lock you in. When you switch, disable the workflow and connect the same repositories to Promptless. You can move the style rules from your prompt into an `AGENTS.md` file or a Vale configuration in your docs repository, and Promptless reads both.
