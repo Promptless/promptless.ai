@@ -5,6 +5,8 @@ import { groupRoutes, llmsIndexResponse, routeLink, visibleRoutes } from '@lib/l
 
 export const prerender = true;
 
+const NOTE = 'The site index is at https://promptless.ai/llms.txt. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
+
 const CATEGORY_LABELS: Record<string, string> = {
   'customer-stories': 'Customer stories',
   'product-updates': 'Product updates',
@@ -27,7 +29,8 @@ export const GET: APIRoute = async ({ site }) => {
     {
       title: 'Promptless blog',
       blurb:
-        'Every post on the Promptless blog with its markdown twin: product updates, technical writing, and customer stories. The site index is at https://promptless.ai/llms.txt.',
+        'Every post on the Promptless blog with its markdown twin: product updates, technical writing, and customer stories.',
+      note: NOTE,
       sections,
     },
     site,

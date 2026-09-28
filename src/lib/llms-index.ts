@@ -23,7 +23,10 @@ export interface LlmsSection {
 
 export interface LlmsIndex {
   title: string;
+  /** One-paragraph description of the site or section, rendered as the blockquote. */
   blurb: string;
+  /** Plain paragraph after the blockquote for how to use the index, such as how to fetch markdown twins. */
+  note?: string;
   sections: LlmsSection[];
 }
 
@@ -82,6 +85,7 @@ export function groupRoutes(
 
 export function renderLlmsIndex(index: LlmsIndex, site: URL): string {
   const lines = [`# ${index.title}`, '', `> ${index.blurb}`];
+  if (index.note) lines.push('', index.note);
   for (const section of index.sections) {
     lines.push('', `## ${section.heading}`, '');
     if (section.intro) lines.push(section.intro, '');

@@ -8,6 +8,8 @@ import type { RouteManifestEntry } from '@lib/route-manifest';
 
 export const prerender = true;
 
+const NOTE = 'The site index is at https://promptless.ai/llms.txt. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
+
 const NON_PRODUCT_DOCS = ['/docs/marketing-images', '/docs/media-kit'];
 
 const AGENT_INSTRUCTIONS_PREFIX = '/docs/governance';
@@ -32,7 +34,8 @@ export const GET: APIRoute = async ({ site }) => {
     {
       title: 'Promptless documentation',
       blurb:
-        'Every page of the Promptless documentation, Promptless for Docs and Promptless for Agent Instructions, with its markdown twin. The site index is at https://promptless.ai/llms.txt.',
+        'Every page of the Promptless documentation, Promptless for Docs and Promptless for Agent Instructions, with its markdown twin.',
+      note: NOTE,
       sections,
     },
     site,
