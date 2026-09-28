@@ -28,7 +28,7 @@ interface Section {
 }
 
 const DEFINITION =
-  'Promptless is an AI agent that keeps customer-facing documentation and agent instructions in sync with what your team ships. When a pull request opens, a Slack or Teams thread starts, or a Jira or Linear ticket is created, it researches the change, drafts the update with citations, and opens a pull request in your docs repository for your team to review.';
+  'Promptless is an AI agent that keeps customer-facing documentation and agent instructions in sync with what your team ships. When a pull request opens, a Slack or Teams thread starts, or a Jira ticket is created, it researches the change, drafts the update with citations, and opens a pull request in your docs repository for your team to review.';
 
 function docsPage(routePath: string, description?: string): Link {
   const entry = routeEntries.find((route) => route.routePath === routePath && !route.hidden);
