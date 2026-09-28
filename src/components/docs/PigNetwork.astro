@@ -1,0 +1,65 @@
+---
+import { Bot, Cloud, Cylinder, Database, FolderGit2, PanelsTopLeft, ScanSearch } from '@lucide/astro';
+import FlowNode, { type FlowNodeData } from './FlowNode.astro';
+import FlowConnection from './FlowConnection.astro';
+import './pig-diagram.css';
+
+const destinations: { object: string; node: FlowNodeData }[] = [
+  { object: 'Trace objects', node: { icon: Cylinder, label: 'Trace bucket', description: 'Your storage · HTTPS 443', owner: 'customer' } },
+  { object: 'Analysis state', node: { icon: Database, label: 'PostgreSQL', description: 'Your database · TLS, usually TCP 5432', owner: 'customer' } },
+  { object: 'Findings, remediations, & analyzer status', node: { icon: PanelsTopLeft, label: 'Promptless', description: 'Promptless cluster · HTTPS 443', owner: 'promptless' } },
+  { object: 'Hub source & proposed updates', node: { icon: FolderGit2, label: 'Instruction Hub', description: 'GitHub repository and API · HTTPS 443', owner: 'external' } },
+  { object: 'Trace digest', node: { icon: Cloud, label: 'Model provider', description: 'Reuse the provider your agents use · HTTPS 443', owner: 'external' } },
+];
+---
+
+<figure class="pig-diagram not-content" aria-label="Analyzer ingress and outbound connections">
+  <div class="diagram-surface">
+    <p class="lane-title">Upload ingress</p>
+    <div class="ingress">
+      <FlowNode icon={Bot} label="Enrolled hosts" description="Workstations, laptops, and agent hosts" owner="customer" />
+      <FlowConnection object="Session traces" />
+      <FlowNode icon={ScanSearch} label="Trace analyzer" description="Your HTTPS endpoint · port 443" owner="customer" />
+    </div>
+    <p class="lane-title outbound-title">Connections initiated by the analyzer</p>
+    <div class="outbound">
+      <div class="source">
+        <FlowNode icon={ScanSearch} label="Trace analyzer" description="Your cluster" owner="customer" />
+      </div>
+      <div class="destinations">
+        {destinations.map(({ object, node }) => <div class="destination">
+          <FlowConnection object={object} horizontal />
+          <FlowNode {...node} />
+        </div>)}
+      </div>
+    </div>
+  </div>
+  <figcaption>Database and trace storage stay in your infrastructure. Arrows show who initiates each connection; requests and responses travel over that connection. The table below also covers release downloads and identity endpoints.</figcaption>
+</figure>
+
+<style>
+  .diagram-surface { padding: 24px; }
+  .lane-title { margin: 0 0 16px; color: var(--pl-color-text-muted); font-size: 12px; font-weight: 500; }
+  .outbound-title { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--pl-color-border); }
+  .ingress { display: grid; grid-template-columns: 1fr minmax(100px, 0.7fr) 1fr; }
+  .outbound { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); }
+  .source { display: flex; align-items: center; padding-right: 20px; position: relative; }
+  .source > :global(.flow-node) { width: 100%; }
+  .source::after { content: ''; position: absolute; right: 0; top: 50%; width: 20px; height: 1px; background: #687683; }
+  .destinations { display: grid; gap: 12px; position: relative; }
+  .destination { display: grid; grid-template-columns: minmax(100px, 0.7fr) minmax(0, 1fr); position: relative; }
+  .destination::before { content: ''; position: absolute; left: 0; top: -6px; bottom: -6px; width: 1px; background: #687683; }
+  .destination:first-child::before { top: 50%; }
+  .destination:last-child::before { bottom: 50%; }
+  .destination :global(.flow-node) { min-height: 86px; padding: 14px 12px; display: grid; grid-template-columns: 28px 1fr; text-align: left; column-gap: 12px; row-gap: 3px; }
+  .destination :global(.flow-node svg) { grid-row: 1 / 3; }
+  @container (max-width: 760px) {
+    .diagram-surface { padding: 20px; }
+    .ingress, .outbound { grid-template-columns: 1fr; }
+    .source { display: block; padding: 0 0 20px; }
+    .source::after { top: auto; bottom: 0; left: 0; width: 50%; }
+    .source::before { content: ''; position: absolute; left: 50%; bottom: 0; width: 1px; height: 20px; background: #687683; }
+    .destination:first-child::before { top: 0; }
+    .destination :global(.flow-node) { min-height: 90px; }
+  }
+</style>

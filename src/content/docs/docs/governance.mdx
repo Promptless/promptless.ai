@@ -1,76 +1,91 @@
 ---
 title: Promptless for Agent Instructions
-description: Govern the skills, subagents, hooks, commands, rules, and MCP configs your agents run on, backed by evidence from real sessions.
+description: Publish shared agent instructions, understand how they perform in real sessions, and review evidence-backed improvements with Promptless Instruction Governance.
 slug: docs/governance
 type: landing
 tags:
   - agent-instructions
   - governance
   - landing
-timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
   order: 1
   label: Overview
 ---
 
-import { Aside, CardGrid, LinkCard } from '@astrojs/starlight/components';
+import PigFlow from '../../../components/docs/PigFlow.astro';
 
-Promptless for Agent Instructions governs the skills, subagents, hooks, commands, rules, and MCP configs your agents run on: it collects evidence from real agent sessions, finds where those instructions fail, and opens reviewed pull requests that fix them.
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-## The instruction-drift problem
+Promptless Instruction Governance (PIG) helps teams maintain the instructions their AI agents use. Keep shared skills, rules, commands, and tool configuration in a versioned **Instruction Hub**. Publish them as plugins, then use evidence from real sessions to improve them.
 
-Teams keep moving operational knowledge into agent-read files — skills, subagent definitions, hooks, commands, rules, MCP configs, and the `AGENTS.md` or `CLAUDE.md` context an agent loads. Once that knowledge steers real work, it is infrastructure, and it drifts like any other infrastructure. The result is *instruction debt*, sometimes called *skill slop*: a growing pile of instructions that quietly degrade the agents that read them.
+You can start with instruction publishing on its own. When you are ready to learn from agent sessions, deploy the **trace analyzer** in your infrastructure and enroll the hosts that should send it traces.
 
-The drift takes recurring shapes:
+<PigFlow variant="overview" />
 
-- **Stale** — the procedure moved on, but the instruction still describes the old one.
-- **Missing** — a new workflow has no instruction behind it.
-- **Contradictory** — two skills push an agent in opposite directions.
-- **Dead** — an instruction points at a command, tool, or path that no longer exists.
-- **Unowned** — no one is accountable for keeping the instruction correct.
-- **Untestable** — nothing tells you whether the instruction still works.
-- **Unenforced** — the instruction is there, and agents ignore it anyway.
-- **Undistributed** — the canonical instruction never reaches the agent that needs it.
-- **Non-portable** — the instruction assumes one harness or format and breaks elsewhere.
-- **Risky** — the instruction shifts permissions, autonomy, or escalation behavior.
+See [How it works](/docs/governance/start-here/how-it-works#the-components-at-a-glance) for the full architecture, ownership boundaries, and data flow.
 
-These failures compound. Agents thrash, repeat mistakes you already corrected, and take actions you did not intend, while the people who own the instructions have no evidence pointing at the instruction actually at fault.
+## What you can do with PIG
 
-## Who it's for
+- **Give instructions a shared home.** Replace scattered copies with reviewed source files, clear ownership, and a release history.
+- **Distribute them to different agents.** The `pig` toolchain builds agent-specific plugins from the same hub. Authors maintain the source; each agent receives a supported format.
+- **Find failures from real work.** The trace analyzer examines sessions for missing, stale, conflicting, or ineffective instructions and records findings with supporting evidence.
+- **Review improvements before they reach your team.** Findings can lead to proposed changes in your hub. Your team reviews pull requests and publishes accepted changes through its usual Git workflow.
 
-Promptless for Agent Instructions serves the people accountable for an agent fleet across a company: AI-governance leads, platform and AI-engineering teams, and engineering leadership. The payoff scales with the fleet, so it matters most once a team runs dozens of skills across many agents and hosts.
+For example, Acme's writers and developers share a `review-docs` skill. A finding shows that an older skill release omits prerequisite checks, leading agents to approve guides with missing setup steps. A reviewer checks the cited session evidence, merges a correction, and publishes a new release for the team to install.
 
-If you already run continuous, evidence-driven scanning over code and infrastructure — the posture that Semgrep, Wiz, Snyk, or Vanta take — this applies the same discipline to agent instructions. Findings come backed by real session evidence, not a one-off audit.
+## Choose how much to set up
 
-## How the loop works
+Hub guides are written for technical writers and developers. Deployment guides cover the Kubernetes, identity, storage, and operational decisions that DevOps and GitOps teams manage. You do not need to understand the deployment details to begin authoring instructions.
 
-You author and organize your instructions in an [Instruction Hub](/docs/governance/start-here/key-concepts), a versioned Git repository. The `pig` toolchain compiles that hub into target-native plugin packages, and your fleet installs them. On each host, a runtime enrolls with a worker you deploy and streams native session traces to it. Inside the worker, the Friction Analyzer studies those sessions and records findings, each backed by append-only evidence. Findings become GitHub issues, high-confidence findings open remediation pull requests against your hub, and a human reviews and merges the fix, and that merge triggers the recompile and redistribution that closes the loop.
+### Publish instructions first
 
-For the full end-to-end path, see [How it works](/docs/governance/start-here/how-it-works).
+An Instruction Hub needs a Git repository, the `pig` toolchain, a publishing pipeline, and an agent that can install the output. It does not need a trace analyzer, database, bucket, or model-provider account. New hubs have managed trace ingestion disabled by default.
 
-## Explore the docs
+Use this path to establish your source of truth, test the authoring workflow, and get useful instructions into your team's agents. [Create a hub](/docs/governance/get-started/set-up-your-instruction-hub) or [migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
+
+### Add evidence from sessions
+
+For trace analysis, deploy the analyzer and connect PostgreSQL and your cloud's object storage. Configure a model provider and your hub repository, then enable host enrollment. Raw traces stay in your storage. The configured model provider receives analysis input, and Promptless receives trace metadata and findings that can include session-derived detail.
+
+The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+
+Read the [trust and data model](/docs/governance/start-here/trust-and-data-model) with your deployment team before enabling collection.
+
+## Find your path
+
+### Author and publish instructions
+
+Author, publish, and install shared instructions without deploying a trace analyzer.
 
 <CardGrid>
-  <LinkCard title="How it works" href="/docs/governance/start-here/how-it-works" description="Follow the end-to-end loop from authoring instructions to human-reviewed remediation pull requests." />
+  <LinkCard title="How it works" href="/docs/governance/start-here/how-it-works" description="See the components, dependencies, and data flow, from publishing an instruction to learning from a session." />
 
-  <LinkCard title="Key concepts" href="/docs/governance/start-here/key-concepts" description="The primitives behind the product: hub, assets, packages, compile targets, worker, findings, and remediation." />
+  <LinkCard title="Key concepts" href="/docs/governance/start-here/key-concepts" description="Look up hubs, assets, plugins, marketplaces, hosts, traces, findings, and releases." />
 
-  <LinkCard title="Trust and data model" href="/docs/governance/start-here/trust-and-data-model" description="What leaves the host, what stays local, and how host enrollment credentials are issued and verified." />
+  <LinkCard title="Set up your Instruction Hub" href="/docs/governance/get-started/set-up-your-instruction-hub" description="Create shared instructions and validate a first release your team can install." />
 
-  <LinkCard title="Set up your Instruction Hub" href="/docs/governance/get-started/set-up-your-instruction-hub" description="Scaffold a hub with pig, configure it, and import your existing skills and MCP configs." />
+  <LinkCard title="Migrate existing instructions" href="/docs/governance/get-started/migrate-existing-instructions" description="Consolidate scattered skills and configuration into one reviewed hub." />
 
-  <LinkCard title="Publish and install plugins" href="/docs/governance/get-started/publish-and-install-plugins" description="Compile your hub to target-native plugins, publish through the GitHub Action, and install on your fleet." />
+  <LinkCard title="Publish and install plugins" href="/docs/governance/get-started/publish-and-install-plugins" description="Build a release to publish, or install a published plugin in your agent." />
 
-  <LinkCard title="Enroll your hosts" href="/docs/governance/get-started/enroll-your-hosts" description="Enroll each host with the worker and start collecting session traces." />
-
-  <LinkCard title="Deploy the analyzer worker" href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" description="Deploy the worker into your own infrastructure with Helm." />
-
-  <LinkCard title="Understand findings" href="/docs/governance/findings-and-remediation/understand-findings" description="The finding object the Friction Analyzer produces and how findings become GitHub issues." />
-
-  <LinkCard title="The pig CLI reference" href="/docs/governance/reference/pig-cli-reference" description="The pig subcommands for scaffolding, validating, compiling, and publishing an Instruction Hub." />
+  <LinkCard title="Supported agents" href="/docs/governance/reference/supported-agents" description="Compare instruction distribution and native trace collection support." />
 </CardGrid>
 
-<Aside type="note">
-  New to the primitives named on this page? [Key concepts](/docs/governance/start-here/key-concepts) defines each one and links out to the guide or reference that covers it in depth.
-</Aside>
+### Deploy trace analysis
+
+Deploy the analyzer, enroll hosts, and act on the findings it produces.
+
+<CardGrid>
+  <LinkCard title="Trust and data model" href="/docs/governance/start-here/trust-and-data-model" description="See which systems receive your data and which credentials connect them." />
+
+  <LinkCard title="Plan your deployment" href="/docs/governance/deploy-the-worker/plan-your-deployment" description="Plan the infrastructure and access that trace analysis needs." />
+
+  <LinkCard title="Install the trace analyzer" href="/docs/governance/deploy-the-worker/deploy-the-analyzer-worker" description="Set up trace analysis in your cluster with automatic updates, then verify your first session." />
+
+  <LinkCard title="Enroll your hosts" href="/docs/governance/get-started/enroll-your-hosts" description="Enable optional trace collection and authorize a Claude or Codex host." />
+
+  <LinkCard title="Understand findings" href="/docs/governance/findings-and-remediation/understand-findings" description="Evaluate and triage evidence-backed instruction problems." />
+
+  <LinkCard title="Remediate findings" href="/docs/governance/findings-and-remediation/remediate-findings" description="Review a proposed instruction change and publish it through your Git workflow." />
+</CardGrid>

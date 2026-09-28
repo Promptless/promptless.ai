@@ -344,9 +344,19 @@ test('each documentation product gets only its own active topic and product meta
   assert.match(governanceHtml, /<h1[^>]*>Promptless for Agent Instructions<\/h1>/i);
   assert.match(
     governanceHtml,
-    /collects evidence from real agent sessions, finds where those instructions fail, and opens reviewed pull requests that fix them\./i
+    /Promptless Instruction Governance \(PIG\)/i
   );
   assert.match(governanceHtml, /href="\/docs\/governance\/start-here\/how-it-works"/i);
+  for (const journey of [
+    'get-started/set-up-your-instruction-hub',
+    'get-started/migrate-existing-instructions',
+    'deploy-the-worker/plan-your-deployment',
+    'deploy-the-worker/deploy-the-analyzer-worker',
+    'deploy-the-worker/manage-updates-and-recovery',
+  ]) {
+    assert.ok(governanceHtml.includes(`href="/docs/governance/${journey}"`));
+  }
+  assert.match(governanceHtml, /updates automatically to stable releases by default/i);
 
   for (const location of ['nav', 'mobile_menu', 'docs_sidebar', 'footer']) {
     assert.match(
@@ -436,6 +446,49 @@ test('the frozen pre-split route inventory redirects once to successful canonica
   }
 });
 
+test('every redirects.json source redirects once, with or without a trailing slash', async () => {
+  const { redirects } = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, 'src', 'lib', 'generated', 'redirects.json'), 'utf8')
+  ) as { redirects: Array<{ source: string; destination: string }> };
+
+  // Search engines indexed the trailing-slash form of pages that now redirect,
+  // so both forms must reach a successful page in one hop. Sources with a file
+  // extension (.md, .png) are requested only in their published form.
+  const cases = redirects.flatMap(({ source, destination }) =>
+    path.extname(source)
+      ? [{ source, destination }]
+      : [
+          { source, destination },
+          { source: `${source}/`, destination },
+        ]
+  );
+
+  for (let index = 0; index < cases.length; index += 20) {
+    await Promise.all(
+      cases.slice(index, index + 20).map(async ({ source, destination }) => {
+        const response = await fetch(`${preview.baseUrl}${source}`, { redirect: 'manual' });
+        let location: string | undefined;
+
+        if (response.status >= 300 && response.status < 400) {
+          assert.ok([301, 308].includes(response.status), `${source} was not a permanent redirect.`);
+          const header = response.headers.get('location');
+          assert.ok(header, `${source} did not provide a Location header.`);
+          const url = new URL(header, preview.baseUrl);
+          location = `${url.pathname}${url.hash}`;
+        } else {
+          // Static builds (MCP_ENABLED=false) serve Astro's redirect stub page instead.
+          assert.equal(response.status, 200, `${source} did not redirect.`);
+          location = (await response.text()).match(/Redirecting to:\s*([^\s<"']+)/)?.[1];
+        }
+
+        assert.equal(location, destination, `${source} must redirect directly to ${destination}.`);
+        const target = await fetch(`${preview.baseUrl}${destination.split('#')[0]}`, { redirect: 'manual' });
+        assert.equal(target.status, 200, `${destination} (from ${source}) must be a successful page.`);
+      })
+    );
+  }
+});
+
 test('/blog/all and /changelog/all remain compatibility redirects', async () => {
   const blogAll = await fetch(`${preview.baseUrl}/blog/all`, { redirect: 'manual' });
   if (blogAll.status >= 300 && blogAll.status < 400) {
@@ -484,7 +537,7 @@ test('website routes are canonicalized to /, /meet, and /pricing', async () => {
 
   // Alias → canonical destination (see the `redirects` map in astro.config.mjs;
   // /api-reference points at the API reference, not the homepage).
-  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/', '/api-reference': '/docs/for-docs/api/' };
+  const aliases: Record<string, string> = { '/use-cases': '/', '/faq': '/docs/for-docs/reference/faq', '/api-reference': '/docs/for-docs/api/' };
   for (const [alias, destination] of Object.entries(aliases)) {
     const aliasResponse = await fetch(`${preview.baseUrl}${alias}`, { redirect: 'manual' });
     if (aliasResponse.status >= 300 && aliasResponse.status < 400) {
@@ -508,32 +561,32 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /role="tablist"/);
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="true")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<button(?=[^>]*id="pl-product-switcher-tab-docs")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-docs")[^>]*>/
+    /<button(?=[^>]*id="pl-product-switcher-tab-agents")(?=[^>]*role="tab")(?=[^>]*aria-selected="false")(?=[^>]*aria-controls="pl-hero-panel-agents")[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-panel-docs")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-panel-agents")(?=[^>]*role="tabpanel")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
 
   // Supporting regions follow the default-active product on the server. The
   // smoke harness does not execute the client-side tab-switching JavaScript.
-  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
-  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.match(homeHtml, /<div(?=[^>]*id="pl-below-fold-agents")(?=[^>]*\shidden)[^>]*>/);
+  assert.doesNotMatch(homeHtml, /<div(?=[^>]*id="pl-below-fold-docs")(?=[^>]*\shidden)[^>]*>/);
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?![^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?![^>]*\shidden)[^>]*>/
   );
   assert.match(
     homeHtml,
-    /<div(?=[^>]*id="pl-hero-aside-docs")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-docs")(?=[^>]*\shidden)[^>]*>/
+    /<div(?=[^>]*id="pl-hero-aside-agents")(?=[^>]*role="group")(?=[^>]*aria-labelledby="pl-product-switcher-tab-agents")(?=[^>]*\shidden)[^>]*>/
   );
   assert.match(homeHtml, /class="pl-testimonials-vertical[\s"]/);
   assert.match(homeHtml, /class="pl-mobile-testimonials[\s"]/);
@@ -812,11 +865,16 @@ test('website header replaces home search with the launch announcement', async (
     homeHtml,
     /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
   );
-  assert.doesNotMatch(homeHtml, /aria-label="Search"/i);
+  // The global modal is mounted on the homepage for Cmd/Ctrl+K and chat
+  // persistence. Its header control is still replaced by the announcement.
+  const homeHeader = homeHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0];
+  assert.ok(homeHeader);
+  assert.doesNotMatch(homeHeader, /data-starport-search/i);
+  assert.match(homeHtml, /class="sp-modal"/i);
 
   const docsResponse = await fetch(`${preview.baseUrl}/docs/for-docs/start-here/welcome`);
   assert.equal(docsResponse.status, 200);
-  assert.match(await docsResponse.text(), /aria-label="Search"/i);
+  assert.match(await docsResponse.text(), /data-starport-search/i);
 });
 
 test('legal pages render', async () => {
@@ -890,7 +948,7 @@ test('website compatibility routes redirect to canonical destinations', async ()
     '/docs': '/docs/for-docs/start-here/welcome',
     '/oss': '/docs/for-docs/start-here/open-source-quickstart',
     '/use-cases': '/',
-    '/faq': '/',
+    '/faq': '/docs/for-docs/reference/faq',
     '/api-reference': '/docs/for-docs/api/',
     '/page': '/',
     '/wtd': '/',

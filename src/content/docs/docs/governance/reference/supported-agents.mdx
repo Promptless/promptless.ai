@@ -1,37 +1,84 @@
 ---
 title: Supported agents
-description: The four agent harnesses Promptless compiles plugins for and the three native session sources it ingests traces from.
+description: Compare plugin distribution, asset portability, native trace collection, and repository support in PIG.
 slug: docs/governance/reference/supported-agents
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-08-20T00:00:00Z"
 sidebar:
   hidden: false
   order: 3
 ---
 
-Promptless for Agent Instructions works with two distinct sets of agents: the targets it compiles plugins for, and the sources it ingests traces from. This page lists both as they ship today. The two sets differ — Cursor and Gemini are compile-only and are not trace-ingest sources.
+An agent can use your hub's instructions without sending traces to PIG. Plugin distribution, native trace collection, and repository analysis have different support boundaries.
 
-## Compile targets
+## Agent support
 
-`pig` compiles a hub to plugins for four targets:
+| Agent          | Generated instruction distribution | Native trace collection                                                      |
+| -------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| Claude Code    | Claude plugin and marketplace      | Yes, through the opt-in `pig` runtime and generated hooks                    |
+| Codex          | Codex plugin and marketplace       | Yes, through the opt-in `pig` runtime and generated hooks                    |
+| Cursor         | Cursor plugin and marketplace      | Not currently supported                                                      |
+| Gemini CLI     | Gemini extension                   | Not currently supported                                                      |
+| Claude Desktop | Not a separate compiler target     | Its native traces can be discovered by the Claude collector on the same host |
 
-- Claude
-- Codex
-- Cursor
-- Gemini
+The `targets` entries in `hub.yaml` are `claude`, `codex`, `cursor`, and `gemini`. Include only the targets you distribute, or keep all four from `pig init`.
 
-See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins) for how each target is packaged.
+Trace collection defaults to off. When enabled, the toolchain adds runtime files and collection hooks only to the literal `pig` plugin for Claude and Codex. Claude Code's hook also attempts local Claude Desktop collection; this does not create a separate collection schedule inside Claude Desktop. See [host enrollment](/docs/governance/get-started/enroll-your-hosts).
 
-## Ingest sources
+## Asset support
 
-The host runtime ingests native session traces from three sources:
+The hub stores assets independently from plugins. A plugin's `includes` references choose which assets it distributes. Asset metadata determines how each target receives them.
 
-- Claude Code
-- Claude Desktop
-- Codex
+| Asset                                   | Default behavior                             | Authoring guidance                                                                                      |
+| --------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Skills in `assets/skills/<id>/SKILL.md` | Agent Skills on all four targets             | Prefer this format for shared, task-oriented guidance; include supporting files in the skill directory  |
+| MCP configurations in `assets/mcps/`    | Native MCP configuration on all four targets | Verify the server's transport, command, credentials, and host-specific settings on every target you use |
+| Rules in `assets/rules/`                | Unsupported until declared                   | Add explicit target support; do not assume a repository rule applies identically across agents          |
+| Agent definitions in `assets/agents/`   | Unsupported until declared                   | Declare native support or a supported conversion for each intended target                               |
+| Commands in `assets/commands/`          | Unsupported until declared                   | Review the host's invocation and file format                                                            |
+| Hooks in `assets/hooks/`                | Unsupported until declared                   | Review event names, commands, and the host's execution environment                                      |
 
-See [Trace object and sources](/docs/governance/reference/trace-object-and-sources) for each source's capture glob and the object built from it.
+Skills use `agent-skill` mode by default, including in Cursor. They do not become always-on Cursor rules. An explicit Cursor rule uses `.mdc` output when its support declaration selects that behavior.
+
+Place metadata for a directory asset in its `asset.yaml`. For a file asset, use a sibling named `<id>.asset.yaml`. For example, a Cursor-only rule at `assets/rules/docs-style.md` can use:
+
+```yaml title="assets/rules/docs-style.asset.yaml"
+support:
+  cursor:
+    mode: native
+```
+
+Other targets retain the rule's default unsupported status. To record a deliberate exclusion for a particular target, use `mode: unsupported` with a `reason`:
+
+```yaml
+support:
+  cursor:
+    mode: native
+  codex:
+    mode: unsupported
+    reason: This rule depends on Cursor file matching.
+```
+
+Support declarations describe the intended output; they do not make arbitrary host formats portable. Use `pig verify` to check the selected conversions, then install and exercise the asset on each target. A supported Markdown agent definition can be native on Claude and converted to an Agent Skill on Codex. That conversion does not preserve a separate subagent's execution or model-selection behavior.
+
+## Git provider support
+
+| Capability                                              | GitHub                                                           | GitLab                                                                     |
+| ------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Author and review hub source                            | Yes                                                              | Yes                                                                        |
+| Validate and publish generated releases                 | Reusable GitHub Actions                                          | GitLab CI template                                                         |
+| Distribute generated plugins                            | Supported, subject to the agent's access and import requirements | Supported by the toolchain; the agent must support the chosen import route |
+| Bind repositories for trace analysis and finding issues | Yes                                                              | Not currently supported                                                    |
+
+Cursor's documented team marketplace import flow uses GitHub. A generated GitLab marketplace and working Git credentials do not prove that a particular Cursor importer accepts it. Pilot that path before rolling it out. See [installation by agent](/docs/governance/get-started/publish-and-install-plugins#install-the-plugins).
+
+The current analyzer uses configured GitHub repository IDs to associate traces with repositories and manage findings. Publishing an Instruction Hub on GitLab does not by itself add GitLab repository analysis. Choose the hub's Git provider separately from the repositories your analyzer can currently process.
+
+## Verify your combination
+
+For Acme, start with one writer and one developer using the `docs` and `dev` plugins. Confirm that each agent lists the installed plugin, loads the intended skill and supporting files, and follows it on a representative task. Repeat that check after an asset's target support changes.
+
+If collection is enabled, also confirm host enrollment, a stored trace, and a completed analysis run. The [deployment guide](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) covers those operator checks; the [trace reference](/docs/governance/reference/trace-object-and-sources) describes the native sources.
