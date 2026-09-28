@@ -920,6 +920,7 @@ test('website markdown endpoints are available for agent-friendly content', asyn
   const routes = [
     '/index.md',
     '/pricing.md',
+    '/wall-of-love.md',
     '/free-tools.md',
     '/free-tools/broken-link-report.md',
   ];

@@ -351,6 +351,7 @@ export default defineConfig({
             exclude: [
               '/',
               '/pricing',
+              '/wall-of-love',
               '/meet',
               '/jobs',
               '/privacy',
