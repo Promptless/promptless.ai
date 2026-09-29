@@ -101,6 +101,8 @@ Promptless automatically improves your team's Skills, Subagents, Hooks, and `AGE
 
 ### Your AI workforce keeps paying to relearn the same lessons.
 
+Every correction, workaround, and breakthrough stays trapped in the session where it happened. The next agent burns more time, tokens, and human attention discovering it again.
+
 The page walks through an illustrated example. An instruction debt report flags failures that recur across sessions, such as agents losing authentication. Promptless proposes fleet upgrades, a hook, a subagent, and skills, each with evidence, an eval gate, and an owner. A before-and-after view shows the capacity recovered once the fix is governed.
 
 1. **Find the waste.** Find the work your agents keep making humans redo.
