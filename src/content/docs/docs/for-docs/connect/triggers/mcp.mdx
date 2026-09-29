@@ -110,7 +110,7 @@ The same URL and command also appear in the dashboard under **Settings**, in the
 Add Promptless to Claude as a [custom connector](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp) at the direct-edit URL:
 
 <Steps>
-  1. In Claude, open **Customize** > **Connectors** and add a custom connector.
+  1. In Claude, open **Customize** > **Connectors**, select **+**, then select **Add custom connector**.
 
   2. Enter the URL `https://api.gopromptless.ai/mcp/with-direct-edits`, then select **Add**.
 
@@ -362,12 +362,14 @@ Finds lines that match text or a regular expression across a collection's text f
 | Argument         | Required | Description                                                                           |
 | ---------------- | -------- | ------------------------------------------------------------------------------------- |
 | `query`          | Yes      | The text to find, or a regular expression when `regex` is true. Up to 256 characters. |
-| `regex`          | No       | Pass `true` to treat `query` as a Python regular expression.                          |
+| `regex`          | No       | Pass `true` to treat `query` as an RE2 regular expression, similar to `grep -E`.      |
 | `case_sensitive` | No       | Pass `true` to match case exactly.                                                    |
 | `path_prefix`    | No       | Searches only files whose path starts with this prefix.                               |
 | `limit`          | No       | How many matching lines to return. Defaults to 50, never exceeds 200.                 |
 
-Each match carries the file `path`, the `line` number, and the line's `text`. One search reads at most 400 files, each up to 128 KB. `files_skipped` counts the files the search left unread. When it's above zero, search again with `path_prefix` set to the directory the change concerns. `truncated` is true when more lines matched than `limit` returned.
+RE2 syntax covers character classes, alternation, and repetition, such as `retr(y|ies)` or `v[0-9]+\.[0-9]+`. It doesn't support backreferences such as `\1` or lookaround such as `(?=...)`.
+
+Each match carries the file `path`, the `line` number, and the line's `text`. One search reads at most 400 files, each up to 128 KB, within a 10-second time budget. `files_skipped` counts the files the search left unread, whether past the 400-file limit or the time budget. When it's above zero, search again with `path_prefix` set to the directory the change concerns. `truncated` is true when more lines matched than `limit` returned.
 
 ### `get_suggestion_diff`
 
@@ -496,6 +498,8 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
 - **A read that names no collection in an organization with several**: the tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.
 - **A path outside the paths Promptless maintains**: the read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.
+- **A `search_documentation` query that isn't valid RE2**: the tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.
+- **A `search_documentation` query over 256 characters**: the tool refuses it. Shorten the query.
 - **A file over 256 KB**: `read_documentation_file` and both write tools refuse it. A binary file is refused for reading too.
 - **A write to a closed suggestion**: the tool refuses it, since a closed suggestion's branch accepts no edits. Pick an open suggestion with `search_suggestions`, or start a task with `submit_documentation_task`.
 - **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
