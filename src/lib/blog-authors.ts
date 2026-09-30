@@ -1,9 +1,10 @@
 // Blog author profiles, keyed by the `author` frontmatter value on a blog post.
 // `author` is optional: posts without it render no by-line or author card.
 // A post whose `author` has no entry here still gets a text-only by-line with
-// the raw frontmatter value, but no headshot, description, or author card.
-// `photo` is the headshot shown in the by-line and the side card; `role` and
-// the optional one- or two-sentence `bio` form the by-line's author description.
+// the raw frontmatter value, but no headshot, bio, or author card.
+// `photo` is the headshot shown in the by-line and the side card; `role` follows
+// the name in the by-line. The optional `bio` (one to three sentences) renders as
+// an "About the author" block at the bottom of the post; omit it to show no block.
 
 export interface BlogAuthor {
   photo: string;
@@ -26,6 +27,7 @@ export const BLOG_AUTHORS: Record<string, BlogAuthor> = {
     photo: '/assets/prithvi.jpg',
     name: 'Prithvi Ramakrishnan',
     role: 'Co-founder',
+    bio: 'Prithvi co-founded Promptless. Before Promptless, he served as VP of Product & Engineering at Bond, a fintech infrastructure startup acquired by FIS in 2023. There he saw firsthand the effort required to maintain hundreds of tutorials and guides and the outsized business impact of world-class documentation. Prithvi graduated from Stanford in 2015 (B.S. CS, AI track).',
     linkedin: 'https://www.linkedin.com/in/prithvi-r/',
     twitter: 'https://x.com/prithviramak',
   },
