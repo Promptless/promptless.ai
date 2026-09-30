@@ -15,15 +15,13 @@ import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
 
 The agent ecosystem is speedrunning every documentation mistake the software industry already made. Teams hand more of their documentation to AI agents, and people increasingly rely on agents to find and use products. To our knowledge, no benchmark had measured whether agents can write user-facing documentation that holds up in review.
 
-So we called the tech writers. Today we're releasing [DoGBench](https://dogbench.ai), the Documentation Generation Benchmark. DoGBench evaluates whether agents can recognize when documentation needs updating and produce changes that meet expert review standards.
+So we called the tech writers. Today we're releasing [DoGBench](https://dogbench.ai), the Documentation Generation Benchmark, which asks if agents can independently produce user-facing documentation that an experienced technical writer would accept in review.
 
-AI agents can write polished documentation, but they often miss what readers need to complete a task. They also struggle to decide whether a change needs documentation at all.
+Not yet. AI agents can write polished documentation, but they often miss what readers need to complete a task. They also struggle to decide whether a change needs documentation at all.
 
 ## Who built it
 
 Frances Liu led the research, and I co-authored it. Three open source maintainers co-authored it with us: Paige Calvert from Helm, Ayu Adiati from Mautic, and Sarah Sanders from PostHog. They validated the scoring rubrics against what their projects need.
-
-{/* TODO(launch): name the reviewers listed on dogbench.ai, with links to their work. */}
 
 ## How it works
 
@@ -32,6 +30,8 @@ The benchmark contains 292 items drawn from real open source projects, including
 The paper evaluates seven agents on a random, stratified 117-item held-out split: 82 items that need an update and 35 that don't. Each agent pairs a model with the harness that runs it. For example, one agent is Claude Opus 4.8 in Claude Code.
 
 Each agent receives the repository as it existed before the change. It also receives a triggering signal, such as a code pull request or a reported documentation gap. We withhold the merged documentation. Each agent works in a fresh Docker container with the repository's identity masked. It has no network access except to its model provider, so it can't look up the merged answer.
+
+The agent's first job is to decide if the change affects users and requires a change to the documentation. Knowing when to leave the docs alone is part of the job, so the benchmark scores it.
 
 Task-specific rubrics, validated with project maintainers, assess accuracy, completeness, reader guidance, placement, style, and repository conventions. Across the 205 documentation-needed items, the rubrics contain 3,273 criteria, including 798 P0 criteria for critical defects. Each criterion has equal weight, but failing any P0 criterion caps the patch's score at 60 out of 100. Strengths on secondary criteria can't average away a critical defect.
 
@@ -48,8 +48,6 @@ DoGBench reports update decisions and patch quality separately, then combines th
 Qwen3.8 Max with OpenCode had the highest composite score among the paper's seven agents, at 47.3 out of 100. A score of 100 means an agent meets every requirement for the item. The score isn't a percentage of an expert's capability.
 
 ### Agents struggle to decide when documentation needs updating
-
-Documentation work begins with a judgment. Does this change affect users, and do they need new guidance?
 
 Agents make mistakes in both directions. Some document internal refactors or performance optimizations that require no new user guidance. Others overlook necessary updates because they find no existing page about the feature. In those cases, the missing coverage is the problem they need to solve. Across the seven agents, correct abstention ranged from 28.6% to 85.7% of the 35 items that needed no change.
 
