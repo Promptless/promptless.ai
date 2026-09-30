@@ -1,12 +1,15 @@
 // Blog author profiles, keyed by the `author` frontmatter value on a blog post.
 // `author` is optional: posts without it render no by-line or author card.
-// A post whose `author` has no entry here still gets a by-line with the raw
-// frontmatter value, but no author card.
+// A post whose `author` has no entry here still gets a text-only by-line with
+// the raw frontmatter value, but no headshot, description, or author card.
+// `photo` is the headshot shown in the by-line and the side card; `role` and
+// the optional one- or two-sentence `bio` form the by-line's author description.
 
 export interface BlogAuthor {
   photo: string;
   name: string;
   role: string;
+  bio?: string;
   linkedin?: string;
   twitter?: string;
 }

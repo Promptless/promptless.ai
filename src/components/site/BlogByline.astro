@@ -1,30 +1,76 @@
 ---
 // By-line shown under a blog post's title. Renders nothing when the post has
-// no `author` frontmatter, so attribution stays optional.
-import { getBlogAuthorName } from '@lib/blog-authors';
+// no `author` frontmatter, so attribution stays optional. When the author has
+// a profile in `blog-authors.ts`, the by-line adds the profile's headshot,
+// role, and bio; each of those is shown only when the profile sets it.
+import { getBlogAuthor, getBlogAuthorName } from '@lib/blog-authors';
 
 interface Props {
   author?: string;
 }
 
 const { author } = Astro.props;
+const profile = author ? getBlogAuthor(author) : undefined;
+const name = author ? getBlogAuthorName(author) : '';
 ---
 
 {author && (
-  <p class="blog-byline" data-search-exclude>
-    By <span class="blog-byline-author">{getBlogAuthorName(author)}</span>
-  </p>
+  <div class="blog-byline" data-search-exclude>
+    {profile?.photo && (
+      <img class="blog-byline-photo" src={profile.photo} alt="" width="48" height="48" loading="lazy" />
+    )}
+    <div class="blog-byline-text">
+      <p class="blog-byline-name">
+        By <span class="blog-byline-author">{name}</span>
+        {profile?.role && <span class="blog-byline-role">, {profile.role}</span>}
+      </p>
+      {profile?.bio && <p class="blog-byline-bio">{profile.bio}</p>}
+    </div>
+  </div>
 )}
 
 <style>
   .blog-byline {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin: 0 0 1.1rem;
+  }
+
+  .blog-byline-photo {
+    flex-shrink: 0;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .blog-byline-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .blog-byline-text p {
+    margin: 0;
+  }
+
+  .blog-byline-name {
     color: var(--sl-color-gray-3);
     font-size: var(--sl-text-sm);
+    line-height: 1.4;
   }
 
   .blog-byline-author {
     color: var(--sl-color-text);
     font-weight: 600;
+  }
+
+  .blog-byline-bio {
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+    line-height: 1.45;
+    max-width: 40rem;
   }
 </style>
