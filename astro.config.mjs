@@ -263,6 +263,8 @@ export default defineConfig({
                     { autogenerate: { directory: 'docs/governance/start-here', collapsed: true } },
                   ],
                 },
+                // Agent-facing setup guide for the whole journey; the human guides link to it.
+                { label: 'Set up with a coding agent', slug: 'docs/governance/agent-setup-guide' },
                 { label: 'Set up an instruction hub', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/get-started', collapsed: true } }] },
                 {
                   label: 'Deploy trace analysis',

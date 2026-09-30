@@ -40,6 +40,11 @@ async function buildSections(): Promise<LlmsSection[]> {
             'Connect Claude Code with `claude mcp add --transport http promptless https://api.gopromptless.ai/mcp`; the page has the Cursor, VS Code, and Codex commands. OAuth sign-in, and it requires an existing Promptless organization.',
         }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
+        docsPage('/docs/governance/agent-setup-guide', {
+          label: 'Set up PIG with a coding agent',
+          description:
+            'Instructions a coding agent follows to set up an Instruction Hub, publish and install plugins, and optionally deploy the trace analyzer, enroll hosts, and verify a session.',
+        }),
         link('Full corpus', '/llms-full.txt', 'every documentation page in one file'),
         link('Abridged corpus', '/llms-small.txt', 'the documentation with asides and details removed'),
       ],
