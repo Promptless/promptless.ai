@@ -37,6 +37,13 @@ export const BLOG_AUTHORS: Record<string, BlogAuthor> = {
     role: 'Founding Engineer',
     twitter: 'https://twitter.com/InlinePizza',
   },
+  Manny: {
+    photo: '/assets/manny.jpg',
+    name: 'Manny Silva',
+    role: 'Head of AI Docs Practice',
+    bio: 'Manny Silva is Head of AI Docs Practice at Promptless, where he helps teams optimize their documentation workflows. He has built documentation for Apple, Google, and startups of various sizes. He codified the Docs as Tests strategy and created Doc Detective, an open-source tool for testing documentation. He wrote Docs as Tests: A Strategy for Resilient Technical Documentation and its follow-up, Docs as Tests & AI: A Strategy for Self-Healing Technical Documentation. He likes diving into the deep end as the zeroth user.',
+    linkedin: 'https://www.linkedin.com/in/manuelrbsilva',
+  },
 };
 
 export function getBlogAuthor(author: string): BlogAuthor | undefined {
