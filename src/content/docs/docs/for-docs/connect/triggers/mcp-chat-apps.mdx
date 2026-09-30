@@ -1,6 +1,6 @@
 ---
 title: Connect Promptless to Claude.ai or ChatGPT
-description: Set up the Promptless MCP server as a custom connector in the Claude.ai or ChatGPT web app, sign in with OAuth, and run a quick test to start and track documentation tasks from chat.
+description: Server URL, OAuth sign-in, tool list with read and write annotations, setup steps, and test prompts for the Promptless MCP connector in Claude.ai and ChatGPT.
 slug: docs/for-docs/connect/triggers/mcp-chat-apps
 type: guide
 tags:
@@ -13,200 +13,258 @@ sidebar:
   order: 16.5
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
-Add Promptless to the Claude.ai or ChatGPT web app as a custom connector, so you can work with Promptless from a chat conversation. Once connected, ask in plain language to start a documentation task and follow it to its docs pull request. You can also check on recent tasks, search and read your docs, and review or revise a suggestion. This page covers setup in each app, the sign-in you approve, and a short test to confirm the connection works.
+Promptless keeps a team's product documentation up to date. The Promptless MCP server lets a user do this work from a Claude.ai or ChatGPT conversation. The user can:
 
-Promptless connects to these apps over [MCP](https://modelcontextprotocol.io) (Model Context Protocol), the open protocol chat apps and editors use to reach external tools. To connect an editor such as Claude Code or Cursor, see [MCP triggers](/docs/for-docs/connect/triggers/mcp), which is also the full reference for every tool.
+- Start a documentation task and follow it to a docs pull request.
+- Check the status of recent tasks.
+- Search and read the organization's documentation.
+- Review, revise, or close a suggested documentation change.
 
-## Use the chat app server URL
+This page gives the server details, the setup steps for each app, the tools, the data access, and test prompts with expected results.
 
-Chat apps connect at this URL:
+The server uses [MCP](https://modelcontextprotocol.io) (Model Context Protocol). To connect an editor such as Claude Code or Cursor, see [MCP triggers](/docs/for-docs/connect/triggers/mcp). That page is also the full reference for the arguments and results of each tool.
 
-```txt
-https://api.gopromptless.ai/mcp/with-direct-edits
-```
+## Server details
 
-A chat app has no local copy of your docs repository. This URL gives it the task and suggestion tools that editors use at `https://api.gopromptless.ai/mcp`. It adds tools to search, read, and edit your documentation directly. Both URLs use the same sign-in and the same organization-wide access.
+| Item | Value |
+| --- | --- |
+| Server URL | `https://api.gopromptless.ai/mcp/with-direct-edits` |
+| Authentication | OAuth 2.1 authorization code flow with PKCE (`S256`) |
+| Client registration | Dynamic client registration. No client ID or client secret is necessary. |
+| Access token lifetime | 8 hours. The app refreshes the token automatically. |
+| Connection lifetime | 90 days from approval. After 90 days, the user approves the connection again. |
+| Data scope | One Promptless organization, which the user selects on the approval page |
+| Account | A Promptless account. No API key is necessary. |
+| Privacy policy | [Promptless privacy policy](/docs/for-docs/security/privacy-policy) |
+| Support | [help@gopromptless.ai](mailto:help@gopromptless.ai) |
 
-<Aside type="note" title="Before you start">
-  - A Promptless organization that has [finished setting up Promptless](https://app.gopromptless.ai/configuration). Any active member can connect. No API key is needed.
-  - For Claude.ai: any plan. The Free plan allows one custom connector. On a Team or Enterprise plan, an Owner adds the connector for the organization first.
-  - For ChatGPT: a paid plan with developer mode turned on. On a Business, Enterprise, or Edu workspace, an admin or owner manages developer mode and custom apps.
-</Aside>
+Chat apps must use the server URL in this table. A chat app has no local copy of the documentation repository. So this URL adds tools to search, read, and edit the documentation directly. Editors use `https://api.gopromptless.ai/mcp`, which does not have these tools. Both URLs use the same sign-in and the same access.
+
+## Requirements
+
+- A Promptless organization that has [finished setting up Promptless](https://app.gopromptless.ai/configuration). Any active member of the organization can connect.
+- Claude.ai on any plan. The Free plan allows one custom connector. On a Team or Enterprise plan, an Owner must add the connector for the organization first.
+- ChatGPT on a paid plan, with developer mode on. On a Business, Enterprise, or Edu workspace, an admin or owner controls developer mode and custom apps.
 
 ## Add Promptless to Claude.ai
 
-The steps depend on your plan. Free, Pro, and Max are individual plans. On Team and Enterprise plans, an Owner adds the connector for the organization.
+The steps are different for individual plans and organization plans. Free, Pro, and Max are individual plans. Team and Enterprise are organization plans.
 
 ### Individual plans
 
 <Steps>
   1. In Claude.ai, go to **Customize** > **Connectors**.
 
-  2. Select **+**, then select **Add custom connector**.
+  2. Select **+**.
 
-  3. In the name field, enter `Promptless`.
+  3. Select **Add custom connector**.
 
-  4. In the URL field, enter `https://api.gopromptless.ai/mcp/with-direct-edits`. Leave **Advanced settings** empty. Claude registers itself with Promptless automatically, so no OAuth client ID or secret is needed.
+  4. In the name field, enter `Promptless`.
 
-  5. Select **Add**.
+  5. In the URL field, enter `https://api.gopromptless.ai/mcp/with-direct-edits`.
 
-  6. On the **Promptless** connector, select **Connect**, then approve the connection in the Promptless tab that opens. See [Approve the connection](#approve-the-connection).
+  6. Do not change **Advanced settings**. Claude registers itself with Promptless, so it does not need an OAuth client ID or secret.
+
+  7. Select **Add**.
+
+  8. On the **Promptless** connector, select **Connect**. A Promptless tab opens.
+
+  9. Approve the connection in the Promptless tab. See [Approve the connection](#approve-the-connection).
 </Steps>
 
-Claude is rolling out a two-step version of this dialog. It asks for the name and URL first, then shows authentication options on a second screen. If you see that version, keep the defaults that sign in with OAuth.
+Some accounts show a two-step version of the **Add custom connector** dialog. The first screen asks for the name and URL. The second screen shows authentication options. On the second screen, keep the OAuth defaults.
 
 ### Organization plans
 
-An Owner adds the connector once for the organization. Each member then connects their own Promptless account.
+An Owner adds the connector one time for the organization. Then each member connects their own Promptless account.
 
 <Steps>
   1. Owner: In Claude.ai, go to **Organization settings** > **Connectors**.
 
-  2. Owner: Select **Add**, point to **Custom**, then select **Web**.
+  2. Owner: Select **Add**, point to **Custom**, and then select **Web**.
 
-  3. Owner: Enter the URL `https://api.gopromptless.ai/mcp/with-direct-edits`, then select **Add**.
+  3. Owner: Enter the URL `https://api.gopromptless.ai/mcp/with-direct-edits`.
 
-  4. Member: Go to **Customize** > **Connectors** and find the **Promptless** connector, labeled **Custom**.
+  4. Owner: Select **Add**.
 
-  5. Member: Select **Connect**, then approve the connection in the Promptless tab that opens. See [Approve the connection](#approve-the-connection).
+  5. Member: Go to **Customize** > **Connectors**. Find the **Promptless** connector, which has the label **Custom**.
+
+  6. Member: Select **Connect**. A Promptless tab opens.
+
+  7. Member: Approve the connection in the Promptless tab. See [Approve the connection](#approve-the-connection).
 </Steps>
 
-Each member approves their own connection, so each connection acts with that member's Promptless access. An Owner can also turn off specific tools for the whole organization in **Organization settings** > **Connectors**.
+Each member approves their own connection. So each connection has the Promptless access of that member only. An Owner can block specific tools for all members in **Organization settings** > **Connectors**.
 
-### Turn on Promptless in a conversation
+### Use Promptless in a Claude.ai conversation
 
 <Steps>
-  1. In a chat, select **+** at the lower left of the message box.
+  1. In a conversation, select **+** at the lower left of the message box.
 
-  2. Select **Connectors**, then turn on **Promptless**.
+  2. Select **Connectors**.
+
+  3. Turn on **Promptless**.
 </Steps>
 
-The first time Claude calls a Promptless tool, it asks you to approve the call. To change the default for a tool, go to **Customize** > **Connectors**, select **Promptless**, and set each tool to **Ask each time**, **Always allow**, or **Blocked**. Set read-only tools, such as `list_doc_collections` and `get_task_status`, to **Always allow** so routine checks don't prompt you each time. Keep tools that start or change work, such as `submit_documentation_task` and `edit_documentation_file`, on **Ask each time**.
+Claude asks the user to approve the first call to each Promptless tool. To change this for one tool, go to **Customize** > **Connectors** and select **Promptless**. Then set the tool to **Ask each time**, **Always allow**, or **Blocked**.
 
-For details on Claude's connector settings, see Anthropic's [custom connectors guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
+Recommended settings:
+
+- Set read-only tools, such as `list_doc_collections` and `get_task_status`, to **Always allow**.
+- Keep tools that start or change work, such as `submit_documentation_task` and `edit_documentation_file`, on **Ask each time**.
+
+For more about connector settings, see the Anthropic [custom connectors guide](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp).
 
 ## Add Promptless to ChatGPT
 
-ChatGPT runs custom MCP servers as apps in developer mode. OpenAI labels developer mode and full MCP support as beta. Depending on your account, ChatGPT shows app settings under **Apps** or under **Plugins**.
+ChatGPT runs custom MCP servers as apps in developer mode. OpenAI labels developer mode and full MCP support as beta. Some accounts show app settings under **Apps**. Other accounts show them under **Plugins**.
 
-Your plan decides which Promptless tools ChatGPT runs:
+The ChatGPT plan controls which Promptless tools can run:
 
-- Business, Enterprise, and Edu workspaces get full MCP support, including actions that change data, such as submitting a task. Only admins and owners can turn on developer mode and create or publish apps for the workspace. On Enterprise and Edu, an admin can grant developer mode to specific members through role-based access.
-- On Plus and Pro, you turn on developer mode yourself. OpenAI documents Pro as limited to read and fetch actions for custom apps, so tools that start or change work, such as `submit_documentation_task`, might not run.
-- The Free plan doesn't support custom apps.
+| Plan | Promptless tools that run | Who turns on developer mode |
+| --- | --- | --- |
+| Business, Enterprise, Edu | All tools, including tools that change data | An admin or owner. On Enterprise and Edu, an admin can also give developer mode to specific members through role-based access. |
+| Plus, Pro | OpenAI documents Pro as limited to read and fetch actions. Tools that change data, such as `submit_documentation_task`, might not run. | The user |
+| Free | None. The Free plan does not support custom apps. | Not available |
 
 <Steps>
-  1. In ChatGPT, open **Settings** and turn on **Developer mode**. The toggle is under **Security and login**, or under **Apps** > **Advanced settings** on accounts that still show the earlier layout.
+  1. In ChatGPT, open **Settings**.
 
-  2. Go to [chatgpt.com/plugins](https://chatgpt.com/plugins), or to **Settings** > **Apps**, and select **Create** or **+**.
+  2. Turn on **Developer mode**. The toggle is under **Security and login**. On accounts with the earlier layout, the toggle is under **Apps** > **Advanced settings**.
 
-  3. In the name field, enter `Promptless`.
+  3. Go to [chatgpt.com/plugins](https://chatgpt.com/plugins), or go to **Settings** > **Apps**.
 
-  4. In the description field, enter a short description, such as `Start and track Promptless documentation tasks, and search, read, and edit our docs.` ChatGPT uses this text to decide when to call the app.
+  4. Select **Create** or **+**.
 
-  5. In the MCP server URL field, enter `https://api.gopromptless.ai/mcp/with-direct-edits`.
+  5. In the name field, enter `Promptless`.
 
-  6. For authentication, select **OAuth**. ChatGPT registers itself with Promptless automatically, so no client ID or secret is needed.
+  6. In the description field, enter a short description. For example: `Start and track Promptless documentation tasks, and search, read, and edit our docs.` ChatGPT uses this text to decide when to call the app.
 
-  7. Select **Create**, then approve the connection in the Promptless tab that opens. See [Approve the connection](#approve-the-connection).
+  7. In the MCP server URL field, enter `https://api.gopromptless.ai/mcp/with-direct-edits`.
+
+  8. For authentication, select **OAuth**. ChatGPT registers itself with Promptless, so it does not need a client ID or secret.
+
+  9. Select **Create**. A Promptless tab opens.
+
+  10. Approve the connection in the Promptless tab. See [Approve the connection](#approve-the-connection).
 </Steps>
 
-ChatGPT reads the Promptless tool list and adds the app with a **Dev** label. On a Business, Enterprise, or Edu workspace, an admin can publish the app from the workspace's app drafts. Other members can then connect to it.
+ChatGPT reads the Promptless tool list. Then ChatGPT adds the app with a **Dev** label. On a Business, Enterprise, or Edu workspace, an admin can publish the app from the app drafts of the workspace. After the admin publishes the app, other members can connect to it.
 
-### Use Promptless in a conversation
+### Use Promptless in a ChatGPT conversation
 
-In a new chat, select Promptless from the tools menu under the message box, or @-mention it by name. The selection applies to the message you send, so select or mention Promptless again for a follow-up that needs it.
+In a new conversation, select Promptless from the tools menu below the message box. You can also @-mention Promptless by name. The selection applies only to the message that you send. For a follow-up message that needs Promptless, select or mention Promptless again.
 
-Before a tool that changes data runs, ChatGPT shows a confirmation card. Review the action, then allow or deny it. For per-app permission settings, see OpenAI's [developer mode guide](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-apps-in-chatgpt-beta).
+Before a tool that changes data runs, ChatGPT shows a confirmation card. Read the action, and then allow or deny it. For app permission settings, see the OpenAI [developer mode guide](https://help.openai.com/en/articles/12584461-developer-mode-and-full-mcp-apps-in-chatgpt-beta).
 
 ## Approve the connection
 
-After you select **Connect** in Claude.ai or **Create** in ChatGPT, a Promptless tab opens so you can approve the connection. Promptless uses OAuth, so the chat app never sees your Promptless password.
+After you select **Connect** in Claude.ai or **Create** in ChatGPT, a Promptless tab opens. On this page, you approve the connection. Promptless uses OAuth, so the chat app does not get your Promptless password.
 
 <Steps>
-  1. If you aren't signed in to Promptless, sign in with your Promptless account. The approval page opens after you sign in.
+  1. If you are not signed in to Promptless, sign in with your Promptless account. The approval page opens.
 
-  2. Check where the connection goes. The page names the app that's asking to connect and the web address it sends the connection to. For Claude, that address is `claude.ai` or `claude.com`. For ChatGPT, it's `chatgpt.com`. The app chooses its own name, so check the address, not the name, and cancel if it doesn't match the app you're connecting.
+  2. Find the web address that the page shows. The page sends the connection to this address. For Claude, the address is `claude.ai` or `claude.com`. For ChatGPT, the address is `chatgpt.com`.
 
-  3. In the organization picker, choose the Promptless organization to connect. It defaults to your active organization. The page also shows your role in that organization.
+  3. If the address does not match the app that you connect, select **Cancel**. The app sets its own name, so check the address, not the name.
 
-  4. Select **Authorize as \{your email}**.
+  4. In the organization picker, select the Promptless organization to connect. The picker selects your active organization by default. The page also shows your role in the organization.
+
+  5. Select **Authorize as \{your email}**.
 </Steps>
 
-The tab reports that it's returning you to the app, and you can close it. Back in Claude.ai or ChatGPT, Promptless shows as connected, and its tools are ready to use.
+The tab shows that it is returning you to the app. You can close the tab. In Claude.ai or ChatGPT, Promptless shows as connected, and its tools are ready.
 
-If you don't belong to a Promptless organization yet, the page asks for a name and creates an organization when you authorize. Finish [setting up Promptless](https://app.gopromptless.ai/configuration) before you start documentation tasks.
+If you are not a member of a Promptless organization, the approval page asks for an organization name. When you authorize, Promptless creates the organization. Before you start documentation tasks, [finish setting up Promptless](https://app.gopromptless.ai/configuration).
 
-### What the connection can access
+## Tools
 
-There are no narrower permissions to choose. A connection acts with your access across the organization you picked. It can:
+The chat app selects the Promptless tool that matches the user's request. Each tool has MCP annotations that tell the app if the tool is read-only or changes data. The **Type** column shows these annotations:
 
-- read every documentation task, doc collection, and suggestion in the organization, including work started from Slack, GitHub, the dashboard, or the API;
-- start documentation tasks, which can open docs pull requests;
-- revise, update, and close suggestions;
-- search, read, and edit documentation files on an open suggestion's branch.
+- **Read-only**: `readOnlyHint` is true. The tool does not change data.
+- **Changes data**: `readOnlyHint` is false and `destructiveHint` is false. The tool adds work or input, and does not change or remove existing content.
+- **Changes existing content**: `readOnlyHint` is false and `destructiveHint` is true. The tool changes or closes an existing suggestion or file.
 
-The connection is tied to one organization. To work in a different organization, disconnect and connect again, then pick that organization on the approval page. For the full access and membership rules, see [Authorize in the browser](/docs/for-docs/connect/triggers/mcp#authorize-in-the-browser).
+| Tool | Action | Type |
+| --- | --- | --- |
+| `list_doc_collections` | Lists the doc collections of the organization. | Read-only |
+| `list_recent_tasks` | Lists the recent tasks of the organization, newest first. | Read-only |
+| `get_task_status` | Gets the status and conversation of one task. | Read-only |
+| `wait_for_task_update` | Waits up to 30 seconds for new messages or a status change on one task. | Read-only |
+| `search_suggestions` | Finds suggestions by keyword, status, or label. | Read-only |
+| `get_suggestion_diff` | Shows the changes that a suggestion proposes. | Read-only |
+| `list_documentation_files` | Lists the files in a doc collection. | Read-only |
+| `search_documentation` | Finds text in the documentation files. | Read-only |
+| `read_documentation_file` | Reads one documentation file. | Read-only |
+| `get_account_status` | Shows the setup status and connected integrations of the organization. | Read-only |
+| `submit_documentation_task` | Starts a documentation task. The task can open a docs pull request. | Changes data |
+| `send_task_message` | Adds an instruction to a task that is in progress. | Changes data |
+| `answer_task_question` | Sends the answer to a question that a task asked. | Changes data |
+| `request_changes` | Asks Promptless to revise a suggestion. | Changes data |
+| `connect_integration` | Creates a link that a person opens to connect an integration, such as GitHub, to the organization. | Changes data |
+| `update_suggestion` | Sets the title, labels, or assignees of a suggestion, or opens its docs pull request. | Changes existing content |
+| `close_suggestion` | Closes a suggestion and its docs pull request. | Changes existing content |
+| `write_documentation_file` | Creates or replaces one file on the branch of an open suggestion. | Changes existing content |
+| `edit_documentation_file` | Replaces specific text in one file on the branch of an open suggestion. | Changes existing content |
 
-## What you can do once connected
+The two file tools write only to the branch of an open suggestion, as one commit for each call. They do not write to the default branch of the documentation repository. The tools cannot edit a closed suggestion.
 
-Ask in plain language. The chat app picks the Promptless tool that matches your request. With the chat app URL, you can:
+For the arguments and results of each tool, see [Available tools](/docs/for-docs/connect/triggers/mcp#available-tools).
 
-- Start a documentation task and follow it to its outcome and docs pull request link (`submit_documentation_task`, `wait_for_task_update`).
-- Check a task's status and read its conversation (`get_task_status`).
-- List your organization's recent tasks, newest first (`list_recent_tasks`).
-- Add an instruction to a task that's still running (`send_task_message`).
-- Answer a clarifying question a task asked (`answer_task_question`).
-- List your doc collections (`list_doc_collections`).
-- Search suggestions by keyword, status, or label (`search_suggestions`).
-- View the diff a suggestion proposes (`get_suggestion_diff`).
-- Ask Promptless to revise a suggestion (`request_changes`).
-- Set a suggestion's title, labels, or assignees, and open its docs pull request (`update_suggestion`).
-- Close a suggestion you won't ship (`close_suggestion`).
-- List, search, and read your documentation files (`list_documentation_files`, `search_documentation`, `read_documentation_file`).
-- Edit a page yourself on an open suggestion's branch (`edit_documentation_file`, `write_documentation_file`).
-- Check your organization's setup status and connected integrations (`get_account_status`).
+## Data access
 
-For each tool's arguments and results, see [Available tools](/docs/for-docs/connect/triggers/mcp#available-tools) on the MCP triggers page.
+A connection has the access of the user who approved it, in the organization that the user selected. The approval page shows this access. There are no narrower permissions to select. A connection can:
+
+- Read all documentation tasks, doc collections, and suggestions in the organization. This includes work that started from Slack, GitHub, the dashboard, or the API.
+- Start documentation tasks, which can open docs pull requests.
+- Revise, update, and close suggestions.
+- Search, read, and edit documentation files on the branch of an open suggestion.
+
+A connection applies to one organization only. To use a different organization, disconnect, connect again, and select the other organization on the approval page.
+
+Promptless checks the organization membership of the user on each call. If the user is no longer an active member, the connection stops working. For more about access and membership, see [Authorize in the browser](/docs/for-docs/connect/triggers/mcp#authorize-in-the-browser). For data handling, see the [Promptless privacy policy](/docs/for-docs/security/privacy-policy).
 
 ## Test the connection
 
-Run these prompts in a new conversation with Promptless turned on. In ChatGPT, select or @-mention Promptless in each message.
+Use these prompts to make sure that the connection works. Start a new conversation with Promptless turned on. In ChatGPT, select or @-mention Promptless in each message.
 
-1. Enter `List my Promptless doc collections.` The app calls `list_doc_collections` and lists your organization's doc collections by name. If it reports that the organization hasn't finished setting up Promptless, finish setup on the [Configuration page](https://app.gopromptless.ai/configuration).
+| Prompt | Tool | Expected result |
+| --- | --- | --- |
+| `List my Promptless doc collections.` | `list_doc_collections` | A list of the doc collections of the organization, by name. If the organization has not finished setup, the result tells you to [finish setting up Promptless](https://app.gopromptless.ai/configuration). |
+| `Show my recent Promptless tasks.` | `list_recent_tasks` | A list of recent tasks, newest first. The list includes tasks from Slack, GitHub, and the dashboard. A new organization might have no tasks. |
+| `Search my Promptless docs for "install".` | `search_documentation` | Lines that contain "install", with their file paths. |
+| `Ask Promptless to fix any typos on the quickstart page in my docs collection, and follow the task until it finishes.` | `submit_documentation_task`, then `wait_for_task_update` | The app asks you to approve `submit_documentation_task`. Then the app follows the task for some minutes and shows messages from Promptless. The final result is a suggestion with a docs pull request link, or a statement that no change is necessary. |
 
-2. Enter `Show my recent Promptless tasks.` The app calls `list_recent_tasks` and lists recent tasks newest first, including ones started from Slack, GitHub, or the dashboard. A new organization might have none yet.
+The last prompt is optional. It starts real work in the organization. To remove the result, enter `Close that Promptless suggestion.`
 
-3. Enter `Search my Promptless docs for "install".` The app calls `search_documentation` and returns matching lines with their file paths. If this works, the connection uses the chat app URL.
-
-4. Optional: Start a small real task. For example, enter `Ask Promptless to fix any typos on the quickstart page in my docs collection, and follow the task until it finishes.` Approve the `submit_documentation_task` call when asked. The app follows the task for several minutes and relays messages from Promptless. It then reports the outcome: a suggestion with its docs pull request link, or no change needed. This runs real work in your organization. To discard the resulting suggestion, enter `Close that Promptless suggestion.`
-
-If the first two prompts return results, the connection works. If the third says the tool doesn't exist, the connector uses `https://api.gopromptless.ai/mcp`. Remove it and add it again with the chat app URL.
+If the first two prompts give results, the connection works. If the third prompt says that the tool does not exist, the connector uses `https://api.gopromptless.ai/mcp`. Remove the connector. Then add it again with `https://api.gopromptless.ai/mcp/with-direct-edits`.
 
 ## Reconnect or disconnect
 
-A connection lasts 90 days. Within that time, the app refreshes its access automatically. After 90 days, the app asks you to connect again. If you lose active membership in the organization, Promptless revokes the connection. To approve a connection again:
+A connection lasts 90 days from approval. During this time, the app refreshes its access automatically. After 90 days, the app asks you to connect again.
+
+To connect again:
 
 - In Claude.ai, go to **Customize** > **Connectors**, select **Promptless**, and select **Connect**.
-- In ChatGPT, go to **Settings** > **Apps** or **Plugins**, select **Promptless**, and connect your account again.
+- In ChatGPT, go to **Settings** > **Apps** or **Plugins**, select **Promptless**, and connect your account.
 
 To disconnect:
 
-- In Claude.ai, go to **Customize** > **Connectors**, open the menu next to **Promptless**, and select **Remove**. On a Team or Enterprise plan, an Owner removes the connector for everyone in **Organization settings** > **Connectors**.
-- In ChatGPT, go to **Settings** > **Apps** or **Plugins**, select **Promptless**, and disconnect it from its menu. A workspace admin can turn the app off for everyone in the workspace's admin settings.
+- In Claude.ai, go to **Customize** > **Connectors**. Open the menu next to **Promptless**, and select **Remove**. On a Team or Enterprise plan, an Owner can remove the connector for all members in **Organization settings** > **Connectors**.
+- In ChatGPT, go to **Settings** > **Apps** or **Plugins**, and select **Promptless**. Disconnect it from its menu. A workspace admin can turn off the app for all members in the admin settings of the workspace.
 
-Promptless has no revoke button in the dashboard. Each member manages their own connection from the chat app.
+The Promptless dashboard does not have a control to disconnect a chat app. Each member disconnects their own connection in the chat app.
 
 ## Troubleshooting
 
-- **The approval page says the request is no longer valid**: approval requests expire after 30 minutes. Start the connection again from Claude.ai or ChatGPT.
-- **The approval page says the request has already been answered**: the request was already approved or canceled. If the app is still waiting, start the connection again.
-- **You canceled on the approval page**: the app reports that the connection was declined. Select **Connect** in Claude.ai, or reconnect the app in ChatGPT, to try again.
-- **The organization you want isn't in the picker**: you aren't an active member of it. Ask an admin of that Promptless organization to invite you.
-- **Promptless tools don't run in a Claude.ai chat**: turn on Promptless from **+** > **Connectors** in that conversation. Then check that the tool isn't set to **Blocked** in **Customize** > **Connectors**.
-- **Promptless tools don't run in a ChatGPT chat**: confirm that developer mode is on, then select or @-mention Promptless in the message. On a plan limited to read actions, tools that start or change work don't run.
-- **You connected the wrong organization**: disconnect Promptless, connect again, and pick the right organization on the approval page.
+- **The approval page says that the request is no longer valid**: Approval requests expire after 30 minutes. Start the connection again from Claude.ai or ChatGPT.
+- **The approval page says that the request has already been answered**: You already approved or canceled the request. If the app still waits for approval, start the connection again.
+- **You canceled on the approval page**: The app shows that the connection was declined. To try again, select **Connect** in Claude.ai, or connect the app again in ChatGPT.
+- **The organization is not in the picker**: You are not an active member of the organization. Ask an admin of the Promptless organization to invite you.
+- **Promptless tools do not run in a Claude.ai conversation**: Turn on Promptless from **+** > **Connectors** in the conversation. Then make sure that the tool is not set to **Blocked** in **Customize** > **Connectors**.
+- **Promptless tools do not run in a ChatGPT conversation**: Make sure that developer mode is on. Then select or @-mention Promptless in the message. On a plan limited to read actions, tools that change data do not run.
+- **You connected the wrong organization**: Disconnect Promptless. Connect again, and select the correct organization on the approval page.
 
-For errors that Promptless tools return after you connect, see [Troubleshooting](/docs/for-docs/connect/triggers/mcp#troubleshooting) on the MCP triggers page.
+For errors that Promptless tools return after you connect, see [Troubleshooting](/docs/for-docs/connect/triggers/mcp#troubleshooting) on the MCP triggers page. For other problems, send an email to [help@gopromptless.ai](mailto:help@gopromptless.ai).
