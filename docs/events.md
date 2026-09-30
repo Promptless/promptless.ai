@@ -59,7 +59,7 @@ Current `action` values:
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
-| `view_dogbench` | `footer` (homepage only; opens dogbench.ai) |
+| `view_dogbench` | `footer` (Content column link), `footer_card` (homepage-only card); both open dogbench.ai |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign

@@ -71,7 +71,7 @@ sends a parallel `gtag` event for Google Analytics.
 - `view_commits` -- demo_social_proof
 - `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
 - `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
-- `view_dogbench` -- footer (homepage only)
+- `view_dogbench` -- footer (Content column link), footer_card (homepage only)
 
 ## Design Decisions
 
