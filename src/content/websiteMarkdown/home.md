@@ -76,69 +76,63 @@ The page links to Claude, ChatGPT, Gemini, and Perplexity with this prompt: "Wha
 
 ## Promptless for Agent Instructions
 
-### Every agent session should teach your entire AI workforce.
+### Stop teaching every agent the same lesson.
 
-Promptless automatically improves your team's Skills, Subagents, Hooks, and `AGENTS.md` with every session trace across your agent fleet.
+PIG (Promptless Instruction Governance) reads your team's coding-agent sessions, finds missing, stale, or conflicting instructions, and proposes focused fixes. Your team reviews each one, then publishes it through your Instruction Hub.
 
-- Consistent, access-controlled skills across your teams
-- Your traces are securely analyzed on your systems
-- Works with all your agents: Claude, Codex, Cursor, Gemini, Gemini CLI, Devin, and OpenClaw
+- **4 agents:** Claude Code, Codex, Cursor, and Gemini CLI install instructions built from one hub.
+- **6 asset types:** Skills and MCP configs on every target; rules, agent definitions, commands, and hooks where you declare support.
+- **Your storage:** Raw session traces stay in customer-owned storage your analyzer writes to.
+- **Your review:** Proposed fixes arrive as pull requests under your repository rules.
 
 [Get a demo](https://promptless.ai/meet?content=agent-instructions#book) with your work email. Documentation starts at the [Promptless for Agent Instructions overview](https://promptless.ai/docs/governance.md).
 
-### Typical improvements after 30 days
+### One repeated correction becomes a reviewed fix.
 
-- Token spend: down 18%
-- First-attempt completion: up 15%
-- Wall-clock time: down 32%
+An illustrative walkthrough based on the Acme example in the PIG docs. Acme's `review-docs` skill tells agents to verify every code example, but never says which product version to verify against.
+
+1. **Session evidence.** Enrolled Claude Code and Codex hosts send session records to the analyzer you run. In three sessions, a writer corrects an agent that checked v3 examples against the v2 SDK.
+2. **Finding.** PIG connects the repeated correction to the missing instruction and records a finding with a severity, a confidence, and the cited sessions.
+3. **Proposed fix.** A remediation agent opens a focused pull request against the Instruction Hub that adds a step to confirm the documented product version first.
+4. **Reviewed release.** Your team approves and merges it under its own repository rules, publishes a new plugin release, and verifies it on a pilot host.
+
+### Shared instructions that improve with use.
+
+- **Find instruction gaps.** The analyzer reads sessions for missing, stale, conflicting, or ineffective instructions and records each one as a finding with a severity and a confidence.
+- **Review the evidence.** Each finding cites the sessions behind it and opens as a GitHub issue in the repository that owns the instruction.
+- **Propose focused corrections.** For high-confidence findings the hub owns, a remediation agent prepares a narrow pull request. Causes outside the hub, such as an expired credential, go to their owner instead.
+- **Distribute shared instructions.** One Instruction Hub compiles into plugins for Claude Code, Codex, and Cursor, and an extension for Gemini CLI.
+
+### What changed in our first 30 days on PIG.
+
+We ran PIG on Promptless's own engineering, GTM, and ops agent sessions and compared them with our instructions before governance. These are our internal numbers, not customer results. See the [launch post](https://promptless.ai/blog/product-updates/introducing-promptless-for-agent-instructions).
+
 - Human interruptions: down 42%
+- First-attempt completion: up 15%
+- Wall-clock time per session: down 32%
+- Token consumption: down 18%
 
-### The Promptless difference
+### Your storage. Your model provider. Your merge button.
 
-- **Secure and on-prem by default.** Your agent sessions never leave your systems. All analysis happens on your infrastructure.
-- **White-glove onboarding.** A forward-deployed AI engineer and technical writer work with you to optimize your agents.
-- **Works across teams, from DevOps to marketing.** Improve code, incident response, customer content, and operations across any agent.
+- **Raw traces (your infrastructure).** Native transcripts and canonical trace objects are stored in customer-owned storage that your analyzer writes to.
+- **Analysis input (your model provider).** The analyzer sends session-derived input to the provider you configure: OpenAI, Azure OpenAI, or AWS Bedrock.
+- **Status and findings (Promptless).** Promptless receives trace status and counts, plus findings. Finding text is model-written and can describe session details.
+- **Review rules (your repository).** Fixes arrive as pull requests. CODEOWNERS, required reviews, and branch protection stay yours. PIG does not merge for you.
 
-### Your AI workforce keeps paying to relearn the same lessons.
-
-Every correction, workaround, and breakthrough stays trapped in the session where it happened. The next agent burns more time, tokens, and human attention discovering it again.
-
-The page walks through an illustrated example. An instruction debt report flags failures that recur across sessions, such as agents losing authentication. Promptless proposes fleet upgrades, a hook, a subagent, and skills, each with evidence, an eval gate, and an owner. A before-and-after view shows the capacity recovered once the fix is governed.
-
-1. **Find the waste.** Find the work your agents keep making humans redo.
-2. **Govern the fix.** Turn the best fix into a team-wide standard.
-3. **Compound the impact.** Make one person's breakthrough the standard for every session.
-
-### Your agent instruction stack is the Wild West.
-
-Bring every skill, hook, and `AGENTS.md` file under one governed system.
-
-### Every session feeds the next improvement.
-
-Traces show what failed. Your team reviews the fix. Approved updates reach every agent. A diagram shows the loop connecting the Instruction Hub, your AI workforce, the Governance Platform, and an on-system Trace Analyzer.
-
-### Improve every agent without giving up control.
-
-Turn trace evidence into versioned instruction updates your team reviews before they ship.
-
-- Traces never leave your infrastructure.
-- Version every instruction in a central registry.
-- Access control for every agent instruction.
-- Verify every remediation with evals.
-- Replace conflicting local skills with a single governed source.
+See the [trust and data model](https://promptless.ai/docs/governance/start-here/trust-and-data-model.md).
 
 ### Questions, answered.
 
-**What counts as an agent instruction?** Skills, subagent definitions, hooks, `AGENTS.md` files, and shared MCP server configurations.
+**What counts as an agent instruction?** Anything your Instruction Hub stores: skills, MCP configurations, rules, agent definitions, commands, and hooks. Skills and MCP configurations reach all four targets by default; the others reach a target once you declare support for it.
 
-**Which agents does Promptless support?** Claude Code, Codex, Cursor, Gemini, Gemini CLI, Devin, and OpenClaw.
+**Which agents does PIG support?** PIG distributes instructions to Claude Code, Codex, Cursor, and Gemini CLI. Native trace collection is opt-in and currently covers Claude Code and Codex, so an agent can use your hub without sending traces.
 
-**Does Promptless change instructions automatically?** Your choice. Promptless can merge remediations automatically after passing eval gates; otherwise you can wait until you review each remediation.
+**Does PIG change our instructions automatically?** No. A proposed fix is a pull request. Your team reviews and merges it under your repository rules, then publishes a new release through the hub's workflow.
 
-**Where are our session traces processed?** Your traces never leave your system. You install a Promptless worker on your infrastructure to store and analyze traces.
+**Where are session traces stored and analyzed?** You deploy the analyzer in your cloud. Raw traces stay in your storage. The analyzer sends analysis input to your configured model provider, and Promptless receives trace status and findings.
 
-**How do we get started?** Start with a demo. Then we run a local diagnostic to find your highest-impact instruction gaps.
+**How do we get started?** Book a demo. Then set up an Instruction Hub, deploy the analyzer, and enroll a pilot host before rolling out to more of your team.
 
-### Govern every instruction across your AI workforce.
+### Fix it once. Ship it to every agent.
 
-Control what gets added, verify what ships, and distribute one trusted source to every agent. [Book a demo](https://promptless.ai/meet?content=agent-instructions#book).
+Turn your team's repeated corrections into reviewed updates to the instructions every agent shares. [Get a demo](https://promptless.ai/meet?content=agent-instructions#book).
