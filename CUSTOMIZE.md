@@ -27,7 +27,7 @@ those are noted inline.
 - **Promptless for Docs** — `src/content/docs/docs/for-docs/<section>/<page>.mdx`. Nav placement comes from each page's frontmatter (`slug`, `sidebar.order`, `sidebar.hidden`, `sidebar.label`).
 - **Promptless for Agent Instructions** — `src/content/docs/docs/governance.mdx`. This is intentionally a single landing page until detailed product documentation is ready.
 - **Homepage** — `src/pages/index.astro` → `src/content/website/home.mdx` → `HeroV2.astro`.
-- **Blog** — `src/content/blog/` (`generate-article` automation writes here).
+- **Blog** — `src/content/blog/` (`generate-article` automation writes here). The optional `author` frontmatter field adds the side author card and, on screens narrower than 56rem where that card is hidden, a by-line under the post title instead. Add an author's full name, headshot, role, optional `bio`, and links to `src/lib/blog-authors.ts`. The by-line shows the headshot and "By <name>, <role>". When the author has a `bio` (one to three sentences), an "About the author" block with it appears at the bottom of the post; authors without one get no block. An `author` value with no entry there shows as a text-only "By <name>" by-line, without a headshot or card.
 - **Changelog** — `src/content/changelog/` (`launch-post` automation reads here).
 - **Pricing / jobs / meet / demo / use-cases / free-tools / legal** — standalone routes under `src/pages/` and `src/content/legal/`.
 - **Redirects** — `src/lib/generated/redirects.json` (hand-maintained) plus the static map in `astro.config.mjs`. Every historical URL must keep resolving.
