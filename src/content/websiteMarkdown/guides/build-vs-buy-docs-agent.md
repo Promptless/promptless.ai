@@ -3,8 +3,6 @@ title: Build your own docs agent with Claude Code or a GitHub Action, or buy one
 description: What a DIY docs agent needs after the first prompt, what it costs to run, and when building it yourself is the right call.
 routePath: /guides/build-vs-buy-docs-agent
 ---
-By Prithvi · Published September 28, 2026
-
 Promptless makes a docs agent, and we built this comparison from vendor documentation, our published pricing, and our own docs, with our estimates labeled.
 
 If your team already uses Claude Code or Codex, "why not have it update the docs when code merges?" is a fair question. The vendors document how to run both tools in CI, and a first version that opens a docs pull request after a merge takes an afternoon. The prompt is the easy part. The cost comes afterwards. Someone has to decide which changes deserve docs, keep drafts on-style, and own the pipeline once other people depend on it.
