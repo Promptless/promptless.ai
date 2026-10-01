@@ -25,7 +25,7 @@ Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. T
 To use Promptless from the Claude.ai or ChatGPT web app, follow [Use Promptless from Claude.ai or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt).
 
 <Aside type="note" title="Before you start">
-  You need an MCP-capable editor, such as Claude Code or Cursor. To start documentation tasks, your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required. New to Promptless? Create an organization on the consent page when you [authorize](#authorize-in-the-browser). Or [let a coding agent create one](#let-a-coding-agent-create-your-account) for you to claim.
+  You need an MCP-capable editor, such as Claude Code or Cursor. To start documentation tasks, your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required. New to Promptless? Create an organization when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
 </Aside>
 
 ## Connect the server
@@ -116,9 +116,7 @@ Your editor handles authorization automatically over OAuth; you approve the conn
   4. Select **Authorize as \{your email}**. Your editor stores the token and returns you to the editor.
 </Steps>
 
-If you don't belong to an organization yet, the consent page shows a name field in place of the organization picker. This includes when you sign up from the consent page. For a work email, the name defaults to your email domain. Select **Create organization and authorize as \{your email}** to create the organization and approve the connection for it in one step. Finish [setting up Promptless](https://app.gopromptless.ai/configuration) for that organization before you start documentation tasks.
-
-The consent page stays valid for 30 minutes, which leaves time to sign up and verify your email.
+If you don't belong to an organization yet, the consent page asks for an organization name, which defaults to your work email's domain. Select **Create organization and authorize as \{your email}**. The consent page stays valid for 30 minutes, enough time to sign up and verify your email.
 
 <Aside type="note">
   There's no permission picker: an approved client acts with the same access its approver has. An approved connection can:
@@ -142,13 +140,11 @@ A token is tied to one organization. To connect a second organization, authorize
 
 ## Let a coding agent create your account
 
-A coding agent, such as Claude Code or Codex, can create a Promptless account before any person signs in. The agent creates the organization and connects to it over MCP. You then claim the account from a link the agent gives you. The agent can also send you links to connect integrations such as GitHub and Slack.
-
-Until a person claims it, the account can't run documentation work. The agent can only check the account's status and create links for connecting integrations.
+A coding agent, such as Claude Code or Codex, can create a Promptless organization and connect to it over MCP before anyone signs in. You then claim the account from a link the agent gives you. Until someone claims it, the agent can only check the account's status and create links for connecting integrations.
 
 ### Create the account
 
-The agent sends one unauthenticated request with the name of the organization:
+The agent sends one unauthenticated request with an organization name of 1–100 characters:
 
 ```bash
 curl -X POST https://api.gopromptless.ai/agent-signups \
@@ -156,7 +152,7 @@ curl -X POST https://api.gopromptless.ai/agent-signups \
   -d '{"organization_name": "Acme Docs"}'
 ```
 
-The name is 1–100 characters. A successful request returns `201` with the new organization and the credentials the agent needs:
+A successful request returns `201`:
 
 ```json
 {
@@ -169,72 +165,60 @@ The name is 1–100 characters. A successful request returns `201` with the new 
 }
 ```
 
-| Field          | Description                                                              |
-| -------------- | ------------------------------------------------------------------------ |
-| `access_token` | A bearer token for the MCP server. It needs no OAuth and has no refresh. |
-| `claim_url`    | The link a person opens to claim the account.                            |
-| `expires_at`   | When the account is deleted if nobody claims it, 72 hours after sign-up. |
+`access_token` is a bearer token for the MCP server, and `claim_url` is the link a person opens to claim the account. An unclaimed account is deleted at `expires_at`, 72 hours after sign-up. Promptless returns the token and claim link only in this response, so keep them. Keep the token secret: it acts for the organization until someone claims it.
 
-This response is the only time Promptless returns the access token and the claim link. Promptless stores only hashes of them, so it can't show either one again. Keep the access token secret, because it acts for the organization until someone claims it.
-
-Errors carry a stable `error` code and a `message` that says what to do next:
-
-| Status | `error`               | Condition and fix                                                                                                                                                                                 |
-| ------ | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `422`  | `invalid_payload`     | The body doesn't match the schema, such as an empty or over-length name. Correct the listed `fields` and retry.                                                                                   |
-| `429`  | `signups_paused`      | Agent sign-up is paused because too many accounts were created this hour. Wait for the number of seconds in the `Retry-After` header, or [sign up in the dashboard](https://app.gopromptless.ai). |
-| `503`  | `signups_unavailable` | Agent sign-up is temporarily unavailable. Retry in a minute, or sign up in the dashboard.                                                                                                         |
+| Status | `error`               | Fix                                                                                                                                      |
+| ------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `422`  | `invalid_payload`     | Correct the listed `fields`, such as an empty or over-length name, and retry.                                                            |
+| `429`  | `signups_paused`      | Too many accounts were created this hour. Wait for the `Retry-After` header, or [sign up in the dashboard](https://app.gopromptless.ai). |
+| `503`  | `signups_unavailable` | Retry in a minute, or sign up in the dashboard.                                                                                          |
 
 ### Connect the agent with the access token
 
-The agent passes the access token as a bearer header. In Claude Code:
+In Claude Code:
 
 ```bash
 claude mcp add --transport http promptless https://api.gopromptless.ai/mcp \
   --header "Authorization: Bearer <access_token>"
 ```
 
-In Codex, name an environment variable that holds the token, then set `PROMPTLESS_ACCESS_TOKEN` to the access token in the environment Codex runs in:
+In Codex, set `PROMPTLESS_ACCESS_TOKEN` to the token in the environment Codex runs in:
 
 ```bash
 codex mcp add promptless --url https://api.gopromptless.ai/mcp \
   --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN
 ```
 
-While the account is unclaimed, the server lists only [`get_account_status`](#get_account_status) and [`connect_integration`](#connect_integration). Any other tool returns an error that says a person must claim the organization first.
+Until the account is claimed, the server lists only [`get_account_status`](#get_account_status) and [`connect_integration`](#connect_integration).
 
 ### Claim the account
 
-To claim the account, sign in or create a Promptless account, then open either link the agent gives you:
+Sign in to Promptless or create an account, then open either link from the agent:
 
-- The `claim_url` from sign-up opens the **Claim** page. Select **Claim account**, then finish setup in onboarding.
-- Any `connect_url` from [`connect_integration`](#connect_integration). The first person to open a connect link for an unclaimed account claims it, then continues to the integration.
+- The `claim_url` opens the **Claim** page. Select **Claim account**, then finish setup in onboarding.
+- Any `connect_url` from [`connect_integration`](#connect_integration) claims the account for the first person who opens it, then continues to the integration.
 
-Claiming makes you the organization's admin. Invite teammates from **Settings** as you would for any organization. If someone else claimed the account first, ask them to invite you.
+The person who claims the account becomes its admin and invites teammates from **Settings**. If a claim fails partway, open the same link again.
 
-If a claim fails partway, open the same link again to finish it. Once the claim finishes, opening the claim link or a connect link again doesn't make you a member. If an admin later removes you from the organization, ask an admin to invite you again.
-
-The claim ends the agent's access token. Its next call fails with a message to reconnect with OAuth. Remove the token-based `promptless` server and connect again as in [Connect the server](#connect-the-server). The new connection acts as you, with every tool.
-
-An account nobody claims within 72 hours is deleted. The claim link then reports that the account expired, and its connect links stop working. Ask the agent to create a new account. If the claim link was lost, use a connect link to claim the account.
+Claiming ends the agent's access token. Remove the token-based `promptless` server and [connect the server](#connect-the-server) with OAuth; the new connection acts as you, with every tool.
 
 ## Connect integrations from your editor
 
-Promptless needs integrations, such as GitHub and Slack, before it can watch for changes and publish suggestions. Each provider asks a person to sign in and approve access in a browser. The [`connect_integration`](#connect_integration) tool creates a link that hands that step to a person in a browser. It works in any connection, including one from an [agent-created account](#let-a-coding-agent-create-your-account).
+Promptless needs integrations, such as GitHub and Slack, to watch for changes and publish suggestions. Each provider requires a person to approve access in a browser. The [`connect_integration`](#connect_integration) tool creates a link that hands that step to someone. It works from any connection, including an [agent-created account](#let-a-coding-agent-create-your-account).
 
 <Steps>
-  1. Ask your editor to connect an integration, for example: "Connect Slack to Promptless." Your editor calls `connect_integration` and returns a `connect_url`.
+  1. Ask your editor to connect an integration, for example: "Connect Slack to Promptless." Your editor returns a `connect_url`.
 
-  2. Send the `connect_url` to a person who administers that tool. The link works for 24 hours.
+  2. Send the link to someone who administers that tool. It works for 24 hours.
 
-  3. That person opens the link, signs in to Promptless or creates an account, and reviews the page. The page names the organization and the integration, and warns that a coding agent created the link. Continue only if you asked an agent to set up Promptless.
+  3. That person signs in to Promptless or creates an account, then opens the link. The page names the organization and the integration, and warns that a coding agent created the link. Continue only if you asked an agent to set up Promptless.
 
-  4. Select **Continue to \{provider}** and approve access with the provider.
+  4. They select **Continue to \{provider}** and approve access with the provider.
 
-  5. Ask your editor to check the connection. It calls `get_account_status`, which lists the connected integrations.
+  5. Ask your editor to check the connection. `get_account_status` lists the connected integrations.
 </Steps>
 
-Only a member of the organization can connect an integration through a link. The one exception is an unclaimed agent-created account: the first person to open a link claims it and becomes its admin. So an integration always lands in an organization that the connecting person belongs to.
+Only a member of the organization can connect an integration. On an unclaimed agent-created account, the first person to open a link claims it.
 
 ## Available tools
 
@@ -415,7 +399,7 @@ Returns a `connect_url` that lets a person connect one integration to your organ
 | `options.products`  | For Atlassian | The Atlassian products to connect: `jira`, `confluence`, or both.                                                  |
 | `options.subdomain` | For Zendesk   | Your Zendesk subdomain, the `acme` in `acme.zendesk.com`.                                                          |
 
-Promptless checks the options when it creates the link, so a missing option fails the call and not the person's click. Creating a link changes nothing until someone opens it and approves the connection.
+A missing option fails the call itself. Nothing changes until someone opens the link and approves the connection.
 
 ## Answer a clarifying question
 
@@ -507,11 +491,11 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
 - **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
 - **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
-- **A tool call from an unclaimed agent-created account**: the account can call only `get_account_status` and `connect_integration`. Any other tool returns an error until a person claims the organization. [Claim the account](#claim-the-account), then reconnect with OAuth.
-- **The agent's access token stops working**: a call returns `401` with a message to reconnect with OAuth. A person claimed the organization, or it expired unclaimed after 72 hours. After a claim, remove the token-based `promptless` server and [connect the server](#connect-the-server) with OAuth. After an expiry, have the agent create a new account.
-- **A connect link says you aren't a member**: only a member of the organization can connect an integration. For an agent-created account, someone else may have claimed it first, or an admin removed you after you claimed it. Ask a member to invite you, or sign in with an account that belongs to the organization.
-- **An invalid or expired connect link**: the link is older than 24 hours, or it was cut short when it was copied. Ask your editor to call `connect_integration` again for a new link.
-- **A connect or claim link reports that the account was removed**: nobody claimed the agent-created account within 72 hours. Ask the agent to create a new account.
+- **A tool call from an unclaimed agent-created account fails**: only `get_account_status` and `connect_integration` work until a person [claims the account](#claim-the-account).
+- **The agent's access token returns `401`**: someone claimed the account, or it expired unclaimed after 72 hours. After a claim, [connect the server](#connect-the-server) with OAuth. After an expiry, have the agent create a new account.
+- **A connect link says you aren't a member**: someone else may have claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
+- **A connect link is invalid or expired**: the link is older than 24 hours or was cut short when copied. Ask your editor to call `connect_integration` again.
+- **A connect or claim link says the account was removed**: nobody claimed it within 72 hours. Ask the agent to create a new account.
 - **Denied, canceled, or expired consent**: re-run the authorize step. Consent requests expire after 30 minutes. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
