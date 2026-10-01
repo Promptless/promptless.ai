@@ -3,7 +3,7 @@ title: Build your own docs agent with Claude Code or a GitHub Action, or buy one
 description: What a DIY docs agent needs after the first prompt, what it costs to run, and when building it yourself is the right call.
 routePath: /guides/build-vs-buy-docs-agent
 ---
-By [AUTHOR FULL NAME], [AUTHOR ROLE] · Published September 28, 2026
+By Prithvi · Published September 28, 2026
 
 Promptless makes a docs agent, and we built this comparison from vendor documentation, our published pricing, and our own docs, with our estimates labeled.
 
