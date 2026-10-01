@@ -1,0 +1,58 @@
+---
+title: 'Know What Happened to Every Documentation Task You Submitted'
+subtitle: Published September 2026
+description: >-
+  Tasks submitted through the API or MCP now return a machine-readable outcome field. A new endpoint lists finished tasks newest first, and the Zapier Documentation Task Finished trigger uses it.
+date: '2026-09-24T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Documentation tasks submitted via the Promptless API now return a machine-readable outcome. A new endpoint lists finished tasks ordered by when they completed. The Zapier **Documentation Task Finished** trigger uses that endpoint.
+
+## The problem
+
+The Promptless API lets you submit documentation tasks from your own tooling: a Zap, a CI step, a script that fires after a release. You send a request, get a task ID, and Promptless does the work.
+
+What you didn't have was a machine-readable answer to how it ended. Did Promptless create a suggestion? Did it decide the docs already covered the change? Did it stop on a question? The status endpoint told you when a task finished, but the only explanation was a prose `resolution` note, and nothing listed tasks by when they finished.
+
+## What it does now
+
+Every task submitted through the API or MCP now reports an `outcome` field with one of four values:
+
+- `suggestions_created`: Promptless created at least one suggestion.
+- `no_change_needed`: Promptless created none because the docs already cover the change.
+- `needs_input`: the task ended on a question someone needs to answer. Answering starts a new task.
+- `failed`: Promptless couldn't finish the work.
+
+`outcome` appears in three places:
+
+- `GET /v1/triggers/{trigger_event_id}`, the existing per-task status endpoint
+- MCP `get_task_status`, for editors connected over MCP
+- `GET /v1/triggers`, a new endpoint that lists finished tasks newest first
+
+The Zapier **Documentation Task Finished** trigger polls the new endpoint. It fires when a task submitted through the API finishes, including one where the docs already covered the change. Branch on its **Outcome** field, and put its **Resolution** field in a notification.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Teams running documentation tasks from automation: CI pipelines, Zapier workflows, scripts that call the Promptless API after a deployment or a release. If you've been submitting tasks and checking results by hand in the dashboard, this lets you handle them in the same system where they originated.
+
+It's also useful for internal reporting. You can log the outcome of every task you submit through the API to a spreadsheet or post a summary to Slack without polling the dashboard manually.
+
+## How to use it
+
+No configuration is needed. `outcome` appears automatically on tasks submitted through the API or MCP that finish from now on. Tasks that finished earlier, and tasks from other sources, report `null`.
+
+For Zapier, connect the Promptless app with an API key and add **Documentation Task Finished** as a trigger. It reports the same **Promptless Trigger Event ID** that **Submit Documentation Task** returns, so one Zap can submit a task and a second Zap can act on how it ended.
+
+See [API triggers](/docs/for-docs/connect/triggers/api#finished-tasks) for the full endpoint reference.
+
+If you're already submitting tasks through the API, outcome tracking is there now. For teams that want to build automations around the results, the finished-tasks feed and Zapier trigger are the place to start.
+
+<BlogRequestDemo />
