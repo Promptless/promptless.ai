@@ -96,6 +96,52 @@ An illustrative walkthrough based on the Acme example in the PIG docs. Acme's `r
 3. **Proposed fix.** A remediation agent opens a focused pull request against the Instruction Hub that adds a step to confirm the documented product version first.
 4. **Reviewed release.** Your team approves and merges it under its own repository rules, publishes a new plugin release, and verifies it on a pilot host.
 
+### You've already told your agents this.
+
+When the same correction keeps coming back, look at the instructions behind it. These illustrative sessions show what a focused fix could change.
+
+#### Green tests. Untested code.
+
+The agent edits the checkout package, runs the root tests, and calls the work done. Those tests never touch checkout.
+
+> "You ran the root suite again. What about the package you changed?" — PR reviewer
+
+Proposed edit to `code-review`: replace "Run the tests before handing off" with "Identify every changed workspace. Run its documented checks and include the results in your handoff."
+
+Give reviewers test results for the code they're actually reviewing.
+
+#### The outage is in production. The agent is in staging.
+
+The investigation skill starts with a saved log query. Its default environment is staging, so the on-call engineer has to redirect the search.
+
+> "That's staging. The alert is for production payments." — On-call engineer
+
+Proposed edit to `investigate-incident`: replace "Start with the saved error-log query" with "Read the service, environment, and time window from the alert. Confirm missing context before querying logs."
+
+Spend the first pass investigating the affected system.
+
+#### Last quarter's pricing. In this quarter's sales deck.
+
+The deck skill borrows a pricing slide from an old example. The rep catches the same outdated plan before another buyer sees it.
+
+> "We retired that plan. Use the current pricing sheet." — Account executive
+
+Proposed edit to `prepare-sales-deck`: replace "Use the example deck for pricing" with "Use the current approved pricing source and cite it. Flag missing prices for review instead of guessing."
+
+Review the pitch without correcting the same pricing claim again.
+
+#### A fresh checkout shouldn't need a rescue.
+
+The setup skill starts the app before preparing its database. Each new session hits missing tables, then waits for a teammate to explain the same prerequisite.
+
+> "Run the bootstrap task first. The local database hasn't been set up." — Teammate
+
+Proposed edit to `dev-setup`: replace "Install dependencies and start the app" with "Follow the repository's bootstrap steps. Confirm local migrations and seed data before starting the app."
+
+Put the missing setup step where the next session can find it.
+
+Each edit is a proposal. Your team reviews it, publishes the updated instructions, and checks the behavior after hosts update.
+
 ### Shared instructions that improve with use.
 
 - **Find instruction gaps.** The analyzer reads sessions for missing, stale, conflicting, or ineffective instructions and records each one as a finding with a severity and a confidence.
