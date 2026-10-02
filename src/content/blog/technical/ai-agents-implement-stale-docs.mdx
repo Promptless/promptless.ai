@@ -1,0 +1,71 @@
+---
+title: 'When AI Coding Agents Read Stale Docs, They Implement Them'
+subtitle: Published October 2026
+description: >-
+  AI coding agents don't pause on outdated documentation. They write wrong code. Here's why documentation drift is now an engineering quality problem.
+date: '2026-10-02T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+When a developer follows stale API docs and hits an error, the feedback loop is short. They see the failure. They search Slack. They find out the parameter was renamed three sprints ago. The damage is one confused developer and one Slack thread.
+
+When an AI coding agent follows the same stale docs, the feedback loop is much longer. The agent writes the code. The code goes into a PR. A reviewer either catches it or doesn't. If it ships, the bug shows up in production.
+
+The docs were wrong in both cases. The outcome was not.
+
+## Agents don't hedge. They implement.
+
+Human developers have calibrated skepticism about documentation. They've been burned before. They know that docs go stale. When they encounter something that doesn't match their expectations, they check. They ask a colleague. They test the behavior directly before building on it.
+
+AI coding agents don't do this. They take documentation at face value and use it as a specification. When Claude Code, Cursor, or Copilot's agent mode reads that `user_id` is the correct parameter for the accounts endpoint, it writes code that passes `user_id`. It doesn't run a sanity check. It doesn't cross-reference against the actual API response schema. It implements.
+
+This is expected behavior for a tool designed to turn documentation into working code. The problem is that the documentation was wrong.
+
+The [Stack Overflow Developer Survey 2025](https://survey.stackoverflow.co/2025/) found that 66% of developers cite "AI solutions that are almost right, but not quite" as their top AI pain point. Stale documentation is a primary driver. The agent is almost right because it read docs that were almost right.
+
+## The failure chain has a new step
+
+Documentation drift always produced a predictable failure chain: code changes, docs go stale, developer hits the stale page, developer gets confused, support ticket or Slack question follows. Teams could measure this as support volume and reduced docs trust.
+
+The new chain has an extra step: code changes, docs go stale, AI coding agent reads the stale page, agent writes wrong code, wrong code enters a PR. Either review catches it, or it doesn't. Either way, you've added work that accurate documentation would have prevented.
+
+This is the difference between drift that produces confusion and drift that produces code. Code is harder to catch than confusion.
+
+Several documentation platforms reported in 2026 that bot traffic was approaching human browser traffic on their customers' docs sites. Fern's engineering team made the decision to serve clean Markdown to LLM bot traffic after measuring that bots exceeded human sessions. Mintlify now auto-provisions an MCP server for every docs site. These are infrastructure decisions driven by real traffic measurements. Your docs have more readers than you think, and a growing fraction of them write code from what they find.
+
+According to a recent report on API drift, 75% of production APIs don't match their own specifications. That mismatch used to mean confused developers. It now also means AI coding agents building on wrong assumptions.
+
+<BlogNewsletterCTA />
+
+## Rules-file rot: drift inside your own codebase
+
+There's a second form of documentation drift that affects teams using agentic coding tools internally. CLAUDE.md, AGENTS.md, and Cursor rules files are documentation. They tell AI coding assistants how to work in a specific codebase: what conventions to follow, which libraries to prefer, how files are organized, what patterns to apply.
+
+These files drift the same way external docs do. A framework gets swapped, a naming convention changes, a testing library is deprecated. The code moves on. AGENTS.md still says to use the old approach. Every agent working in the codebase generates code against outdated rules.
+
+Unlike stale API docs, which mislead your users' agents, stale rules files mislead agents in your own development workflow. The resulting code reflects the project's past rather than its present. Reviewers catch it, or it accumulates as tech debt.
+
+Getunblocked documented this pattern in early 2026 after analyzing AI coding assistant outputs across multiple engineering teams. Their conclusion: rules-file rot is a distinct and underappreciated form of documentation drift, with a distinct blast radius inside the teams that rely on it most.
+
+## What this means for drift management
+
+If you've read [our previous piece on documentation drift as a detection problem](/blog/technical/documentation-drift-detection-problem), the core argument applies here with more urgency. Detecting drift before it reaches readers matters. When those readers are agents that implement rather than pause, the window for catching drift before it causes harm is smaller.
+
+A few things shift when you take agents seriously as readers.
+
+**Drift detection has to be continuous and upstream.** A quarterly audit catches drift after agents have already read and acted on stale content. Monitoring the signals where change happens — PRs, changelogs, support tickets — and surfacing drift as it occurs means fewer agent reads on outdated pages.
+
+**Not all stale pages carry equal risk.** A page describing a deprecated feature nobody uses costs little. A page describing an API endpoint used in every integration costs a great deal. When AI coding agents are in the picture, the priority ranking shifts toward high-traffic pages and toward the pages agents are most likely to use when writing code: authentication flows, endpoint reference pages, SDK quickstarts.
+
+**Rules files belong in scope.** CLAUDE.md and AGENTS.md need to be part of any documentation maintenance workflow. They are documentation. They drift. They have a reader that implements what they say.
+
+The [DevRel and technical writing communities have started recognizing agents as a primary docs reader](/blog/technical/developer-relations-docs-agent-primary-reader). What follows from that recognition is a harder conversation about maintenance. Making your docs agent-readable is necessary. Keeping them accurate is what makes agent-readability worth having.
+
+Documentation drift was always expensive. It generated support tickets and eroded developer trust over time. These costs were real but downstream. With AI coding agents in the loop, the cost lands faster: wrong code from an agent is wrong code that has to be found and fixed in code review or in production, with a clear source. The docs said something that wasn't true, and the agent built on it.
+
+<BlogRequestDemo />
