@@ -63,7 +63,8 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 - **Redirects**: Defined in `astro.config.mjs` (static) merged with
   `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
   manifest script never writes it), so add redirect entries for moved or renamed
-  pages by hand.
+  pages by hand. Every source also matches with a trailing slash
+  (`scripts/normalize-vercel-redirects.ts`), so add only the no-slash form.
 - **Sidebar**: The docs nav is **directory-driven** (Starport Phase 3, ADR
   0003). `starlight-sidebar-topics` wraps Starlight's native folder
   `autogenerate` in `astro.config.mjs`, walking the `src/content/docs/docs/`
@@ -125,9 +126,10 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
 - **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
   *content* against three schemas (Starlight mirror, Google OKF, extension
   seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags` and a quoted ISO 8601 `timestamp`. Add repo-specific
-  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
-  Runs on Node 24. See ADR 0006.
+  and should carry `tags`. Add repo-specific required fields in
+  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
+  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
+  which stopped populating `timestamp`.
 
 ## Diagrams
 

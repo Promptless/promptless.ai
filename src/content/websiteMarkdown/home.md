@@ -1,116 +1,144 @@
 ---
 title: Continuously improve your AI workforce and docs
-description: Promptless keeps customer-facing documentation and agent instructions current. Promptless for Docs suggests doc updates when your product changes; Promptless for Agent Instructions governs the skills, rules, hooks, and MCP configuration your agents use and improves them from real sessions.
+description: Turn agent session traces and product changes into governed improvements to your agent instructions and customer-facing docs.
 routePath: /
 ---
-Promptless automatically updates your customer docs, screenshots, release notes, developer docs, support articles, knowledge base, API docs, changelogs, tutorials, code examples, and how-to guides.
+Promptless is an AI agent that keeps customer-facing documentation and agent instructions in sync with what your team ships. The homepage has one tab per product: Promptless for Docs and Promptless for Agent Instructions.
 
-AI agents eliminate docs drift and automate the most painful parts of docs maintenance.
+## Promptless for Docs
 
-- Book a demo
-- Backed by Y Combinator
-- Trusted by fast-growing startups and Fortune 500 enterprises alike
-- Play the Promptless demo preview
+### Write the docs. Skip the busywork.
 
-## Testimonials
+Promptless suggests doc updates when your product changes. You review, edit, and ship.
 
-### Mo King, Senior Technical Writer at Runpod
+- [Follows your style guide](https://promptless.ai/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs.md)
+- [Auto-updates screenshots](https://promptless.ai/docs/for-docs/get-the-most-out/screenshots.md)
+- [Fits into any toolchain](https://promptless.ai/docs/for-docs/reference/integrations.md): GitHub, GitLab, Slack, Jira, Linear, Notion, Confluence, GitBook, ReadMe, Mintlify, and Docusaurus
 
-"Promptless dramatically speeds up my time-to-first-draft. My team literally calls me a 10x tech writer."
+[Get a demo](https://promptless.ai/meet?content=customer-facing-docs#book) with your work email. Every plan includes a 14-day free trial. Documentation starts at the [Promptless for Docs overview](https://promptless.ai/docs/for-docs/start-here/welcome.md).
 
-### Alan Mond, Docs Maintainer at Bazel
+### What customers say
 
-"This is the most 'make something people want' feature I have ever seen. It solves my problem in a better way than I thought would be possible."
+> "Promptless dramatically speeds up my time-to-first-draft. My team literally calls me a 10x tech writer."
+>
+> Mo King, Senior Technical Writer, Runpod
 
-### Aaron Levin, Founding Solutions Engineer at Vellum
+> "This is the most 'make something people want' feature I have ever seen. It solves my problem in a better way than I thought would be possible."
+>
+> Alan Mond, Docs Maintainer, Bazel
 
-"Promptless updates every relevant section of our docs, catching both the latest changes and old spots we'd missed. It feels like magic."
+> "Promptless updates every relevant section of our docs, catching both the latest changes and old spots we'd missed. It feels like magic."
+>
+> Aaron Levin, Founding Solutions Engineer, Vellum
 
-### Eduardo Soubihe, CTO at Latitude.sh
+> "I love your product. It works incredibly well and basically pays for itself right away."
+>
+> Eduardo Soubihe, CTO, Latitude.sh
 
-"I love your product. It works incredibly well and basically pays for itself right away."
+> "Promptless is a solo tech writer's godsend."
+>
+> Nicholas DeWald, Head of Developer Docs, Prove
 
-### Nicholas DeWald, Head of Developer Docs at Prove
+### Serving Fortune 500 enterprises and fast-growing startups alike
 
-"Promptless is a solo tech writer's godsend."
+Customer logos on the page: Megaport, Mezmo, Vitess, Helm, Aptible, Runpod, Flatfile, Latitude, Mautic, Vellum, Coactive, Rain, Miter, and Basis.
 
-## How Promptless works
+### Watch the demo
 
-### 1. Listen
+[Promptless demo](https://www.youtube.com/watch?v=AONpRsZJkTY) on YouTube: Promptless turns a product change into a documentation pull request with citations, then hands it to a technical writer for review.
 
-When a PR opens, a Slack thread about docs starts, or a DOC ticket gets created, Promptless automatically wakes up and decides whether it warrants a doc update.
+### See Promptless-drafted docs shipping in Vitess and Helm
 
-### 2. Draft
+Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and suggests changes; their docs maintainers review, revise, and ship them. Every commit is public.
 
-Promptless does research across the context you connect it to, and proactively notifies you when there's a documentation suggestion.
+- [vitessio/website](https://github.com/vitessio/website/commits/): View commits on GitHub
+- [helm/helm-www](https://github.com/helm/helm-www/commits/main/): View commits on GitHub
 
-### 3. Review
+### How Promptless works
 
-Review citations, provide feedback, or edit suggestions inline.
+1. **Listen.** When a PR opens, a Slack thread about docs starts, or a doc ticket gets created, Promptless automatically wakes up and decides whether it warrants a doc update.
+2. **Draft.** Promptless does research across the context you connect it to, and proactively notifies you when there's a documentation suggestion.
+3. **Review.** Review citations, provide feedback, or edit suggestions inline.
+4. **Publish.** Open PRs or deploy directly to your docs provider.
 
-### 4. Publish
+### Why Promptless? Built to fit into your workflows, not to make you a prompt engineer
 
-Open PRs or deploy directly to your docs provider.
+- **Proactive, automatic updates.** PRs, Slack threads, and support tickets kick off doc updates automatically. No prompting required.
+- **Screenshot capture.** Auto-regenerates screenshots when the UI changes, complete with crops and annotations.
+- **Writes like your team.** Matches the style of your existing docs, or plug in your style guide and Vale rules. No AI slop.
+- **Full citations and explanations.** Every suggestion has in-line citations to code functions, Slack conversations, websites, or support tickets.
+- **Learns from your feedback.** Every time you leave a comment, reject a suggestion, or message Promptless with feedback, Promptless gets better.
+- **Works with your stack.** Plugs into your existing docs platform, repos, and tools. Promptless adapts to your workflows, not vice versa.
 
-## Why Promptless?
+### Ask your favorite AI about Promptless
 
-### Proactive, Automatic Updates
-
-PRs, Slack threads, and support tickets kick off doc updates automatically. No prompting required.
-
-### Screenshot Capture
-
-Auto-regenerates screenshots when the UI changes, complete with crops and annotations.
-
-### Writes Like Your Team
-
-Matches the style of your existing docs, or plugs in your style guide and Vale rules. No AI slop.
-
-### Full Citations and Explanations
-
-Every suggestion has in-line citations to code functions, Slack conversations, websites, or support tickets.
-
-### Learns From Your Feedback
-
-Every time you leave a comment, reject a suggestion, or message Promptless with feedback, Promptless gets better.
-
-### Works With Your Stack
-
-Plugs into your existing docs platform, repos, and tools. Promptless adapts to your workflows, not vice versa.
+The page links to Claude, ChatGPT, Gemini, and Perplexity with this prompt: "What is Promptless (promptless.ai), and how does it help software teams keep technical documentation up to date? Include its key features, integrations, and who it is best for."
 
 ## Promptless for Agent Instructions
 
-Agent instructions that improve with every session. One reviewed Instruction Hub for the skills, hooks, subagents, and tool config your agents share across Claude, Codex, Cursor, and Gemini. Real sessions show which instructions fail; Promptless opens the pull request that fixes them. Raw traces never leave your infrastructure.
+### Every agent session should teach your entire AI workforce.
 
-- Install the toolchain: `python -m pip install "git+https://github.com/Promptless/pig-toolchain.git@main"`
-- Public toolchain: https://github.com/Promptless/pig-toolchain
-- Documentation: /docs/governance
-- Launch post: /blog/product-updates/introducing-promptless-for-agent-instructions
+Promptless automatically improves your team's Skills, Subagents, Hooks, and `AGENTS.md` with every session trace across your agent fleet.
 
-### How it works
+- Consistent, access-controlled skills across your teams
+- Your traces are securely analyzed on your systems
+- Works with all your agents: Claude, Codex, Cursor, Gemini, Gemini CLI, Devin, and OpenClaw
 
-Four layers, one loop. Layer 1, the Instruction Hub, is a Git repository of skills, rules, subagents, commands, hooks, and MCP configuration that the `pig` toolchain compiles into plugins for Claude, Codex, Cursor, and Gemini. Layer 2, traces: enrolled Claude Code, Claude Desktop, and Codex hosts upload native session logs to a trace analyzer running in your Kubernetes cluster, with your PostgreSQL and your object storage. Layer 3, findings: the analyzer turns repeated failures into findings with severity, confidence, cited sessions, and the exact commit it read. Layer 4, remediation: a finding with enough evidence becomes a focused pull request against your hub, gated by your CODEOWNERS, required reviews, and branch protection. Layers 2 through 4 are optional; a hub publishes without an analyzer.
+[Get a demo](https://promptless.ai/meet?content=agent-instructions#book) with your work email. Documentation starts at the [Promptless for Agent Instructions overview](https://promptless.ai/docs/governance.md).
 
-### Set up in three steps
+### Typical improvements after 30 days
 
-1. Author: `pig init` scaffolds `hub.yaml`, the required `pig` plugin, and the asset directories; add a `SKILL.md`, group assets into plugins, then run `pig validate` and `pig verify`.
-2. Publish: two reusable GitHub Actions or GitLab CI workflows check pull requests and publish merges to a release branch; teammates install the plugins they need.
-3. Learn: deploy the analyzer in your cluster, set `trace_ingestion.enabled: true`, and approve each host in the browser. Findings arrive as GitHub issues; fixes arrive as pull requests.
+- Token spend: down 18%
+- First-attempt completion: up 15%
+- Wall-clock time: down 32%
+- Human interruptions: down 42%
 
-### What stays in your cluster
+### The Promptless difference
 
-Raw and canonical traces live in your bucket and your PostgreSQL. Your configured model provider (OpenAI, Azure OpenAI, or AWS Bedrock) receives session-derived analysis input. Promptless receives trace identifiers, host attribution, timestamps, status, and event and turn counts, plus findings and evidence summaries, which can describe session details. Prompts, tool output, working directories, and Git metadata are never sent to Promptless.
+- **Secure and on-prem by default.** Your agent sessions never leave your systems. All analysis happens on your infrastructure.
+- **White-glove onboarding.** A forward-deployed AI engineer and technical writer work with you to optimize your agents.
+- **Works across teams, from DevOps to marketing.** Improve code, incident response, customer content, and operations across any agent.
 
-### Measured on our own agents
+### Your AI workforce keeps paying to relearn the same lessons.
 
-After 30 days of governance on Promptless's own engineering, GTM, and ops agents (not customer results): token spend down 18%, first-attempt completion up 15%, wall-clock time per session down 32%, human interruptions down 42%. Findings from those sessions produced a re-login hook for expired auth tokens, an AGENTS.md update plus an incident-investigation subagent for ignored observability tools, a guard in the customize-sales-deck skill, and a shared skill built from one engineer's local development setup.
+Every correction, workaround, and breakthrough stays trapped in the session where it happened. The next agent burns more time, tokens, and human attention discovering it again.
 
-### Frequently asked questions
+The page walks through an illustrated example. An instruction debt report flags failures that recur across sessions, such as agents losing authentication. Promptless proposes fleet upgrades, a hook, a subagent, and skills, each with evidence, an eval gate, and an owner. A before-and-after view shows the capacity recovered once the fix is governed.
 
-- Does it work with our agents? The toolchain builds plugins for Claude, Codex, Cursor, and Gemini. Native trace collection covers Claude Code, Claude Desktop, and Codex.
-- Does Promptless change our instructions automatically? No. A supported finding becomes a pull request against your hub; your review rules decide whether it merges.
-- Can we start without deploying the analyzer? Yes. Publishing and installing plugins needs a Git repository, the pig toolchain, and CI; trace ingestion is off by default.
-- Do we have to move every AGENTS.md into the hub? No. Move reusable procedures into shared skills and keep repository-specific context beside the project it describes.
-- Which model runs the analysis? The provider you configure, from your cluster, with your credentials or cloud identity.
+1. **Find the waste.** Find the work your agents keep making humans redo.
+2. **Govern the fix.** Turn the best fix into a team-wide standard.
+3. **Compound the impact.** Make one person's breakthrough the standard for every session.
 
-Get a demo: /meet?content=agent-instructions#book
+### Your agent instruction stack is the Wild West.
+
+Bring every skill, hook, and `AGENTS.md` file under one governed system.
+
+### Every session feeds the next improvement.
+
+Traces show what failed. Your team reviews the fix. Approved updates reach every agent. A diagram shows the loop connecting the Instruction Hub, your AI workforce, the Governance Platform, and an on-system Trace Analyzer.
+
+### Improve every agent without giving up control.
+
+Turn trace evidence into versioned instruction updates your team reviews before they ship.
+
+- Traces never leave your infrastructure.
+- Version every instruction in a central registry.
+- Access control for every agent instruction.
+- Verify every remediation with evals.
+- Replace conflicting local skills with a single governed source.
+
+### Questions, answered.
+
+**What counts as an agent instruction?** Skills, subagent definitions, hooks, `AGENTS.md` files, and shared MCP server configurations.
+
+**Which agents does Promptless support?** Claude Code, Codex, Cursor, Gemini, Gemini CLI, Devin, and OpenClaw.
+
+**Does Promptless change instructions automatically?** Your choice. Promptless can merge remediations automatically after passing eval gates; otherwise you can wait until you review each remediation.
+
+**Where are our session traces processed?** Your traces never leave your system. You install a Promptless worker on your infrastructure to store and analyze traces.
+
+**How do we get started?** Start with a demo. Then we run a local diagnostic to find your highest-impact instruction gaps.
+
+### Govern every instruction across your AI workforce.
+
+Control what gets added, verify what ships, and distribute one trusted source to every agent. [Book a demo](https://promptless.ai/meet?content=agent-instructions#book).
