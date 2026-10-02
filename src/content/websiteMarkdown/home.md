@@ -76,33 +76,32 @@ The page links to Claude, ChatGPT, Gemini, and Perplexity with this prompt: "Wha
 
 ## Promptless for Agent Instructions
 
-### Stop teaching every agent the same lesson.
+### Find agent failures. Fix the instructions behind them.
 
-PIG (Promptless Instruction Governance) reads your team's coding-agent sessions, finds missing, stale, or conflicting instructions, and proposes focused fixes. Your team reviews each one, then publishes it through your Instruction Hub.
+Find silent failures in agent sessions and the instructions behind them. PIG proposes a fix your team can review and share.
 
-- **4 agents:** Claude Code, Codex, Cursor, and Gemini CLI install instructions built from one hub.
-- **6 asset types:** Skills and MCP configs on every target; rules, agent definitions, commands, and hooks where you declare support.
-- **Your storage:** Raw session traces stay in customer-owned storage your analyzer writes to.
-- **Your review:** Proposed fixes arrive as pull requests under your repository rules.
+- **Real session evidence:** See where agents get stuck.
+- **Focused fixes:** Review changes to the instructions behind it.
+- **One shared hub:** Publish improvements for your team's agents.
 
 [Get a demo](https://promptless.ai/meet?content=agent-instructions#book) with your work email. Documentation starts at the [Promptless for Agent Instructions overview](https://promptless.ai/docs/governance.md).
 
-### One repeated correction becomes a reviewed fix.
+### From a failed session to a better instruction.
 
 An illustrative walkthrough based on the Acme example in the PIG docs. Acme's `review-docs` skill tells agents to verify every code example, but never says which product version to verify against.
 
-1. **Session evidence.** Enrolled Claude Code and Codex hosts send session records to the analyzer you run. In three sessions, a writer corrects an agent that checked v3 examples against the v2 SDK.
-2. **Finding.** PIG connects the repeated correction to the missing instruction and records a finding with a severity, a confidence, and the cited sessions.
-3. **Proposed fix.** A remediation agent opens a focused pull request against the Instruction Hub that adds a step to confirm the documented product version first.
-4. **Reviewed release.** Your team approves and merges it under its own repository rules, publishes a new plugin release, and verifies it on a pilot host.
+1. **Trace.** Enrolled Claude Code and Codex hosts send session records to the analyzer you run. In three sessions, a writer corrects an agent that checked v3 examples against the v2 SDK.
+2. **Detect.** PIG connects the repeated correction to the missing instruction and records a finding with a severity, a confidence, and the cited sessions.
+3. **Fix.** A remediation agent opens a focused pull request against the Instruction Hub that adds a step to confirm the documented product version first.
+4. **Publish.** Your team approves and merges it under its own repository rules, publishes a new plugin release, and verifies it on a pilot host.
 
-### You've already told your agents this.
+### Find the failures hiding in everyday work.
 
-When the same correction keeps coming back, look at the instructions behind it. These illustrative sessions show what a focused fix could change.
+Passing checks can still miss the problem. These illustrative sessions show the instruction changes a team could review.
 
-#### Green tests. Untested code.
+#### Tests that miss the changed code
 
-The agent edits the checkout package, runs the root tests, and calls the work done. Those tests never touch checkout.
+The agent reports passing tests. None of them ran against the checkout package it changed.
 
 > "You ran the root suite again. What about the package you changed?" — PR reviewer
 
@@ -110,9 +109,9 @@ Proposed edit to `code-review`: replace "Run the tests before handing off" with 
 
 Give reviewers test results for the code they're actually reviewing.
 
-#### The outage is in production. The agent is in staging.
+#### An incident investigated in staging
 
-The investigation skill starts with a saved log query. Its default environment is staging, so the on-call engineer has to redirect the search.
+A saved log query points to staging while the on-call engineer is investigating a production outage.
 
 > "That's staging. The alert is for production payments." — On-call engineer
 
@@ -120,9 +119,9 @@ Proposed edit to `investigate-incident`: replace "Start with the saved error-log
 
 Spend the first pass investigating the affected system.
 
-#### Last quarter's pricing. In this quarter's sales deck.
+#### Retired pricing in a new deck
 
-The deck skill borrows a pricing slide from an old example. The rep catches the same outdated plan before another buyer sees it.
+An old example deck puts a retired plan back into the next sales pitch.
 
 > "We retired that plan. Use the current pricing sheet." — Account executive
 
@@ -130,9 +129,9 @@ Proposed edit to `prepare-sales-deck`: replace "Use the example deck for pricing
 
 Review the pitch without correcting the same pricing claim again.
 
-#### A fresh checkout shouldn't need a rescue.
+#### Setup that skips the database
 
-The setup skill starts the app before preparing its database. Each new session hits missing tables, then waits for a teammate to explain the same prerequisite.
+The agent starts the app before running migrations. Every fresh checkout hits the same missing tables.
 
 > "Run the bootstrap task first. The local database hasn't been set up." — Teammate
 
@@ -140,16 +139,18 @@ Proposed edit to `dev-setup`: replace "Install dependencies and start the app" w
 
 Put the missing setup step where the next session can find it.
 
-Each edit is a proposal. Your team reviews it, publishes the updated instructions, and checks the behavior after hosts update.
+Your team reviews each proposed edit, publishes the update, and checks behavior after hosts update.
 
-### Shared instructions that improve with use.
+### Every session can improve the next.
 
-- **Find instruction gaps.** The analyzer reads sessions for missing, stale, conflicting, or ineffective instructions and records each one as a finding with a severity and a confidence.
-- **Review the evidence.** Each finding cites the sessions behind it and opens as a GitHub issue in the repository that owns the instruction.
-- **Propose focused corrections.** For high-confidence findings the hub owns, a remediation agent prepares a narrow pull request. Causes outside the hub, such as an expired credential, go to their owner instead.
-- **Distribute shared instructions.** One Instruction Hub compiles into plugins for Claude Code, Codex, and Cursor, and an extension for Gemini CLI.
+Promptless Instruction Governance (PIG) connects what agents do with the instructions they follow.
 
-### What changed in our first 30 days on PIG.
+- **Detect instruction failures.** Find missing steps, stale advice, and conflicting rules in real agent sessions.
+- **See what went wrong.** Open the finding and follow its cited sessions. Check the evidence before changing an instruction.
+- **Review a focused fix.** Get a proposed change to the instruction responsible. Your team reviews the pull request under its existing rules.
+- **Share the improvement.** Publish from one Instruction Hub to Claude Code, Codex, Cursor, and Gemini CLI. Hosts receive the release when they update.
+
+### Fewer corrections. More completed work.
 
 We ran PIG on Promptless's own engineering, GTM, and ops agent sessions and compared them with our instructions before governance. These are our internal numbers, not customer results. See the [launch post](https://promptless.ai/blog/product-updates/introducing-promptless-for-agent-instructions).
 
@@ -158,7 +159,7 @@ We ran PIG on Promptless's own engineering, GTM, and ops agent sessions and comp
 - Wall-clock time per session: down 32%
 - Token consumption: down 18%
 
-### Your storage. Your model provider. Your merge button.
+### Keep control of your data and changes.
 
 - **Raw traces (your infrastructure).** Native transcripts and canonical trace objects are stored in customer-owned storage that your analyzer writes to.
 - **Analysis input (your model provider).** The analyzer sends session-derived input to the provider you configure: OpenAI, Azure OpenAI, or AWS Bedrock.
@@ -167,7 +168,7 @@ We ran PIG on Promptless's own engineering, GTM, and ops agent sessions and comp
 
 See the [trust and data model](https://promptless.ai/docs/governance/start-here/trust-and-data-model.md).
 
-### Questions, answered.
+### Frequently asked questions
 
 **What counts as an agent instruction?** Anything your Instruction Hub stores: skills, MCP configurations, rules, agent definitions, commands, and hooks. Skills and MCP configurations reach all four targets by default; the others reach a target once you declare support for it.
 
@@ -179,6 +180,6 @@ See the [trust and data model](https://promptless.ai/docs/governance/start-here/
 
 **How do we get started?** Book a demo. Then set up an Instruction Hub, deploy the analyzer, and enroll a pilot host before rolling out to more of your team.
 
-### Fix it once. Ship it to every agent.
+### Find the failure. Improve the next run.
 
-Turn your team's repeated corrections into reviewed updates to the instructions every agent shares. [Get a demo](https://promptless.ai/meet?content=agent-instructions#book).
+See where your agents get stuck and the instruction changes that could help. [Get a demo](https://promptless.ai/meet?content=agent-instructions#book).
