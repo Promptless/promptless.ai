@@ -1,11 +1,16 @@
 ---
-// LavaCon 2026 campaign landing page. A standalone, light-only page (no
-// Starlight chrome) so it can carry its own event layout: hero + booking form,
-// problem cards, Manny's sessions, the booth team, testimonials, open-source
-// proof carousel, and a closing form. Both forms post the lead to Formspark
-// and fire `email_captured` with `campaign: lavacon-2026`.
-import AnalyticsClickTracker from '@components/shared/AnalyticsClickTracker.astro';
-import PostHog from '@components/posthog.astro';
+// LavaCon 2026 campaign landing page. Rendered through StarlightPage so it
+// shares the site's top bar (Header override) and analytics, but with the
+// sidebar off and the site footer suppressed (getActiveSection() maps
+// /campaign/* to 'none') so the page can carry its own light-only event
+// layout: hero + booking form, problem cards, Manny's sessions, the booth
+// team, testimonials, open-source proof carousel, and a closing form. Both
+// forms post the lead to Formspark and fire `email_captured` with
+// `campaign: lavacon-2026`. All page styles are scoped under .lc-page and the
+// wrapper carries Starlight's `.not-content` opt-out so the docs typography
+// rules leave the landing page alone, and `pl-light-chrome` switches the
+// shared top bar to its light theme (see custom.css).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import {
   ArrowRight,
   CalendarDays,
@@ -79,13 +84,21 @@ const speakers = [
     name: 'Manny Silva',
     role: 'Head of AI Docs Practice',
     photo: mannyImg.src,
-    href: 'https://www.lavacon.org/blog/speaker/manny-silva/',
+    links: [
+      { label: 'LavaCon speaker profile', href: 'https://www.lavacon.org/blog/speaker/manny-silva/' },
+      { label: 'LinkedIn profile', href: 'https://www.linkedin.com/in/manuelrbsilva/' },
+    ],
+    leads: [
+      { day: 'Sunday', title: 'Hands-on docs audit workshop' },
+      { day: 'Monday', title: 'Self-healing docs talk' },
+    ],
   },
   {
     name: 'Prithvi Ramakrishnan',
     role: 'Co-founder',
     photo: '/assets/prithvi.jpg',
-    href: 'https://www.linkedin.com/in/prithvi-r/',
+    links: [{ label: 'LinkedIn profile', href: 'https://www.linkedin.com/in/prithvi-r/' }],
+    leads: [{ day: 'Sunday', title: 'Hands-on docs audit workshop' }],
   },
 ];
 
@@ -132,23 +145,65 @@ const testimonials = [
   },
 ];
 
+// Impact slides. Mautic's numbers and quote come from Ayu Adiati's public
+// write-ups: https://mautic.org/blog/keep-docs-up-to-date-automatically/ (3 Sep
+// 2026) and her follow-up on dev.to (25 Sep 2026).
 const impact = [
   {
+    project: 'Mautic',
+    eyebrow: 'Open source · Marketing automation',
+    logo: '/assets/mautic.svg',
+    body: 'Mautic is the open-source marketing automation platform. Promptless watches PRs in mautic/mautic and opens docs PRs against the user and developer docs on every supported version branch. The Mautic Education Team reviews and merges them.',
+    stats: [
+      { value: '129', label: 'Promptless docs PRs merged in four months' },
+      { value: '3.5×', label: 'faster from code merge to docs merge' },
+    ],
+    quote: {
+      text: 'Promptless solved the problem of who writes the docs.',
+      author: 'Ayu Adiati',
+      title: 'Education Team Lead, Mautic',
+    },
+    link: {
+      note: 'Read the write-up on mautic.org:',
+      label: 'How we keep docs up to date automatically with AI',
+      href: 'https://mautic.org/blog/keep-docs-up-to-date-automatically/',
+      action: 'read_case_study',
+    },
+  },
+  {
     project: 'Vitess',
+    eyebrow: 'Open source · CNCF',
     logo: vitessLogo.src,
     body: 'Vitess is a CNCF-graduated database clustering system for MySQL. Promptless drafts docs PRs as the code changes; the Vitess docs maintainers review, revise, and ship them.',
-    note: 'Every commit is public.',
-    repo: 'vitessio/website',
-    href: 'https://github.com/vitessio/website/commits/',
+    link: {
+      note: 'Every commit is public.',
+      label: 'View vitessio/website commits on GitHub',
+      href: 'https://github.com/vitessio/website/commits/',
+      action: 'view_commits',
+    },
   },
   {
     project: 'Helm',
+    eyebrow: 'Open source · CNCF',
     logo: '/assets/helm.svg',
     body: 'Helm is the package manager for Kubernetes and a CNCF-graduated project. Promptless suggests docs changes from upstream work, and Helm maintainers decide what ships.',
-    note: 'Every commit is public.',
-    repo: 'helm/helm-www',
-    href: 'https://github.com/helm/helm-www/commits/main/',
+    link: {
+      note: 'Every commit is public.',
+      label: 'View helm/helm-www commits on GitHub',
+      href: 'https://github.com/helm/helm-www/commits/main/',
+      action: 'view_commits',
+    },
   },
+];
+
+// The impact carousel slides like a filmstrip with the neighbours peeking in on
+// both sides, so the track is rendered with a clone of the last slide before
+// the first and a clone of the first after the last. The script snaps from a
+// clone back to its real slide once the slide transition finishes.
+const loopedImpact = [
+  { item: impact[impact.length - 1], index: impact.length - 1, clone: true },
+  ...impact.map((item, index) => ({ item, index, clone: false })),
+  { item: impact[0], index: 0, clone: true },
 ];
 
 // Days the booth is staffed (main conference days; Sunday is workshops only).
@@ -185,36 +240,18 @@ const initials = (name: string) =>
     .toUpperCase();
 ---
 
-<!doctype html>
-<html lang="en" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={new URL('/campaign/lavacon-2026/', Astro.site ?? 'https://promptless.ai').href} />
-    <link rel="icon" href="/favicon.ico" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:image" content={new URL('/assets/social-card.png', Astro.site ?? 'https://promptless.ai').href} />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="color-scheme" content="light" />
-    <PostHog />
-  </head>
-  <body>
-    <AnalyticsClickTracker />
-
-    <header class="lc-header lc-wrap-wide">
-      <a href="/" aria-label="Promptless home" data-track-action="logo" data-track-funnel="evaluation" data-track-location="lavacon_header" data-track-campaign={CAMPAIGN}>
-        <img src="/assets/logo.svg" alt="Promptless" class="lc-logo" width="148" height="42" />
-      </a>
-      <div class="lc-badge">
-        <img src="/site/yc_logo.svg.png" alt="" width="28" height="28" />
-        <span>Backed by<br /><strong>Y Combinator</strong></span>
-      </div>
-    </header>
-
-    <main>
+<StarlightPage
+  hasSidebar={false}
+  frontmatter={{
+    title,
+    description,
+    template: 'doc',
+    tableOfContents: false,
+    editUrl: false,
+  }}
+>
+  <div class="pl-site-page pl-site-page-no-title pl-light-chrome lc-page not-content">
+    <div class="lc-main">
       <!-- Hero -->
       <section class="lc-hero">
         <div class="lc-stripes" aria-hidden="true"></div>
@@ -339,14 +376,32 @@ const initials = (name: string) =>
           }
 
           <h2 class="lc-display lc-center lc-subsection">Featured speakers</h2>
-          <div class="lc-people">
+          <div class="lc-speakers">
             {
               speakers.map((p) => (
-                <a class="lc-person" href={p.href} target="_blank" rel="noopener" data-track-action="view_speaker" data-track-funnel="evaluation" data-track-location="lavacon_speakers" data-track-campaign={CAMPAIGN}>
-                  <img src={p.photo} alt="" loading="lazy" width="340" height="340" />
-                  <strong>{p.name}</strong>
-                  <span>{p.role}</span>
-                </a>
+                <article class="lc-speaker">
+                  <img src={p.photo} alt="" loading="lazy" width="96" height="96" />
+                  <div class="lc-speaker-body">
+                    <h3>{p.name}</h3>
+                    <p class="lc-speaker-role">{p.role}</p>
+                    <p class="lc-eyebrow">Presenting</p>
+                    <ul class="lc-speaker-leads">
+                      {p.leads.map((l) => (
+                        <li>
+                          <span class="lc-speaker-day">{l.day}</span>{" "}
+                          {l.title}
+                        </li>
+                      ))}
+                    </ul>
+                    <div class="lc-speaker-links">
+                      {p.links.map((l) => (
+                        <a class="lc-speaker-link" href={l.href} target="_blank" rel="noopener" data-track-action="view_speaker" data-track-funnel="evaluation" data-track-location="lavacon_speakers" data-track-campaign={CAMPAIGN}>
+                          {l.label} <ArrowRight size={16} aria-hidden="true" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </article>
               ))
             }
           </div>
@@ -377,34 +432,10 @@ const initials = (name: string) =>
         </div>
       </section>
 
-      <!-- Where to find us -->
-      <section class="lc-where">
-        <div class="lc-wrap lc-where-grid">
-          <h2 class="lc-where-title">
-            <span class="lc-where-a">LavaCon</span><br />
-            <span class="lc-where-b">Conference</span><br />
-            2026
-          </h2>
-          <div class="lc-card lc-where-card">
-            <h3>Where to find us</h3>
-            <dl class="lc-where-list">
-              {
-                whereToFindUs.map((row) => (
-                  <div>
-                    <dt>{row.label}</dt>
-                    <dd>{row.value}</dd>
-                  </div>
-                ))
-              }
-            </dl>
-          </div>
-        </div>
-      </section>
-
       <!-- Testimonials -->
       <section class="lc-section">
         <div class="lc-wrap">
-          <h2 class="lc-display lc-center lc-display-light">Told by the people who work with us</h2>
+          <h2 class="lc-display lc-center lc-display-light">What docs teams say</h2>
           <div class="lc-testimonials">
             {
               testimonials.map((t) => (
@@ -433,32 +464,53 @@ const initials = (name: string) =>
           <button type="button" class="lc-arrow lc-arrow-prev" data-carousel-prev aria-label="Previous">
             <ChevronLeft size={22} />
           </button>
-          <div class="lc-carousel-track">
-            {
-              impact.map((item, i) => (
-                <article class="lc-slide" data-slide aria-hidden={i === 0 ? 'false' : 'true'}>
-                  <div class="lc-slide-media">
-                    <div class="lc-slide-logo">
-                      <img src={item.logo} alt={`${item.project} logo`} loading="lazy" />
+          <div class="lc-carousel-viewport">
+            <div class="lc-carousel-track" data-carousel-track>
+              {
+                loopedImpact.map(({ item, index, clone }) => (
+                  <article class="lc-slide" data-slide data-index={index} data-clone={clone ? 'true' : undefined} aria-hidden={!clone && index === 0 ? 'false' : 'true'}>
+                    <div class="lc-slide-media">
+                      <div class="lc-slide-logo">
+                        <img src={item.logo} alt={`${item.project} logo`} loading="lazy" />
+                      </div>
                     </div>
-                  </div>
-                  <div class="lc-slide-body">
-                    <p class="lc-eyebrow">Open source · CNCF</p>
-                    <h3>{item.project}</h3>
-                    <p>{item.body}</p>
-                    <p>
-                      {item.note}{' '}
-                      <a href={item.href} target="_blank" rel="noopener" data-track-action="view_commits" data-track-funnel="evaluation" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
-                        View {item.repo} commits on GitHub
+                    <div class="lc-slide-body">
+                      <p class="lc-eyebrow">{item.eyebrow}</p>
+                      <h3>{item.project}</h3>
+                      <p>{item.body}</p>
+                      {item.stats && (
+                        <dl class="lc-slide-stats">
+                          {item.stats.map((stat) => (
+                            <div>
+                              <dt>{stat.value}</dt>
+                              <dd>{stat.label}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                      {item.quote && (
+                        <figure class="lc-slide-quote">
+                          <blockquote>“{item.quote.text}”</blockquote>
+                          <figcaption>
+                            {item.quote.author}
+                            <small>{item.quote.title}</small>
+                          </figcaption>
+                        </figure>
+                      )}
+                      <p>
+                        {item.link.note}{' '}
+                        <a href={item.link.href} target="_blank" rel="noopener" data-track-action={item.link.action} data-track-funnel="evaluation" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
+                          {item.link.label}
+                        </a>
+                      </p>
+                      <a class="lc-btn lc-btn-black" href="#reserve" data-track-action="book_demo" data-track-funnel="conversion" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
+                        Let's talk <ArrowRight size={18} aria-hidden="true" />
                       </a>
-                    </p>
-                    <a class="lc-btn lc-btn-black" href="#reserve" data-track-action="book_demo" data-track-funnel="conversion" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
-                      Let's talk <ArrowRight size={18} aria-hidden="true" />
-                    </a>
-                  </div>
-                </article>
-              ))
-            }
+                    </div>
+                  </article>
+                ))
+              }
+            </div>
           </div>
           <button type="button" class="lc-arrow lc-arrow-next" data-carousel-next aria-label="Next">
             <ChevronRight size={22} />
@@ -533,7 +585,31 @@ const initials = (name: string) =>
           </div>
         </div>
       </section>
-    </main>
+
+      <!-- Where to find us -->
+      <section class="lc-where">
+        <div class="lc-wrap lc-where-grid">
+          <h2 class="lc-where-title">
+            LavaCon<br />
+            Conference<br />
+            <span class="lc-where-year">2026</span>
+          </h2>
+          <div class="lc-card lc-where-card">
+            <h3>Where to find us</h3>
+            <dl class="lc-where-list">
+              {
+                whereToFindUs.map((row) => (
+                  <div>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))
+              }
+            </dl>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <footer class="lc-footer lc-wrap-wide">
       <a href="/"><img src="/assets/logo.svg" alt="Promptless" class="lc-logo" width="120" height="34" /></a>
@@ -701,32 +777,91 @@ const initials = (name: string) =>
           });
         });
 
-        // Impact carousel.
+        // Impact carousel: a looped filmstrip. The track holds a clone of the
+        // last slide first and a clone of the first slide last, so there is
+        // always a neighbour peeking in on both sides. `position` indexes the
+        // track (clones included); `current` is the real slide index.
         const root = document.querySelector('[data-carousel]');
         if (!root) return;
+        const track = root.querySelector('[data-carousel-track]');
         const slides = Array.from(root.querySelectorAll('[data-slide]'));
         const dots = Array.from(root.querySelectorAll('[data-dot]'));
-        let current = 0;
-        const show = (i) => {
-          current = (i + slides.length) % slides.length;
-          slides.forEach((s, n) => s.setAttribute('aria-hidden', n === current ? 'false' : 'true'));
+        const count = dots.length;
+        let position = 1;
+        let animating = false;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const move = (animate) => {
+          track.style.transition = animate && !reduceMotion ? '' : 'none';
+          track.style.transform = `translateX(calc(${-position} * (100% + var(--lc-slide-gap))))`;
+          if (!animate || reduceMotion) {
+            // Flush the untransitioned jump before transitions are re-enabled.
+            void track.offsetWidth;
+            track.style.transition = '';
+          }
+        };
+        const paint = () => {
+          const current = (position - 1 + count) % count;
+          slides.forEach((s, n) => {
+            const active = n === position;
+            s.setAttribute('aria-hidden', active ? 'false' : 'true');
+            s.toggleAttribute('inert', !active);
+          });
           dots.forEach((d, n) => d.setAttribute('aria-current', n === current ? 'true' : 'false'));
         };
-        root.querySelector('[data-carousel-prev]').addEventListener('click', () => show(current - 1));
-        root.querySelector('[data-carousel-next]').addEventListener('click', () => show(current + 1));
-        dots.forEach((d, n) => d.addEventListener('click', () => show(n)));
+        const go = (next) => {
+          if (animating) return;
+          animating = true;
+          position = next;
+          paint();
+          move(true);
+          if (reduceMotion) settle();
+        };
+        const settle = () => {
+          // Landed on a clone: snap to the real slide without animating.
+          if (position === 0) position = count;
+          else if (position === count + 1) position = 1;
+          move(false);
+          paint();
+          animating = false;
+        };
+
+        track.addEventListener('transitionend', (e) => {
+          if (e.target === track && e.propertyName === 'transform') settle();
+        });
+        root.querySelector('[data-carousel-prev]').addEventListener('click', () => go(position - 1));
+        root.querySelector('[data-carousel-next]').addEventListener('click', () => go(position + 1));
+        dots.forEach((d, n) => d.addEventListener('click', () => go(n + 1)));
+        root.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowLeft') go(position - 1);
+          if (e.key === 'ArrowRight') go(position + 1);
+        });
+
+        // Swipe on touch devices.
+        let startX = null;
+        track.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') startX = e.clientX; });
+        track.addEventListener('pointerup', (e) => {
+          if (startX === null) return;
+          const dx = e.clientX - startX;
+          startX = null;
+          if (Math.abs(dx) > 40) go(dx < 0 ? position + 1 : position - 1);
+        });
+        track.addEventListener('pointercancel', () => { startX = null; });
+
+        move(false);
+        paint();
       })();
     </script>
 
     <style is:global>
-      @font-face {
-        font-family: 'Inter';
-        src: url('/fonts/InterVariable.woff2') format('woff2');
-        font-weight: 100 900;
-        font-display: swap;
-      }
+      /* Starlight layout overrides: let the landing page run edge to edge on
+         a white canvas under the shared top bar. */
+      .main-frame:has(.lc-page) { background: #fff; }
+      main:has(.lc-page) .content-panel { padding: 0; border: 0; }
+      main:has(.lc-page) .content-panel > .sl-container { max-width: none; margin-inline: 0; }
+      .lc-page.pl-site-page { padding: 0; }
 
-      :root {
+      .lc-page {
         color-scheme: light;
         --lc-orange: #f0481d;
         --lc-purple: #9f54e3;
@@ -740,46 +875,36 @@ const initials = (name: string) =>
         --lc-tint: #f4f9ff;
         --lc-tint-strong: #e2edff;
         --lc-radius: 28px;
-        --lc-gradient: linear-gradient(90deg, var(--lc-orange) 0%, var(--lc-purple) 50%, var(--lc-blue) 100%);
-      }
 
-      * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
-      body {
-        margin: 0;
         background: #fff;
         color: var(--lc-ink);
         font: 16px/1.55 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
-      img { max-width: 100%; display: block; }
-      a { color: inherit; }
-      .sr-only {
+      html { scroll-behavior: smooth; }
+      .lc-page img { max-width: 100%; display: block; }
+      /* Element resets. `main .lc-page x` (0,1,2) outranks the site's docs
+         typography rules such as `.content-panel h1` and
+         `.sl-markdown-content a` (0,1,1) without outranking any `.lc-page
+         .lc-*` rule below (0,2,0). */
+      main .lc-page :is(h1, h2, h3, h4, h5, h6) { color: inherit; letter-spacing: normal; }
+      main .lc-page a, main .lc-page a:hover { color: inherit; }
+      .lc-page .sr-only {
         position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
         overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
       }
+      .lc-page [id] { scroll-margin-top: var(--sl-nav-height); }
 
-      .lc-wrap { position: relative; width: min(1170px, calc(100% - 2.5rem)); margin: 0 auto; }
-      .lc-wrap-wide { width: min(1400px, calc(100% - 3rem)); margin: 0 auto; }
-      .lc-narrow { width: min(760px, calc(100% - 2.5rem)); }
-      .lc-center { text-align: center; }
-      .lc-muted { color: var(--lc-muted); }
+      .lc-page .lc-wrap { position: relative; width: min(1170px, calc(100% - 2.5rem)); margin: 0 auto; }
+      .lc-page .lc-wrap-wide { width: min(1400px, calc(100% - 3rem)); margin: 0 auto; }
+      .lc-page .lc-narrow { width: min(760px, calc(100% - 2.5rem)); }
+      .lc-page .lc-center { text-align: center; }
+      .lc-page .lc-muted { color: var(--lc-muted); }
 
-      .lc-gradient-text {
-        background: var(--lc-gradient);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-
-      /* Header */
-      .lc-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; }
-      .lc-logo { height: 42px; width: auto; }
-      .lc-badge { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; line-height: 1.2; }
-      .lc-badge img { border-radius: 4px; }
+      .lc-page .lc-gradient-text { color: var(--pl-color-action); }
 
       /* Cards */
-      .lc-card {
+      .lc-page .lc-card {
         position: relative;
         background: #fff;
         border: 1px solid var(--lc-line);
@@ -787,22 +912,22 @@ const initials = (name: string) =>
       }
 
       /* Hero */
-      .lc-hero { position: relative; padding: 5rem 0 6rem; background: var(--lc-tint); overflow: hidden; }
-      .lc-hero-card {
+      .lc-page .lc-hero { position: relative; padding: 5rem 0 6rem; background: var(--lc-tint); overflow: hidden; }
+      .lc-page .lc-hero-card {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 4.5rem;
         padding: 3.25rem 3rem;
       }
-      .lc-hero-title {
+      .lc-page .lc-hero-title {
         margin: 0 0 1.75rem;
         font-size: clamp(2.5rem, 5vw, 3.6rem);
         line-height: 1.08;
         font-weight: 500;
         letter-spacing: -0.03em;
       }
-      .lc-hero-lede { margin: 0 0 2rem; font-size: 1.3rem; line-height: 1.6; font-weight: 350; }
-      .lc-callout {
+      .lc-page .lc-hero-lede { margin: 0 0 2rem; font-size: 1.3rem; line-height: 1.6; font-weight: 350; }
+      .lc-page .lc-callout {
         margin-bottom: 2rem;
         padding: 1.25rem 1rem;
         background: #f7f7f7;
@@ -810,19 +935,19 @@ const initials = (name: string) =>
         font-size: 0.95rem;
         line-height: 1.6;
       }
-      .lc-callout strong { display: block; font-weight: 600; }
-      .lc-meta { display: flex; gap: 0.9rem; align-items: flex-start; margin: 0 0 2.2rem; color: var(--lc-text); }
-      .lc-meta svg { flex: none; color: var(--lc-orange); stroke-width: 1.6; }
-      .lc-meta a { text-decoration: none; }
-      .lc-meta-date { font-size: 1.3rem; font-weight: 600; color: var(--lc-ink); }
+      .lc-page .lc-callout strong { display: block; font-weight: 600; }
+      .lc-page .lc-meta { display: flex; gap: 0.9rem; align-items: flex-start; margin: 0 0 2.2rem; color: var(--lc-text); }
+      .lc-page .lc-meta svg { flex: none; color: var(--pl-color-action); stroke-width: 1.6; }
+      .lc-page .lc-meta a { text-decoration: none; }
+      .lc-page .lc-meta-date { font-size: 1.3rem; font-weight: 600; color: var(--lc-ink); }
 
       /* Forms */
-      .lc-form { display: flex; flex-direction: column; gap: 0.5rem; }
-      .lc-form-title { margin: 0; font-size: 1.55rem; font-weight: 500; letter-spacing: -0.01em; }
-      .lc-form-sub { margin: 0.25rem 0 2.5rem; font-size: 0.95rem; line-height: 1.25; }
-      .lc-form input:not([type='checkbox']),
-      .lc-form select,
-      .lc-form textarea {
+      .lc-page .lc-form { display: flex; flex-direction: column; gap: 0.5rem; }
+      .lc-page .lc-form-title { margin: 0; font-size: 1.55rem; font-weight: 500; letter-spacing: -0.01em; }
+      .lc-page .lc-form-sub { margin: 0.25rem 0 2.5rem; font-size: 0.95rem; line-height: 1.25; }
+      .lc-page .lc-form input:not([type='checkbox']),
+      .lc-page .lc-form select,
+      .lc-page .lc-form textarea {
         width: 100%;
         min-height: 48px;
         padding: 0.75rem 1rem;
@@ -835,24 +960,24 @@ const initials = (name: string) =>
         outline: none;
         appearance: none;
       }
-      .lc-form textarea { resize: vertical; min-height: 168px; }
-      .lc-form ::placeholder { color: #9a9aa3; }
-      .lc-form input:focus, .lc-form select:focus, .lc-form textarea:focus { border-color: var(--lc-blue); background: #fff; }
-      .lc-select { position: relative; }
-      .lc-select select { background: #fff; border-color: var(--lc-line); color: var(--lc-ink); }
-      .lc-select select:invalid, .lc-select select:has(option[value='']:checked) { color: #9a9aa3; }
-      .lc-select > svg { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #9a9aa3; pointer-events: none; }
+      .lc-page .lc-form textarea { resize: vertical; min-height: 168px; }
+      .lc-page .lc-form ::placeholder { color: #9a9aa3; }
+      .lc-page .lc-form input:focus, .lc-page .lc-form select:focus, .lc-page .lc-form textarea:focus { border-color: var(--lc-blue); background: #fff; }
+      .lc-page .lc-select { position: relative; }
+      .lc-page .lc-select select { background: #fff; border-color: var(--lc-line); color: var(--lc-ink); }
+      .lc-page .lc-select select:invalid, .lc-page .lc-select select:has(option[value='']:checked) { color: #9a9aa3; }
+      .lc-page .lc-select > svg { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #9a9aa3; pointer-events: none; }
 
       /* Custom dropdown (enhances the native select; the select stays in the
          form, invisible, for submission and required-field validation). */
-      .lc-select.is-enhanced select {
+      .lc-page .lc-select.is-enhanced select {
         position: absolute;
         inset: 0;
         opacity: 0;
         pointer-events: none;
       }
-      .lc-select.is-enhanced > svg { display: none; }
-      .lc-dd-button {
+      .lc-page .lc-select.is-enhanced > svg { display: none; }
+      .lc-page .lc-dd-button {
         position: relative;
         display: flex;
         align-items: center;
@@ -869,12 +994,12 @@ const initials = (name: string) =>
         border-radius: 8px;
         cursor: pointer;
       }
-      .lc-dd-button[data-empty='true'] { color: #9a9aa3; }
-      .lc-dd-button svg { flex: none; color: #9a9aa3; transition: transform 0.15s ease; }
-      .lc-dd-button[aria-expanded='true'] { border-color: var(--lc-ink); background: var(--lc-field); }
-      .lc-dd-button[aria-expanded='true'] svg { transform: rotate(180deg); }
-      .lc-dd-button:focus-visible { outline: 2px solid var(--lc-blue); outline-offset: 2px; }
-      .lc-dd-list {
+      .lc-page .lc-dd-button[data-empty='true'] { color: #9a9aa3; }
+      .lc-page .lc-dd-button svg { flex: none; color: #9a9aa3; transition: transform 0.15s ease; }
+      .lc-page .lc-dd-button[aria-expanded='true'] { border-color: var(--lc-ink); background: var(--lc-field); }
+      .lc-page .lc-dd-button[aria-expanded='true'] svg { transform: rotate(180deg); }
+      .lc-page .lc-dd-button:focus-visible { outline: 2px solid var(--lc-blue); outline-offset: 2px; }
+      .lc-page .lc-dd-list {
         position: absolute;
         z-index: 20;
         top: calc(100% + 6px);
@@ -890,22 +1015,22 @@ const initials = (name: string) =>
         border-radius: 10px;
         box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
       }
-      .lc-dd-list[hidden] { display: none; }
-      .lc-dd-list li {
+      .lc-page .lc-dd-list[hidden] { display: none; }
+      .lc-page .lc-dd-list li {
         padding: 0.7rem 1rem;
         font-size: 0.95rem;
         color: var(--lc-ink);
         cursor: pointer;
       }
-      .lc-dd-list li[aria-disabled='true'] { color: #9a9aa3; cursor: default; }
-      .lc-dd-list li.is-active:not([aria-disabled='true']) { background: var(--lc-tint); }
-      .lc-dd-list li[aria-selected='true'] { font-weight: 600; }
-      .lc-check { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.85rem; color: var(--lc-text); }
-      .lc-check input { margin: 0.2rem 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--lc-navy); }
-      .lc-check-feature { margin: 2.5rem 0 3rem; }
-      .lc-check-feature strong { display: block; font-size: 1.15rem; font-weight: 500; line-height: 1.2; color: var(--lc-ink); margin-bottom: 0.6rem; }
-      .lc-check-feature small { display: block; font-size: 0.85rem; line-height: 1.2; }
-      .lc-btn {
+      .lc-page .lc-dd-list li[aria-disabled='true'] { color: #9a9aa3; cursor: default; }
+      .lc-page .lc-dd-list li.is-active:not([aria-disabled='true']) { background: var(--lc-tint); }
+      .lc-page .lc-dd-list li[aria-selected='true'] { font-weight: 600; }
+      .lc-page .lc-check { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.85rem; color: var(--lc-text); }
+      .lc-page .lc-check input { margin: 0.2rem 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--lc-navy); }
+      .lc-page .lc-check-feature { margin: 2.5rem 0 3rem; }
+      .lc-page .lc-check-feature strong { display: block; font-size: 1.15rem; font-weight: 500; line-height: 1.2; color: var(--lc-ink); margin-bottom: 0.6rem; }
+      .lc-page .lc-check-feature small { display: block; font-size: 0.85rem; line-height: 1.2; }
+      .lc-page .lc-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -923,16 +1048,16 @@ const initials = (name: string) =>
         cursor: pointer;
         transition: background 0.15s ease;
       }
-      .lc-btn:hover { background: #000; }
-      .lc-btn:disabled { opacity: 0.6; cursor: default; }
-      .lc-btn-black { background: #161616; width: 100%; margin-top: auto; }
-      .lc-form-status { margin: 0.25rem 0 0; min-height: 1.2em; font-size: 0.9rem; color: #1f7a5c; }
-      .lc-form.is-sent > :not(.lc-form-title):not(.lc-form-sub):not(.lc-form-status) { display: none; }
-      .lc-form.is-sent .lc-form-status { font-size: 1.1rem; color: var(--lc-ink); }
+      .lc-page .lc-btn:hover { background: #000; }
+      .lc-page .lc-btn:disabled { opacity: 0.6; cursor: default; }
+      .lc-page .lc-btn-black { background: #161616; width: 100%; margin-top: auto; }
+      .lc-page .lc-form-status { margin: 0.25rem 0 0; min-height: 1.2em; font-size: 0.9rem; color: #1f7a5c; }
+      .lc-page .lc-form.is-sent > :not(.lc-form-title):not(.lc-form-sub):not(.lc-form-status) { display: none; }
+      .lc-page .lc-form.is-sent .lc-form-status { font-size: 1.1rem; color: var(--lc-ink); }
 
       /* Offerings strip */
-      .lc-offerings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 2.25rem; padding: 1.5rem; }
-      .lc-offering {
+      .lc-page .lc-offerings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 2.25rem; padding: 1.5rem; }
+      .lc-page .lc-offering {
         padding: 1.5rem;
         background: var(--lc-tint);
         border-radius: 14px;
@@ -942,23 +1067,38 @@ const initials = (name: string) =>
       }
 
       /* Blurred vertical stripe wash (bottom of hero, closing section, impact band) */
-      .lc-stripes {
+      /* Aurora glow (::before) under a film-grain overlay (::after). The two
+         are split so the blur softens the color without smearing the grain. */
+      .lc-page .lc-stripes {
         position: absolute;
-        inset: auto 0 0 0;
-        height: 55%;
+        inset: 0;
         pointer-events: none;
+        overflow: hidden;
+      }
+      .lc-page .lc-stripes::before,
+      .lc-page .lc-stripes::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+      }
+      .lc-page .lc-stripes::before {
+        inset: -10%;
         background:
-          repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.35) 0 6px, rgba(255, 255, 255, 0) 6px 22px),
-          linear-gradient(90deg, rgba(146, 185, 246, 0) 0%, var(--lc-blue) 30%, var(--lc-purple) 62%, var(--lc-orange) 96%);
-        filter: blur(3px);
-        -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 70%);
-        mask-image: linear-gradient(to bottom, transparent 0%, #000 70%);
-        opacity: 0.85;
+          radial-gradient(40% 55% at 15% 100%, rgba(146, 185, 246, 0.85), transparent 70%),
+          radial-gradient(35% 50% at 50% 105%, rgba(159, 84, 227, 0.6), transparent 70%),
+          radial-gradient(32% 48% at 88% 95%, rgba(240, 72, 29, 0.5), transparent 70%),
+          radial-gradient(30% 35% at 75% 10%, rgba(159, 84, 227, 0.18), transparent 70%);
+        filter: blur(40px);
+      }
+      .lc-page .lc-stripes::after {
+        opacity: 0.35;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       }
 
       /* Sections */
-      .lc-section { position: relative; padding: 6.5rem 0; }
-      .lc-display {
+      .lc-page .lc-section { position: relative; padding: 6.5rem 0; }
+      .lc-page .lc-display {
         margin: 0 0 1.25rem;
         font-size: clamp(2.1rem, 4.4vw, 3.4rem);
         line-height: 1.2;
@@ -966,28 +1106,28 @@ const initials = (name: string) =>
         letter-spacing: -0.02em;
         color: var(--lc-ink);
       }
-      .lc-display-light { font-weight: 400; }
-      .lc-subsection { margin-top: 7rem; margin-bottom: 3.5rem; }
-      .lc-eyebrow {
+      .lc-page .lc-display-light { font-weight: 400; }
+      .lc-page .lc-subsection { margin-top: 7rem; margin-bottom: 3.5rem; }
+      .lc-page .lc-eyebrow {
         margin: 0 0 0.6rem;
         font: 500 0.78rem/1 ui-monospace, 'SF Mono', Menlo, monospace;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--lc-orange);
+        color: var(--pl-color-action);
       }
 
-      .lc-problem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 3.5rem; }
-      .lc-problem {
+      .lc-page .lc-problem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 3.5rem; }
+      .lc-page .lc-problem {
         min-height: 250px;
         padding: 2rem 1.5rem;
         background: var(--lc-tint);
         border-radius: 22px;
         box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
       }
-      .lc-problem h3 { margin: 0 0 0.6rem; font-size: 1.5rem; line-height: 1.45; font-weight: 450; }
-      .lc-problem p { margin: 0; color: var(--lc-text); font-size: 0.95rem; line-height: 1.6; font-weight: 350; }
+      .lc-page .lc-problem h3 { margin: 0 0 0.6rem; font-size: 1.5rem; line-height: 1.45; font-weight: 450; }
+      .lc-page .lc-problem p { margin: 0; color: var(--lc-text); font-size: 0.95rem; line-height: 1.6; font-weight: 350; }
 
-      .lc-glow::before {
+      .lc-page .lc-glow::before {
         content: '';
         position: absolute;
         left: 50%;
@@ -1003,12 +1143,12 @@ const initials = (name: string) =>
         pointer-events: none;
         z-index: -1;
       }
-      .lc-glow { isolation: isolate; }
+      .lc-page .lc-glow { isolation: isolate; }
 
-      .lc-session { margin-top: 3rem; }
-      .lc-session h3 { margin: 0 0 1.25rem; font-size: 1.75rem; line-height: 1.25; font-weight: 450; }
-      .lc-session p { margin: 0; color: var(--lc-text); font-size: 1.1rem; line-height: 1.7; font-weight: 350; }
-      .lc-session .lc-session-when {
+      .lc-page .lc-session { margin-top: 3rem; }
+      .lc-page .lc-session h3 { margin: 0 0 1.25rem; font-size: 1.75rem; line-height: 1.25; font-weight: 450; }
+      .lc-page .lc-session p { margin: 0; color: var(--lc-text); font-size: 1.1rem; line-height: 1.7; font-weight: 350; }
+      .lc-page .lc-session .lc-session-when {
         display: flex;
         align-items: center;
         justify-content: flex-end;
@@ -1018,44 +1158,62 @@ const initials = (name: string) =>
         font-weight: 500;
         color: var(--lc-ink);
       }
-      .lc-session-when svg { color: var(--lc-orange); stroke-width: 1.6; }
+      .lc-page .lc-session-when svg { color: var(--pl-color-action); stroke-width: 1.6; }
 
-      .lc-people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.25rem; justify-content: center; }
-      .lc-people:has(> :only-child) { grid-template-columns: minmax(0, 365px); }
-      .lc-people:has(> :nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 365px)); }
-      .lc-people-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem; }
-      .lc-person {
+      /* Featured speakers: open, frameless layout (no card box) that ties each
+         speaker back to the sessions above. Sessions read as pills. */
+      .lc-page .lc-speakers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3rem; max-width: 960px; margin: 0 auto; }
+      .lc-page .lc-speaker { display: flex; gap: 1.75rem; align-items: flex-start; }
+      .lc-page .lc-speaker img { flex: none; width: 128px; height: 128px; object-fit: cover; border-radius: 50%; background: #edf3ff; box-shadow: 0 0 0 6px var(--lc-tint-strong); }
+      .lc-page .lc-speaker-body { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding-top: 0.5rem; }
+      .lc-page .lc-speaker h3 { margin: 0; font-size: 1.4rem; line-height: 1.25; font-weight: 600; }
+      .lc-page .lc-speaker-role { margin: 0.2rem 0 1.1rem; color: var(--lc-muted); font-size: 0.95rem; }
+      .lc-page .lc-speaker .lc-eyebrow { margin-bottom: 0.6rem; }
+      .lc-page .lc-speaker-leads { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.25rem; padding: 0; list-style: none; }
+      .lc-page .lc-speaker-leads li { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.8rem 0.25rem 0.25rem; border-radius: 999px; background: var(--lc-tint-strong); font-size: 0.85rem; color: var(--lc-ink); }
+      .lc-page .lc-speaker-day { padding: 0.15rem 0.6rem; border-radius: 999px; background: #c3d6fb; font-size: 0.78rem; font-weight: 600; color: var(--lc-navy); }
+      .lc-page .lc-speaker-links { display: flex; flex-direction: column; align-items: inherit; gap: 0.4rem; }
+      main .lc-page a.lc-speaker-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--pl-color-action);
+        text-decoration: none;
+      }
+      main .lc-page a.lc-speaker-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+      .lc-page .lc-people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.25rem; justify-content: center; }
+      .lc-page .lc-people-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem; }
+      .lc-page .lc-person {
         display: flex;
         flex-direction: column;
-        padding: 12px 12px 2.25rem;
-        background: #fff;
-        border: 1px solid var(--lc-line);
-        border-radius: 22px;
         text-decoration: none;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      a.lc-person:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(17, 24, 39, 0.08); }
-      .lc-person img, .lc-person-placeholder {
+      .lc-page .lc-person img, .lc-page .lc-person-placeholder {
         width: 100%;
         aspect-ratio: 1;
         object-fit: cover;
-        border-radius: 14px;
+        border-radius: 18px;
         background: #edf3ff;
-        margin-bottom: 1.4rem;
+        margin-bottom: 1.1rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
       }
-      .lc-person-placeholder {
+      .lc-page a.lc-person:hover img { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(17, 24, 39, 0.12); }
+      .lc-page .lc-person-placeholder {
         display: grid;
         place-items: center;
         font-size: 3.5rem;
         font-weight: 500;
         color: #b1c3e6;
       }
-      .lc-person strong, .lc-person span { padding: 0 0.5rem; }
-      .lc-person strong { font-weight: 600; font-size: 1.05rem; }
-      .lc-person span { color: var(--lc-text); font-size: 1.05rem; }
+      .lc-page .lc-person strong, .lc-page .lc-person span { padding: 0; }
+      .lc-page .lc-person strong { font-weight: 600; font-size: 1.05rem; }
+      .lc-page .lc-person span { color: var(--lc-text); font-size: 1.05rem; }
 
       /* Where to find us */
-      .lc-where {
+      .lc-page .lc-where {
         position: relative;
         padding: 6rem 0;
         overflow: hidden;
@@ -1065,8 +1223,8 @@ const initials = (name: string) =>
           radial-gradient(55% 60% at 45% 105%, rgba(146, 185, 246, 0.55), rgba(146, 185, 246, 0) 70%),
           var(--lc-tint);
       }
-      .lc-where-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
-      .lc-where-title {
+      .lc-page .lc-where-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
+      .lc-page .lc-where-title {
         margin: 0;
         font-size: clamp(3rem, 7vw, 5.5rem);
         line-height: 1.02;
@@ -1074,18 +1232,16 @@ const initials = (name: string) =>
         letter-spacing: -0.03em;
         color: var(--lc-ink);
       }
-      .lc-where-a, .lc-where-b { -webkit-background-clip: text; background-clip: text; color: transparent; }
-      .lc-where-a { background-image: linear-gradient(90deg, var(--lc-orange) 0%, var(--lc-purple) 100%); }
-      .lc-where-b { background-image: linear-gradient(90deg, var(--lc-purple) 0%, var(--lc-blue) 55%, rgba(146, 185, 246, 0.25) 100%); }
-      .lc-where-card { display: flex; flex-direction: column; min-height: 460px; padding: 2.5rem 2rem 1.25rem; box-shadow: 0 20px 50px rgba(17, 24, 39, 0.08); }
-      .lc-where-card h3 { margin: 0 0 2.5rem; font-size: 2rem; line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; }
-      .lc-where-list { margin: auto 0 0; }
-      .lc-where-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 0; border-top: 1px solid var(--lc-line); }
-      .lc-where-list dt { flex: none; font: 500 0.78rem/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lc-ink); }
-      .lc-where-list dd { margin: 0; font-size: 1.1rem; text-align: right; color: var(--lc-ink); }
+      .lc-page .lc-where-year { color: var(--pl-color-action, #5264ec); }
+      .lc-page .lc-where-card { display: flex; flex-direction: column; min-height: 460px; padding: 2.5rem 2rem 1.25rem; box-shadow: 0 20px 50px rgba(17, 24, 39, 0.08); }
+      .lc-page .lc-where-card h3 { margin: 0 0 2.5rem; font-size: 2rem; line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; }
+      .lc-page .lc-where-list { margin: auto 0 0; }
+      .lc-page .lc-where-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 0; border-top: 1px solid var(--lc-line); }
+      .lc-page .lc-where-list dt { flex: none; font: 500 0.78rem/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lc-ink); }
+      .lc-page .lc-where-list dd { margin: 0; font-size: 1.1rem; text-align: right; color: var(--lc-ink); }
 
-      .lc-testimonials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3.5rem; }
-      .lc-testimonial {
+      .lc-page .lc-testimonials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3.5rem; }
+      .lc-page .lc-testimonial {
         display: flex;
         flex-direction: column;
         margin: 0;
@@ -1094,48 +1250,88 @@ const initials = (name: string) =>
         border: 1px solid var(--lc-line);
         border-radius: 22px;
       }
-      .lc-testimonial-logo { height: 38px; width: auto; max-width: 160px; object-fit: contain; object-position: left; margin-bottom: 2.25rem; }
-      .lc-testimonial p { margin: 0 0 2.5rem; color: var(--lc-text); font-size: 1rem; line-height: 1.6; font-weight: 350; }
-      .lc-testimonial footer { display: flex; align-items: center; gap: 1rem; margin-top: auto; color: var(--lc-text); }
-      .lc-testimonial footer img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-      .lc-testimonial footer small { display: block; font-size: 0.82rem; color: var(--lc-muted); }
+      .lc-page .lc-testimonial-logo { height: 38px; width: auto; max-width: 160px; object-fit: contain; object-position: left; margin-bottom: 2.25rem; }
+      .lc-page .lc-testimonial p { margin: 0 0 2.5rem; color: var(--lc-text); font-size: 1rem; line-height: 1.6; font-weight: 350; }
+      .lc-page .lc-testimonial footer { display: flex; align-items: center; gap: 1rem; margin-top: auto; color: var(--lc-text); }
+      .lc-page .lc-testimonial footer img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+      .lc-page .lc-testimonial footer small { display: block; font-size: 0.82rem; color: var(--lc-muted); }
 
       /* Impact band */
-      .lc-impact {
+      .lc-page .lc-impact {
         position: relative;
         padding: 3rem 0 1.5rem;
         overflow: hidden;
-        background: linear-gradient(100deg, #ee8a78 0%, #d95668 45%, #e2573c 80%, #f0481d 100%);
+        background: linear-gradient(105deg, #f2735a 0%, #e5524c 38%, #ec4f2d 70%, #f0481d 100%);
       }
-      .lc-stripes-full { inset: 0; height: 100%; -webkit-mask-image: none; mask-image: none; opacity: 0.35; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.45) 0 8px, rgba(255, 255, 255, 0) 8px 26px); }
-      .lc-impact-title { position: relative; color: #fff; font-weight: 400; margin-bottom: 2.5rem; }
-      .lc-carousel { position: relative; width: min(1124px, calc(100% - 5rem)); margin: 0 auto; }
-      .lc-carousel-track { display: grid; }
-      .lc-slide {
-        grid-area: 1 / 1;
+      /* On the coral band the aurora is: a warm sunlit corner top-left, a deep
+         shadow top-right for depth, and the brand purple and blue bleeding in
+         along the bottom so the band echoes the hero and closing washes. */
+      .lc-page .lc-stripes-full::before {
+        background:
+          radial-gradient(45% 70% at 6% -5%, rgba(255, 222, 200, 0.7), transparent 70%),
+          radial-gradient(40% 55% at 92% -10%, rgba(110, 18, 40, 0.5), transparent 70%),
+          radial-gradient(38% 60% at 48% 115%, rgba(159, 84, 227, 0.6), transparent 70%),
+          radial-gradient(28% 50% at 100% 100%, rgba(146, 185, 246, 0.55), transparent 70%),
+          radial-gradient(22% 45% at 0% 100%, rgba(159, 84, 227, 0.35), transparent 70%);
+      }
+      .lc-page .lc-stripes-full::after { opacity: 0.6; }
+      /* A soft vignette top and bottom so the cards read as sitting in the band. */
+      .lc-page .lc-impact::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(60, 10, 20, 0.14), transparent 22%),
+          linear-gradient(0deg, rgba(60, 10, 20, 0.18), transparent 26%);
+      }
+      .lc-page .lc-impact > :not(.lc-stripes) { position: relative; z-index: 1; }
+      .lc-page .lc-impact-title { position: relative; color: #fff; font-weight: 400; margin-bottom: 2.5rem; }
+      .lc-page .lc-carousel { --lc-slide-gap: 1.75rem; position: relative; width: min(1124px, calc(100% - 5rem)); margin: 0 auto; }
+      /* The viewport is the width of one card; the track overflows it so the
+         neighbouring cards peek in on both sides until the section clips them. */
+      .lc-page .lc-carousel-viewport { overflow: visible; }
+      .lc-page .lc-carousel-track {
+        display: flex;
+        gap: var(--lc-slide-gap);
+        transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform;
+        touch-action: pan-y;
+      }
+      .lc-page .lc-slide {
+        flex: 0 0 100%;
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
         gap: 2.25rem;
         padding: 1.5rem;
         background: #fff;
         border-radius: var(--lc-radius);
-        transition: opacity 0.3s ease;
+        box-shadow: 0 30px 60px -24px rgba(80, 14, 10, 0.45), 0 1px 0 rgba(255, 255, 255, 0.35);
+        user-select: none;
       }
-      .lc-slide[aria-hidden='true'] { opacity: 0; visibility: hidden; }
-      .lc-slide-media {
+      .lc-page .lc-slide[aria-hidden='true'] { pointer-events: none; }
+      .lc-page .lc-slide-media {
         display: grid;
         place-items: center;
         min-height: 420px;
         border-radius: 22px;
         background: radial-gradient(120% 120% at 20% 10%, var(--lc-tint-strong), #f1f1f1 70%);
       }
-      .lc-slide-logo { display: grid; place-items: center; width: 70%; aspect-ratio: 2 / 1; background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06); }
-      .lc-slide-logo img { max-width: 55%; max-height: 70%; object-fit: contain; }
-      .lc-slide-body { display: flex; flex-direction: column; padding: 1.5rem 0.5rem 0 0; }
-      .lc-slide-body h3 { margin: 0 0 1.5rem; font-size: 1.6rem; font-weight: 500; }
-      .lc-slide-body p { margin: 0 0 1.25rem; color: var(--lc-ink); line-height: 1.5; }
-      .lc-slide-body a:not(.lc-btn) { color: var(--lc-ink); text-underline-offset: 3px; }
-      .lc-arrow {
+      .lc-page .lc-slide-logo { display: grid; place-items: center; width: 70%; aspect-ratio: 2 / 1; background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06); }
+      .lc-page .lc-slide-logo img { max-width: 55%; max-height: 70%; object-fit: contain; }
+      .lc-page .lc-slide-body { display: flex; flex-direction: column; padding: 1.5rem 0.5rem 0 0; }
+      .lc-page .lc-slide-body h3 { margin: 0 0 1.5rem; font-size: 1.6rem; font-weight: 500; }
+      .lc-page .lc-slide-body p { margin: 0 0 1.25rem; color: var(--lc-ink); line-height: 1.5; }
+      .lc-page .lc-slide-body a:not(.lc-btn) { color: var(--lc-ink); text-underline-offset: 3px; }
+      .lc-page .lc-slide-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin: 0.25rem 0 1.5rem; }
+      .lc-page .lc-slide-stats div { padding-left: 0.9rem; border-left: 3px solid var(--lc-orange); }
+      .lc-page .lc-slide-stats dt { font-size: 1.9rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--lc-ink); }
+      .lc-page .lc-slide-stats dd { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.4; color: var(--lc-text); }
+      .lc-page .lc-slide-quote { margin: 0 0 1.5rem; }
+      .lc-page .lc-slide-quote blockquote { margin: 0 0 0.75rem; font-size: 1.1rem; line-height: 1.45; color: var(--lc-ink); }
+      .lc-page .lc-slide-quote figcaption { font-size: 0.95rem; color: var(--lc-text); }
+      .lc-page .lc-slide-quote small { display: block; font-size: 0.82rem; color: var(--lc-muted); }
+      .lc-page .lc-arrow {
         position: absolute;
         top: 50%;
         z-index: 2;
@@ -1150,48 +1346,54 @@ const initials = (name: string) =>
         color: var(--lc-ink);
         cursor: pointer;
       }
-      .lc-arrow-prev { left: -28px; }
-      .lc-arrow-next { right: -28px; }
-      .lc-dots { position: relative; display: flex; justify-content: center; gap: 4px; margin-top: 2rem; }
-      .lc-dots button { width: 24px; height: 7px; padding: 0; border: 0; border-radius: 2px; background: rgba(255, 255, 255, 0.45); cursor: pointer; }
-      .lc-dots button[aria-current='true'] { width: 48px; background: #fff; }
+      .lc-page .lc-arrow:hover { background: #f5f5f5; }
+      .lc-page .lc-arrow-prev { left: -28px; }
+      .lc-page .lc-arrow-next { right: -28px; }
+      .lc-page .lc-dots { position: relative; display: flex; justify-content: center; gap: 4px; margin-top: 2rem; }
+      .lc-page .lc-dots button { width: 24px; height: 7px; padding: 0; border: 0; border-radius: 2px; background: rgba(255, 255, 255, 0.45); cursor: pointer; }
+      .lc-page .lc-dots button[aria-current='true'] { width: 48px; background: #fff; }
 
       /* Closing */
-      .lc-closing { padding-bottom: 0; }
-      .lc-closing-title { margin: 0 0 2.5rem; font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 450; }
-      .lc-closing .lc-narrow p { font-size: 1.05rem; line-height: 1.7; }
-      .lc-reserve { position: relative; margin-top: 5rem; padding: 10rem 0 10rem; background: var(--lc-tint); overflow: hidden; }
-      .lc-reserve-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5rem; padding: 4rem 3rem 3rem; background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(20px); }
-      .lc-reserve-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 3rem; }
-      .lc-reserve-title { margin: 0 0 1.5rem; font-size: clamp(2rem, 3.5vw, 2.6rem); font-weight: 400; line-height: 1.1; }
-      .lc-reserve-lede { margin: 0 0 1.5rem; font-size: 1.35rem; line-height: 1.65; font-weight: 350; }
-      .lc-reserve-copy .lc-meta { margin-bottom: 2rem; }
-      .lc-closing .lc-form .lc-check { margin-top: 0.5rem; }
-      .lc-closing .lc-form .lc-btn { margin-top: 0.5rem; }
+      .lc-page .lc-closing { padding-bottom: 0; }
+      .lc-page .lc-closing-title { margin: 0 0 2.5rem; font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 450; }
+      .lc-page .lc-closing .lc-narrow p { font-size: 1.05rem; line-height: 1.7; }
+      .lc-page .lc-reserve { position: relative; margin-top: 5rem; padding: 10rem 0 10rem; background: var(--lc-tint); overflow: hidden; }
+      .lc-page .lc-reserve-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5rem; padding: 4rem 3rem 3rem; background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(20px); }
+      .lc-page .lc-reserve-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 3rem; }
+      .lc-page .lc-reserve-title { margin: 0 0 1.5rem; font-size: clamp(2rem, 3.5vw, 2.6rem); font-weight: 400; line-height: 1.1; }
+      .lc-page .lc-reserve-lede { margin: 0 0 1.5rem; font-size: 1.35rem; line-height: 1.65; font-weight: 350; }
+      .lc-page .lc-reserve-copy .lc-meta { margin-bottom: 2rem; }
+      .lc-page .lc-closing .lc-form .lc-check { margin-top: 0.5rem; }
+      .lc-page .lc-closing .lc-form .lc-btn { margin-top: 0.5rem; }
 
       /* Footer */
-      .lc-footer { display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding: 2.5rem 0; font-size: 0.9rem; color: var(--lc-muted); }
-      .lc-footer .lc-logo { height: 34px; }
-      .lc-footer nav { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-      .lc-footer nav a { text-decoration: none; color: var(--lc-text); }
-      .lc-footer nav a:hover { color: var(--lc-ink); }
-      .lc-footer p { margin: 0; }
+      .lc-page .lc-footer { display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding: 2.5rem 0; font-size: 0.9rem; color: var(--lc-muted); }
+      .lc-page .lc-footer .lc-logo { height: 34px; }
+      .lc-page .lc-footer nav { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+      .lc-page .lc-footer nav a { text-decoration: none; color: var(--lc-text); }
+      .lc-page .lc-footer nav a:hover { color: var(--lc-ink); }
+      .lc-page .lc-footer p { margin: 0; }
 
+      @media (prefers-reduced-motion: reduce) {
+        .lc-page .lc-carousel-track { transition: none; }
+      }
       @media (max-width: 960px) {
-        .lc-hero { padding-top: 2.5rem; }
-        .lc-hero-card, .lc-reserve-card, .lc-slide { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; padding: 2rem 1.5rem; }
-        .lc-offerings, .lc-problem-grid, .lc-testimonials, .lc-where-grid { grid-template-columns: minmax(0, 1fr); }
-        .lc-where-card { min-height: 0; }
-        .lc-people, .lc-people-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .lc-slide-media { min-height: 240px; }
-        .lc-arrow-prev { left: -20px; }
-        .lc-arrow-next { right: -20px; }
-        .lc-reserve { padding: 5rem 0; }
+        .lc-page .lc-hero { padding-top: 2.5rem; }
+        .lc-page .lc-hero-card, .lc-page .lc-reserve-card, .lc-page .lc-slide { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; padding: 2rem 1.5rem; }
+        .lc-page .lc-offerings, .lc-page .lc-problem-grid, .lc-page .lc-speakers, .lc-page .lc-testimonials, .lc-page .lc-where-grid { grid-template-columns: minmax(0, 1fr); }
+        .lc-page .lc-where-card { min-height: 0; }
+        .lc-page .lc-people, .lc-page .lc-people-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .lc-page .lc-slide-media { min-height: 240px; }
+        .lc-page .lc-arrow-prev { left: -20px; }
+        .lc-page .lc-arrow-next { right: -20px; }
+        .lc-page .lc-reserve { padding: 5rem 0; }
       }
       @media (max-width: 560px) {
-        .lc-people, .lc-people-4, .lc-people:has(> :nth-child(2):last-child) { grid-template-columns: minmax(0, 1fr); }
-        .lc-badge span { display: none; }
+        .lc-page .lc-people, .lc-page .lc-people-4 { grid-template-columns: minmax(0, 1fr); }
+        .lc-page .lc-speaker { flex-direction: column; align-items: center; text-align: center; }
+        .lc-page .lc-speaker-body { align-items: center; }
+        .lc-page .lc-speaker-leads { justify-content: center; }
       }
     </style>
-  </body>
-</html>
+  </div>
+</StarlightPage>
