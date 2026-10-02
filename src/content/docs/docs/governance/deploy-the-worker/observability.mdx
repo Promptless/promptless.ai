@@ -16,6 +16,8 @@ Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis
 
 The analyzer emits structured logs by default. Datadog tracing and Sentry error reporting are optional. The [supervisor](/docs/governance/deploy-the-worker/manage-updates-and-recovery) reports release and migration status for deployments with automatic updates.
 
+The analyzer exposes two health endpoints. `/readyz` reports readiness and gates upload and analysis traffic on recent database and object-storage checks, so a storage problem withdraws the analyzer from service. `/healthz` reports liveness and detects stopped background tasks. Point readiness and load-balancer health checks at `/readyz`.
+
 ## Checks to keep visible
 
 | Stage                  | Evidence of progress                                                                                                  | Investigate when                                                                             |
@@ -58,6 +60,8 @@ Check the host credential, hosted deployment registration, hostname, TLS certifi
 ### Host checks in, but storage does not complete
 
 Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and object-storage authorization, location, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
+
+The analyzer retries a pending or failed canonical write in the background with a persisted backoff. A `write_failed` status that clears on its own needs no intervention. Run `pig-trace-analyzer db-status` for a count of pending objects and the age of the oldest one. Investigate when that backlog grows or stops draining after you restore access. See the [worker maintenance commands](/docs/governance/deploy-the-worker/manual-helm#inspect-and-repair-worker-storage).
 
 ### Storage succeeds, but analysis fails
 
