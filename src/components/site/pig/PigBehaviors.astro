@@ -11,8 +11,6 @@
 //   [data-pig-accordion]       container; each [data-pig-accordion-trigger]
 //                              toggles the [data-pig-accordion-panel] that
 //                              follows it (one open at a time, aria-expanded).
-//   [data-pig-tabs]            container; [data-pig-tab] buttons swap
-//                              [data-pig-tabpanel] siblings by index.
 ---
 
 <script>
@@ -109,45 +107,5 @@
       });
     });
 
-    // --- Tabs ---------------------------------------------------------------
-    document.querySelectorAll<HTMLElement>('[data-pig-tabs]').forEach((tabs) => {
-      const buttons = Array.from(tabs.querySelectorAll<HTMLButtonElement>('[data-pig-tab]'));
-      const panels = Array.from(tabs.querySelectorAll<HTMLElement>('[data-pig-tabpanel]'));
-      const activate = (index: number) => {
-        buttons.forEach((button, i) => {
-          const active = i === index;
-          button.classList.toggle('is-active', active);
-          button.setAttribute('aria-selected', String(active));
-          button.tabIndex = active ? 0 : -1;
-        });
-        panels.forEach((panel, i) => {
-          const active = i === index;
-          panel.classList.toggle('is-active', active);
-          if (active) panel.removeAttribute('hidden');
-          else panel.setAttribute('hidden', '');
-        });
-        tabs.dataset.pigActive = String(index);
-        // Optional companions (e.g. the step cards beside a terminal) follow the tab.
-        tabs.querySelectorAll<HTMLElement>('[data-pig-tabcard]').forEach((card, i) => {
-          card.classList.toggle('is-active', i === index);
-        });
-      };
-      buttons.forEach((button, index) => {
-        button.addEventListener('click', () => activate(index));
-        button.addEventListener('keydown', (event) => {
-          let next = -1;
-          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % buttons.length;
-          if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length;
-          if (event.key === 'Home') next = 0;
-          if (event.key === 'End') next = buttons.length - 1;
-          if (next < 0) return;
-          event.preventDefault();
-          activate(next);
-          buttons[next].focus();
-        });
-      });
-      const initial = buttons.findIndex((b) => b.getAttribute('aria-selected') === 'true');
-      activate(initial < 0 ? 0 : initial);
-    });
   })();
 </script>

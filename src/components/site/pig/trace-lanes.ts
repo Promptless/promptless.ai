@@ -1,5 +1,6 @@
 // Trace lanes: faint horizontal session timelines whose events drift toward a
-// vanishing point, with an occasional colored tool call and a rare green check.
+// vanishing point: grey message ticks, labelled tool calls in a lighter grey,
+// and the rare green pass or muted red failure.
 // Deterministic (seeded) so every visitor sees the same composition; pauses
 // off-screen; renders a single still frame under prefers-reduced-motion.
 export interface TraceLanesOptions {
@@ -27,7 +28,7 @@ export function mountTraceLanes(canvas: HTMLCanvasElement, opts: TraceLanesOptio
     seed: 7,
     fadeLeft: 0.35,      // fraction of width over which marks fade in from the left
     labels: true,        // draw tool names above some tool-call spans
-    accent: { sky: '56,189,248', purple: '177,159,255', green: '39,201,63', amber: '232,163,77' },
+    accent: { tool: '214,214,214', toolDim: '160,160,160', green: '111,207,142', red: '229,115,107' },
   }, opts);
 
   let seed = cfg.seed;
@@ -45,7 +46,7 @@ export function mountTraceLanes(canvas: HTMLCanvasElement, opts: TraceLanesOptio
     if (r < 0.05) return { x, w: 6, kind: 'check' };
     if (r < 0.065) return { x, w: 6, kind: 'fail' };
     if (r < 0.24) {
-      const kind = pick(['sky', 'purple', 'amber']);
+      const kind = pick(['tool', 'tool', 'toolDim']);
       return { x, w: 22 + rand() * 44, kind, label: rand() < 0.45 ? pick(TOOLS) : undefined };
     }
     return { x, w: 4 + rand() * 22, kind: 'tick' };
@@ -107,7 +108,7 @@ export function mountTraceLanes(canvas: HTMLCanvasElement, opts: TraceLanesOptio
           ctx.fillStyle = `rgba(255,255,255,${(a * 0.9).toFixed(3)})`;
           ctx.fillRect(ev.x, lane.y - 1.5, ev.w, 3);
         } else if (ev.kind === 'fail') {
-          ctx.strokeStyle = `rgba(239,68,68,${Math.min(0.8, a * 2.8).toFixed(3)})`;
+          ctx.strokeStyle = `rgba(${cfg.accent.red},${Math.min(0.7, a * 2.6).toFixed(3)})`;
           ctx.lineWidth = 1.25;
           ctx.beginPath();
           ctx.moveTo(ev.x, lane.y - 3);

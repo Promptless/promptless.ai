@@ -621,7 +621,6 @@ test('homepage product switcher renders accessible default state and product reg
     'agent-impact-examples',
     'agent-mid-cta',
     'agent-learning-loop',
-    'agent-setup-steps',
     'agent-governance',
     'agent-faq',
     'agent-final-cta',

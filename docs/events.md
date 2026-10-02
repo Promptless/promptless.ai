@@ -60,11 +60,11 @@ Current `action` values:
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
-| `read_product_announcement` | `nav` (header pill), `hero_stats`, `findings` (agent-instructions track; `campaign`: `agent_instructions_launch` or `agent_instructions`) |
-| `read_docs` | `hero`, `how_it_works`, `setup_steps`, `faq`, `agent_governance_midpage`, `agent_governance_footer` (agent-instructions track; `campaign` names the doc: `agent_instructions`, `supported_agents`, `trust_model`, `pig_cli`, `layer_1`..`layer_4`) |
-| `view_source` | `hero`, `agent_governance_footer` (link to the public `pig-toolchain` repository) |
+| `read_product_announcement` | `nav` (header pill), `hero_stats`, `proof` (agent-instructions track; `campaign`: `agent_instructions_launch` or `agent_instructions`) |
+| `read_docs` | `hero`, `how_it_works`, `security`, `faq` (agent-instructions track; `campaign` names the doc: `agent_instructions`, `set_up_hub`, `trust_model`, `enroll_hosts`) |
+| `view_source` | `features` (link to the public `pig-toolchain` repository) |
 | `view_pricing` | `agent_governance_footer` |
-| `copy_command` | `hero` (the install command copy button; fired from `PigBehaviors.astro` rather than the click tracker, `funnel_stage` = `education`) |
+| `copy_command` | `features` (the install command copy button; fired from `PigBehaviors.astro` rather than the click tracker, `funnel_stage` = `education`) |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign
 it holds three buttons: Sign in (`sign_in`), Get a demo (`book_demo`), and
@@ -81,7 +81,7 @@ section per page load.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `improvement-stats`, `agent-learning-loop`, `agent-setup-steps`, `agent-governance`, `agent-mid-cta`, `agent-differentiation`, `agent-impact-examples`, `agent-faq`, or `agent-final-cta`. The `agent-*` names are stable analytics hooks: the Sep 2026 redesign of the agent-instructions track (`src/components/site/pig/`) kept every existing name and mapped it onto the section that now plays that role (`agent-learning-loop` = the four-layer "How It Works" stack, `agent-governance` = the governance bento, `agent-differentiation` = the "One Hub For Every Team" accordion, `agent-impact-examples` = the findings tiles), and added `agent-setup-steps`. |
+| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `improvement-stats`, `agent-learning-loop`, `agent-governance`, `agent-mid-cta`, `agent-differentiation`, `agent-impact-examples`, `agent-faq`, or `agent-final-cta`. The `agent-*` names are stable analytics hooks: the Oct 2026 redesign of the agent-instructions track (`src/components/site/pig/`) kept every existing name and mapped it onto the section that now plays that role (`improvement-stats` = the 30-day stats row, `agent-learning-loop` = the five-step workflow with the example finding, `agent-impact-examples` = the "Measured on our own agents" panel, `agent-differentiation` = the feature grid, `agent-governance` = the security grid, `agent-mid-cta` = the launch-post quote). |
 | `page` | string | Pathname (always `/` for homepage) |
 
 **Component**: Inline IntersectionObserver in `posthog.astro`. Elements opt in
