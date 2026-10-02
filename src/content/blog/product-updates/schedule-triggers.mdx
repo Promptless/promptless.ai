@@ -1,0 +1,67 @@
+---
+title: 'Run Recurring Documentation Checks with Schedule Triggers'
+subtitle: Published August 2026
+description: >-
+  Promptless now supports schedule triggers. Write your standing instructions once, set a cron schedule, and Promptless runs a documentation review at each occurrence.
+date: '2026-08-10T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Promptless now supports schedule triggers. Write your standing instructions once, pick a cron schedule and timezone, and Promptless runs a documentation review at each matching time, without needing an inbound code event.
+
+## The problem
+
+Every existing Promptless trigger responds to an event: a PR opened, a comment appeared, a merge happened. Documentation that follows code closely is well-served by that model. Documentation that drifts between code changes is not.
+
+Teams maintaining changelogs, release notes, or glossaries often find that small gaps accumulate over time with no single triggering event pointing at them. A weekly check that the API changelog still matches the published release notes page would catch this drift. So would a monthly consistency sweep across a reference section. Neither has a natural triggering event in a code repository.
+
+Before schedule triggers, running a timed Promptless review required calling the API trigger from an external cron job, which meant maintaining infrastructure outside Promptless to drive a Promptless workflow.
+
+## What it does now
+
+A schedule trigger carries a cron expression, an optional timezone, and your standing instructions. When a scheduled time arrives, Promptless dispatches those instructions to the agent and runs a documentation review against your active doc collections. If nothing needs updating, the run finishes quietly with no suggestion and no notification. If there are changes worth making, Promptless creates a suggestion and routes it through your normal notification and publishing policies.
+
+Set up the trigger in the dashboard under **Triggers**, choose **On a schedule**, and select a preset cadence or write your own five-field cron expression. The dashboard shows a plain-English gloss of the schedule as you type, so you can confirm the cadence before saving. Preset chips cover the most common patterns: every day at 9am, every weekday, every Monday, first of the month. Timezone defaults to UTC and keeps wall-clock time across daylight saving transitions.
+
+Schedules run at most once an hour. If a previous run of the same schedule is still in progress when the next occurrence arrives, the new run is skipped rather than queued. Missed occurrences are also skipped rather than run late.
+
+For YAML configuration, the new trigger type is `schedule`:
+
+```yaml
+triggers:
+  weekly-release-notes-check:
+    trigger_type: schedule
+    match:
+      - cron: "0 9 * * 1"
+        timezone: America/Los_Angeles
+    instructions: |
+      Compare the changelog in acme/api against docs/release-notes.md and open a
+      suggestion for anything that shipped but isn't documented.
+```
+
+You can also run the same instructions on multiple cadences by adding more `match` clauses.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Teams that run documentation audits on a calendar rather than a code event. In practice:
+
+- Teams maintaining a changelog or release notes page that can fall out of sync between releases
+- Content teams with a standing review cadence tied to time rather than a specific code trigger
+- Teams running reference sections that need periodic consistency checks across connected repositories
+
+Schedule triggers are additive. Your existing event-driven triggers keep running. This covers the reviews that have no corresponding code event.
+
+## How to use it
+
+In the dashboard, go to **Triggers** and choose **On a schedule**. Set your cron expression, timezone, and standing instructions, then save. Promptless runs at the next matching occurrence and does not backfill past times.
+
+Any repositories or context sources named in your instructions need to be connected to Promptless first. See [Schedule triggers](/docs/connect/triggers/schedule) for the full setup walkthrough and YAML reference.
+
+<BlogRequestDemo />
