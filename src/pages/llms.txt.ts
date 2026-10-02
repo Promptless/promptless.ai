@@ -75,6 +75,11 @@ async function buildSections(): Promise<LlmsSection[]> {
             'Connect Claude Code, Cursor, VS Code, or Codex over MCP with OAuth sign-in, or let a coding agent create an account for a person to claim.',
         }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
+        docsPage('/docs/governance/agent-setup-guide', {
+          label: 'Set up PIG with a coding agent',
+          description:
+            'Instructions a coding agent follows to set up an Instruction Hub, publish and install plugins, and optionally deploy the trace analyzer, enroll hosts, and verify a session.',
+        }),
         link('Full corpus', '/llms-full.txt', 'every documentation page in one file'),
         link('Abridged corpus', '/llms-small.txt', 'the documentation with asides and details removed'),
       ],
