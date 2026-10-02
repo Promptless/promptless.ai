@@ -63,6 +63,11 @@ const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: 
     description: 'Plans for teams that want docs-native automation.',
   },
   {
+    routePath: '/wall-of-love',
+    title: 'Wall of love',
+    description: 'What technical writers, docs maintainers, and founders say about Promptless.',
+  },
+  {
     routePath: '/free-tools',
     title: 'Free tools',
     description: 'Free tools to help you quickly improve docs quality.',
