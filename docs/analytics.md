@@ -64,6 +64,9 @@ sends a parallel `gtag` event for Google Analytics.
 ### Current action values in use
 
 - `book_demo` -- hero, nav, pricing_growth
+- `view_walkthrough` -- hero (agent-instructions tab)
+- `view_docs` -- hero, agent_walkthrough, agent_governance_midpage, agent_trust, agent_governance_footer
+- `read_story` -- agent_proof
 - `sign_up` -- nav, pricing_startup, mobile_menu
 - `sign_in` -- mobile_menu
 - `watch_demo` -- jobs_page

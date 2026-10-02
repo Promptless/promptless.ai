@@ -50,7 +50,10 @@ Current `action` values:
 
 | action | locations |
 |--------|-----------|
-| `book_demo` | `hero`, `nav`, `mobile_menu`, `pricing_growth`, `pricing_enterprise`, `docs_welcome`, `agent_governance_footer` |
+| `book_demo` | `hero`, `nav`, `mobile_menu`, `pricing_growth`, `pricing_enterprise`, `docs_welcome`, `agent_governance_midpage`, `agent_governance_footer` |
+| `view_walkthrough` | `hero` (agent-instructions tab; jumps to `#pig-walkthrough`) |
+| `view_docs` | `hero`, `agent_walkthrough`, `agent_governance_midpage`, `agent_trust`, `agent_governance_footer` (agent-instructions docs links) |
+| `read_story` | `agent_proof` (launch post behind the 30-day figures) |
 | `sign_up` | `nav`, `mobile_menu`, `pricing_startup` |
 | `sign_in` | `nav`, `mobile_menu` |
 | `watch_demo` | `jobs_page` |
@@ -77,12 +80,18 @@ section per page load.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `agent-differentiation`, `agent-impact-examples`, `agent-mid-cta`, `agent-learning-loop`, `agent-governance`, `agent-faq`, or `agent-final-cta` |
+| `section` | string | Section name: `overview`, `testimonials`, `demo`, `how-promptless-works`, `capabilities`, `ask-ai`, `agent-facts`, `agent-differentiation`, `agent-impact-examples`, `agent-mid-cta`, `agent-learning-loop`, `agent-governance`, `agent-faq`, or `agent-final-cta` |
 | `page` | string | Pathname (always `/` for homepage) |
 
 **Component**: Inline IntersectionObserver in `posthog.astro`. Elements opt in
 with `data-section-tracked="<name>"` — a data attribute (not id) so the desktop
 and mobile testimonials variants can share a name without duplicate ids.
+
+Agent-instructions tab mapping (Sep 2026 redesign; names kept for dashboard
+continuity): `agent-facts` is the hero facts row, `agent-learning-loop` the
+step walkthrough, `agent-mid-cta` the mid-page demo strip,
+`agent-differentiation` the capability grid, `agent-impact-examples` the
+Promptless dogfooding proof panel, and `agent-governance` the trust grid.
 
 ---
 
