@@ -117,8 +117,8 @@ The published chart pins the worker image through `image.repository` and `image.
 The chart configures the analyzer's Kubernetes probes. Your ingress and monitoring route around these endpoints:
 
 - **Readiness (`/readyz`)** gates upload and analysis traffic on recent database and object-storage checks. A storage failure withdraws the analyzer from Service endpoints until it recovers. Point load-balancer health checks here.
-- **Liveness (`/healthz`)** detects a worker whose background tasks have stopped.
-- **Startup (`/healthz`)** gives storage time to become ready before the liveness check applies.
+- **Liveness (`/healthz`)** fails when the worker's background tasks stop, or when a storage check or canonical-object repair makes no progress for 180 seconds. Kubernetes then restarts the analyzer. A database or object-storage outage that the analyzer detects and reports keeps it live but not ready.
+- **Startup (`/healthz`)** allows up to 180 seconds for storage to become ready before the liveness check applies.
 
 The analyzer's `terminationGracePeriodSeconds` is 120 seconds, so in-flight work settles during a rollout.
 

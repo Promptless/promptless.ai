@@ -57,7 +57,9 @@ Workload identities should refresh credentials without copying temporary tokens 
 
 ## Canonical object writes
 
-The analyzer writes each canonical trace object to a content-addressed key derived from the object's contents, under the configured prefix. A write that loses its database lock produces a different key from newer content, so a delayed writer keeps a newer canonical version intact. Objects written by earlier releases stay readable at their original keys.
+The analyzer writes each canonical trace object to a content-addressed key derived from the object's contents, under the configured prefix. Because newer content gets a new key, a delayed upload never overwrites a newer canonical version. The analyzer records an uploaded object as the trace's location only when it still matches the trace's current content. Objects written by earlier releases stay readable at their original keys.
+
+To check storage access, the analyzer writes one small diagnostic object under `checks/` in the configured prefix at startup. Each later readiness check reads that object back.
 
 The analyzer retries an interrupted or failed canonical write in the background, with a persisted backoff between attempts. A single trace that stays pending or failed does not hold back writes for other traces. Confirm the exact recorded object location during verification rather than inferring a key from the session ID.
 
