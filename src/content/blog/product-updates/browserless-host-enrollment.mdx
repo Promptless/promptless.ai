@@ -1,0 +1,62 @@
+---
+title: 'Enroll Hosts Without a Local Browser'
+subtitle: Published September 2026
+description: >-
+  PIG hosts reached over SSH or running without a desktop can now enroll using --device. Approve from any other device, no loopback callback required.
+date: '2026-09-28T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Promptless can now enroll PIG hosts that have no local browser. If you're setting up trace collection on an SSH-only server, a containerized build agent, or any host without a desktop environment, you no longer need a workaround to get through enrollment.
+
+Run `promptless-host-runtime enroll --device`. A link appears in the terminal. Open it on any other device. Promptless does the rest.
+
+## The problem
+
+PIG host enrollment has always needed a browser to complete the OAuth authorization step. That works on a developer's workstation, where enrollment and approval happen on the same machine. It breaks on headless infrastructure.
+
+If a host has no browser, the standard enrollment command fails before it can do anything useful. The workarounds all require extra setup: launching a browser session on the remote host, port-forwarding the loopback callback, or running enrollment on a separate machine and manually carrying the resulting credentials back. None of those approaches scale. They're also fragile: a network change or a rebuilt container breaks them, and you repeat the same manual process.
+
+The practical result was that PIG coverage tended to stay limited to machines with full desktop environments. Servers, runners, and build agents, which often produce the most valuable behavioral signals, stayed out of scope.
+
+## What it does now
+
+Pass `--device` to the `enroll` command:
+
+```
+promptless-host-runtime enroll --device
+promptless-host-runtime enroll --host <host> --device
+```
+
+The runtime prints an approval link and waits. Open that link on any machine with a browser, including a laptop or phone, and approve the host there. No inbound port is required on the host. No loopback callback. The machine running the command doesn't need a browser or a display.
+
+If you don't approve within about 35 seconds, the command exits with `"status": "setup_pending"`. Re-run it to resume the same approval session rather than starting over. The link stays valid for 15 minutes. After 15 minutes, re-running prints a new one.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Platform and infrastructure teams who want PIG coverage beyond developer machines. This matters most for:
+
+- CI runners and build agents that produce behavioral signals alongside test runs
+- Cloud VMs or containers where installing a browser is impractical or against your security policy
+- Any server you reach over SSH and have no desktop session for
+
+If you've wanted PIG coverage on your shared infrastructure but deferred it because enrollment required per-host manual work, this removes that blocker.
+
+Teams running PIG only on developer workstations don't need the flag. Standard enrollment already handles that case.
+
+## How to use it
+
+Add `--device` to your `enroll` command. No additional configuration is required. Enrollment connects through your existing Promptless account and the host's existing outbound network access.
+
+See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) for the full setup steps, including troubleshooting notes for the rate limits that apply to device authorization sessions.
+
+If you have PIG running on some of your infrastructure already, extending it to headless hosts is now the same one-command process.
+
+<BlogRequestDemo />
