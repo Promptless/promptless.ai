@@ -1,0 +1,1390 @@
+---
+// LavaCon 2026 campaign landing page. Rendered through StarlightPage so it
+// shares the site's top bar (Header override) and analytics, but with the
+// sidebar off and the site footer suppressed (getActiveSection() maps
+// /campaign/* to 'none') so the page can carry its own light-only event
+// layout: hero + booking form, problem cards, Manny's sessions, the booth
+// team, testimonials, open-source proof carousel, and a closing form. Both
+// forms post the lead to Formspark and fire `email_captured` with
+// `campaign: lavacon-2026`. All page styles are scoped under .lc-page and the
+// wrapper carries Starlight's `.not-content` opt-out so the docs typography
+// rules leave the landing page alone, and `pl-light-chrome` switches the
+// shared top bar to its light theme (see custom.css).
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import {
+  ArrowRight,
+  CalendarDays,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Mail,
+  MapPin,
+} from '@lucide/astro';
+import mannyImg from '../../assets/site/manny.jpeg';
+import vitessLogo from '../../assets/site/logos/vitess-stacked.png';
+
+const CAMPAIGN = 'lavacon-2026';
+const FORM_ENDPOINT = 'https://submit-form.com/roBOd2Oxb';
+const CAL_LINK = `https://app.cal.com/team/promptless/15m-discovery-call?metadata[campaign]=${CAMPAIGN}`;
+const CONTACT_EMAIL = 'hello@gopromptless.ai';
+
+const title = 'Promptless at LavaCon 2026';
+const description =
+  'Meet the Promptless team at LavaCon 2026 in Charlotte, October 25–28. See self-healing docs in action, catch Manny Silva’s sessions, and get your first three months free.';
+
+const offerings = [
+  'Promptless for Docs: doc updates drafted from PRs, Slack, and tickets',
+  'Promptless for Agent Instructions: AGENTS.md and Skills that stay current',
+  'Doc Detective: test your docs like you test your code',
+];
+
+const problems = [
+  {
+    title: 'Your docs lag every release',
+    body: 'Engineering ships daily. Docs catch up weeks later, if at all, and customers find the gaps first.',
+  },
+  {
+    title: 'You’re a team of one (or a few)',
+    body: 'A handful of writers supports hundreds of engineers, and triage eats the time you meant to spend writing.',
+  },
+  {
+    title: 'SME reviews are the bottleneck',
+    body: 'Chasing engineers for context and sign-off takes longer than writing the change itself.',
+  },
+  {
+    title: 'You’re preparing for AI',
+    body: 'You want structured, governed content that can support enterprise search, RAG, AI assistants, and agentic experiences.',
+  },
+  {
+    title: 'Agent instructions drift',
+    body: 'AGENTS.md files, Skills, and system prompts go out of date as fast as the code they describe.',
+  },
+  {
+    title: 'You can’t prove the docs are right',
+    body: 'Procedures, links, and screenshots break silently. You want tests that fail when the product changes.',
+  },
+];
+
+// Times from the LavaCon 2026 program (lavacon.org/2026-conference-program).
+const sessions = [
+  {
+    title: 'Does Your Documentation Survive an AI Assistant? A Hands-On Docs Audit',
+    when: 'Pre-conference workshop with Manny Silva and Prithvi Ramakrishnan · Sunday, October 25 · 8:00 AM – 12:00 PM',
+    body: 'Bring your real content and run retrieval and answer-accuracy tests against it. Learn to tell retrieval, content, and structure failures apart, and leave with a repeatable audit you can rerun with your team every release.',
+  },
+  {
+    title: 'From 2 AM Failure to 8 AM Fix: Self-Healing Docs, Agent Instructions Included',
+    when: 'Monday, October 26 · 11:15 AM – 12:00 PM',
+    body: 'Follow a product failure through a self-healing documentation loop: detect, diagnose, repair, verify, and report. See how to set up systems that catch and fix documentation drift across APIs, links, screenshots, and agent instructions.',
+  },
+];
+
+const speakers = [
+  {
+    name: 'Manny Silva',
+    role: 'Head of AI Docs Practice',
+    photo: mannyImg.src,
+    links: [
+      { label: 'LavaCon speaker profile', href: 'https://www.lavacon.org/blog/speaker/manny-silva/' },
+      { label: 'LinkedIn profile', href: 'https://www.linkedin.com/in/manuelrbsilva/' },
+    ],
+    leads: [
+      { day: 'Sunday', title: 'Hands-on docs audit workshop' },
+      { day: 'Monday', title: 'Self-healing docs talk' },
+    ],
+  },
+  {
+    name: 'Prithvi Ramakrishnan',
+    role: 'Co-founder',
+    photo: '/assets/prithvi.jpg',
+    links: [{ label: 'LinkedIn profile', href: 'https://www.linkedin.com/in/prithvi-r/' }],
+    leads: [{ day: 'Sunday', title: 'Hands-on docs audit workshop' }],
+  },
+];
+
+const booth = [
+  { name: 'Frances Liu', role: 'Co-founder, creator of DoGBench', photo: '/assets/frances.jpg', href: 'https://www.linkedin.com/in/frances-liu-1a426057/' },
+  { name: 'Prithvi Ramakrishnan', role: 'Co-founder', photo: '/assets/prithvi.jpg', href: 'https://www.linkedin.com/in/prithvi-r/' },
+  { name: 'Manny Silva', role: 'Head of AI Docs Practice', photo: mannyImg.src },
+  { name: 'Richard', role: 'Founding Ops Lead', photo: '/assets/richard.jpg' },
+];
+
+const whereToFindUs = [
+  { label: 'Event', value: 'LavaCon Conference 2026' },
+  { label: 'Date', value: 'October 25–28, 2026' },
+  { label: 'Venue', value: 'Charlotte, NC' },
+  { label: 'Booth', value: 'Booth 10' },
+  { label: 'Sponsorship tier', value: 'Sapphire' },
+];
+
+const testimonials = [
+  {
+    logo: '/assets/runpod_text.svg',
+    company: 'Runpod',
+    quote: 'Promptless dramatically speeds up my time-to-first-draft. My team literally calls me a 10x tech writer.',
+    author: 'Mo King',
+    title: 'Senior Technical Writer',
+    photo: '/site/mo.jpeg',
+  },
+  {
+    logo: '/site/logos/bazel.svg',
+    company: 'Bazel',
+    quote:
+      'This is the most "make something people want" feature I have ever seen. It solves my problem in a better way than I thought would be possible.',
+    author: 'Alan Mond',
+    title: 'Docs Maintainer',
+    photo: '/site/alan.jpeg',
+  },
+  {
+    logo: '/site/logos/prove.svg',
+    company: 'Prove',
+    quote: "Promptless is a solo tech writer's godsend.",
+    author: 'Nicholas DeWald',
+    title: 'Head of Developer Docs',
+    photo: '/site/nicholas.jpeg',
+  },
+];
+
+// Impact slides. Mautic's numbers and quote come from Ayu Adiati's public
+// write-ups: https://mautic.org/blog/keep-docs-up-to-date-automatically/ (3 Sep
+// 2026) and her follow-up on dev.to (25 Sep 2026).
+const impact = [
+  {
+    project: 'Mautic',
+    eyebrow: 'Open source · Marketing automation',
+    logo: '/assets/mautic.svg',
+    body: 'Mautic is the open-source marketing automation platform. Promptless watches PRs in mautic/mautic and opens docs PRs against the user and developer docs on every supported version branch. The Mautic Education Team reviews and merges them.',
+    stats: [
+      { value: '129', label: 'Promptless docs PRs merged in four months' },
+      { value: '3.5×', label: 'faster from code merge to docs merge' },
+    ],
+    quote: {
+      text: 'Promptless solved the problem of who writes the docs.',
+      author: 'Ayu Adiati',
+      title: 'Education Team Lead, Mautic',
+    },
+    link: {
+      note: 'Read the write-up on mautic.org:',
+      label: 'How we keep docs up to date automatically with AI',
+      href: 'https://mautic.org/blog/keep-docs-up-to-date-automatically/',
+      action: 'read_case_study',
+    },
+  },
+  {
+    project: 'Vitess',
+    eyebrow: 'Open source · CNCF',
+    logo: vitessLogo.src,
+    body: 'Vitess is a CNCF-graduated database clustering system for MySQL. Promptless drafts docs PRs as the code changes; the Vitess docs maintainers review, revise, and ship them.',
+    link: {
+      note: 'Every commit is public.',
+      label: 'View vitessio/website commits on GitHub',
+      href: 'https://github.com/vitessio/website/commits/',
+      action: 'view_commits',
+    },
+  },
+  {
+    project: 'Helm',
+    eyebrow: 'Open source · CNCF',
+    logo: '/assets/helm.svg',
+    body: 'Helm is the package manager for Kubernetes and a CNCF-graduated project. Promptless suggests docs changes from upstream work, and Helm maintainers decide what ships.',
+    link: {
+      note: 'Every commit is public.',
+      label: 'View helm/helm-www commits on GitHub',
+      href: 'https://github.com/helm/helm-www/commits/main/',
+      action: 'view_commits',
+    },
+  },
+];
+
+// The impact carousel slides like a filmstrip with the neighbours peeking in on
+// both sides, so the track is rendered with a clone of the last slide before
+// the first and a clone of the first after the last. The script snaps from a
+// clone back to its real slide once the slide transition finishes.
+const loopedImpact = [
+  { item: impact[impact.length - 1], index: impact.length - 1, clone: true },
+  ...impact.map((item, index) => ({ item, index, clone: false })),
+  { item: impact[0], index: 0, clone: true },
+];
+
+// Days the booth is staffed (main conference days; Sunday is workshops only).
+const slotDays = ['Monday, October 26', 'Tuesday, October 27', 'Wednesday, October 28'];
+
+// 20-minute booth slots.
+const slotTimes = [
+  '9:00 AM – 9:20 AM',
+  '9:20 AM – 9:40 AM',
+  '9:40 AM – 10:00 AM',
+  '10:00 AM – 10:20 AM',
+  '11:00 AM – 11:20 AM',
+  '11:20 AM – 11:40 AM',
+  '2:00 PM – 2:20 PM',
+  '2:20 PM – 2:40 PM',
+  '3:00 PM – 3:20 PM',
+  '3:20 PM – 3:40 PM',
+  '4:00 PM – 4:20 PM',
+];
+const topics = [
+  'Keeping customer-facing docs current',
+  'Agent instructions (AGENTS.md, Skills)',
+  'Testing docs with Doc Detective',
+  'Getting docs ready for AI assistants',
+  'Starting a pilot (three months free)',
+];
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+---
+
+<StarlightPage
+  hasSidebar={false}
+  frontmatter={{
+    title,
+    description,
+    template: 'doc',
+    tableOfContents: false,
+    editUrl: false,
+  }}
+>
+  <div class="pl-site-page pl-site-page-no-title pl-light-chrome lc-page not-content">
+    <div class="lc-main">
+      <!-- Hero -->
+      <section class="lc-hero">
+        <div class="lc-stripes" aria-hidden="true"></div>
+        <div class="lc-wrap">
+          <div class="lc-card lc-hero-card">
+            <div class="lc-hero-copy">
+              <h1 class="lc-hero-title">
+                From Docs Drift to <span class="lc-gradient-text">Self-Healing</span> Docs
+              </h1>
+              <p class="lc-hero-lede">
+                See how Promptless keeps docs and agent instructions in sync with every product change, then bring us
+                your hardest docs problem.
+              </p>
+              <div class="lc-callout">
+                <strong>LavaCon attendees get the first three months of a Promptless pilot free.</strong>
+                Book by November 30, 2026 and mention LavaCon on the call.
+              </div>
+              <p class="lc-meta lc-meta-date">
+                <CalendarDays size={22} aria-hidden="true" />
+                <span>October 25–28, 2026</span>
+              </p>
+              <p class="lc-meta">
+                <MapPin size={22} aria-hidden="true" />
+                <span>Booth 10, Charlotte, North Carolina</span>
+              </p>
+            </div>
+
+            <form class="lc-form" data-lavacon-form="hero" action={FORM_ENDPOINT} method="post">
+              <h2 class="lc-form-title">Reserve your conversation</h2>
+              <p class="lc-form-sub">Tell us a little about your situation and we'll follow up with the right person.</p>
+              <input type="hidden" name="campaign" value={CAMPAIGN} />
+              <input type="hidden" name="form" value="lavacon_hero" />
+              <label class="sr-only" for="hero-name">Your name</label>
+              <input id="hero-name" name="name" placeholder="Your Name*" autocomplete="name" required />
+              <label class="sr-only" for="hero-company">Company</label>
+              <input id="hero-company" name="company" placeholder="Company*" autocomplete="organization" required />
+              <label class="sr-only" for="hero-email">Email address</label>
+              <input id="hero-email" name="email" type="email" placeholder="Email Address*" autocomplete="email" required />
+              <div class="lc-select">
+                <label class="sr-only" for="hero-day">Preferred day</label>
+                <select id="hero-day" name="preferred_day" required>
+                  <option value="" disabled selected>Preferred day</option>
+                  {slotDays.map((day) => <option value={day}>{day}</option>)}
+                </select>
+                <ChevronDown size={18} aria-hidden="true" />
+              </div>
+              <div class="lc-select">
+                <label class="sr-only" for="hero-slot">Preferred time slot</label>
+                <select id="hero-slot" name="preferred_slot" required>
+                  <option value="" disabled selected>Preferred time slot</option>
+                  {slotTimes.map((time) => <option value={time}>{time}</option>)}
+                </select>
+                <ChevronDown size={18} aria-hidden="true" />
+              </div>
+              <div class="lc-select">
+                <label class="sr-only" for="hero-topic">What would you like to discuss</label>
+                <select id="hero-topic" name="topic">
+                  <option value="" disabled selected>What would you like to discuss</option>
+                  {topics.map((t) => <option value={t}>{t}</option>)}
+                </select>
+                <ChevronDown size={18} aria-hidden="true" />
+              </div>
+              <label class="lc-check lc-check-feature">
+                <input type="checkbox" name="docs_audit" value="yes" />
+                <span>
+                  <strong>Get an AI-readiness docs audit from Manny Silva</strong>
+                  <small>
+                    A short review of how your docs hold up when an AI assistant answers from them: retrieval,
+                    answer accuracy, and structure. Directly with Manny, not a generic report.
+                  </small>
+                </span>
+              </label>
+              <button type="submit" class="lc-btn">Book slot</button>
+              <p class="lc-form-status" aria-live="polite"></p>
+            </form>
+          </div>
+
+          <div class="lc-card lc-offerings">
+            {offerings.map((o) => <div class="lc-offering">{o}</div>)}
+          </div>
+        </div>
+      </section>
+
+      <!-- Problems -->
+      <section class="lc-section">
+        <div class="lc-wrap">
+          <h2 class="lc-display lc-center">
+            <span class="lc-display-light">Is this your problem?</span><br />
+            If any of these sound familiar, let's talk.
+          </h2>
+          <p class="lc-center lc-muted">Writing the docs is the easy part. Keeping them true is the hard part.</p>
+          <div class="lc-problem-grid">
+            {
+              problems.map((p) => (
+                <article class="lc-problem">
+                  <h3>{p.title}</h3>
+                  <p>{p.body}</p>
+                </article>
+              ))
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Sessions -->
+      <section class="lc-section lc-glow">
+        <div class="lc-wrap">
+          <h2 class="lc-display lc-center">
+            Our <span class="lc-gradient-text">LavaCon</span> sessions
+          </h2>
+          {
+            sessions.map((s) => (
+              <article class="lc-session">
+                <h3>{s.title}</h3>
+                <p>{s.body}</p>
+                <p class="lc-session-when">
+                  <CalendarDays size={18} aria-hidden="true" />
+                  <span>{s.when}</span>
+                </p>
+              </article>
+            ))
+          }
+
+          <h2 class="lc-display lc-center lc-subsection">Featured speakers</h2>
+          <div class="lc-speakers">
+            {
+              speakers.map((p) => (
+                <article class="lc-speaker">
+                  <img src={p.photo} alt="" loading="lazy" width="96" height="96" />
+                  <div class="lc-speaker-body">
+                    <h3>{p.name}</h3>
+                    <p class="lc-speaker-role">{p.role}</p>
+                    <p class="lc-eyebrow">Presenting</p>
+                    <ul class="lc-speaker-leads">
+                      {p.leads.map((l) => (
+                        <li>
+                          <span class="lc-speaker-day">{l.day}</span>{" "}
+                          {l.title}
+                        </li>
+                      ))}
+                    </ul>
+                    <div class="lc-speaker-links">
+                      {p.links.map((l) => (
+                        <a class="lc-speaker-link" href={l.href} target="_blank" rel="noopener" data-track-action="view_speaker" data-track-funnel="evaluation" data-track-location="lavacon_speakers" data-track-campaign={CAMPAIGN}>
+                          {l.label} <ArrowRight size={16} aria-hidden="true" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              ))
+            }
+          </div>
+
+          <h2 class="lc-display lc-center lc-subsection">At the booth</h2>
+          <div class="lc-people lc-people-4">
+            {
+              booth.map((p) => {
+                const inner = (
+                  <>
+                    {p.photo ? (
+                      <img src={p.photo} alt="" loading="lazy" width="340" height="340" />
+                    ) : (
+                      <div class="lc-person-placeholder" aria-hidden="true">{initials(p.name)}</div>
+                    )}
+                    <strong>{p.name}</strong>
+                    <span>{p.role}</span>
+                  </>
+                );
+                return p.href ? (
+                  <a class="lc-person" href={p.href} target="_blank" rel="noopener">{inner}</a>
+                ) : (
+                  <div class="lc-person">{inner}</div>
+                );
+              })
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Testimonials -->
+      <section class="lc-section">
+        <div class="lc-wrap">
+          <h2 class="lc-display lc-center lc-display-light">What docs teams say</h2>
+          <div class="lc-testimonials">
+            {
+              testimonials.map((t) => (
+                <blockquote class="lc-testimonial">
+                  <img class="lc-testimonial-logo" src={t.logo} alt={`${t.company} logo`} loading="lazy" />
+                  <p>“{t.quote}”</p>
+                  <footer>
+                    <img src={t.photo} alt="" loading="lazy" width="48" height="48" />
+                    <span>
+                      {t.author}
+                      <small>{t.title}, {t.company}</small>
+                    </span>
+                  </footer>
+                </blockquote>
+              ))
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Impact carousel -->
+      <section class="lc-impact" data-carousel>
+        <div class="lc-stripes lc-stripes-full" aria-hidden="true"></div>
+        <h2 class="lc-display lc-center lc-impact-title">Our impact</h2>
+        <div class="lc-carousel">
+          <button type="button" class="lc-arrow lc-arrow-prev" data-carousel-prev aria-label="Previous">
+            <ChevronLeft size={22} />
+          </button>
+          <div class="lc-carousel-viewport">
+            <div class="lc-carousel-track" data-carousel-track>
+              {
+                loopedImpact.map(({ item, index, clone }) => (
+                  <article class="lc-slide" data-slide data-index={index} data-clone={clone ? 'true' : undefined} aria-hidden={!clone && index === 0 ? 'false' : 'true'}>
+                    <div class="lc-slide-media">
+                      <div class="lc-slide-logo">
+                        <img src={item.logo} alt={`${item.project} logo`} loading="lazy" />
+                      </div>
+                    </div>
+                    <div class="lc-slide-body">
+                      <p class="lc-eyebrow">{item.eyebrow}</p>
+                      <h3>{item.project}</h3>
+                      <p>{item.body}</p>
+                      {item.stats && (
+                        <dl class="lc-slide-stats">
+                          {item.stats.map((stat) => (
+                            <div>
+                              <dt>{stat.value}</dt>
+                              <dd>{stat.label}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                      {item.quote && (
+                        <figure class="lc-slide-quote">
+                          <blockquote>“{item.quote.text}”</blockquote>
+                          <figcaption>
+                            {item.quote.author}
+                            <small>{item.quote.title}</small>
+                          </figcaption>
+                        </figure>
+                      )}
+                      <p>
+                        {item.link.note}{' '}
+                        <a href={item.link.href} target="_blank" rel="noopener" data-track-action={item.link.action} data-track-funnel="evaluation" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
+                          {item.link.label}
+                        </a>
+                      </p>
+                      <a class="lc-btn lc-btn-black" href="#reserve" data-track-action="book_demo" data-track-funnel="conversion" data-track-location="lavacon_impact" data-track-campaign={CAMPAIGN}>
+                        Let's talk <ArrowRight size={18} aria-hidden="true" />
+                      </a>
+                    </div>
+                  </article>
+                ))
+              }
+            </div>
+          </div>
+          <button type="button" class="lc-arrow lc-arrow-next" data-carousel-next aria-label="Next">
+            <ChevronRight size={22} />
+          </button>
+        </div>
+        <div class="lc-dots" role="tablist" aria-label="Choose slide">
+          {impact.map((item, i) => <button type="button" data-dot={i} aria-label={`Show ${item.project}`} aria-current={i === 0 ? 'true' : 'false'} />)}
+        </div>
+      </section>
+
+      <!-- Closing form -->
+      <section class="lc-section lc-closing">
+        <div class="lc-wrap lc-narrow">
+          <h2 class="lc-closing-title lc-center">Docs that keep up with the product.</h2>
+          <p class="lc-center lc-muted">
+            Promptless watches your code, tickets, and support channels, drafts the doc updates, and opens them as
+            PRs for your team to review. Tell us where your docs fall behind and we'll show you how it would work on
+            your stack.
+          </p>
+        </div>
+        <div class="lc-reserve" id="reserve">
+          <div class="lc-stripes" aria-hidden="true"></div>
+          <div class="lc-wrap">
+            <div class="lc-card lc-reserve-card">
+              <div class="lc-reserve-copy">
+                <div>
+                  <h2 class="lc-reserve-title"><span class="lc-gradient-text">Reserve your conversation</span></h2>
+                  <p class="lc-reserve-lede">Tell us a little about your situation and we'll follow up with the right person.</p>
+                  <p class="lc-muted">
+                    Prefer to pick a time now?{' '}
+                    <a href={CAL_LINK} data-track-action="book_demo" data-track-funnel="conversion" data-track-location="lavacon_closing" data-track-campaign={CAMPAIGN}>
+                      Book 15 minutes on our calendar
+                    </a>.
+                  </p>
+                </div>
+                <div class="lc-reserve-contact">
+                  <p class="lc-meta">
+                    <MapPin size={22} aria-hidden="true" />
+                    <span>LavaCon 2026:<br />Booth 10, Charlotte, North Carolina</span>
+                  </p>
+                  <p class="lc-meta">
+                    <Mail size={22} aria-hidden="true" />
+                    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                  </p>
+                </div>
+              </div>
+
+              <form class="lc-form" data-lavacon-form="closing" action={FORM_ENDPOINT} method="post">
+                <input type="hidden" name="campaign" value={CAMPAIGN} />
+                <input type="hidden" name="form" value="lavacon_closing" />
+                <label class="sr-only" for="closing-name">Full name</label>
+                <input id="closing-name" name="name" placeholder="Full Name" autocomplete="name" required />
+                <label class="sr-only" for="closing-email">Email address</label>
+                <input id="closing-email" name="email" type="email" placeholder="Email Address" autocomplete="email" required />
+                <label class="sr-only" for="closing-company">Company</label>
+                <input id="closing-company" name="company" placeholder="Company" autocomplete="organization" />
+                <label class="sr-only" for="closing-message">Message</label>
+                <textarea id="closing-message" name="message" rows="6" placeholder="What's your hardest docs problem?"></textarea>
+                <label class="lc-check">
+                  <input type="checkbox" name="agree_terms" value="yes" required />
+                  <span>
+                    I agree to the <a href="/terms">terms</a> and <a href="/privacy">privacy policy</a>.
+                  </span>
+                </label>
+                <label class="lc-check">
+                  <input type="checkbox" name="newsletter" value="yes" />
+                  <span>Keep me up to date with new posts and events from Promptless.</span>
+                </label>
+                <button type="submit" class="lc-btn">Submit</button>
+                <p class="lc-form-status" aria-live="polite"></p>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Where to find us -->
+      <section class="lc-where">
+        <div class="lc-wrap lc-where-grid">
+          <h2 class="lc-where-title">
+            LavaCon<br />
+            Conference<br />
+            <span class="lc-where-year">2026</span>
+          </h2>
+          <div class="lc-card lc-where-card">
+            <h3>Where to find us</h3>
+            <dl class="lc-where-list">
+              {
+                whereToFindUs.map((row) => (
+                  <div>
+                    <dt>{row.label}</dt>
+                    <dd>{row.value}</dd>
+                  </div>
+                ))
+              }
+            </dl>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="lc-footer lc-wrap-wide">
+      <a href="/"><img src="/assets/logo.svg" alt="Promptless" class="lc-logo" width="120" height="34" /></a>
+      <nav aria-label="Footer">
+        <a href="/docs">Docs</a>
+        <a href="/blog">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+      </nav>
+      <p>&copy; {new Date().getFullYear()} Promptless</p>
+    </footer>
+
+    <script is:inline define:vars={{ CAMPAIGN }}>
+      (() => {
+        // Custom dropdowns: build a button + listbox from each select and keep
+        // the select's value in sync so the form submits it as usual.
+        document.querySelectorAll('.lc-select').forEach((wrap, n) => {
+          const select = wrap.querySelector('select');
+          if (!select) return;
+          const listId = 'lc-dd-' + n;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'lc-dd-button';
+          button.setAttribute('aria-haspopup', 'listbox');
+          button.setAttribute('aria-expanded', 'false');
+          button.setAttribute('aria-controls', listId);
+          const label = document.createElement('span');
+          button.append(label);
+          const chevron = wrap.querySelector(':scope > svg');
+          if (chevron) button.append(chevron.cloneNode(true));
+
+          const list = document.createElement('ul');
+          list.id = listId;
+          list.className = 'lc-dd-list';
+          list.setAttribute('role', 'listbox');
+          const labelText = (wrap.querySelector('label')?.textContent || '').trim();
+          list.setAttribute('aria-label', labelText);
+          list.hidden = true;
+          const items = Array.from(select.options).map((opt, i) => {
+            const li = document.createElement('li');
+            li.id = listId + '-' + i;
+            li.setAttribute('role', 'option');
+            li.textContent = opt.textContent;
+            if (opt.disabled) li.setAttribute('aria-disabled', 'true');
+            list.append(li);
+            return li;
+          });
+
+          let active = -1;
+          const sync = () => {
+            const opt = select.options[select.selectedIndex];
+            label.textContent = opt ? opt.textContent : '';
+            button.dataset.empty = !select.value ? 'true' : 'false';
+            button.setAttribute('aria-label', select.value ? labelText + ': ' + label.textContent : labelText);
+            items.forEach((li, i) => li.setAttribute('aria-selected', i === select.selectedIndex && select.value ? 'true' : 'false'));
+          };
+          const setActive = (i) => {
+            active = i;
+            items.forEach((li, j) => li.classList.toggle('is-active', j === i));
+            if (items[i]) {
+              button.setAttribute('aria-activedescendant', items[i].id);
+              items[i].scrollIntoView({ block: 'nearest' });
+            }
+          };
+          const open = () => {
+            list.hidden = false;
+            button.setAttribute('aria-expanded', 'true');
+            setActive(select.value ? select.selectedIndex : items.findIndex((li) => !li.hasAttribute('aria-disabled')));
+          };
+          const close = () => {
+            list.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+          };
+          const choose = (i) => {
+            if (!items[i] || items[i].hasAttribute('aria-disabled')) return;
+            select.selectedIndex = i;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            sync();
+            close();
+            button.focus();
+          };
+          const step = (dir) => {
+            let i = active;
+            do { i += dir; } while (items[i] && items[i].hasAttribute('aria-disabled'));
+            if (items[i]) setActive(i);
+          };
+
+          button.addEventListener('click', () => (list.hidden ? open() : close()));
+          button.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault();
+              if (list.hidden) open();
+              else step(e.key === 'ArrowDown' ? 1 : -1);
+            } else if ((e.key === 'Enter' || e.key === ' ') && !list.hidden) {
+              e.preventDefault();
+              choose(active);
+            } else if (e.key === 'Escape' || e.key === 'Tab') {
+              close();
+            }
+          });
+          list.addEventListener('mousemove', (e) => {
+            const i = items.indexOf(e.target.closest('li'));
+            if (i >= 0 && i !== active) setActive(i);
+          });
+          list.addEventListener('click', (e) => choose(items.indexOf(e.target.closest('li'))));
+          document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) close();
+          });
+          // Native validation focuses the hidden select; hand focus to the button.
+          select.tabIndex = -1;
+          select.addEventListener('focus', () => button.focus());
+          select.addEventListener('invalid', () => { button.style.borderColor = 'var(--lc-orange)'; });
+          select.addEventListener('change', () => { button.style.borderColor = ''; });
+
+          wrap.append(button, list);
+          wrap.classList.add('is-enhanced');
+          sync();
+        });
+
+        // Forms: post the lead to Formspark, identify in PostHog, and swap in a
+        // confirmation. Without JS the native form POST still reaches Formspark.
+        document.querySelectorAll('[data-lavacon-form]').forEach((form) => {
+          form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const status = form.querySelector('.lc-form-status');
+            const button = form.querySelector('button[type="submit"]');
+            const data = new FormData(form);
+            const email = String(data.get('email') || '').trim();
+            if (button) button.disabled = true;
+
+            fetch(form.action, {
+              method: 'POST',
+              body: new URLSearchParams(data).toString(),
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+            })
+              .then((res) => {
+                if (!res.ok) throw new Error('submit failed');
+                try {
+                  sessionStorage.setItem('pl_demo_email', email);
+                } catch (_) {}
+                // The lead is saved; analytics must not turn this into an error.
+                try {
+                  if (typeof window.posthog?.capture === 'function') {
+                    window.posthog.capture('email_captured', {
+                      intent: 'demo',
+                      location: 'lavacon_' + form.getAttribute('data-lavacon-form'),
+                      campaign: CAMPAIGN,
+                      $set: { email },
+                    });
+                  }
+                } catch (_) {}
+                form.classList.add('is-sent');
+                if (status) {
+                  status.textContent =
+                    form.getAttribute('data-lavacon-form') === 'hero'
+                      ? 'Thanks! We’ll be in touch to confirm your time.'
+                      : 'Thanks! We’ll be in touch soon.';
+                }
+              })
+              .catch(() => {
+                if (button) button.disabled = false;
+                if (status) status.textContent = 'Something went wrong. Email us at hello@gopromptless.ai instead.';
+              });
+          });
+        });
+
+        // Impact carousel: a looped filmstrip. The track holds a clone of the
+        // last slide first and a clone of the first slide last, so there is
+        // always a neighbour peeking in on both sides. `position` indexes the
+        // track (clones included); `current` is the real slide index.
+        const root = document.querySelector('[data-carousel]');
+        if (!root) return;
+        const track = root.querySelector('[data-carousel-track]');
+        const slides = Array.from(root.querySelectorAll('[data-slide]'));
+        const dots = Array.from(root.querySelectorAll('[data-dot]'));
+        const count = dots.length;
+        let position = 1;
+        let animating = false;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        const move = (animate) => {
+          track.style.transition = animate && !reduceMotion ? '' : 'none';
+          track.style.transform = `translateX(calc(${-position} * (100% + var(--lc-slide-gap))))`;
+          if (!animate || reduceMotion) {
+            // Flush the untransitioned jump before transitions are re-enabled.
+            void track.offsetWidth;
+            track.style.transition = '';
+          }
+        };
+        const paint = () => {
+          const current = (position - 1 + count) % count;
+          slides.forEach((s, n) => {
+            const active = n === position;
+            s.setAttribute('aria-hidden', active ? 'false' : 'true');
+            s.toggleAttribute('inert', !active);
+          });
+          dots.forEach((d, n) => d.setAttribute('aria-current', n === current ? 'true' : 'false'));
+        };
+        const go = (next) => {
+          if (animating) return;
+          animating = true;
+          position = next;
+          paint();
+          move(true);
+          if (reduceMotion) settle();
+        };
+        const settle = () => {
+          // Landed on a clone: snap to the real slide without animating.
+          if (position === 0) position = count;
+          else if (position === count + 1) position = 1;
+          move(false);
+          paint();
+          animating = false;
+        };
+
+        track.addEventListener('transitionend', (e) => {
+          if (e.target === track && e.propertyName === 'transform') settle();
+        });
+        root.querySelector('[data-carousel-prev]').addEventListener('click', () => go(position - 1));
+        root.querySelector('[data-carousel-next]').addEventListener('click', () => go(position + 1));
+        dots.forEach((d, n) => d.addEventListener('click', () => go(n + 1)));
+        root.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowLeft') go(position - 1);
+          if (e.key === 'ArrowRight') go(position + 1);
+        });
+
+        // Swipe on touch devices.
+        let startX = null;
+        track.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') startX = e.clientX; });
+        track.addEventListener('pointerup', (e) => {
+          if (startX === null) return;
+          const dx = e.clientX - startX;
+          startX = null;
+          if (Math.abs(dx) > 40) go(dx < 0 ? position + 1 : position - 1);
+        });
+        track.addEventListener('pointercancel', () => { startX = null; });
+
+        move(false);
+        paint();
+      })();
+    </script>
+
+    <style is:global>
+      /* Starlight layout overrides: let the landing page run edge to edge on
+         a white canvas under the shared top bar. */
+      .main-frame:has(.lc-page) { background: #fff; }
+      main:has(.lc-page) .content-panel { padding: 0; border: 0; }
+      main:has(.lc-page) .content-panel > .sl-container { max-width: none; margin-inline: 0; }
+      .lc-page.pl-site-page { padding: 0; }
+
+      .lc-page {
+        color-scheme: light;
+        --lc-orange: #f0481d;
+        --lc-indigo: #5264ec;
+        --lc-purple: #9f54e3;
+        --lc-blue: #92b9f6;
+        --lc-ink: #161616;
+        --lc-navy: #111827;
+        --lc-text: #3c3c43;
+        --lc-muted: #62626b;
+        --lc-line: #e6e8ee;
+        --lc-field: #f5f5f7;
+        --lc-tint: #f4f9ff;
+        --lc-tint-strong: #e2edff;
+        --lc-radius: 28px;
+
+        background: #fff;
+        color: var(--lc-ink);
+        font: 16px/1.55 Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      html { scroll-behavior: smooth; }
+      .lc-page img { max-width: 100%; display: block; }
+      /* Element resets. `main .lc-page x` (0,1,2) outranks the site's docs
+         typography rules such as `.content-panel h1` and
+         `.sl-markdown-content a` (0,1,1) without outranking any `.lc-page
+         .lc-*` rule below (0,2,0). */
+      main .lc-page :is(h1, h2, h3, h4, h5, h6) { color: inherit; letter-spacing: normal; }
+      main .lc-page a, main .lc-page a:hover { color: inherit; }
+      .lc-page .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+      }
+      .lc-page [id] { scroll-margin-top: var(--sl-nav-height); }
+
+      .lc-page .lc-wrap { position: relative; width: min(1170px, calc(100% - 2.5rem)); margin: 0 auto; }
+      .lc-page .lc-wrap-wide { width: min(1400px, calc(100% - 3rem)); margin: 0 auto; }
+      .lc-page .lc-narrow { width: min(760px, calc(100% - 2.5rem)); }
+      .lc-page .lc-center { text-align: center; }
+      .lc-page .lc-muted { color: var(--lc-muted); }
+
+      .lc-page .lc-gradient-text { color: var(--pl-color-action); }
+
+      /* Cards */
+      .lc-page .lc-card {
+        position: relative;
+        background: #fff;
+        border: 1px solid var(--lc-line);
+        border-radius: var(--lc-radius);
+      }
+
+      /* Hero */
+      .lc-page .lc-hero { position: relative; padding: 5rem 0 6rem; background: var(--lc-tint); overflow: hidden; }
+      .lc-page .lc-hero-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 4.5rem;
+        padding: 3.25rem 3rem;
+      }
+      .lc-page .lc-hero-title {
+        margin: 0 0 1.75rem;
+        font-size: clamp(2.5rem, 5vw, 3.6rem);
+        line-height: 1.08;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      .lc-page .lc-hero-lede { margin: 0 0 2rem; font-size: 1.3rem; line-height: 1.6; font-weight: 350; }
+      .lc-page .lc-callout {
+        margin-bottom: 2rem;
+        padding: 1.25rem 1rem;
+        background: #f7f7f7;
+        border-radius: 16px;
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+      .lc-page .lc-callout strong { display: block; font-weight: 600; }
+      .lc-page .lc-meta { display: flex; gap: 0.9rem; align-items: flex-start; margin: 0 0 2.2rem; color: var(--lc-text); }
+      .lc-page .lc-meta svg { flex: none; color: var(--pl-color-action); stroke-width: 1.6; }
+      .lc-page .lc-meta a { text-decoration: none; }
+      .lc-page .lc-meta-date { font-size: 1.3rem; font-weight: 600; color: var(--lc-ink); }
+
+      /* Forms */
+      .lc-page .lc-form { display: flex; flex-direction: column; gap: 0.5rem; }
+      .lc-page .lc-form-title { margin: 0; font-size: 1.55rem; font-weight: 500; letter-spacing: -0.01em; }
+      .lc-page .lc-form-sub { margin: 0.25rem 0 2.5rem; font-size: 0.95rem; line-height: 1.25; }
+      .lc-page .lc-form input:not([type='checkbox']),
+      .lc-page .lc-form select,
+      .lc-page .lc-form textarea {
+        width: 100%;
+        min-height: 48px;
+        padding: 0.75rem 1rem;
+        font: inherit;
+        font-size: 0.95rem;
+        color: var(--lc-ink);
+        background: var(--lc-field);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        outline: none;
+        appearance: none;
+      }
+      .lc-page .lc-form textarea { resize: vertical; min-height: 168px; }
+      .lc-page .lc-form ::placeholder { color: #9a9aa3; }
+      .lc-page .lc-form input:focus, .lc-page .lc-form select:focus, .lc-page .lc-form textarea:focus { border-color: var(--lc-blue); background: #fff; }
+      .lc-page .lc-select { position: relative; }
+      .lc-page .lc-select select { background: #fff; border-color: var(--lc-line); color: var(--lc-ink); }
+      .lc-page .lc-select select:invalid, .lc-page .lc-select select:has(option[value='']:checked) { color: #9a9aa3; }
+      .lc-page .lc-select > svg { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #9a9aa3; pointer-events: none; }
+
+      /* Custom dropdown (enhances the native select; the select stays in the
+         form, invisible, for submission and required-field validation). */
+      .lc-page .lc-select.is-enhanced select {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .lc-page .lc-select.is-enhanced > svg { display: none; }
+      .lc-page .lc-dd-button {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        min-height: 48px;
+        padding: 0.75rem 1rem;
+        font: inherit;
+        font-size: 0.95rem;
+        text-align: left;
+        color: var(--lc-ink);
+        background: #fff;
+        border: 1px solid var(--lc-line);
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .lc-page .lc-dd-button[data-empty='true'] { color: #9a9aa3; }
+      .lc-page .lc-dd-button svg { flex: none; color: #9a9aa3; transition: transform 0.15s ease; }
+      .lc-page .lc-dd-button[aria-expanded='true'] { border-color: var(--lc-ink); background: var(--lc-field); }
+      .lc-page .lc-dd-button[aria-expanded='true'] svg { transform: rotate(180deg); }
+      .lc-page .lc-dd-button:focus-visible { outline: 2px solid var(--lc-blue); outline-offset: 2px; }
+      .lc-page .lc-dd-list {
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        max-height: min(640px, 75vh);
+        overflow-y: auto;
+        margin: 0;
+        padding: 0.35rem 0;
+        list-style: none;
+        background: #fff;
+        border: 1px solid var(--lc-line);
+        border-radius: 10px;
+        box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
+      }
+      .lc-page .lc-dd-list[hidden] { display: none; }
+      .lc-page .lc-dd-list li {
+        padding: 0.7rem 1rem;
+        font-size: 0.95rem;
+        color: var(--lc-ink);
+        cursor: pointer;
+      }
+      .lc-page .lc-dd-list li[aria-disabled='true'] { color: #9a9aa3; cursor: default; }
+      .lc-page .lc-dd-list li.is-active:not([aria-disabled='true']) { background: var(--lc-tint); }
+      .lc-page .lc-dd-list li[aria-selected='true'] { font-weight: 600; }
+      .lc-page .lc-check { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.85rem; color: var(--lc-text); }
+      .lc-page .lc-check input { margin: 0.2rem 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--lc-navy); }
+      .lc-page .lc-check-feature { margin: 2.5rem 0 3rem; }
+      .lc-page .lc-check-feature strong { display: block; font-size: 1.15rem; font-weight: 500; line-height: 1.2; color: var(--lc-ink); margin-bottom: 0.6rem; }
+      .lc-page .lc-check-feature small { display: block; font-size: 0.85rem; line-height: 1.2; }
+      .lc-page .lc-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        min-height: 48px;
+        padding: 0 1.5rem;
+        border: 0;
+        border-radius: 12px;
+        background: var(--lc-navy);
+        color: #fff;
+        font: 500 0.9rem/1 ui-monospace, 'SF Mono', Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .lc-page .lc-btn:hover { background: #000; }
+      .lc-page .lc-btn:disabled { opacity: 0.6; cursor: default; }
+      .lc-page .lc-btn-black { background: #161616; width: 100%; margin-top: auto; }
+      .lc-page .lc-form-status { margin: 0.25rem 0 0; min-height: 1.2em; font-size: 0.9rem; color: #1f7a5c; }
+      .lc-page .lc-form.is-sent > :not(.lc-form-title):not(.lc-form-sub):not(.lc-form-status) { display: none; }
+      .lc-page .lc-form.is-sent .lc-form-status { font-size: 1.1rem; color: var(--lc-ink); }
+
+      /* Offerings strip */
+      .lc-page .lc-offerings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; margin-top: 2.25rem; padding: 1.5rem; }
+      .lc-page .lc-offering {
+        padding: 1.5rem;
+        background: var(--lc-tint);
+        border-radius: 14px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        line-height: 1.15;
+      }
+
+      /* Blurred vertical stripe wash (bottom of hero, closing section, impact band) */
+      /* Aurora glow (::before) under a film-grain overlay (::after). The two
+         are split so the blur softens the color without smearing the grain. */
+      .lc-page .lc-stripes {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .lc-page .lc-stripes::before,
+      .lc-page .lc-stripes::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+      }
+      .lc-page .lc-stripes::before {
+        inset: -10%;
+        background:
+          radial-gradient(40% 55% at 15% 100%, rgba(146, 185, 246, 0.85), transparent 70%),
+          radial-gradient(35% 50% at 50% 105%, rgba(159, 84, 227, 0.6), transparent 70%),
+          radial-gradient(32% 48% at 88% 95%, rgba(240, 72, 29, 0.5), transparent 70%),
+          radial-gradient(30% 35% at 75% 10%, rgba(159, 84, 227, 0.18), transparent 70%);
+        filter: blur(40px);
+      }
+      .lc-page .lc-stripes::after {
+        opacity: 0.35;
+        mix-blend-mode: overlay;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      }
+
+      /* Sections */
+      .lc-page .lc-section { position: relative; padding: 6.5rem 0; }
+      .lc-page .lc-display {
+        margin: 0 0 1.25rem;
+        font-size: clamp(2.1rem, 4.4vw, 3.4rem);
+        line-height: 1.2;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        color: var(--lc-ink);
+      }
+      .lc-page .lc-display-light { font-weight: 400; }
+      .lc-page .lc-subsection { margin-top: 7rem; margin-bottom: 3.5rem; }
+      .lc-page .lc-eyebrow {
+        margin: 0 0 0.6rem;
+        font: 500 0.78rem/1 ui-monospace, 'SF Mono', Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--pl-color-action);
+      }
+
+      .lc-page .lc-problem-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-top: 3.5rem; }
+      .lc-page .lc-problem {
+        min-height: 250px;
+        padding: 2rem 1.5rem;
+        background: var(--lc-tint);
+        border-radius: 22px;
+        box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+      }
+      .lc-page .lc-problem h3 { margin: 0 0 0.6rem; font-size: 1.5rem; line-height: 1.45; font-weight: 450; }
+      .lc-page .lc-problem p { margin: 0; color: var(--lc-text); font-size: 0.95rem; line-height: 1.6; font-weight: 350; }
+
+      .lc-page .lc-glow::before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 8rem;
+        width: min(1100px, 100%);
+        height: 900px;
+        transform: translateX(-50%);
+        background:
+          radial-gradient(closest-side at 45% 45%, rgba(159, 84, 227, 0.32), transparent),
+          radial-gradient(closest-side at 62% 55%, rgba(240, 72, 29, 0.14), transparent),
+          radial-gradient(closest-side at 35% 60%, rgba(146, 185, 246, 0.3), transparent);
+        filter: blur(40px);
+        pointer-events: none;
+        z-index: -1;
+      }
+      .lc-page .lc-glow { isolation: isolate; }
+
+      .lc-page .lc-session { margin-top: 3rem; }
+      .lc-page .lc-session h3 { margin: 0 0 1.25rem; font-size: 1.75rem; line-height: 1.25; font-weight: 450; }
+      .lc-page .lc-session p { margin: 0; color: var(--lc-text); font-size: 1.1rem; line-height: 1.7; font-weight: 350; }
+      .lc-page .lc-session .lc-session-when {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--lc-ink);
+      }
+      .lc-page .lc-session-when svg { color: var(--pl-color-action); stroke-width: 1.6; }
+
+      /* Featured speakers: open, frameless layout (no card box) that ties each
+         speaker back to the sessions above. Sessions read as pills. */
+      .lc-page .lc-speakers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3rem; max-width: 960px; margin: 0 auto; }
+      .lc-page .lc-speaker { display: flex; gap: 1.75rem; align-items: flex-start; }
+      .lc-page .lc-speaker img { flex: none; width: 128px; height: 128px; object-fit: cover; border-radius: 50%; background: #edf3ff; box-shadow: 0 0 0 6px var(--lc-tint-strong); }
+      .lc-page .lc-speaker-body { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding-top: 0.5rem; }
+      .lc-page .lc-speaker h3 { margin: 0; font-size: 1.4rem; line-height: 1.25; font-weight: 600; }
+      .lc-page .lc-speaker-role { margin: 0.2rem 0 1.1rem; color: var(--lc-muted); font-size: 0.95rem; }
+      .lc-page .lc-speaker .lc-eyebrow { margin-bottom: 0.6rem; }
+      .lc-page .lc-speaker-leads { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 1.25rem; padding: 0; list-style: none; }
+      .lc-page .lc-speaker-leads li { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.8rem 0.25rem 0.25rem; border-radius: 999px; background: var(--lc-tint-strong); font-size: 0.85rem; color: var(--lc-ink); }
+      .lc-page .lc-speaker-day { padding: 0.15rem 0.6rem; border-radius: 999px; background: #c3d6fb; font-size: 0.78rem; font-weight: 600; color: var(--lc-navy); }
+      .lc-page .lc-speaker-links { display: flex; flex-direction: column; align-items: inherit; gap: 0.4rem; }
+      main .lc-page a.lc-speaker-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        color: var(--pl-color-action);
+        text-decoration: none;
+      }
+      main .lc-page a.lc-speaker-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+      .lc-page .lc-people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.25rem; justify-content: center; }
+      .lc-page .lc-people-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.5rem; }
+      .lc-page .lc-person {
+        display: flex;
+        flex-direction: column;
+        text-decoration: none;
+      }
+      .lc-page .lc-person img, .lc-page .lc-person-placeholder {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 18px;
+        background: #edf3ff;
+        margin-bottom: 1.1rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .lc-page a.lc-person:hover img { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(17, 24, 39, 0.12); }
+      .lc-page .lc-person-placeholder {
+        display: grid;
+        place-items: center;
+        font-size: 3.5rem;
+        font-weight: 500;
+        color: #b1c3e6;
+      }
+      .lc-page .lc-person strong, .lc-page .lc-person span { padding: 0; }
+      .lc-page .lc-person strong { font-weight: 600; font-size: 1.05rem; }
+      .lc-page .lc-person span { color: var(--lc-text); font-size: 1.05rem; }
+
+      /* Where to find us */
+      .lc-page .lc-where {
+        position: relative;
+        padding: 6rem 0;
+        overflow: hidden;
+        background:
+          radial-gradient(60% 80% at 100% 100%, rgba(159, 84, 227, 0.95), rgba(159, 84, 227, 0) 70%),
+          radial-gradient(45% 55% at 96% 78%, rgba(217, 86, 104, 0.55), rgba(217, 86, 104, 0) 70%),
+          radial-gradient(55% 60% at 45% 105%, rgba(146, 185, 246, 0.55), rgba(146, 185, 246, 0) 70%),
+          var(--lc-tint);
+      }
+      .lc-page .lc-where-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4rem; align-items: center; }
+      .lc-page .lc-where-title {
+        margin: 0;
+        font-size: clamp(3rem, 7vw, 5.5rem);
+        line-height: 1.02;
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        color: var(--lc-ink);
+      }
+      .lc-page .lc-where-year { color: var(--pl-color-action, #5264ec); }
+      .lc-page .lc-where-card { display: flex; flex-direction: column; min-height: 460px; padding: 2.5rem 2rem 1.25rem; box-shadow: 0 20px 50px rgba(17, 24, 39, 0.08); }
+      .lc-page .lc-where-card h3 { margin: 0 0 2.5rem; font-size: 2rem; line-height: 1.15; font-weight: 400; letter-spacing: -0.02em; }
+      .lc-page .lc-where-list { margin: auto 0 0; }
+      .lc-page .lc-where-list > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: 1.1rem 0; border-top: 1px solid var(--lc-line); }
+      .lc-page .lc-where-list dt { flex: none; font: 500 0.78rem/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lc-ink); }
+      .lc-page .lc-where-list dd { margin: 0; font-size: 1.1rem; text-align: right; color: var(--lc-ink); }
+
+      .lc-page .lc-testimonials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 3.5rem; }
+      .lc-page .lc-testimonial {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 2rem;
+        background: #fff;
+        border: 1px solid var(--lc-line);
+        border-radius: 22px;
+      }
+      .lc-page .lc-testimonial-logo { height: 38px; width: auto; max-width: 160px; object-fit: contain; object-position: left; margin-bottom: 2.25rem; }
+      .lc-page .lc-testimonial p { margin: 0 0 2.5rem; color: var(--lc-text); font-size: 1rem; line-height: 1.6; font-weight: 350; }
+      .lc-page .lc-testimonial footer { display: flex; align-items: center; gap: 1rem; margin-top: auto; color: var(--lc-text); }
+      .lc-page .lc-testimonial footer img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
+      .lc-page .lc-testimonial footer small { display: block; font-size: 0.82rem; color: var(--lc-muted); }
+
+      /* Impact band */
+      .lc-page .lc-impact {
+        position: relative;
+        padding: 3rem 0 1.5rem;
+        overflow: hidden;
+        background: linear-gradient(105deg, #4a5ae6 0%, #5264ec 35%, #6a5ce9 70%, #7c58e4 100%);
+      }
+      /* On the indigo band the aurora is a periwinkle highlight top-left, a
+         purple bloom along the bottom, a pale blue haze bottom-right, and a
+         deeper indigo top-right for depth. */
+      .lc-page .lc-stripes-full::before {
+        background:
+          radial-gradient(45% 70% at 6% -5%, rgba(197, 203, 255, 0.75), transparent 70%),
+          radial-gradient(40% 60% at 42% 115%, rgba(159, 84, 227, 0.7), transparent 70%),
+          radial-gradient(30% 55% at 100% 110%, rgba(146, 185, 246, 0.55), transparent 70%),
+          radial-gradient(35% 55% at 96% 15%, rgba(24, 27, 55, 0.45), transparent 70%);
+      }
+      .lc-page .lc-stripes-full::after { opacity: 0.4; }
+      .lc-page .lc-impact > :not(.lc-stripes) { position: relative; z-index: 1; }
+      .lc-page .lc-impact-title { position: relative; color: #fff; font-weight: 400; margin-bottom: 2.5rem; }
+      .lc-page .lc-carousel { --lc-slide-gap: 1.75rem; position: relative; width: min(1124px, calc(100% - 5rem)); margin: 0 auto; }
+      /* The viewport is the width of one card; the track overflows it so the
+         neighbouring cards peek in on both sides until the section clips them. */
+      .lc-page .lc-carousel-viewport { overflow: visible; }
+      .lc-page .lc-carousel-track {
+        display: flex;
+        gap: var(--lc-slide-gap);
+        transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        will-change: transform;
+        touch-action: pan-y;
+      }
+      .lc-page .lc-slide {
+        flex: 0 0 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 2.25rem;
+        padding: 1.5rem;
+        background: #fff;
+        border-radius: var(--lc-radius);
+        box-shadow: 0 30px 60px -24px rgba(18, 20, 80, 0.5), 0 1px 0 rgba(255, 255, 255, 0.35);
+        user-select: none;
+      }
+      .lc-page .lc-slide[aria-hidden='true'] { pointer-events: none; }
+      .lc-page .lc-slide-media {
+        display: grid;
+        place-items: center;
+        min-height: 420px;
+        border-radius: 22px;
+        background: radial-gradient(120% 120% at 20% 10%, var(--lc-tint-strong), #f1f1f1 70%);
+      }
+      .lc-page .lc-slide-logo { display: grid; place-items: center; width: 70%; aspect-ratio: 2 / 1; background: #fff; border-radius: 22px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06); }
+      .lc-page .lc-slide-logo img { max-width: 55%; max-height: 70%; object-fit: contain; }
+      .lc-page .lc-slide-body { display: flex; flex-direction: column; padding: 1.5rem 0.5rem 0 0; }
+      .lc-page .lc-slide-body h3 { margin: 0 0 1.5rem; font-size: 1.6rem; font-weight: 500; }
+      .lc-page .lc-slide-body p { margin: 0 0 1.25rem; color: var(--lc-ink); line-height: 1.5; }
+      .lc-page .lc-slide-body a:not(.lc-btn) { color: var(--lc-ink); text-underline-offset: 3px; }
+      .lc-page .lc-slide-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; margin: 0.25rem 0 1.5rem; }
+      .lc-page .lc-slide-stats div { padding-left: 0.9rem; border-left: 3px solid var(--lc-indigo); }
+      .lc-page .lc-slide-stats dt { font-size: 1.9rem; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--lc-ink); }
+      .lc-page .lc-slide-stats dd { margin: 0.25rem 0 0; font-size: 0.85rem; line-height: 1.4; color: var(--lc-text); }
+      .lc-page .lc-slide-quote { margin: 0 0 1.5rem; }
+      .lc-page .lc-slide-quote blockquote { margin: 0 0 0.75rem; font-size: 1.1rem; line-height: 1.45; color: var(--lc-ink); }
+      .lc-page .lc-slide-quote figcaption { font-size: 0.95rem; color: var(--lc-text); }
+      .lc-page .lc-slide-quote small { display: block; font-size: 0.82rem; color: var(--lc-muted); }
+      .lc-page .lc-arrow {
+        position: absolute;
+        top: 50%;
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 56px;
+        height: 56px;
+        transform: translateY(-50%);
+        border: 1px solid var(--lc-line);
+        border-radius: 50%;
+        background: #fff;
+        color: var(--lc-ink);
+        cursor: pointer;
+      }
+      .lc-page .lc-arrow:hover { background: #f5f5f5; }
+      .lc-page .lc-arrow-prev { left: -28px; }
+      .lc-page .lc-arrow-next { right: -28px; }
+      .lc-page .lc-dots { position: relative; display: flex; justify-content: center; gap: 4px; margin-top: 2rem; }
+      .lc-page .lc-dots button { width: 24px; height: 7px; padding: 0; border: 0; border-radius: 2px; background: rgba(255, 255, 255, 0.45); cursor: pointer; }
+      .lc-page .lc-dots button[aria-current='true'] { width: 48px; background: #fff; }
+
+      /* Closing */
+      .lc-page .lc-closing { padding-bottom: 0; }
+      .lc-page .lc-closing-title { margin: 0 0 2.5rem; font-size: clamp(1.7rem, 3vw, 2.4rem); line-height: 1.2; font-weight: 450; }
+      .lc-page .lc-closing .lc-narrow p { font-size: 1.05rem; line-height: 1.7; }
+      .lc-page .lc-reserve { position: relative; margin-top: 5rem; padding: 10rem 0 10rem; background: var(--lc-tint); overflow: hidden; }
+      .lc-page .lc-reserve-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5rem; padding: 4rem 3rem 3rem; background: rgba(255, 255, 255, 0.82); backdrop-filter: blur(20px); }
+      .lc-page .lc-reserve-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 3rem; }
+      .lc-page .lc-reserve-title { margin: 0 0 1.5rem; font-size: clamp(2rem, 3.5vw, 2.6rem); font-weight: 400; line-height: 1.1; }
+      .lc-page .lc-reserve-lede { margin: 0 0 1.5rem; font-size: 1.35rem; line-height: 1.65; font-weight: 350; }
+      .lc-page .lc-reserve-copy .lc-meta { margin-bottom: 2rem; }
+      .lc-page .lc-closing .lc-form .lc-check { margin-top: 0.5rem; }
+      .lc-page .lc-closing .lc-form .lc-btn { margin-top: 0.5rem; }
+
+      /* Footer */
+      .lc-page .lc-footer { display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; padding: 2.5rem 0; font-size: 0.9rem; color: var(--lc-muted); }
+      .lc-page .lc-footer .lc-logo { height: 34px; }
+      .lc-page .lc-footer nav { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+      .lc-page .lc-footer nav a { text-decoration: none; color: var(--lc-text); }
+      .lc-page .lc-footer nav a:hover { color: var(--lc-ink); }
+      .lc-page .lc-footer p { margin: 0; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .lc-page .lc-carousel-track { transition: none; }
+      }
+      @media (max-width: 960px) {
+        .lc-page .lc-hero { padding-top: 2.5rem; }
+        .lc-page .lc-hero-card, .lc-page .lc-reserve-card, .lc-page .lc-slide { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; padding: 2rem 1.5rem; }
+        .lc-page .lc-offerings, .lc-page .lc-problem-grid, .lc-page .lc-speakers, .lc-page .lc-testimonials, .lc-page .lc-where-grid { grid-template-columns: minmax(0, 1fr); }
+        .lc-page .lc-where-card { min-height: 0; }
+        .lc-page .lc-people, .lc-page .lc-people-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .lc-page .lc-slide-media { min-height: 240px; }
+        .lc-page .lc-arrow-prev { left: -20px; }
+        .lc-page .lc-arrow-next { right: -20px; }
+        .lc-page .lc-reserve { padding: 5rem 0; }
+      }
+      @media (max-width: 560px) {
+        .lc-page .lc-people, .lc-page .lc-people-4 { grid-template-columns: minmax(0, 1fr); }
+        .lc-page .lc-speaker { flex-direction: column; align-items: center; text-align: center; }
+        .lc-page .lc-speaker-body { align-items: center; }
+        .lc-page .lc-speaker-leads { justify-content: center; }
+      }
+    </style>
+  </div>
+</StarlightPage>
