@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Connect Claude Code, Cursor, or another MCP editor to Promptless. Start, track, message, search, and revise documentation tasks by asking, then get each task's outcome and docs pull request link back. Create an account and connect integrations from your editor. Authorize with OAuth. No API key needed.
+description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks, or to edit your docs directly. Create an account and connect integrations from your editor. Authorize with OAuth. No API key needed.
 slug: docs/for-docs/connect/triggers/mcp
 type: reference
 tags:
@@ -14,7 +14,7 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. Then, from the editor you already have open, start a documentation task and follow it to its outcome in the same conversation. Its docs pull request link comes back too. You can also ask Promptless to revise a suggestion it already made. You can send a follow-up instruction into a running task and read that task's conversation. You can set a suggestion's labels, assignees, and title, open its pull request, or close it yourself. There's no API key to create, store, or rotate: you authorize once in a browser instead.
+Connect Claude Code, Cursor, Claude, or another MCP client to Promptless. From the conversation you already have open, start a documentation task and get back its outcome and docs pull request link. You can also send a running task more instructions, ask Promptless to revise a suggestion, and label, assign, retitle, open, or close a suggestion. You authorize once in a browser, with no API key to manage.
 
 [MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools; any editor with an "MCP servers" setting can connect to Promptless. It's a built-in surface that's always available. It needs no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
 
@@ -25,12 +25,19 @@ Connect an MCP-capable editor (Claude Code, Cursor, or another) to Promptless. T
 To use Promptless from the Claude.ai or ChatGPT web app, follow [Use Promptless from Claude.ai or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt).
 
 <Aside type="note" title="Before you start">
-  You need an MCP-capable editor, such as Claude Code or Cursor. To start documentation tasks, your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required. New to Promptless? Create an organization when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
+  You need an MCP-capable editor, such as Claude Code or Cursor, or a chat app that accepts custom connectors, such as Claude. To start documentation tasks, your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required. New to Promptless? Create an organization when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
 </Aside>
 
 ## Connect the server
 
-Connect the server once per editor. The server URL is `https://api.gopromptless.ai/mcp`. For Claude Code, one command sets it up:
+Promptless has two server URLs:
+
+- `https://api.gopromptless.ai/mcp` is the standard server. Promptless drafts the documentation changes, and you review them. Use it day to day.
+- `https://api.gopromptless.ai/mcp/with-direct-edits` adds six tools so your client can [edit doc files itself](#read-and-edit-documentation-directly). The extra tools use more of your client's context, so switch to `/mcp` once you no longer need to edit files directly.
+
+Each URL is a separate connection that you authorize on its own. The steps below use `/mcp`; use the direct-edit URL in its place to get the extra tools.
+
+Connect the server once per editor. For Claude Code, one command sets it up:
 
 ```bash
 claude mcp add --transport http promptless https://api.gopromptless.ai/mcp
@@ -98,9 +105,23 @@ The same URL and command also appear in the dashboard under **Settings**, in the
   3. Authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
 </Steps>
 
+### Claude
+
+Add Promptless to Claude as a [custom connector](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp):
+
+<Steps>
+  1. In Claude, open **Customize** > **Connectors**, select **+**, then select **Add custom connector**.
+
+  2. Enter `https://api.gopromptless.ai/mcp`, then select **Add**.
+
+  3. Select **Connect**, and authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
+</Steps>
+
+On a Team or Enterprise plan, an Owner adds the connector under **Organization settings** > **Connectors**, then each member selects **Connect** in **Customize** > **Connectors**. Turn the connector on for a conversation from the **+** menu under **Connectors**.
+
 ### Other MCP clients
 
-Any client that supports HTTP transport and OAuth connects at the same URL, `https://api.gopromptless.ai/mcp`. The exact steps vary by client.
+Any client that supports HTTP transport and OAuth connects at either URL. The exact steps vary by client.
 
 ## Authorize in the browser
 
@@ -131,12 +152,13 @@ If you don't belong to an organization yet, the consent page asks for an organiz
   - list your recent tasks;
   - search suggestions;
   - report your organization's setup status and connected integrations;
-  - create links that let a member connect an integration to your organization.
+  - create links that let a member connect an integration to your organization;
+  - on the direct-edit URL, read and search your documentation and commit edits to an open suggestion's branch.
 
-  Like the read tools, the write actions (revise, update, and close) act on any suggestion in your organization, not only ones you created. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
+  Like the read tools, the write actions (revise, update, close, and edit) act on any suggestion in your organization, not only ones you created. MCP access isn't gated by your [organization role](/docs/for-docs/security/access-and-permissions), so any active member can authorize a connection. MCP is always available to your active organization members, and access can't be limited to specific members or roles. To control what gets submitted rather than who can connect, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
-A token is tied to one organization. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
+A token is tied to one organization. When your client names the server URL in its authorization request, the token works only at that URL. When it doesn't, the token works at both URLs, so the consent screen lists file reading and editing for every connection. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
 
 ## Let a coding agent create your account
 
@@ -222,7 +244,7 @@ Only a member of the organization can connect an integration. On an unclaimed ag
 
 ## Available tools
 
-Through your editor, these 13 tools let you check on your account, collections, tasks, and suggestions, queue and change your documentation work, or connect integrations. Six tools are read-only: `get_account_status`, `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Seven tools queue or change work, or create links: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, `close_suggestion`, and `connect_integration`. These always ask before they run.
+Both server URLs carry these 13 tools, which let you check on your account, collections, tasks, and suggestions, queue and change your documentation work, or connect integrations. The direct-edit URL adds six more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). Six tools are read-only: `get_account_status`, `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Seven tools queue or change work, or create links: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, `close_suggestion`, and `connect_integration`. These always ask before they run.
 
 <Aside type="note">
   If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, and `wait_for_task_update` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
@@ -401,6 +423,85 @@ Returns a `connect_url` that lets a person connect one integration to your organ
 
 A missing option fails the call itself. Nothing changes until someone opens the link and approves the connection.
 
+## Read and edit documentation directly
+
+These six tools are available only at `https://api.gopromptless.ai/mcp/with-direct-edits`. With them, your client finds pages, edits them on an open suggestion's branch, checks the diff, and opens the pull request with `update_suggestion`.
+
+Edits go on an open suggestion. For a change no open suggestion covers, start a task with `submit_documentation_task`, then edit the suggestion it creates.
+
+Your client can auto-approve the four read tools: `list_documentation_files`, `read_documentation_file`, `search_documentation`, and `get_suggestion_diff`. The two write tools, `write_documentation_file` and `edit_documentation_file`, ask before each run.
+
+### Choose what a read covers
+
+`list_documentation_files`, `read_documentation_file`, and `search_documentation` take the same two optional arguments to choose what they read:
+
+| Argument            | Required | Description                                                                                                                                          |
+| ------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `doc_collection_id` | No       | The collection to read, from `list_doc_collections`. Pass it when your organization has more than one collection and you don't pass `suggestion_id`. |
+| `suggestion_id`     | No       | The suggestion whose branch to read, to see pages as it proposes them. Omit it to read the collection's default branch, your published docs.         |
+
+Each read returns a `ref` with the `sha` and `branch_name` it read. Pass that `sha` as `expected_head_sha` when you edit. Reads cover only the paths Promptless maintains for the collection.
+
+### `list_documentation_files`
+
+Lists a collection's file paths in sorted order. Use it to find a page's path before you read or edit it.
+
+| Argument      | Required | Description                                                        |
+| ------------- | -------- | ------------------------------------------------------------------ |
+| `path_prefix` | No       | Lists only paths that start with this prefix, such as `docs/api/`. |
+| `limit`       | No       | How many paths to return. Defaults to 500, never exceeds 2,000.    |
+
+It returns the `files`, a `total` count of matching paths, and a `truncated` flag. When `truncated` is true, narrow the listing with `path_prefix`.
+
+### `read_documentation_file`
+
+Reads one text file by its repository-relative `path`, which is required. It returns the file's `content` and `size_bytes`. It refuses binary files and files over 256 KB.
+
+### `search_documentation`
+
+Finds lines that match text or a regular expression across a collection's text files, such as Markdown, MDX, reStructuredText, YAML, JSON, and HTML.
+
+| Argument         | Required | Description                                                                           |
+| ---------------- | -------- | ------------------------------------------------------------------------------------- |
+| `query`          | Yes      | The text to find, or a regular expression when `regex` is true. Up to 256 characters. |
+| `regex`          | No       | Pass `true` to treat `query` as an RE2 regular expression, similar to `grep -E`.      |
+| `case_sensitive` | No       | Pass `true` to match case exactly.                                                    |
+| `path_prefix`    | No       | Searches only files whose path starts with this prefix.                               |
+| `limit`          | No       | How many matching lines to return. Defaults to 50, never exceeds 200.                 |
+
+RE2 syntax covers character classes, alternation, and repetition, such as `retr(y|ies)` or `v[0-9]+\.[0-9]+`. It doesn't support backreferences such as `\1` or lookaround such as `(?=...)`.
+
+Each match returns the file `path`, `line` number, and line `text`. A search reads up to 400 files of up to 128 KB each, within 10 seconds. `files_skipped` counts the files it didn't reach; when it's above zero, search again with a narrower `path_prefix`. `truncated` is true when more lines matched than `limit` returned.
+
+### `get_suggestion_diff`
+
+Shows what a suggestion changes. Pass its `suggestion_id`, which is required. It returns one unified diff per changed file against the collection's base branch, and each file's `status`: `added`, `modified`, `removed`, or `renamed`. It also returns the suggestion's `head_sha`, which you can pass as `expected_head_sha` when you edit.
+
+Diff text is capped at 200,000 characters per response. Once the cap is reached, each later file carries a `diff` of `null` and `truncated` is true. Binary files carry no diff text.
+
+### `write_documentation_file`
+
+Creates or replaces one file on an open suggestion's branch with the full content you pass. Use it for a new page or a rewrite of most of a page. For a change to part of a page, use `edit_documentation_file`.
+
+| Argument            | Required | Description                                                                                                                                        |
+| ------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `suggestion_id`     | Yes      | The open suggestion whose branch receives the commit.                                                                                              |
+| `path`              | Yes      | The repository-relative file path, inside the paths Promptless maintains for the collection.                                                       |
+| `content`           | Yes      | The complete new file content, up to 256 KB.                                                                                                       |
+| `expected_head_sha` | No       | The `ref.sha` from your last read, or the `head_sha` from your last write. The write is refused when the suggestion's branch has moved since then. |
+
+### `edit_documentation_file`
+
+Replaces exact text in one file on an open suggestion's branch. It takes `suggestion_id`, `path`, and `expected_head_sha` as `write_documentation_file` does, plus `edits`, which is required.
+
+`edits` is a list of 1 to 50 entries, each with an `old_text` and a `new_text`. Each `old_text` must match the file exactly once, so copy it verbatim from a read and include enough surrounding text to make it unique. An empty `new_text` deletes the matched text. The edits apply in order, and the call is refused when any `old_text` matches no place or several places.
+
+### What a write commits
+
+Each `write_documentation_file` or `edit_documentation_file` call makes one commit on the suggestion's branch, attributed to you and your client: `Update from <your email> via <client name>`. It returns the new `head_sha` to pass as `expected_head_sha` on your next write, plus the suggestion's `docs_pr_url` and `status`. When your edits leave the suggestion with no changes against its base branch, Promptless closes the suggestion and its docs pull request.
+
+No tool deletes a file. To remove a page, describe the removal with `request_changes`.
+
 ## Answer a clarifying question
 
 A task can finish by marking one clarifying question in your editor. This applies to a task you started over MCP. Answering it starts a new continuation task. That task carries the original request, the original context, the clarification history, and links to any results already produced. You pick up directly from the clarification.
@@ -420,9 +521,13 @@ Your editor follows the accepted answer via its `next_call`, which points at the
 
 If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. This is guidance for the [tools above](#available-tools), not a new set of tools. The catalog is unchanged. The editor decides when to load a skill; you ask for what you want as usual.
 
-One skill ships today: `suggestion-triage`, a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. That sequence is the point. It keeps the editor from treating a truncated result set as your whole backlog. And it gives each suggestion exactly one outcome, instead of you prompting each step and risking a missed part of the queue.
+Two skills ship today. `suggestion-triage` is available at both server URLs. `edit-documentation` is available only at the direct-edit URL.
 
-A skill doesn't change how the tools behave. This skill's work-changing tools are `update_suggestion`, `request_changes`, and `close_suggestion`. They still prompt before each run, just as they do when you call them directly. A skill only guides the sequence; it doesn't bypass those confirmations.
+`suggestion-triage` is a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. That sequence is the point. It keeps the editor from treating a truncated result set as your whole backlog. And it gives each suggestion exactly one outcome, instead of you prompting each step and risking a missed part of the queue.
+
+`edit-documentation` walks your client through one direct edit. It finds the pages, picks or starts a suggestion, edits each page, checks the diff, and opens the pull request.
+
+A skill doesn't change how the tools behave. The work-changing tools these skills call, such as `update_suggestion`, `request_changes`, `close_suggestion`, and `edit_documentation_file`, still prompt before each run, just as they do when you call them directly. A skill only guides the sequence; it doesn't bypass those confirmations.
 
 <Aside type="note">
   If your editor doesn't support skills, you lose nothing, since it calls the same tools directly. Skills reach it over the draft **Skills extension (SEP-2640)**. The MCP endpoint declares this as the `io.modelcontextprotocol/skills` capability in its `initialize` response. Many clients don't support it yet, so they won't surface skills at all. To check whether yours does, see its MCP settings or release notes. And because the extension is still a draft, its shape can change.
@@ -454,6 +559,8 @@ If you've lost track of a task's ID, ask for your recent ones: "What are my rece
 
 To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `suggestion-triage` steps; if not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
 
+On the direct-edit URL, name the change and the suggestion to put it on: "Find the pages that say webhook retries default to 3. Change them to 5 on the open webhook retries suggestion, show me the diff, and open the PR." Each edit asks before it commits.
+
 ## See your MCP tasks in the dashboard
 
 On the [Triggers page](https://app.gopromptless.ai/triggers), a task started over MCP shows an **MCP Task** pill with a byline reading `<client name> · submitted by @<username>`. That's distinct from the **API Task** pill shown for `sk-pl-`/`POST /triggers` submissions.
@@ -464,7 +571,7 @@ To find MCP-originated suggestions on the [Suggestions list](https://app.gopromp
 
 Connections re-authorize automatically, so you rarely notice. The connection you approved lasts 90 days; after that, automatic refresh stops and you re-consent in the browser the way you did at setup.
 
-To revoke a connection, remove the `promptless` server from your editor: in Claude Code, remove the `promptless` server; in Cursor, remove it from your MCP settings. There's no revoke button in the dashboard. The **Editor connection (MCP)** section there is instructional only.
+To revoke a connection, remove the `promptless` server from your editor: in Claude Code, remove the `promptless` server; in Cursor, remove it from your MCP settings. In Claude, remove the connector from **Customize** > **Connectors**. There's no revoke button in the dashboard. The **Editor connection (MCP)** section there is instructional only.
 
 Promptless re-checks your organization membership on every call; if you lose active membership, the connection is revoked. Each member manages their own connection. An admin can't revoke another member's connection for them.
 
@@ -496,6 +603,15 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **A connect link says you aren't a member**: someone else may have claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
 - **A connect link is invalid or expired**: the link is older than 24 hours or was cut short when copied. Ask your editor to call `connect_integration` again.
 - **A connect or claim link says the account was removed**: nobody claimed it within 72 hours. Ask the agent to create a new account.
+- **A read that names no collection in an organization with several**: the tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.
+- **A path outside the paths Promptless maintains**: the read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.
+- **A `search_documentation` query that isn't valid RE2**: the tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.
+- **A `search_documentation` query over 256 characters**: the tool refuses it. Shorten the query.
+- **A file over 256 KB**: `read_documentation_file` and both write tools refuse it. A binary file is refused for reading too.
+- **A write to a closed suggestion**: the tool refuses it, since a closed suggestion's branch accepts no edits. Pick an open suggestion with `search_suggestions`, or start a task with `submit_documentation_task`.
+- **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
+- **`stale_head`**: the suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.
+- **An `old_text` that matches no place or several places**: `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.
 - **Denied, canceled, or expired consent**: re-run the authorize step. Consent requests expire after 30 minutes. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
