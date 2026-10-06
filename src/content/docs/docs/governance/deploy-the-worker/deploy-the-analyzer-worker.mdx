@@ -15,6 +15,17 @@ Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Co
 
 The 0.3.0 release targets AWS/EKS clean installations. Azure/AKS and GCP/GKE are experimental.
 
+## Security posture
+
+Both the worker Deployment and the migration Job run under a restricted security context that the chart applies. These settings are baked into the chart, so `values.yaml` exposes no keys to change them.
+
+Each workload:
+
+- Runs as a non-root user, with the user ID, group ID, and filesystem group all set to `10001`.
+- Uses a read-only root filesystem, drops all Linux capabilities, and blocks privilege escalation.
+- Runs under the `RuntimeDefault` seccomp profile.
+- Mounts a writable `/tmp` backed by an ephemeral `emptyDir`, which gives each container scratch space without a persistent volume.
+
 ## Before you begin
 
 Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment). You need a dedicated PostgreSQL database, native object storage, an analyzer workload identity, and an HTTPS endpoint. Use the AWS, Azure, or Google Cloud Terraform guide if you need to provision these resources.
