@@ -1,0 +1,47 @@
+---
+title: 'Enroll PIG Hosts Without a Browser'
+subtitle: Published September 2026
+description: >-
+  PIG host enrollment now works on headless servers and SSH-only machines. Run enroll --device and approve from any device that has a browser.
+date: '2026-09-28T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Enrolling a Promptless Instruction Governance host has always required browser access on the host machine itself. If your agents run on cloud VMs, CI runners, or machines you reach over SSH, that was a dead end. The `--device` flag removes the requirement. The host no longer needs a browser. The person approving it still does.
+
+## The problem
+
+Standard enrollment opens a browser tab at `127.0.0.1` on the host to complete the authorization callback. On a developer's workstation, that's invisible: the tab opens, they approve, enrollment finishes. On a headless server, there is no browser to open. Teams that wanted trace collection on remote or cloud-hosted agents were stuck, either limiting PIG to local workstations or working around the constraint with X forwarding or manual credential handling.
+
+## What changed
+
+Add `--device` to the manual enrollment command:
+
+```bash
+python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex --device
+```
+
+Instead of opening a local browser tab, the command prints an approval URL and polls for a response. Open the URL on any device with a browser, such as your laptop, sign in to your Promptless organization, and approve. The host retrieves its credential without needing a local browser, an inbound port, or a loopback callback.
+
+The command polls for about 35 seconds. If it exits with `status: setup_pending`, you haven't approved yet. Open the link and run the same command again to resume polling. Each run continues the same session. Sessions expire 15 minutes after the first run; after that, the next run prints a new link.
+
+The `--host` flag is unchanged. Use `--host codex` for Codex, `--host claude` for Claude Code, or `--host claude-desktop` for Claude Desktop.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Platform and DevOps teams setting up PIG on cloud infrastructure. If your organization's agents run on dedicated VMs, shared developer hosts, or CI runners that no one accesses with a local browser, this is the path that works. It also helps when the person who approves enrollment (a Promptless organization member) is different from the person with SSH access to the host, since they can approve from their own machine.
+
+## How to use it
+
+No new hub configuration is required. If trace ingestion is already enabled in `hub.yaml` and the latest `pig` plugin is installed on the host, add `--device` to the existing enrollment command and open the printed link on another device.
+
+For the full enrollment guide, verification steps, and troubleshooting, see [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts).
+
+<BlogRequestDemo />
