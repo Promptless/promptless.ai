@@ -1,0 +1,71 @@
+---
+title: 'The Evaluation Problem in Agent Context Engineering'
+subtitle: Published September 2026
+description: >-
+  65% of enterprise AI failures trace to context drift, yet most teams only find out from support tickets. Here's how to evaluate agent context proactively.
+date: '2026-09-10T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Your agent context passed code review. It was accurate at launch. Three weeks later, a developer files a support ticket: your agent is recommending a deprecated authentication method. You check. The authentication flow changed in the last release. Your AGENTS.md didn't get updated. How many developers hit this before the ticket arrived?
+
+That gap (between when context went wrong and when you found out) is the core evaluation problem in agent context engineering.
+
+## The default feedback loop is support tickets
+
+Most teams discover bad agent context the same way: a developer complains. The agent gave wrong instructions, generated code that failed, or confidently described behavior that no longer exists. The team traces it back to stale context, fixes the specific issue, and ships a correction.
+
+This is reactive evaluation, and it's the only kind most teams do.
+
+The problem is that context failures are invisible until they cause visible damage. Agents don't flag when they're working from outdated information. They produce confident answers from whatever context they have, accurate or not. A developer reading an agent's output sees a clear, authoritative-sounding explanation. Nothing looks wrong until they try to follow it.
+
+S&P Global found that 65% of enterprise AI failures in 2025 were attributed to context drift or memory loss during multi-step reasoning. Capgemini's 2025 research found only 2% of organizations have deployed agentic AI at full scale, with the context infrastructure gap (not the model or the talent) being the primary barrier. Teams are building agents that work well in demos and degrade in production, and they're finding out through support queues.
+
+## Three failure modes worth testing
+
+Understanding what actually fails helps you evaluate proactively rather than reactively. Context failures fall into three patterns.
+
+**Context staleness.** The knowledge layer was correct at deployment and has since drifted. Your API changed, your AGENTS.md didn't, and the agent is now reasoning from a previous version of your product. This is the most common failure mode and the hardest to catch because stale content looks exactly like current content.
+
+**Context gaps.** The agent needed information that wasn't in its context at all. It didn't invent details about something it knew. It filled in blanks about something it had no information on. Gaps produce guesses, and those guesses often sound confident.
+
+**Context overload.** The agent had too much context. Information it needed was buried under information it didn't need. [Research from Chroma](https://research.trychroma.com/context-rot) found that model performance degrades measurably as context grows, with multi-step reasoning tasks failing sooner than simple lookups. With overloaded context, the right information is technically present but doesn't surface reliably.
+
+These three failures look similar from the outside (the agent said something wrong) but have different root causes and different fixes.
+
+<BlogNewsletterCTA />
+
+## What proactive evaluation looks like
+
+The goal is to catch failures before developers do.
+
+**Golden query testing.** Write a set of questions your agent should answer correctly, drawn from common developer use cases and recent support tickets. Run these after every product release. If an agent's answer changes without the context being intentionally updated, something drifted. If an answer was always wrong, you have a gap.
+
+This is a regression check, not a comprehensive evaluation suite. Covering your five most common query patterns catches a meaningful share of staleness failures before they reach developers.
+
+**Change coverage review.** When your product ships a change, identify every context surface that should have been updated and verify it was. For a PR that deprecates an authentication endpoint, the checklist includes: the API reference, your AGENTS.md, your llms.txt, and any quickstart guides that reference that endpoint. Most teams skip this step because nothing automatically connects "this code changed" to "check these docs." Building that connection is the structural fix.
+
+**Support ticket analysis.** Review support tickets monthly and tag those tracing back to documentation or agent context failures. If the same type of question keeps appearing that the agent should handle, you have a gap. If the same stale detail appears across multiple tickets, you have a staleness problem that predates those tickets.
+
+## The structural fix
+
+Golden queries and ticket analysis are useful, but they're still reactive in a fast-moving product. A team shipping weekly will always generate more context to maintain than manual review can cover.
+
+The fix that keeps pace is connecting change signals to context review triggers. When a PR changes a public API behavior, the corresponding context surfaces should appear for review in the same cycle, the same mechanism that keeps reference documentation current after a release.
+
+This is the same principle that [agent context files like AGENTS.md and llms.txt](https://promptless.ai/blog/technical/agent-context-files-explained) require: ownership at the trigger level, not just at launch. A context file that nobody reviews after a release will drift on the first release. The review has to be triggered by the change, not by a quarterly calendar event.
+
+The reason the knowledge layer is the hardest to maintain (as described in the [agent context engineering framework](https://promptless.ai/blog/technical/agent-context-engineering)) is that it changes when your product changes, independently of when you decide to update your agents. The instruction layer and the action layer change when you update them deliberately. The knowledge layer changes whether you're paying attention or not.
+
+## The 2% question
+
+Capgemini found only 2% of organizations have agentic AI fully deployed at scale, with most stuck between POC and production. Context quality is a significant contributor: teams build agents that perform well in demos, where the context was freshly prepared, and degrade in production, where the context wasn't maintained.
+
+The difference between teams that reach production and those that don't often comes down to whether they have a repeatable process for updating context as the product evolves. Building correct context once is the easier half of agent context engineering. Maintaining it after the first release is the half most teams underestimate.
+
+<BlogRequestDemo />
