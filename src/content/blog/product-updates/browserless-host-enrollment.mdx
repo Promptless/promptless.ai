@@ -1,0 +1,51 @@
+---
+title: 'Enroll Hosts Without a Local Browser'
+subtitle: Published September 2026
+description: >-
+  PIG hosts reached over SSH or running without a desktop can now enroll using --device. Approve from any other device, no loopback callback required.
+date: '2026-09-28T00:00:00.000Z'
+author: Frances
+tag: Product Updates
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Promptless can now enroll PIG hosts that have no local browser. If you're setting up trace collection on an SSH-only server, a containerized build agent, or any host without a desktop environment, you no longer need a workaround to get through enrollment.
+
+Pass `--device` when running the host runtime's enroll command. The command prints a link. Open that link on any signed-in device and a signed-in organization member approves the host there.
+
+## The problem
+
+PIG host enrollment has always needed a browser on the host to approve enrollment and complete a local loopback callback. That works on a developer's workstation, where enrollment and approval happen on the same machine. It breaks on headless infrastructure.
+
+The workaround for a headless host was to port-forward the loopback callback through an SSH tunnel to a machine with a browser. That requires planning the connection in advance, it fails when network paths change, and it doesn't work at all on hosts where you can't open inbound ports.
+
+The practical result was that PIG coverage tended to stay limited to machines with full desktop environments. Servers and build agents, which often run the AI coding sessions you most want to trace, stayed out of scope.
+
+## What it does now
+
+Pass `--device` to the enroll command. The runtime prints an approval link and waits. Open that link on any machine with a browser, including a laptop or phone, and a signed-in organization member approves the host there. No inbound port is required on the host. No loopback callback.
+
+If you don't approve within about 35 seconds, the command exits with `"status": "setup_pending"`. Re-run it to resume the same approval session rather than starting over. The link stays valid for 15 minutes. After 15 minutes, re-running prints a new one.
+
+<BlogNewsletterCTA />
+
+## Who benefits most
+
+Platform and infrastructure teams who want PIG coverage beyond developer machines. This matters most for:
+
+- CI runners and build agents that run Claude Code or Codex
+- Cloud VMs or containers where installing a browser is impractical or against your security policy
+- Any server you reach over SSH and have no desktop session for
+
+If you've wanted PIG coverage on your shared infrastructure but deferred it because enrollment required per-host manual setup, this removes that blocker.
+
+Teams running PIG only on developer workstations don't need the flag. Standard enrollment already handles that case.
+
+## How to use it
+
+With the latest `pig` plugin installed and trace ingestion enabled in your `hub.yaml`, add `--device` to your enroll command. See [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) for the full setup steps, including the correct invocation and troubleshooting notes for the rate limits that apply to device authorization sessions.
+
+<BlogRequestDemo />
