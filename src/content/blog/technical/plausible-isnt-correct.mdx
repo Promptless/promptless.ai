@@ -1,0 +1,92 @@
+---
+title: "Plausible isn't correct: the task-completion gap in AI-written docs"
+subtitle: Published October 2026
+description: >-
+  In DoGBench's audit of 1,267 agent-written documentation patches, 45.5% left
+  out a decision, step, check, or recovery path the reader needed. Here's what
+  that gap looks like, why agents fall into it, and how to review for it.
+author: Manny
+date: '2026-10-07T00:00:00.000Z'
+tag: Technical
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+One of the agents we tested wrote a docs patch for Strawberry GraphQL that explained how to select an older Apollo Federation version. Every sentence in it was accurate.
+
+It never said why you'd want to. The setting exists so you can upgrade Strawberry while staying compatible with an older Apollo Router or Gateway. A reader who has that problem can't tell this page solves it. A reader who finds the setting by browsing can't tell whether they need it.
+
+The patch documented the setting and left out the decision the setting exists for.
+
+That's the most common failure we found in [DoGBench](/blog/technical/dogbench), the Documentation Generation Benchmark. We audited 1,267 documentation patches written by AI agents, and 45.5% had a task-completion gap. They left out a decision point, a procedure, a verification step, or a recovery path that the reader needed to finish the job. For comparison, only 6.1% contained fabricated content, like an invented class, flag, or endpoint.
+
+Agents rarely invent things outright. The more common problem is a patch where everything is true and the reader still can't get where they were going. Plausible isn't correct.
+
+## What the gap looks like
+
+Most documentation exists to help someone do something. To finish a task, a reader may need to know when the task applies, what has to be true first, what steps to take, how to tell it worked, and what to do when it doesn't. A task-completion gap is a patch that drops one of those pieces.
+
+The audit tracked some of those pieces separately. Missing prerequisites showed up in 21.0% of patches, and missing audience and purpose framing, meaning who the content is for and when to use it, in 19.9%. One patch can have several of these problems.
+
+Here's a fuller example, from an item you can inspect yourself on [dogbench.ai](https://dogbench.ai/#item=Azure-azure-service-operator-pr5490&tab=rubrics). The item comes from Azure Service Operator (ASO), which manages Azure resources from Kubernetes. A GitHub issue asked for a workflow:
+
+1. Create a managed identity with ASO.
+2. Export the identity's details to a Kubernetes Secret.
+3. Point a resource's `credential-from` annotation at that Secret.
+4. ASO then authenticates as the identity it created.
+
+The rubric for this item asks for that workflow, connected end to end, on a page readers actually use. Here's how the seven agents in the paper did:
+
+- Six of the seven never connected the steps. Most documented a CEL helper function or a Secret-expression snippet. One said the exported Secret "can be used" with the annotation and stopped there.
+- None of the seven fully covered the prerequisites, such as the permissions the managing credential needs to create the identity.
+- None of the seven fully explained what the workflow is for and when you'd use it, as opposed to the general CEL feature it's built on.
+- The one agent that did connect the steps, Kimi K2.7 Code with OpenCode, wrote YAML that passed the rubric's syntax check. Its example put both resources in the same namespace. It never said that ASO writes the exported Secret only in the managed resource's namespace, so using the identity from another namespace means copying or mirroring the Secret there some other way.
+
+Every one of the seven patches failed at least one critical criterion on this item. Most of what they said was correct. The problem was what they didn't say.
+
+## Why reviewers miss it
+
+A careful reviewer checks each claim against the code, and in these patches most claims check out. The gap is in what's missing, and a fact-check doesn't catch what isn't there. Fluent prose makes it harder. The patch reads well, so it reads finished.
+
+The same narrowness shows up across the docs, too. In the audit, 20.7% of patches put content where readers were unlikely to find it, and 13.3% updated one page while another page describing the same thing went stale. A patch can be accurate on its own and still fail inside the larger set of docs.
+
+## Why agents do it
+
+For each of the 1,267 patches, we read the agent's trajectory, the record of what it looked at and did, and recorded the root causes the trace supported. The most common one, in 36.0% of patches, was explaining an interface without checking how it's used. The agent described the changed fields, settings, or callbacks, but never tested its explanation against the reader's setup, decisions, steps, verification, or recovery.
+
+The next two causes point the same way. In 33.1% of patches, the agent stopped before it found the decisive evidence and filled the gap with a plausible assumption. In 30.1%, it stopped at the first reasonable page to edit and missed other pages the change affected.
+
+The paper calls the common thread premature closure. Agents switch from investigating to writing too soon, because nothing tells them when they know enough. It isn't about effort. The root causes showed no clear link to how long the agents worked, and an agent can stop investigating early and then spend a lot of tokens drafting.
+
+The paper suggests another factor. The reason a feature exists often lives outside the code, in the reader's situation. Nothing in a code change says "people need this because they can't upgrade their Apollo Router yet." A writer learns that from users, support threads, and the product team. An agent working from the repository alone often has no way to find it.
+
+That context is what documentation owners bring to review. It's why review matters so much when an agent writes the first draft.
+
+## How to review for it
+
+Start with the reader's task instead of the diff. Before you read the patch, write one sentence about who will land on this page and what they're trying to get done. Then read the patch against that sentence:
+
+- **When and why.** Does it say who this is for and when to use it? This is where the Strawberry patch fell short.
+- **Prerequisites.** What has to be true first? Look for permissions, credentials, versions, and setup.
+- **Steps.** Can the reader get from start to finish, either on this page or through links that take them there?
+- **Verification.** How does the reader know it worked?
+- **Recovery.** What does the reader do when it doesn't work?
+- **Conditions.** Does each claim hold everywhere the text implies it does? Defaults, versions, namespaces, and compatibility are where accurate sentences go wrong.
+- **Placement.** Will readers find this page from where they start? Does any other page describe the same behavior and now need to change?
+
+The strongest check is to follow the procedure yourself. If it's runnable, run it, or let a tool like [Doc Detective](https://doc-detective.com) run it for you. Missing steps are hard to spot on the page and hard to miss once you try to follow them.
+
+If you build or configure docs agents, you can give them the same list: name the reader's task before drafting, and check every page the change touches before stopping. We haven't shown that this closes the gap. The paper explored prompts and skills like these informally, without a controlled comparison, so treat them as something to test, not a fix.
+
+## Where Promptless fits
+
+Promptless builds documentation agents, so here's our disclosure. The paper ranks seven open model-and-harness agents, and ours isn't one of them. On dogbench.ai, you can turn on the **Cloud agents** view to see commercial agents, including ours. On the Azure Service Operator item above, our agent connected the workflow, but it also missed the prerequisites and the namespace limitation. These gaps aren't unique to other people's agents.
+
+## Take it to your team
+
+We turned the DoGBench findings into an [11-slide readout for documentation owners](https://dogbench.ai/slides), with speaker notes on every slide. Slide 7 covers the task-completion gap, and slide 10 turns the findings into review habits. You can present it from your browser or download the PDF.
+
+For the details, read the [failure analysis in the paper](https://dogbench.ai/paper#agent-patches-often-lack-a-model-of-the-readers-task), or browse the [scored items](https://dogbench.ai) to compare each agent's patch against its rubric.
+
+<BlogNewsletterCTA />
