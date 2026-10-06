@@ -286,18 +286,39 @@
       '#docs': DOCS_TAB_ID,
     };
 
+    // A hash that names an element inside one track's below-fold region, such
+    // as /#pig-walkthrough, selects that track first and then scrolls to the
+    // element, which the browser could not reach while its region was hidden.
+    const tabIdForAnchor = (hash: string): string | undefined => {
+      if (hash.length < 2) return undefined;
+      let target: HTMLElement | null = null;
+      try {
+        target = document.getElementById(decodeURIComponent(hash.slice(1)));
+      } catch {
+        return undefined;
+      }
+      if (!target) return undefined;
+      if (belowFoldAgents?.contains(target)) return AGENTS_TAB_ID;
+      if (belowFoldDocs?.contains(target)) return DOCS_TAB_ID;
+      return undefined;
+    };
+
     const applyHashSelection = () => {
-      const tabId = HASH_TO_TAB_ID[window.location.hash];
+      const hash = window.location.hash;
+      const anchorTabId = HASH_TO_TAB_ID[hash] ? undefined : tabIdForAnchor(hash);
+      const tabId = HASH_TO_TAB_ID[hash] ?? anchorTabId;
       if (!tabId) return;
       const index = pills.findIndex((pill) => pill.id === tabId);
       if (index < 0) return;
       locked = true;
       stopRotation();
       activate(index);
+      if (anchorTabId) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
     };
 
     // Pin the hashed tab on load, then keep following the hash so an in-page
-    // link between #agents and #docs re-pins without a reload.
+    // link between #agents and #docs (or a below-fold anchor) re-pins without a
+    // reload.
     applyHashSelection();
     window.addEventListener('hashchange', applyHashSelection);
 

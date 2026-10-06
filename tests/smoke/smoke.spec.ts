@@ -596,17 +596,22 @@ test('homepage product switcher renders accessible default state and product reg
   // correct region, using structural hooks instead of sentences or brand names.
   const agentsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-agents"');
   const docsAsideIndex = homeHtml.indexOf('id="pl-hero-aside-docs"');
+  const agentFactsIndex = homeHtml.indexOf('class="pl-pig-facts');
+  const agentsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-agents"');
   const statCardsIndex = homeHtml.indexOf('class="pl-stat-cards');
-  const agentLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="agents"');
   const verticalTestimonialsIndex = homeHtml.indexOf('class="pl-testimonials-vertical');
   assert.ok(
-    agentsAsideIndex !== -1 && statCardsIndex > agentsAsideIndex && statCardsIndex < docsAsideIndex,
-    'Expected .pl-stat-cards to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
+    agentsAsideIndex !== -1 && agentFactsIndex > agentsAsideIndex && agentFactsIndex < docsAsideIndex,
+    'Expected .pl-pig-facts to render inside #pl-hero-aside-agents, before #pl-hero-aside-docs.'
   );
+  // The 30-day figures are Promptless's own dogfooding results, so they live in
+  // the labeled proof section below the fold rather than in the hero.
   assert.ok(
-    agentLogoCarouselIndex > statCardsIndex && agentLogoCarouselIndex < docsAsideIndex,
-    'Expected the agents customer-logo carousel directly after the stat cards, inside #pl-hero-aside-agents.'
+    agentsBelowFoldIndex !== -1 && statCardsIndex > agentsBelowFoldIndex,
+    'Expected the dogfooding .pl-stat-cards inside #pl-below-fold-agents.'
   );
+  // Docs-customer logos stay off the agent-instructions tab.
+  assert.doesNotMatch(homeHtml, /data-customer-logo-carousel="agents"/);
   assert.ok(
     docsAsideIndex !== -1 && verticalTestimonialsIndex > docsAsideIndex,
     'Expected .pl-testimonials-vertical to render inside #pl-hero-aside-docs.'
@@ -617,6 +622,7 @@ test('homepage product switcher renders accessible default state and product reg
   assert.match(homeHtml, /data-track-location="agent_governance_midpage"/);
   assert.match(homeHtml, /data-track-location="agent_governance_footer"/);
   for (const section of [
+    'agent-facts',
     'agent-differentiation',
     'agent-impact-examples',
     'agent-mid-cta',
@@ -630,7 +636,9 @@ test('homepage product switcher renders accessible default state and product reg
 
   assert.equal(homeHtml.match(/class="pl-stat-card[\s"]/g)?.length, 4);
   assert.equal(homeHtml.match(/aria-label="\d+ percent (?:increase|decrease)"/g)?.length, 4);
-  assert.equal(homeHtml.match(/data-customer-logo-carousel="(?:agents|docs)"/g)?.length, 2);
+  assert.equal(homeHtml.match(/data-customer-logo-carousel="(?:agents|docs)"/g)?.length, 1);
+  assert.match(homeHtml, /id="pig-walkthrough"/);
+  assert.equal(homeHtml.match(/data-pig-panel="/g)?.length, 4);
 
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
