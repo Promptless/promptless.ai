@@ -1,0 +1,77 @@
+---
+title: 'What Coding Assistants Actually Do with Your llms.txt'
+subtitle: Published September 2026
+description: >-
+  Cursor, Claude Code, and Copilot read /llms.txt during live coding sessions. Here's how to implement it so it helps rather than misleads developers.
+date: '2026-09-04T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer asks Cursor how to authenticate against your API. Cursor fetches `/llms.txt` from your docs domain, follows the link to your authentication guide, and reads it. If that guide describes a token format you deprecated eight months ago, the developer gets confidently wrong code.
+
+That is the real use case for llms.txt in developer documentation. The audience that matters is the coding assistant the developer is already talking to, not an AI crawler deciding how to index your site.
+
+## Who actually reads your llms.txt
+
+A [2026 SE Ranking study](https://seranking.com) of 300,000 domains found 10.13% adoption: roughly one in ten sites now has a `/llms.txt` file. Among developer-facing companies, adoption moved faster. Anthropic, Stripe, Vercel, Cursor, and Mintlify all shipped llms.txt files within months of the spec's proposal in September 2024.
+
+The driver was practical. Cursor, Claude Code, GitHub Copilot, Windsurf, and Cline all look for `/llms.txt` and `/llms-full.txt` when pointed at a documentation site. With [85% of developers using AI coding tools in 2026](https://codersera.com/blog/llms-txt-complete-guide-2026/), a meaningful share of your API's users are navigating your docs through a coding assistant rather than a browser. When they ask "how do I set up webhook verification?" or "what does this error code mean?", the assistant retrieves documentation to answer. A current `/llms.txt` makes that retrieval accurate.
+
+The token efficiency argument is also real. HTML documentation bloated with navigation chrome, CSS, and JavaScript consumes [80-90% more tokens](https://buildwithfern.com/post/optimizing-api-docs-ai-agents-llms-txt-guide) than the actual content. Those are tokens the assistant could spend parsing your endpoint schema instead of your page header. For API documentation, where the content itself is dense, that overhead compounds quickly.
+
+## llms.txt vs llms-full.txt
+
+Two files, different tradeoffs.
+
+**llms.txt** is a navigation layer. It contains an H1 with your project name, a short summary, and a structured list of links to documentation pages with one-line descriptions. The assistant uses it to find the right page, then fetches that page separately. The file stays small and fast to generate.
+
+**llms-full.txt** embeds the full content of your documentation directly. No additional fetches. The assistant reads one file and has everything it needs. For a small API with 20-30 reference pages, llms-full.txt often fits in a single context window and gives the assistant the complete picture without further network calls.
+
+For large platforms the choice is different. Cloudflare's llms-full.txt for their developer platform reaches 3.7 million tokens - far beyond what any single context window can hold. Their implementation uses llms.txt as a navigation layer, then generates product-specific llms-full.txt files for each product so assistants can pull only what is relevant.
+
+For most developer documentation teams, the practical answer is to ship both. Generation cost is low once you are generating either. A developer integrating your payment API wants the full spec in their context; a developer building against your webhooks wants the assistant to navigate directly to webhook documentation without loading your entire API reference first.
+
+<BlogNewsletterCTA />
+
+## The maintenance problem most implementations skip
+
+Here is what most implementation guides do not say: a stale llms.txt does not error.
+
+A link that points to a renamed page returns whatever is now at that URL, or a 404. A description mentioning a deprecated parameter passes silently to the coding assistant as current information. Nothing in the file signals staleness. The coding assistant treats every entry with the same confidence.
+
+Teams that add `/llms.txt` once and never update it are creating a confidence problem. The file signals "authoritative navigation" to the assistant. When the navigation is wrong, the assistant delivers incorrect answers with the same confidence it delivers correct ones. A developer whose coding assistant consistently gives wrong guidance about your API will stop using your API.
+
+One documentation team found this through support tickets. Their `/llms.txt` had not been updated since launch, still pointing to a deprecated authentication page. Developers using Cursor to learn the API were getting instructions for a flow replaced two quarters earlier. The file had passed every link check because the URL still resolved - it just described the old behavior.
+
+The drift pattern is predictable. A product ships a change. The reference page gets updated. The llms.txt that pointed to it - with a description mentioning the deprecated field - stays unchanged because it is a separate file that does not appear in any PR review queue. Nobody set out to leave it stale. There was just no mechanism to keep it current.
+
+## Treating llms.txt as generated output
+
+Teams that get sustained value from llms.txt treat it the same way they treat a sitemap or an OpenAPI spec: as generated output, not a hand-maintained document.
+
+Cloudflare regenerates theirs automatically as part of their documentation pipeline. GitBook auto-generates it as docs evolve. The principle applies to any derived artifact: when the source changes, the artifact should update.
+
+A practical generation setup has four components.
+
+**Source from your docs content index.** The structure of your llms.txt should come directly from your documentation's navigation or content index, not a file someone maintains by hand. A page added to your docs appears in llms.txt. A page removed disappears. The file reflects reality because it is derived from the same source that drives reality.
+
+**Validate links on every build.** A build-time link checker catches the case where a URL exists in llms.txt but the target has moved. This is a cheap CI step and catches the most common form of stale content before it ships.
+
+**Diff against the previous version.** A diff at build time surfaces unexpected removals. If 30 pages disappear from llms.txt because a directory was accidentally excluded from the generator, the diff catches it before deploy. Without the diff, the file shrinks silently.
+
+**Deploy with your docs.** llms.txt should update in the same deployment as the documentation it indexes. A llms.txt describing content going live tomorrow is wrong today. Coupling the deploy keeps them in sync automatically.
+
+## The layer below the file
+
+Your llms.txt is only as accurate as the documentation it indexes. A file with current links and accurate descriptions that point to outdated reference pages still misdirects coding assistants. Automated generation solves the navigation layer. It does not fix documentation that has [drifted from the product it describes](https://promptless.ai/blog/technical/documentation-drift-detection-problem).
+
+For API and SDK documentation, where changes ship frequently and coding assistants are a primary consumption path, the two problems interact. A well-generated, link-validated llms.txt confidently directs an assistant to your authentication guide. If that guide still describes a deprecated token format, the developer gets accurate navigation to wrong content.
+
+[Keeping the underlying documentation current](https://promptless.ai/blog/technical/how-teams-keep-docs-up-to-date-with-promptless) is the prerequisite that makes llms.txt worth generating in the first place.
+
+<BlogRequestDemo />
