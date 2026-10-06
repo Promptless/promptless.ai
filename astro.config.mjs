@@ -46,6 +46,11 @@ const redirects = {
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
   '/lavacon/book': '/lavacon#book',
+  // The DoGBench field guide's QR codes encode these short links, so the codes stay small enough to scan in print.
+  // The book prints each full destination beside its code.
+  '/dogbench/code': 'https://github.com/Promptless/dogbench',
+  '/dogbench/data': 'https://huggingface.co/datasets/promptless-research/dogbench-dev',
+  '/dogbench/submit': 'https://github.com/Promptless/dogbench/blob/main/docs/leaderboard-submission.md',
   '/wtd': '/',
   '/wtd-portland-2026': '/',
   '/wtd-portland-2026.ics': '/',
