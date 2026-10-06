@@ -1,0 +1,84 @@
+---
+title: 'API Changelog Best Practices for Teams That Ship Weekly'
+subtitle: Published August 2026
+description: >-
+  High release velocity makes API changelogs harder to maintain than to write. Here's how fast-moving teams keep their changelogs accurate and useful.
+date: '2026-08-10T00:00:00.000Z'
+author: Frances
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+Shipping once a quarter gives your team time to write a considered changelog. Shipping weekly doesn't. At high release velocity, the changelog becomes the first documentation to fall behind — and when it does, developers lose the one signal that tells them what to migrate and when.
+
+This isn't an argument for shipping slower. It's a practical guide for teams that already ship fast and want their changelogs to stay useful.
+
+## Why velocity breaks the standard changelog process
+
+The standard changelog advice assumes a predictable release cycle: plan a release, make changes, document them, ship. That sequence works when you control the pace. It breaks when releases happen continuously.
+
+At weekly release cadence, a few things happen consistently.
+
+Changes accumulate between documentation cycles. A developer ships a deprecation in week one. The changelog entry gets drafted in week three. By then, the context has faded and the entry describes what the team remembers, not exactly what shipped.
+
+Minor changes get dropped. At high velocity, "minor" changes — a new optional parameter, a changed default, an extended timeout — routinely don't make it into changelogs at all. No individual omission seems worth the effort. Cumulatively, they create a changelog that doesn't reflect the API's actual current behavior.
+
+The person with context is not the person writing the entry. Engineers ship changes, technical writers write changelogs. At weekly cadence, there's rarely time for a clean handoff. The resulting entry is accurate to the PR title and nothing else.
+
+## The PR-as-source-of-truth approach
+
+The most reliable fix is shifting changelog authorship to the point of change.
+
+Teams that maintain accurate changelogs at high release velocity almost always share one practice: every PR that touches a public API endpoint includes a changelog entry as a required field. The engineer who made the change — who has the context — writes the entry while they have it. The release process aggregates those entries rather than creating them.
+
+GitHub enforces this with PR templates. When a developer opens a PR against an API endpoint, the template includes a required `## Changelog` section. If no user-facing change exists, the developer marks it `n/a`. If a change exists but the section is empty, the PR doesn't pass review.
+
+This produces rougher prose than a technical writer would write, but it produces entries that are accurate — which matters more. The technical writer's job shifts from authoring to editing: taking what the engineer wrote and making it clear to a developer audience, without losing the specificity.
+
+## Separating machine-readable from human-readable changelogs
+
+At high velocity, you're likely generating structured release data anyway — deployment metadata, diff summaries, version tags. That data is already machine-readable. Most teams don't connect it to the human-readable changelog.
+
+Connecting the two has two advantages.
+
+First, it creates an audit trail. When a developer disputes whether a change was documented, you can trace the changelog entry to the specific commit, the PR, and the diff. "The changelog said X" becomes verifiable.
+
+Second, it enables automated draft generation. Diff tools like `openapi-diff` or `bump.sh` detect structural changes to an OpenAPI specification — added endpoints, removed parameters, changed response schemas. They can output a machine-readable summary of what changed. That summary isn't a finished changelog entry, but it's a complete inventory of what the changelog needs to cover.
+
+Teams using this approach route the machine-generated diff through a review step where a technical writer confirms coverage and adds developer-facing context. The result is a changelog that's accurate (derived from the actual diff) and readable (edited for audience). Neither property alone is sufficient.
+
+<BlogNewsletterCTA />
+
+## Changelog versioning when you ship continuously
+
+Most changelog formats assume discrete versions. When you ship continuously, "version" becomes ambiguous. Some teams use dates. Some use semantic versions. Some use API version strings that increment independently of internal code versions.
+
+The format that works best for developer audiences at high release velocity is date-based with explicit change-type labeling. Date-based versioning maps directly to when developers were affected. An entry labeled `2026-07-28 – Breaking` tells a developer exactly when something changed and whether they need to act. An entry labeled `v2.84.1` tells them neither.
+
+Stripe's approach is worth studying directly. Their API changelog uses date strings as version identifiers. Breaking changes are documented as separate, explicitly labeled releases. A developer scanning for "what broke this week" can find it in under thirty seconds without reading the whole log.
+
+Twilio's changelog uses a similar structure, adding an explicit deprecation notice format with sunset dates stated as specific calendar dates rather than version strings. This works because their developer audience needs to calendar deprecations, and "Q3 2026" is harder to calendar than "September 30, 2026."
+
+## When the changelog and the reference docs diverge
+
+At weekly release cadence, the gap between a shipped changelog entry and an updated reference page widens. The changelog announces the change. The reference page still shows the old behavior. A developer reads both and gets conflicting information.
+
+This is the most common complaint developers have about high-velocity API documentation. The changelog is accurate. The reference docs are not. The developer doesn't know which to trust, so they test both — which is expensive — or they trust the changelog and get a runtime error because the reference page describes a parameter that was renamed three releases ago.
+
+The fix is treating reference doc updates as part of the changelog release criteria, not a follow-up task. If the PR template requires a changelog entry, it should also flag which reference pages need to be updated. Those updates ship with the changelog, not after it.
+
+For teams using automated diff tools, this is partially solvable with detection: when a diff shows a changed endpoint or parameter, trigger a documentation update workflow for the corresponding reference page. The changelog entry and the reference page update ship together, linked, so a developer navigating from one to the other finds consistent information.
+
+This is the specific failure mode that [Promptless](https://promptless.ai) monitors for — the gap between what shipped and what the reference docs say — across API documentation at continuous release cadence. The gap is measurable, and it's preventable if it's caught at the point of change rather than after a developer reports the inconsistency. For context on the broader problem of [documentation drift detection](https://promptless.ai/blog/technical/documentation-drift-detection-problem), the same structural failure applies to changelogs as it does to reference pages.
+
+## The changelog as the reliability signal
+
+At high release velocity, developers don't assume your changelog is complete. They assume it describes what your team remembered to write down. The gap between those two things is what erodes trust.
+
+Teams that close that gap share the same habits: changelog authorship at the point of change, diff-based coverage verification, and reference doc updates that ship with the changelog entry. Each change is small. Together they produce a changelog developers can rely on.
+
+If your team ships weekly and your changelog is two weeks behind, that's the starting point. It's a process problem, and process problems have process solutions.
+
+<BlogRequestDemo />
