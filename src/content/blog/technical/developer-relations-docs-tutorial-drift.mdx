@@ -1,0 +1,73 @@
+---
+title: 'Developer Relations Docs: Why Tutorials Break at First Contact'
+subtitle: Published June 2026
+description: >-
+  DevRel teams create high-quality tutorials that silently drift out of sync. Here's why tutorial drift is a distinct problem, and how to catch it before developers do.
+date: '2026-06-05T00:00:00.000Z'
+author: Frances
+tag: Technical
+section: Use Cases
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+import BlogRequestDemo from '@components/site/BlogRequestDemo.astro';
+
+A developer advocate spends two weeks building a Python quickstart. Tested against the live API. Working code, real examples. Six months later, a backend team renames a required authentication header. Nobody updates the tutorial. It still ranks. Developers still find it. They fail at step 3, assume the product is broken, and leave.
+
+This is the specific failure mode of developer relations documentation: high-effort content that decays silently, and a team that finds out from Discord complaints rather than from a monitoring system.
+
+## Why DevRel docs drift differently
+
+Not all documentation has the same drift profile. API reference docs get updated with each release because they're tied to the changelog process. Engineers ship a change and update the reference page. The pipeline is mechanical.
+
+Tutorials, quickstarts, and sample apps don't have that pipeline. A developer advocate writes them in a focused sprint, often timed to a launch or a new developer program. Then maintenance happens in the margins, alongside event prep, blog posts, and partner demos. Nobody owns the Tuesday afternoon reserved for re-running every code example.
+
+The result is a maintenance gap that grows over time. The more mature your DevRel program, the more tutorials you've published, and the larger the surface area of content that nobody is systematically reviewing.
+
+Reference docs are wrong occasionally. DevRel docs are wrong regularly, because the update cadence never matched the cadence of code changes underneath them.
+
+## Why tutorials fail harder than reference pages
+
+A tutorial chains multiple API calls together to walk a developer through a complete task. That structure is what makes tutorials effective: developers see a real workflow, not isolated endpoints.
+
+It also makes tutorials more fragile. A single API reference page documents one endpoint. If that endpoint's parameters change, one page needs updating. A tutorial that calls five endpoints is five separate failure points. Change a field name on endpoint 2, and steps 3, 4, and 5 may also break because they depend on the response from step 2.
+
+The failure modes compound:
+
+- A required field added to an authentication step breaks every subsequent call in the tutorial
+- A renamed response field causes the sample code's variable to resolve to `undefined`
+- A deprecated endpoint returns a 410 that the tutorial's error-handling section doesn't cover
+
+[A report tracking production API quality](https://nordicapis.com/what-is-api-drift-and-what-can-you-do-about-it/) found that 75% of production APIs do not conform to their own specifications. That gap lives not just in reference pages but in every tutorial that predates the divergence.
+
+The [Postman 2024 State of the API report](https://www.postman.com/state-of-api/2024) found that 68% of developers cite outdated documentation as their top frustration when working with APIs, and 39% say inconsistent documentation is the biggest onboarding roadblock. For DevRel teams, those numbers are especially costly because tutorials are first-contact content. A developer reading a quickstart hasn't committed to the product yet. The tutorial is the pitch.
+
+As covered in [why developer onboarding documentation breaks after launch](/blog/technical/developer-onboarding-documentation-fails-after-launch), around 50% of developers abandon an API when documentation fails them. They don't file a support ticket. They leave. A broken tutorial keeps ranking on Google and keeps producing silent attrition.
+
+<BlogNewsletterCTA />
+
+## Code validation catches the wrong thing
+
+The obvious answer is to test your code examples. Some teams do this: run a linter and add CI steps that execute sample code against a staging environment. This is worth doing. It catches syntax errors and calls to nonexistent endpoints.
+
+It does not catch semantic drift.
+
+When an API renames a field from `user_token` to `access_token`, the code still compiles. The example still runs. It returns a different error than it used to, or it silently sends a `null` to the next step. Your CI pipeline turns green. Your tutorial is broken.
+
+The same applies to authentication flow changes and deprecations that still return a response. Just not the right one.
+
+Code validation is table stakes. It filters out the easy breaks. The subtler breaks require a different approach, one that connects documentation to the code changes that affect it.
+
+## The fix is upstream of the content
+
+The problem with relying on audits and code validation is that they're reactive. You find out something is broken after it's been broken for some time. The question is how to move the detection upstream, before the content goes stale.
+
+The starting point is traceability: knowing which documentation references which code. If a tutorial walks through an authentication flow and that flow changes, the connection between the changed code and the tutorial should be explicit, not inferred. As [API changelog best practices](/blog/technical/api-changelog-best-practices) shows, the changelog announces the change. The challenge is knowing which pieces of documentation that change actually affects.
+
+For DevRel teams managing a library of tutorials and sample apps, this means having a system that watches for code changes and surfaces the documentation affected. Not an audit scheduled every quarter. An alert when the PR lands.
+
+Teams that treat [documentation drift as a detection problem](/blog/technical/documentation-drift-detection-problem) rather than a writing problem are better positioned to keep tutorial content accurate. Not because they're writing more, but because they know what to update and when.
+
+That's especially true for DevRel documentation, where the content is high-effort to create, hard to replace, and responsible for the moment that determines whether a developer ever integrates with your product.
+
+<BlogRequestDemo />
