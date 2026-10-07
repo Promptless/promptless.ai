@@ -1,0 +1,136 @@
+---
+title: Update docs after each deploy
+description: Call the Promptless API from your deploy pipeline when a deploy to staging or production finishes, so Promptless documents the changes that shipped.
+slug: docs/for-docs/get-the-most-out/docs-after-deploys
+type: guide
+tags:
+  - get-the-most-out
+  - guide
+timestamp: "2026-10-07T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 37
+  label: Update docs after deploys
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Your deploy pipeline can tell Promptless when a deploy to staging or production finishes. Promptless then reviews the commits in that deploy and writes documentation updates for those changes. Use this setup when you want docs to follow what you ship to an environment, not each merged pull request or each pushed tag.
+
+To send the notification, add a step to your CI/CD deploy workflow that calls the Promptless [API trigger](/docs/for-docs/connect/triggers/api) after the deploy succeeds. The call names the environment and the commit SHA or tag you deployed. This page shows a GitHub Actions workflow. Any CI system that can send an HTTP request works the same way.
+
+<Aside type="tip">
+  Do you mark each release with a Git tag? A [GitHub tags trigger](/docs/for-docs/connect/triggers/github-tags) then starts a review on each matching tag push, with no CI changes. That trigger responds to tag pushes, not to GitHub Deployments or Environments. To act on a finished deploy, use the API call on this page.
+</Aside>
+
+## Set up the deploy notification
+
+Set this up once per repository whose deploys you want documented. You need:
+
+- Organization admin access in Promptless, to create an API key.
+- Permission to add Actions secrets and edit workflows in the GitHub repository.
+
+<Steps>
+  1. In the Promptless dashboard, go to [**Settings > API Access**](https://app.gopromptless.ai/settings/api).
+
+  2. Create an API key with a name that says what it's for, such as `github-actions-deploys`. Copy the secret when it appears. Promptless shows it only once.
+
+  3. In your GitHub repository, go to **Settings > Secrets and variables > Actions** and select **New repository secret**.
+
+  4. Name the secret `PROMPTLESS_API_KEY`, paste the API key as its value, and save it.
+
+  5. In your deploy workflow, add a step after the deploy step that calls `POST https://api.gopromptless.ai/v1/triggers`. Use the [example workflow](#example-workflow) as a starting point.
+</Steps>
+
+After the next successful deploy, the request appears in your Promptless dashboard as an **API Task**. Promptless takes several minutes to review the deploy and open any suggestions.
+
+## Example workflow
+
+This workflow deploys to the environment you choose when you run it, then tells Promptless what it deployed. It assumes your repository deploys with a `./scripts/deploy.sh` script. Replace that step with your own deploy command.
+
+```yaml
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [staging, production]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        run: ./scripts/deploy.sh "${{ inputs.environment }}"
+
+      - name: Tell Promptless what was deployed
+        env:
+          PROMPTLESS_API_KEY: ${{ secrets.PROMPTLESS_API_KEY }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          DEPLOY_REF: ${{ github.ref_name }}
+        run: |
+          payload=$(jq -n \
+            --arg instructions "Deployed ${GITHUB_REPOSITORY} at ${GITHUB_SHA} (${DEPLOY_REF}) to ${DEPLOY_ENVIRONMENT}. Review the commits shipped since the previous ${DEPLOY_ENVIRONMENT} deploy and update the docs for those changes." \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg sha "$GITHUB_SHA" \
+            --arg ref "$DEPLOY_REF" \
+            --arg environment "$DEPLOY_ENVIRONMENT" \
+            --arg run_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            '{instructions: $instructions, context: {repo: $repo, sha: $sha, ref: $ref, environment: $environment, run_url: $run_url}}')
+
+          curl --fail-with-body --silent --show-error \
+            -X POST https://api.gopromptless.ai/v1/triggers \
+            -H "Authorization: Bearer ${PROMPTLESS_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Idempotency-Key: deploy-${GITHUB_RUN_ID}" \
+            -d "$payload"
+```
+
+GitHub Actions runs a step only after the steps before it succeed, so a failed deploy sends nothing to Promptless.
+
+### How the notification step works
+
+- `PROMPTLESS_API_KEY` comes from the `secrets.PROMPTLESS_API_KEY` repository secret. Keep the key in the secret, out of the workflow file and the repository.
+- `instructions` is the only required field. It tells Promptless what shipped and where. `context` carries structured details, such as the repository, SHA, and environment, that Promptless reads along with the instructions.
+- `jq` builds the JSON body, so quotes or special characters in a value can't break the request. GitHub-hosted Ubuntu runners include `jq`.
+- The `Idempotency-Key` header reuses the workflow run ID. When the step is retried, Promptless returns the original task and starts no second one for the same deploy. See [Idempotent submissions](/docs/for-docs/connect/triggers/api#idempotent-submissions).
+- `--fail-with-body` fails the step when the API returns an error status and prints the error body in the job log.
+
+A successful request returns `202 Accepted` with a `trigger_event_id`:
+
+```json
+{
+  "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "deduplicated": false
+}
+```
+
+To follow the task from your pipeline, poll [`GET /v1/triggers/{trigger_event_id}`](/docs/for-docs/connect/triggers/api#read-task-status).
+
+### Review exactly the commits you deployed
+
+Promptless works from the instructions and context you send. When your pipeline knows which commit the environment ran before this deploy, add it to `context`, for example as `previous_sha`, and name both commits in `instructions`. Promptless then reviews exactly the range that shipped.
+
+## Choose which deploys to send
+
+To deploy a tag, run the workflow from that tag. `github.ref_name` then holds the tag name, such as `v1.4.0`, and the request names that tag.
+
+Many teams send only production deploys, so docs track what customers can use. Others send staging deploys too, so docs are ready before the release reaches production. To send only production deploys, add an `if` condition to the notification step:
+
+```yaml
+      - name: Tell Promptless what was deployed
+        if: inputs.environment == 'production'
+        env:
+          PROMPTLESS_API_KEY: ${{ secrets.PROMPTLESS_API_KEY }}
+          # ...the rest of the step is unchanged
+```
+
+<Aside type="note">
+  The [API reference](/docs/for-docs/api/operations/submitapitriggerv1/) lists the full request and response schemas. [API triggers](/docs/for-docs/connect/triggers/api) covers every error status.
+</Aside>
