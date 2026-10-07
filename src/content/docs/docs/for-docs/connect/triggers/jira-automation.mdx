@@ -1,0 +1,124 @@
+---
+title: Trigger Promptless from Jira Automation
+description: Build a Jira Automation flow that sends a web request to Promptless, so a Jira event you choose starts a documentation update and Promptless replies on the ticket.
+slug: docs/for-docs/connect/triggers/jira-automation
+type: guide
+tags:
+  - connect
+  - triggers
+  - guide
+timestamp: "2026-10-07T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 13.6
+  label: Jira Automation
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+A Jira Automation flow (Jira's name for an automation rule) can start a Promptless session with a **Send web request** action. Jira decides when the flow runs, using whichever trigger and conditions you choose. Promptless then handles the ticket as it does for the [built-in Jira paths](/docs/for-docs/connect/triggers/jira). It posts a 👀 comment to confirm receipt, works from the ticket, and replies with the documentation PR linked.
+
+This path doesn't need an [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account). For example, a flow can start Promptless when a ticket is assigned to a particular person. The built-in assignment path needs a service account for that.
+
+## Before you start
+
+You need:
+
+- Permission to manage automation in the Jira space, or Jira admin access.
+- A connected [Atlassian workspace](/docs/for-docs/reference/integrations/atlassian). The connecting user needs permission to browse the tickets the flow sends.
+- A Promptless API key for the flow. An organization admin creates one in [**Settings > API Access**](https://app.gopromptless.ai/settings/api); name it `Jira Automation` so you can tell it apart. See [Create an API key](/docs/for-docs/connect/triggers/api#create-an-api-key).
+
+Promptless comments on the ticket as the attached Atlassian service account. Without one, it comments as the connecting user, so the 👀 comment and the reply appear under that person's name. Whichever account comments needs the **Add comments** permission in the space.
+
+## Build the flow
+
+This flow starts Promptless when a ticket in the space is assigned to a docs owner.
+
+<Steps>
+  1. In Jira, open the space's **Space settings > Automation**.
+
+  2. Select **Create flow > Create from scratch**.
+
+  3. Add the **Work item assigned** trigger.
+
+  4. Add a **User condition**. Set **User** to **Assignee**, **Check to perform** to **is**, and **Criteria** to the docs owner.
+
+  5. Add a **Send web request** action. Set **Web request URL** to `https://api.gopromptless.ai/v1/jira-automation/edges` and **HTTP method** to **POST**.
+
+  6. Set **Web request body** to **Custom data**, and enter the request body from [Request body](#request-body).
+
+  7. Under **Headers**, add the key `Authorization` with the value `Bearer sk-pl-your-api-key`, and select **Hidden**.
+
+  8. Recommended. Select **Delay execution of subsequent flow actions until we've received a response for this web request**. The flow's audit log then records the response from Promptless.
+
+  9. Select **Save and enable**.
+</Steps>
+
+<img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/jira-automation-send-web-request-9de4958e.png" alt="The Send web request action with the Web request URL set to https://api.gopromptless.ai/v1/jira-automation/edges, the HTTP method set to POST, the Web request body set to Custom data, and the custom data JSON containing issue_key, edge_id, and rule_name" />
+
+Leave the flow's **Allow flow trigger** setting off, so other automation flows can't start this one. Jira hides the API key after you save, so enter the key again if you copy or import the flow.
+
+## Request body
+
+```json
+{
+  "issue_key": "{{issue.key}}",
+  "edge_id": "{{issue.key}}:{{now}}",
+  "rule_name": "Promptless documentation trigger",
+  "instructions": "Scope the documentation impact."
+}
+```
+
+Jira [smart values](https://support.atlassian.com/cloud-automation/docs/jira-smart-values-issues/) such as `{{issue.key}}` resolve each time the flow runs. Promptless reads the current ticket from your connected Jira site, so the body only needs to identify it.
+
+| Field | Required | What to send |
+| ----- | -------- | ------------ |
+| `issue_key` | Yes | The ticket to work on. `{{issue.key}}` sends the ticket that ran the flow. |
+| `edge_id` | Yes | An identifier for this run of the flow. `{{issue.key}}:{{now}}` differs on every run. When Jira retries the same request, Promptless recognizes the repeat and starts no second session. |
+| `rule_name` | Yes | A name for the flow. Use a different name in each flow; Promptless treats a repeated `rule_name` and `edge_id` pair as a retry. |
+| `instructions` | No | Standing instructions for every run of this flow, up to 4,000 characters. Omit it when the ticket itself says what to do. |
+| `comment_author_account_id` | No | For flows that use the **Work item commented** trigger, send `{{comment.author.accountId}}`. Promptless ignores comments it wrote itself, so its replies don't start the flow again. |
+
+`issue_key`, `edge_id`, and `rule_name` each take up to 255 characters. Promptless rejects any other field with a `422` response.
+
+## Confirm it works
+
+To test the action before you save, expand **Validate your web request configuration**, enter a ticket key, and select **Validate**. This sends a real request: Promptless starts a session on that ticket and comments on it.
+
+A request that starts a session returns `202 Accepted`:
+
+```json
+{
+  "trigger_event_id": "3f9a2c4e-8b1d-4e6f-9a7c-2d5e8f1b3a6c",
+  "deduplicated": false
+}
+```
+
+The 👀 comment then appears on the ticket. The session also appears on the Promptless [Triggers page](https://app.gopromptless.ai/triggers) as **Jira Automation trigger on** followed by the ticket key. Two other `202` responses start no session:
+
+- `{"deduplicated": true}`: Promptless already received this `rule_name` and `edge_id` pair.
+- `{"ignored": true}`: The comment that ran the flow was written by Promptless.
+
+Promptless routes these sessions under the built-in `jira_mention` trigger key, so a [policy rule](/docs/for-docs/reference/configuration-reference#policies) that targets `jira_mention` applies to them too.
+
+## Fix a failed request
+
+Open the flow's **Audit log** to see the status Promptless returned.
+
+| Status | Error | Fix |
+| ------ | ----- | --- |
+| 401 | `authentication_failed` | The API key is missing, invalid, or revoked. Check that the `Authorization` header reads `Bearer` followed by an active key. |
+| 409 | `jira_not_connected` | Your organization has no connected Atlassian workspace. [Connect Atlassian](/docs/for-docs/reference/integrations/atlassian), then run the flow again. |
+| 409 | `jira_credentials_unavailable` | Promptless has no working credential for your Jira site. Reconnect Atlassian. |
+| 409 | `jira_identity_unavailable` | A comment-triggered flow sent `comment_author_account_id`, but Promptless can't identify its own Jira account. Reconnect Atlassian. |
+| 409 | `org_not_configured` | Your organization hasn't finished setting up Promptless. |
+| 422 | Validation error | The body is missing a required field, has an empty or too-long value, or includes a field not listed in [Request body](#request-body). |
+| 500 | `enqueue_failed` | Promptless couldn't queue the session. Run the flow again. |
+| 502 | `jira_request_failed` | Promptless couldn't read the ticket from Jira. Check that `issue_key` names an existing ticket and that the connecting user can browse it. |
+| 503 | `runtime_store_unavailable` | Promptless is temporarily unavailable. Run the flow again. |
+
+## See also
+
+- [Jira triggers](/docs/for-docs/connect/triggers/jira)
+- [API triggers](/docs/for-docs/connect/triggers/api)
+- [Atlassian integration](/docs/for-docs/reference/integrations/atlassian)
