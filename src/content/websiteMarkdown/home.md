@@ -43,10 +43,6 @@ Promptless suggests doc updates when your product changes. You review, edit, and
 
 Customer logos on the page: Megaport, Mezmo, Vitess, Helm, Aptible, Runpod, Flatfile, Latitude, Mautic, Vellum, Coactive, Rain, Miter, and Basis.
 
-### Watch the demo
-
-[Promptless demo](https://www.youtube.com/watch?v=AONpRsZJkTY) on YouTube: Promptless turns a product change into a documentation pull request with citations, then hands it to a technical writer for review.
-
 ### See Promptless-drafted docs shipping in Vitess and Helm
 
 Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and suggests changes; their docs maintainers review, revise, and ship them. Every commit is public.
