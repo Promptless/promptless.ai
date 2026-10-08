@@ -3,14 +3,14 @@ import { groupRoutes, llmsIndexResponse, routeLink, visibleRoutes, type LlmsSect
 import type { RouteManifestEntry } from '@lib/route-manifest';
 
 // Nested llms.txt index of every documentation page, grouped by sidebar
-// section in nav order. The marketing-images and media-kit pages are site
-// assets, not product documentation, so they stay out.
+// section in nav order. The marketing-images, media-kit, and referral-program
+// pages are site assets, not product documentation, so they stay out.
 
 export const prerender = true;
 
 const NOTE = 'The site index is at https://promptless.ai/llms.txt. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
 
-const NON_PRODUCT_DOCS = ['/docs/marketing-images', '/docs/media-kit'];
+const NON_PRODUCT_DOCS = ['/docs/marketing-images', '/docs/media-kit', '/docs/referral-program'];
 
 const AGENT_INSTRUCTIONS_PREFIX = '/docs/governance';
 
