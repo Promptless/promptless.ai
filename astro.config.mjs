@@ -72,8 +72,9 @@ const redirects = {
   '/oss': '/docs/for-docs/start-here/open-source-quickstart',
   '/media-kit': '/docs/media-kit',
   '/brand': '/docs/media-kit',
-  '/referrals': '/docs/referral-program',
-  '/referral-program': '/docs/referral-program',
+  '/referrals': '/docs/for-docs/referral-program',
+  '/referral-program': '/docs/for-docs/referral-program',
+  '/docs/referral-program': '/docs/for-docs/referral-program',
   '/blog/all': '/blog',
   '/changelog/all': '/changelog',
   ...Object.fromEntries(redirectEntries),
@@ -336,8 +337,11 @@ export default defineConfig({
           {
             // Generated OpenAPI pages and hidden self-hosting pages belong to
             // Promptless for Docs even though autogenerate cannot discover them.
+            // The referral program page stays out of the nav (sidebar.hidden)
+            // but renders with the Promptless for Docs sidebar.
             topics: {
               for_docs: [
+                '/docs/for-docs/referral-program',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
@@ -362,7 +366,6 @@ export default defineConfig({
               '/docs/internal/**/*',
               '/docs/marketing-images',
               '/docs/media-kit',
-              '/docs/referral-program',
               '/use-cases',
               '/use-cases/**/*',
               '/blog',

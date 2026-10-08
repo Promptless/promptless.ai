@@ -10,7 +10,7 @@ export const prerender = true;
 
 const NOTE = 'The site index is at https://promptless.ai/llms.txt. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
 
-const NON_PRODUCT_DOCS = ['/docs/marketing-images', '/docs/media-kit', '/docs/referral-program'];
+const NON_PRODUCT_DOCS = ['/docs/marketing-images', '/docs/media-kit', '/docs/for-docs/referral-program'];
 
 const AGENT_INSTRUCTIONS_PREFIX = '/docs/governance';
 
