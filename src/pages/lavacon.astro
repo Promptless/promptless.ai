@@ -10,7 +10,7 @@
 // Booth meetings book through the Cal.com team event BOOTH_CAL_LINK: 15-minute
 // slots at Booth 10 with Prithvi and Manny as hosts, on a Charlotte-time
 // schedule that only opens October 26–28. The hero form collects name, email,
-// company, topic, and the Manny audit opt-in, then opens the Cal.com booking
+// company, and the Manny audit opt-in, then opens the Cal.com booking
 // popup with them prefilled; the field names match the event's booking
 // question slugs. The popup carries the campaign and PostHog ids as booking
 // metadata, so the Cal.com webhook can attribute `demo_booked` to this page,
@@ -26,7 +26,6 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Gift,
@@ -243,16 +242,6 @@ const loopedImpact = [
   { item: impact[0], index: 0, clone: true },
 ];
 
-// Must match the options of the `topic` booking question on the Cal.com event
-// exactly, or the prefilled value is dropped.
-const topics = [
-  'Keeping customer-facing docs current',
-  'Agent instructions (AGENTS.md, Skills)',
-  'Getting docs ready for AI assistants',
-  'Starting a pilot (three months free)',
-  'Something else',
-];
-
 const initials = (name: string) =>
   name
     .split(/\s+/)
@@ -310,14 +299,6 @@ const initials = (name: string) =>
               <input id="book-email" name="email" type="email" placeholder="Email Address*" autocomplete="email" required />
               <label class="sr-only" for="book-company">Company</label>
               <input id="book-company" name="company" placeholder="Company*" autocomplete="organization" required />
-              <div class="lc-select">
-                <label class="sr-only" for="book-topic">What would you like to discuss</label>
-                <select id="book-topic" name="topic">
-                  <option value="" disabled selected>What would you like to discuss</option>
-                  {topics.map((t) => <option value={t}>{t}</option>)}
-                </select>
-                <ChevronDown size={18} aria-hidden="true" />
-              </div>
               <label class="lc-check lc-check-feature">
                 <input type="checkbox" name="docs-audit" value="true" />
                 <span>
@@ -609,111 +590,6 @@ const initials = (name: string) =>
 
     <script is:inline define:vars={{ CAMPAIGN, BOOTH_CAL_LINK, FORM_ENDPOINT }}>
       (() => {
-        // Custom dropdowns: build a button + listbox from each select and keep
-        // the select's value in sync so the form submits it as usual.
-        document.querySelectorAll('.lc-select').forEach((wrap, n) => {
-          const select = wrap.querySelector('select');
-          if (!select) return;
-          const listId = 'lc-dd-' + n;
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'lc-dd-button';
-          button.setAttribute('aria-haspopup', 'listbox');
-          button.setAttribute('aria-expanded', 'false');
-          button.setAttribute('aria-controls', listId);
-          const label = document.createElement('span');
-          button.append(label);
-          const chevron = wrap.querySelector(':scope > svg');
-          if (chevron) button.append(chevron.cloneNode(true));
-
-          const list = document.createElement('ul');
-          list.id = listId;
-          list.className = 'lc-dd-list';
-          list.setAttribute('role', 'listbox');
-          const labelText = (wrap.querySelector('label')?.textContent || '').trim();
-          list.setAttribute('aria-label', labelText);
-          list.hidden = true;
-          const items = Array.from(select.options).map((opt, i) => {
-            const li = document.createElement('li');
-            li.id = listId + '-' + i;
-            li.setAttribute('role', 'option');
-            li.textContent = opt.textContent;
-            if (opt.disabled) li.setAttribute('aria-disabled', 'true');
-            list.append(li);
-            return li;
-          });
-
-          let active = -1;
-          const sync = () => {
-            const opt = select.options[select.selectedIndex];
-            label.textContent = opt ? opt.textContent : '';
-            button.dataset.empty = !select.value ? 'true' : 'false';
-            button.setAttribute('aria-label', select.value ? labelText + ': ' + label.textContent : labelText);
-            items.forEach((li, i) => li.setAttribute('aria-selected', i === select.selectedIndex && select.value ? 'true' : 'false'));
-          };
-          const setActive = (i) => {
-            active = i;
-            items.forEach((li, j) => li.classList.toggle('is-active', j === i));
-            if (items[i]) {
-              button.setAttribute('aria-activedescendant', items[i].id);
-              items[i].scrollIntoView({ block: 'nearest' });
-            }
-          };
-          const open = () => {
-            list.hidden = false;
-            button.setAttribute('aria-expanded', 'true');
-            setActive(select.value ? select.selectedIndex : items.findIndex((li) => !li.hasAttribute('aria-disabled')));
-          };
-          const close = () => {
-            list.hidden = true;
-            button.setAttribute('aria-expanded', 'false');
-          };
-          const choose = (i) => {
-            if (!items[i] || items[i].hasAttribute('aria-disabled')) return;
-            select.selectedIndex = i;
-            select.dispatchEvent(new Event('change', { bubbles: true }));
-            sync();
-            close();
-            button.focus();
-          };
-          const step = (dir) => {
-            let i = active;
-            do { i += dir; } while (items[i] && items[i].hasAttribute('aria-disabled'));
-            if (items[i]) setActive(i);
-          };
-
-          button.addEventListener('click', () => (list.hidden ? open() : close()));
-          button.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-              e.preventDefault();
-              if (list.hidden) open();
-              else step(e.key === 'ArrowDown' ? 1 : -1);
-            } else if ((e.key === 'Enter' || e.key === ' ') && !list.hidden) {
-              e.preventDefault();
-              choose(active);
-            } else if (e.key === 'Escape' || e.key === 'Tab') {
-              close();
-            }
-          });
-          list.addEventListener('mousemove', (e) => {
-            const i = items.indexOf(e.target.closest('li'));
-            if (i >= 0 && i !== active) setActive(i);
-          });
-          list.addEventListener('click', (e) => choose(items.indexOf(e.target.closest('li'))));
-          document.addEventListener('click', (e) => {
-            if (!wrap.contains(e.target)) close();
-          });
-          // Native validation focuses the hidden select; hand focus to the button.
-          select.tabIndex = -1;
-          select.addEventListener('focus', () => button.focus());
-          select.addEventListener('invalid', () => { button.style.borderColor = 'var(--lc-orange)'; });
-          select.addEventListener('change', () => { button.style.borderColor = ''; });
-
-          wrap.append(button, list);
-          wrap.classList.add('is-enhanced');
-          sync();
-        });
-
         // Booth booking: the form collects the details, then opens the Cal.com
         // booking popup with them prefilled (the field names match the
         // booking question slugs on the Cal.com event), so the visitor only
@@ -978,8 +854,7 @@ const initials = (name: string) =>
       .lc-page .lc-form { display: flex; flex-direction: column; gap: 0.5rem; }
       .lc-page .lc-form-title { margin: 0; font-size: 1.55rem; font-weight: 500; letter-spacing: -0.01em; }
       .lc-page .lc-form-sub { margin: 0.25rem 0 2.5rem; font-size: 0.95rem; line-height: 1.25; }
-      .lc-page .lc-form input:not([type='checkbox']),
-      .lc-page .lc-form select {
+      .lc-page .lc-form input:not([type='checkbox']) {
         width: 100%;
         min-height: 48px;
         padding: 0.75rem 1rem;
@@ -993,69 +868,7 @@ const initials = (name: string) =>
         appearance: none;
       }
       .lc-page .lc-form ::placeholder { color: #9a9aa3; }
-      .lc-page .lc-form input:focus, .lc-page .lc-form select:focus { border-color: var(--lc-blue); background: #fff; }
-      .lc-page .lc-select { position: relative; }
-      .lc-page .lc-select select { background: #fff; border-color: var(--lc-line); color: var(--lc-ink); }
-      .lc-page .lc-select select:invalid, .lc-page .lc-select select:has(option[value='']:checked) { color: #9a9aa3; }
-      .lc-page .lc-select > svg { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); color: #9a9aa3; pointer-events: none; }
-
-      /* Custom dropdown (enhances the native select; the select stays in the
-         form, invisible, for submission and required-field validation). */
-      .lc-page .lc-select.is-enhanced select {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        pointer-events: none;
-      }
-      .lc-page .lc-select.is-enhanced > svg { display: none; }
-      .lc-page .lc-dd-button {
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        min-height: 48px;
-        padding: 0.75rem 1rem;
-        font: inherit;
-        font-size: 0.95rem;
-        text-align: left;
-        color: var(--lc-ink);
-        background: #fff;
-        border: 1px solid var(--lc-line);
-        border-radius: 8px;
-        cursor: pointer;
-      }
-      .lc-page .lc-dd-button[data-empty='true'] { color: #9a9aa3; }
-      .lc-page .lc-dd-button svg { flex: none; color: #9a9aa3; transition: transform 0.15s ease; }
-      .lc-page .lc-dd-button[aria-expanded='true'] { border-color: var(--lc-ink); background: var(--lc-field); }
-      .lc-page .lc-dd-button[aria-expanded='true'] svg { transform: rotate(180deg); }
-      .lc-page .lc-dd-button:focus-visible { outline: 2px solid var(--lc-blue); outline-offset: 2px; }
-      .lc-page .lc-dd-list {
-        position: absolute;
-        z-index: 20;
-        top: calc(100% + 6px);
-        left: 0;
-        right: 0;
-        max-height: min(640px, 75vh);
-        overflow-y: auto;
-        margin: 0;
-        padding: 0.35rem 0;
-        list-style: none;
-        background: #fff;
-        border: 1px solid var(--lc-line);
-        border-radius: 10px;
-        box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
-      }
-      .lc-page .lc-dd-list[hidden] { display: none; }
-      .lc-page .lc-dd-list li {
-        padding: 0.7rem 1rem;
-        font-size: 0.95rem;
-        color: var(--lc-ink);
-        cursor: pointer;
-      }
-      .lc-page .lc-dd-list li[aria-disabled='true'] { color: #9a9aa3; cursor: default; }
-      .lc-page .lc-dd-list li.is-active:not([aria-disabled='true']) { background: var(--lc-tint); }
-      .lc-page .lc-dd-list li[aria-selected='true'] { font-weight: 600; }
+      .lc-page .lc-form input:focus { border-color: var(--lc-blue); background: #fff; }
       .lc-page .lc-check { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.85rem; color: var(--lc-text); }
       .lc-page .lc-check input { margin: 0.2rem 0 0; width: 16px; height: 16px; flex: none; accent-color: var(--lc-navy); }
       .lc-page .lc-check-feature { margin: 2.5rem 0 3rem; }
