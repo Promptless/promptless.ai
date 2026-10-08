@@ -46,6 +46,7 @@ const redirects = {
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
   '/lavacon/book': '/lavacon#book',
+  '/campaign/lavacon-2026': '/lavacon',
   // The DoGBench field guide's QR codes encode these short links, so the codes stay small enough to scan in print.
   // The book prints each full destination beside its code.
   '/dogbench/code': 'https://github.com/Promptless/dogbench',
