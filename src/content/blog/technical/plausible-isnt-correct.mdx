@@ -1,0 +1,97 @@
+---
+title: "Plausible isn't correct: the task-completion gap in AI-written docs"
+subtitle: Published October 2026
+description: >-
+  In our audit of 1,267 DoGBench submissions, 45.5% had a task-completion
+  gap and 6.1% contained fabricated content. Here's why agents
+  miss the reader's task and how documentation owners can review for it.
+author: Manny
+date: '2026-10-14T00:00:00.000Z'
+tag: Technical
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+AI agents can write polished documentation, but they often miss what readers need to complete a task. Take a patch that GPT-5.5 with Codex wrote for Strawberry GraphQL. It correctly documented how to select an older Apollo Federation version. It didn't say why a reader would want to, which is to upgrade Strawberry while staying compatible with an older Apollo Router or Gateway. It documented the setting and omitted the decision the setting exists to support.
+
+That patch comes from DoGBench (Documentation Generation Benchmark), which we introduced in the [DoGBench launch post](/blog/technical/dogbench). DoGBench asks whether agents can produce user-facing documentation that an experienced technical writer would accept in review. If you decide whether an agent's patch ships, this kind of gap is what to review for.
+
+## Polished writing can still leave readers unable to finish a task
+
+The most common failure mode in our audit of 1,267 submissions was a task-completion gap. In 45.5% of submissions, the patch omitted a decision point, procedure, verification step, or recovery path the reader needed. Fabricated content, such as invented classes, flags, or endpoints, showed up in 6.1% of submissions.
+
+Technical inaccuracies appeared in 36.6% of submissions. These misstate a real interface's scope, default, lifecycle, or compatibility, so they read like correct documentation. The audit also labeled other failure modes that leave the reader without part of the task:
+
+- Missing prerequisites, such as permissions, credentials, or versions, in 21.0% of submissions.
+- Missing audience and purpose framing, which says who the content is for and when to use it, in 19.9%.
+- Information-architecture or findability failures, where content sits outside the reader's likely path, in 20.7%.
+- Cross-page content inconsistency, where one page changed and another page on the same behavior went stale, in 13.3%.
+
+One patch can carry several failure modes, so these rates overlap.
+
+## All seven agents left a critical defect on one Azure item
+
+Every one of the seven agents in the paper left at least one critical defect on the Azure Service Operator (ASO) item. An item is one real docs task, and you can [inspect this item and every patch](https://dogbench.ai/#item=Azure-azure-service-operator-pr5490&tab=rubrics) on dogbench.ai. The rubric scores each patch against criteria, and a failed P0 criterion is a critical defect.
+
+The trigger was a code pull request that added a CEL helper function for parsing Azure resource IDs. Its linked GitHub issue described the workflow readers wanted:
+
+1. Create a managed identity (`UserAssignedIdentity`) with ASO.
+2. Export the identity's details to a Kubernetes Secret.
+3. Point a resource's `serviceoperator.azure.com/credential-from` annotation at that Secret.
+4. Let ASO authenticate as the identity it created.
+
+Six of the seven agents didn't document that workflow end to end on the pages readers follow. Most documented only the CEL helper function or a Secret-expression snippet. GPT-5.5 with Codex said the Secret "can be used" with the annotation and stopped there.
+
+All seven agents failed the purpose criterion, which asks when the workflow applies. All seven also failed the prerequisites criterion. It requires the management credential's permissions and the workload-identity trust relationship.
+
+All seven failed the namespace criterion, a P0. ASO writes the exported Secret only in the managed resource's namespace, so cross-namespace use needs external copying or mirroring.
+
+Kimi K2.7 Code with OpenCode came closest. It documented the workflow end to end, and its CEL and YAML used the exact syntax. Its example put both resources in one namespace and never stated the namespace limitation. Fluent prose makes these easy to miss, because the patch reads well and most of it is true.
+
+## Agents stop investigating before they know enough
+
+Agent patches miss the reader's task because the investigation behind them ends early. A trajectory is the record of an agent's work on an item. We inspected the trajectory behind each submission in our audit of 1,267 submissions. Three root causes were most common:
+
+- The agent explained an interface without checking how readers use it, in 36.0%, or 456 submissions.
+- The agent missed decisive evidence and filled the gap with a plausible assumption, in 33.1%, or 420 submissions.
+- The agent stopped at the first plausible page and left other affected pages stale, in 30.1%, or 382 submissions.
+
+Agents treat a change as one piece of information to convey, rather than one step in a journey that needs prerequisites, decisions, verification and recovery. The Azure trigger shows this pattern. The code change added a helper function, and the reader's task lived in the linked issue.
+
+The common thread is premature closure. Agents switch from investigating to drafting too soon, because they have no reliable rule for when they know enough.
+
+It isn't about effort. We found no clear relationship between root cause and trajectory length, whether measured in turns or tokens. Effort also didn't rise with item difficulty. An agent can stop investigating early and then spend many tokens elaborating an incomplete account.
+
+Some of these failures may instead reflect missing context about how readers use the software. Documentation owners bring context that a code change alone may not reveal.
+
+## Walk through the reader's whole task
+
+Agents don't understand that a change is part of a larger workflow. Before you approve a patch, follow the reader from the reason they arrived to the point where they recover from a failure. Ask these questions in order:
+
+1. Does this change need user-facing documentation at all?
+2. Who is this for, and when would they use it?
+3. What has to be true first, such as permissions, credentials, or versions?
+4. Can the reader get from the first step to the last?
+5. How does the reader know it worked?
+6. What does the reader do when it doesn't work?
+7. Does each claim hold everywhere the text implies, including defaults, versions, and namespaces?
+8. Can readers reach this page, and does another page about the same behavior need to change?
+
+If the procedure is runnable, run it yourself or test it with [Doc Detective](https://doc-detective.com). A patch that passes every question can still have a wrong command, and running it catches that.
+
+Apply the questions to the Azure item, and the gaps show up early. Question 3 catches the missing permissions. Question 7 catches the namespace limitation that every patch from the seven agents left out.
+
+## The Promptless patch for the Azure item also had a critical defect
+
+Two of the paper's authors work at Promptless, which builds documentation agents. The paper's ranking covers only the seven agents in the paper. Promptless runs as a cloud agent, so its result here is supplemental.
+
+On the Azure item, the Promptless patch documented the workflow end to end and explained when it applies. Its example exported the required Secret keys with the exact syntax. It omitted the management credential's permissions, so it failed the prerequisites criterion.
+
+It also failed the namespace criterion. The patch named the export location but left out the cross-namespace limitation and the mirroring step. That failure is a critical defect. The Promptless patch and its rubric verdicts are on the same item page as the other patches.
+
+## The readout gives documentation owners these findings in 11 slides
+
+Open the [11-slide readout for documentation owners](https://dogbench.ai/slides) to share these failure modes and review habits with your team or leadership. The full failure-mode table and trajectory analysis are in the [paper's failure analysis](https://dogbench.ai/paper#agent-patches-often-lack-a-model-of-the-readers-task). The paper, data, and example items are at [dogbench.ai](https://dogbench.ai).
+
+<BlogNewsletterCTA />
