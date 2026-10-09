@@ -29,7 +29,24 @@ release:
 
 Stable releases include a compatible transition for the installed version, Promptless, and customer data. The supervisor follows any required intermediate migrations instead of jumping directly to an incompatible version. The stable channel is a release policy, not permission to erase data or modify shared infrastructure.
 
-Your team continues to maintain shared clusters, networking, ingress controllers, externally managed secrets, and backup policies. New access requirements or a failed preflight produce a blocked update with a specific action. Once that blocker is resolved, the supervisor resumes the stable-release transition without a separate approval for each release.
+Your team continues to maintain shared clusters, networking, ingress controllers, the bootstrap release's collector Ingress, externally managed secrets, and backup policies. New access requirements or a failed preflight produce a blocked update with a specific action. Once that blocker is resolved, the supervisor resumes the stable-release transition without a separate approval for each release.
+
+## Upgrade an existing installation to 0.3.4
+
+PIG 0.3.4 moves the collector Ingress from `PIGDeployment.spec.endpoint` to the bootstrap chart's [`ingress` values](/docs/governance/deploy-the-worker/configuration-reference#bootstrap-chart-values). It also replaces the supervisor's runtime and removes its Ingress permissions. The analyzer is unchanged from 0.3.3: schema revision 4 and PostgreSQL 15–18. Installations bootstrapped with an earlier chart need a one-time operator handoff.
+
+The supervisor cannot apply this change to the shared custom resource definition (CRD) on its own. An installation following the stable channel reports `Blocked=True` with reason `CRDUpgradeUnsupported` until an operator completes the handoff. The handoff keeps the same Ingress object, so its hostname, certificate, and load balancer address stay in place.
+
+Run the handoff from a checkout of the [`v0.3.4` release](https://github.com/Promptless/pig-deploy/releases/tag/v0.3.4) with an explicit Kubernetes context. Follow its [`UPGRADING.md`](https://github.com/Promptless/pig-deploy/blob/v0.3.4/UPGRADING.md) for the exact commands. In outline:
+
+1. Back up the CRD, every `PIGDeployment`, the existing Ingress, and the bootstrap Helm values. Record the supervisor's running image digest and release catalog.
+2. Wait for `status.phase: complete` with no maintenance Job running. Suspend GitOps reconciliation of the bootstrap release and `PIGDeployment`, then scale every supervisor that shares the CRD to zero.
+3. Remove the whole `spec.endpoint` block from each `PIGDeployment` manifest. Copy its hostname, class, TLS Secret, and annotations into the bootstrap values as `ingress.hostname`, `ingress.ingressClassName`, `ingress.tlsSecretName`, and `ingress.annotations`, and set `ingress.serviceName` to the existing Ingress name, such as `acme-analyzer`. Set the 0.3.4 supervisor image digest. Render the chart and confirm the Ingress matches the saved object.
+4. Apply the 0.3.4 CRD with server-side apply, then apply the updated `PIGDeployment`. Never delete or recreate the CRD or the `PIGDeployment`.
+5. Generate the ownership patch with the release's `scripts/ingress-handoff.py` and apply it to the existing Ingress. The patch transfers the Ingress from the `PIGDeployment` to Helm without changing its spec.
+6. Run `helm upgrade` for the bootstrap release with the prepared values. Confirm the Ingress UID, hostname, certificate, and load balancer address match the backup. Then confirm HTTPS health and that the deployment returns to `Ready=True`, and resume GitOps reconciliation.
+
+Removing the endpoint settings changes the analyzer's configuration once, so the supervisor revalidates it after the upgrade. Do not delete the Ingress or run `helm upgrade --force`, which can replace it. If the handoff stops before the Helm upgrade succeeds, keep the old supervisor stopped and repair forward from the saved objects. Do not restart the old supervisor against the updated CRD.
 
 ## Keep cloud infrastructure in Terraform
 
@@ -168,11 +185,13 @@ After recovery, repeat the [first-trace verification](/docs/governance/deploy-th
 
 ### The cluster or supervisor is lost
 
-Restore the bootstrap configuration and original `PIGDeployment` specification into the recovery cluster. Re-establish analyzer workload identity bindings and Secret delivery. Reconnect the same PostgreSQL database and trace objects using the same deployment identity. Restore network paths and certificates before allowing hosts to upload again.
+Restore the bootstrap configuration, including its `ingress` values, and original `PIGDeployment` specification into the recovery cluster. Re-establish analyzer workload identity bindings and Secret delivery. Reconnect the same PostgreSQL database and trace objects using the same deployment identity. Restore network paths and certificates before allowing hosts to upload again.
 
 Repeat the bootstrap ownership handoff before creating the restored `PIGDeployment`: for Flux, install the reviewed recovery bootstrap, then suspend its Helm release. The recovered supervisor checks storage access and application compatibility before resuming. Restore or replace cloud infrastructure through Terraform.
 
 If restoring storage from backups, use a coordinated recovery point for PostgreSQL and object storage. Preserve source watermarks and object references together. Do not run two active deployments against the same database during cutover. Confirm the supported recovery release with Promptless before allowing the supervisor to resume migrations.
+
+After an offline restore that leaves canonical trace objects behind the database, requeue them with the [`rebuild-canonical-objects` maintenance command](/docs/governance/deploy-the-worker/manual-helm#inspect-and-repair-worker-storage). Run it while the analyzer is stopped, after the immutable raw and context objects are in place. The analyzer then rewrites each canonical object in the background.
 
 ## Monitor ongoing operation
 
@@ -184,6 +203,6 @@ Keep the deployment ID, current/target release, update history, and support cont
 
 Disable host enrollment and collection for the deployment in coordination with Promptless, and allow accepted work to finish or record what remains queued. Pause updates, then remove the `PIGDeployment` through its owning GitOps repository or Kubernetes workflow.
 
-Removing the deployment cleans up its generated application resources. It retains PostgreSQL, trace objects, external Secrets, and backups. Remove the supervisor only after it has finished cleanup. Revoke unused application credentials and remove endpoint routing separately.
+Removing the deployment cleans up its generated application resources. It retains PostgreSQL, trace objects, external Secrets, backups, and the collector Ingress. Remove the supervisor only after it has finished cleanup; uninstalling the bootstrap release also removes the collector Ingress. Revoke unused application credentials and remove DNS records separately.
 
 Delete retained customer data only through your organization's explicit retention/deletion procedure. Uninstalling PIG does not imply permission to delete it.

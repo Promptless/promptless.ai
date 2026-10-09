@@ -17,6 +17,7 @@ Terraform prepares cloud infrastructure. Helm bootstraps PIG once. After bootstr
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Terraform                     | Cloud databases, storage, workload identity trust and grants, networking, backup and retention settings.                                             |
 | Your Kubernetes configuration | Namespaces, analyzer ServiceAccount and identity annotations, `PIGDeployment.spec`, external secret delivery, and certificates.                      |
+| Bootstrap Helm release        | The HTTPS collector Ingress, configured through the chart's `ingress` values.                                                                        |
 | PIG                           | Generated analyzer workloads, migration Jobs, supervisor application resources, and the PIG custom resource definition within installed permissions. |
 
 The supervisor cannot widen its own permission grants. A release requiring new bootstrap permissions blocks until an administrator reviews and installs those grants. Cloud management permissions remain with Terraform.
@@ -27,7 +28,7 @@ Do not put the bootstrap in a Terraform `helm_release` resource, or reconcile PI
 
 Run the [Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) once. Helm itself does not continuously reconcile resources. After creating `PIGDeployment`, use its `release` fields for application updates, pauses, and pins.
 
-Do not run a later `helm upgrade` over the self-updated supervisor unless following the release's recovery procedure.
+Run a later `helm upgrade` only to [change the collector ingress](#change-the-collector-ingress) or to follow a release's documented procedure. Carry forward the supervisor's current image and release catalog when you do.
 
 ## Bootstrap with Flux
 
@@ -55,13 +56,35 @@ If Flux installs the bootstrap, hand ownership to PIG before enabling applicatio
 
 Suspending only the OCIRepository does not suspend the installed release. See Flux's [HelmRelease suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend).
 
-Keep the bootstrap HelmRelease suspended and present in Git. Deleting it can trigger Helm uninstall; resuming it can restore an older chart over PIG's self-updates. Do not separately reconcile the chart's rendered resources through a Kustomization.
+Keep the bootstrap HelmRelease suspended and present in Git. Deleting it can trigger Helm uninstall; resuming it can restore an older chart over PIG's self-updates. Do not separately reconcile the chart's rendered resources through a Kustomization, other than the collector Ingress described below.
 
 ## Other GitOps controllers
 
 Use a direct Helm bootstrap outside the controller's managed application set. Let the controller manage only customer-owned configuration from the table above. Turning off automatic sync alone is not a durable ownership boundary if manual sync or pruning can still touch PIG's generated resources.
 
 If your policy requires continuous Helm reconciliation, choose [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) and make your platform workflow responsible for every release.
+
+## Change the collector ingress
+
+The bootstrap release owns the collector Ingress, so hostname, class, TLS, and annotation changes go through Helm. These changes do not change the analyzer's registered configuration or trigger its revalidation.
+
+The supervisor may have updated its own image since bootstrap. Before an upgrade, set `image.digest` and `releaseCatalogURL` in your bootstrap values to the values the supervisor runs now, so the upgrade does not revert a self-update. Read the running image:
+
+```bash
+kubectl get deployment pig-supervisor --namespace pig-system \
+  -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+```
+
+Then render the chart, compare the Ingress with the live object, and upgrade:
+
+```bash
+helm template pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+  --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
+helm upgrade pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+  --namespace pig-system --values supervisor-values.yaml --wait --timeout 5m
+```
+
+If Flux performed the bootstrap, keep its HelmRelease suspended. Either run the explicit upgrade above with current values, or manage the rendered Ingress directly in your GitOps repository.
 
 ## Changes and recovery
 

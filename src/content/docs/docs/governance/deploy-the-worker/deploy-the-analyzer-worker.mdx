@@ -13,7 +13,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Configure a `PIGDeployment` resource to connect your database, trace bucket, and model. PIG then updates the analyzer and supervisor automatically to stable releases.
 
-The 0.3.0 release targets AWS/EKS clean installations. Azure/AKS and GCP/GKE are experimental.
+The current stable release, PIG 0.3.4, targets AWS/EKS. Azure/AKS and GCP/GKE are experimental.
 
 ## Before you begin
 
@@ -47,7 +47,7 @@ status, the health check, and anything still blocked.
 
 ## 1. Get a pinned bootstrap chart
 
-Choose a release from the public [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases). Read its requirements and use the exact supervisor chart version listed in that release. The chart version selects the bootstrap; your deployment's release policy controls subsequent updates.
+Choose a release from the public [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases). Read its requirements and use the exact supervisor chart version listed in that release. The chart version selects the bootstrap; your deployment's release policy controls subsequent updates. This guide uses chart 0.3.4 or later, which creates the HTTPS collector Ingress from its values.
 
 ```bash
 PIG_CHART_VERSION='REPLACE_WITH_CHART_VERSION'
@@ -100,9 +100,18 @@ Save the bootstrap values:
 
 ```yaml title="supervisor-values.yaml"
 watchNamespace: pig
+ingress:
+  serviceName: acme-analyzer # Your PIGDeployment name plus -analyzer
+  hostname: traces.acme.example
+  ingressClassName: nginx
+  tlsSecretName: pig-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
 ```
 
-Render the pinned chart and review its image identities, Secret access, custom resource definition, and Kubernetes permissions:
+The chart creates the collector Ingress in `pig` and routes it to the analyzer Service. Set `ingress.serviceName` to your `PIGDeployment` name followed by `-analyzer`; it also names the Ingress. Use an existing ingress class and a certificate covering your hostname. Omit `tlsSecretName` when your ingress controller supplies the certificate, as [AWS ALB with ACM](/docs/governance/deploy-the-worker/deploy-on-aws#4-configure-https-ingress) does. The ingress-nginx annotation permits 10 MiB uploads; configure the equivalent for your controller and every proxy on the path. [Bootstrap chart values](/docs/governance/deploy-the-worker/configuration-reference#bootstrap-chart-values) lists every `ingress` field.
+
+Render the pinned chart and review its image identities, Secret access, custom resource definition, collector Ingress, and Kubernetes permissions:
 
 ```bash
 helm lint "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
@@ -145,12 +154,6 @@ spec:
     installTokenSecretRef:
       name: pig-credentials
       key: install-token
-  endpoint:
-    hostname: traces.acme.example
-    ingressClassName: nginx
-    tlsSecretName: pig-tls
-    ingressAnnotations:
-      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
   storage:
     postgres:
       dsnSecretRef:
@@ -178,7 +181,7 @@ spec:
 
 Choose your collection rollout time for `activationAt`; analysis waits for the session's quiet window. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings, described in [Select instruction repositories](#5-select-instruction-repositories).
 
-Use an existing ingress class and a certificate covering your hostname. The ingress-nginx annotation permits 10 MiB uploads; configure the equivalent for your controller and every proxy on the path. Omit the PostgreSQL CA reference only if your DSN uses the container's trusted certificate store.
+Omit the PostgreSQL CA reference only if your DSN uses the container's trusted certificate store.
 
 On Azure, also add the pod labels from the Terraform guide under `spec.podLabels`. Workload identity must reach the pods as well as the ServiceAccount.
 

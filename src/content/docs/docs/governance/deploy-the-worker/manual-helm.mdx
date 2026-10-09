@@ -17,7 +17,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 The trace analyzer runs as the `pig-trace-analyzer` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
 
-This guide uses worker chart `0.3.0` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+This guide uses worker chart `0.3.4` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Before you begin
 
@@ -25,7 +25,7 @@ Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/
 
 - An existing Kubernetes cluster, Helm 3, and `kubectl` configured for that cluster.
 - The public worker chart and an [analyzer credential from PIG Settings](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Deliver the credential through the install-token Secret key. The analyzer discovers its installation identity and uses the hosted Promptless endpoint by default. Obtain the configuration hash for your manual deployment from Promptless.
-- A dedicated PostgreSQL database with its trusted CA bundle and a TLS connection string that verifies the server hostname. The database user needs schema migration permissions.
+- A dedicated PostgreSQL database, version 15, 16, 17, or 18, with its trusted CA bundle. Its TLS connection string verifies the server hostname with `sslmode=verify-full`. The role that runs migrations needs table ownership and `CREATE` on the schema. You can optionally give migrations a [separate credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential) from the analyzer's data-access role.
 - An S3 bucket, Azure Blob container, or Google Cloud Storage bucket, with read and write access through workload identity.
 - An existing ServiceAccount named `pig-analyzer` in namespace `pig`, bound to that identity. Both the analyzer and migration Job use it.
 - A reachable HTTPS hostname, a certificate, and an existing ingress controller or equivalent route to the worker Service on port 8080.
@@ -65,11 +65,12 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Create a Secret named `acme-pig-worker` in `pig` through your secret-management system. It must contain these keys:
 
-     | Key                      | Value                                                                                                     |
-     | ------------------------ | --------------------------------------------------------------------------------------------------------- |
-     | `install-token`          | The credential issued for this analyzer installation. This is separate from a host enrollment credential. |
-     | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                          |
-     | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                          |
+     | Key                      | Value                                                                                                                                                                                                                                                                                           |
+     | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+     | `install-token`          | The credential issued for this analyzer installation. This is separate from a host enrollment credential.                                                                                                                                                                                       |
+     | `customer-postgres-dsn`  | PostgreSQL connection string, including the TLS settings your database requires.                                                                                                                                                                                                                |
+     | `analysis-model-api-key` | API key for the model endpoint in the next step.                                                                                                                                                                                                                                                |
+     | `migration-postgres-dsn` | Optional. Connection string for a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). Add it and set `secrets.migrationPostgresDsnKey` to run migrations with a distinct role; omit both to migrate with `customer-postgres-dsn`. |
 
      For a manual pilot, run the following in Bash. It prompts without echoing credentials, creates the Secret, and removes its temporary file. Keep credentials out of committed manifests and values files.
 
@@ -100,6 +101,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        installTokenKey: install-token
        customerPostgresDsnKey: customer-postgres-dsn
        analysisModelApiKeyKey: analysis-model-api-key
+       # migrationPostgresDsnKey: migration-postgres-dsn  # optional: run migrations with a separate credential
 
      instructionHub:
        configHash: REPLACE_CONFIG_HASH
@@ -143,7 +145,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
 
-     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
+     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. An enabled gateway requires `hosts` and `tls` and routes only the exact [collector paths](/docs/governance/deploy-the-worker/networking-and-identity#route-uploads-and-health-checks). If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
@@ -153,7 +155,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      ```bash
      helm pull oci://ghcr.io/promptless/charts/pig-trace-analyzer \
-       --version 0.3.0 --untar
+       --version 0.3.4 --untar
      helm lint ./pig-trace-analyzer --values values.yaml
      helm template pig-trace-analyzer ./pig-trace-analyzer \
        --namespace pig --values values.yaml > rendered-worker.yaml
@@ -168,7 +170,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        --wait --timeout 20m
      ```
 
-     A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. Both workloads use the existing `pig-analyzer` ServiceAccount in this example. A ServiceAccount created by the worker chart is unavailable to its pre-install hook, so keep the account under your platform or GitOps workflow.
+     A pre-install or pre-upgrade Job applies database schema changes before the new worker starts. The Job runs once without retrying and stops after 15 minutes; a failed Job fails the Helm release. The analyzer validates the schema revision at startup and serves only when it matches; it applies no schema changes itself. Both workloads use the existing `pig-analyzer` ServiceAccount in this example. A ServiceAccount created by the worker chart is unavailable to its pre-install hook, so keep the account under your platform or GitOps workflow.
 
      <Aside type="caution">
        Back up your database before upgrades. A failed Helm release does not undo schema changes or restore trace objects. Follow the release's recovery procedure with an image compatible with the current database schema.
@@ -211,6 +213,19 @@ Use this procedure when the existing Helm release is named `instruction-hub-work
 5. Follow [Render and install](#install-the-analyzer) with the reviewed target chart and values. Update any external route or DNS alias after the new ingress exists, then [verify a complete session](#verify-a-complete-session).
 
 If replacement fails, keep the analyzer stopped and repair forward with an image compatible with the database's current schema. Do not restart a schema-1 image after schema revision 2 has been applied.
+
+## Inspect and repair worker storage
+
+The worker image provides maintenance commands for schema and object-store operations. Each reads its configuration from the same environment as the analyzer, including the database credentials and `sslmode=verify-full`, and prints a JSON result. Run one in a one-off pod from the worker image, or with `kubectl exec` against a running analyzer pod.
+
+| Command                                        | Use                                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pig-trace-analyzer db-status`                 | Report the schema revision, whether it matches the release, and a count of pending object writes and queued analyses. Read-only.                                                            |
+| `pig-trace-analyzer db-check`                  | Run the migration preflight (role permissions and schema layout) without applying changes.                                                                                                  |
+| `pig-trace-analyzer migrate`                   | Apply schema migrations up to the current revision. The install and upgrade Jobs run this for you.                                                                                          |
+| `pig-trace-analyzer rebuild-canonical-objects` | Requeue every trace's canonical object for a background rewrite. Run it only while the analyzer is stopped and after an offline restore has replaced the immutable raw and context objects. |
+
+Run `db-status` and `db-check` against a live deployment when you need them. Stop the analyzer before `rebuild-canonical-objects` so a running writer does not compete with the requeue.
 
 ## Verify a complete session
 
