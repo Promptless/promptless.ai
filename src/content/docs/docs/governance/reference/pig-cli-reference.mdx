@@ -1,6 +1,6 @@
 ---
 title: The pig CLI reference
-description: Public pig commands for creating, importing, validating, compiling, versioning, and inspecting an Instruction Hub.
+description: Public pig commands for creating, importing, validating, compiling, versioning, and inspecting an Instruction Hub, and for packaging cloud trace capture.
 slug: docs/governance/reference/pig-cli-reference
 type: reference
 tags:
@@ -17,15 +17,16 @@ The `pig` CLI manages the source and generated plugins in an Instruction Hub. In
 
 Run `pig --help` or `pig <command> --help` to inspect your installed version's options. Commands that work on hub source accept `--hub`, which defaults to the current directory. `pig status` takes a manifest path instead.
 
-| Command       | Changes files?             | Result                                                      |
-| ------------- | -------------------------- | ----------------------------------------------------------- |
-| `init`        | Yes                        | Creates missing hub configuration and directories           |
-| `scan`        | Yes                        | Imports supported assets and replaces the context inventory |
-| `validate`    | No                         | Checks source configuration and asset references            |
-| `verify`      | No changes to the hub      | Validates and compiles a temporary release                  |
-| `build`       | Yes, except with `--check` | Writes distribution files and manifests                     |
-| `set-version` | Yes                        | Updates the shared version in `hub.yaml`                    |
-| `status`      | No                         | Reads local release metadata                                |
+| Command        | Changes files?             | Result                                                      |
+| -------------- | -------------------------- | ----------------------------------------------------------- |
+| `init`         | Yes                        | Creates missing hub configuration and directories           |
+| `scan`         | Yes                        | Imports supported assets and replaces the context inventory |
+| `validate`     | No                         | Checks source configuration and asset references            |
+| `verify`       | No changes to the hub      | Validates and compiles a temporary release                  |
+| `build`        | Yes, except with `--check` | Writes distribution files and manifests                     |
+| `set-version`  | Yes                        | Updates the shared version in `hub.yaml`                    |
+| `status`       | No                         | Reads local release metadata                                |
+| `cloud-bundle` | Yes, writes one new ZIP    | Packages a cloud trace capture plugin for Claude Code       |
 
 These commands do not install plugins into agents, enroll hosts, or deploy the analyzer. Publishing runs through [GitHub or GitLab CI](/docs/governance/get-started/publish-and-install-plugins); there is no public `pig publish` command.
 
@@ -125,6 +126,29 @@ pig status --manifest ./acme-instruction-hub/hub.release.json
 ```
 
 `--manifest` defaults to `hub.release.json` in the current directory. This command has no `--hub` option. Run a build or use a release checkout before reading its manifest. `pig status` does not query installed agents, host enrollment, or the analyzer.
+
+## `pig cloud-bundle`
+
+Package a Claude Code plugin that captures traces from cloud agent executions under a cloud integration grant:
+
+```bash
+pig cloud-bundle \
+  --worker-url https://traces.acme.example \
+  --provider claude_tag \
+  --integration-id YOUR_INTEGRATION_ID \
+  --transport proxy \
+  --output pig-cloud-capture.zip
+```
+
+| Option                | Default  | Meaning                                                                                      |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `--worker-url URL`    | Required | The analyzer's public HTTPS address                                                          |
+| `--provider ID`       | Required | The grant's provider, such as `claude_tag`                                                   |
+| `--integration-id ID` | Required | The grant's Integration ID from **Settings → Cloud integrations**                            |
+| `--transport MODE`    | `secret` | `proxy` when the provider's connection adds the token, `secret` when the sandbox supplies it |
+| `--output PATH`       | Required | A new file ending in `.zip`; the command fails if the file exists                            |
+
+The ZIP holds public configuration, the collector, and its hooks. It contains no credentials. The command doesn't need a hub, and it doesn't create a grant or check that the analyzer is reachable. See [Capture traces from cloud agents](/docs/governance/get-started/capture-cloud-agent-traces).
 
 ## Diagnose a failed command
 
