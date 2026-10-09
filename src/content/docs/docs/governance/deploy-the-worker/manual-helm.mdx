@@ -17,7 +17,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 The trace analyzer runs as the `pig-trace-analyzer` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
 
-This guide uses worker chart `0.3.0` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+This guide uses worker chart `0.3.4` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Before you begin
 
@@ -145,7 +145,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
 
-     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
+     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. An enabled gateway requires `hosts` and `tls` and routes only the exact [collector paths](/docs/governance/deploy-the-worker/networking-and-identity#route-uploads-and-health-checks). If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
@@ -155,7 +155,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      ```bash
      helm pull oci://ghcr.io/promptless/charts/pig-trace-analyzer \
-       --version 0.3.0 --untar
+       --version 0.3.4 --untar
      helm lint ./pig-trace-analyzer --values values.yaml
      helm template pig-trace-analyzer ./pig-trace-analyzer \
        --namespace pig --values values.yaml > rendered-worker.yaml
