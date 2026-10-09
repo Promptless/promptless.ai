@@ -1,0 +1,98 @@
+---
+title: Trigger Promptless from Jira Automation
+description: Build a Jira Automation flow that calls the Promptless API trigger, so a Jira event you choose, such as assigning a ticket to a docs owner, starts a documentation update.
+slug: docs/for-docs/connect/triggers/jira-automation
+type: guide
+tags:
+  - connect
+  - triggers
+  - guide
+timestamp: "2026-10-09T00:00:00Z"
+sidebar:
+  hidden: false
+  order: 14.5
+  label: Jira Automation
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+A Jira Automation flow can start Promptless by sending a web request to the [API trigger](/docs/for-docs/connect/triggers/api). Jira decides when the flow runs, from the trigger and conditions you choose. The flow sends the ticket to Promptless, which works from the ticket and opens a documentation suggestion.
+
+## Choose an identity for Promptless in Jira
+
+Promptless comments on and creates Jira tickets as one of two accounts:
+
+- With an [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) attached, Promptless posts as the service account.
+- Without a service account, Promptless posts comments and creates tickets as the user who connected Atlassian, but only after that user gives explicit approval. Its comments and tickets appear under that person's name. Without that approval, Promptless can't comment or create tickets on the user's behalf.
+
+To assign tickets to Promptless itself, you'll need to attach a service account as well.
+
+## Before you start
+
+You need:
+
+- Permission to manage automation in the Jira space, or Jira admin access.
+- A connected [Atlassian workspace](/docs/for-docs/reference/integrations/atlassian).
+- A Promptless API key for the flow. An organization admin creates one in [**Settings > API Access**](https://app.gopromptless.ai/settings/api). See [Create an API key](/docs/for-docs/connect/triggers/api#create-an-api-key).
+
+## Build the flow
+
+This example flow starts Promptless when a ticket in the space is assigned to a docs owner.
+
+<Steps>
+  1. In Jira, open the space's **Space settings > Automation**.
+
+  2. Select **Create flow > Create from scratch**.
+
+  3. Add the **Work item assigned** trigger.
+
+  4. In the trigger's panel, select **Add condition** and add a **User condition**. Set **User** to **Assignee**, **Check to perform** to **is**, and **Criteria** to the docs owner.
+
+  5. Add a **Send web request** action. Set **Web request URL** to `https://api.gopromptless.ai/v1/triggers` and **HTTP method** to **POST**.
+
+  6. Set **Web request body** to **Custom data**, and enter the request body from [Request body](#request-body).
+
+  7. Under **Headers (optional)**, add the key `Authorization` with the value `Bearer sk-pl-your-api-key`, and select **Hidden**.
+
+  8. Select **Save and enable**.
+</Steps>
+
+<img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/jira-automation-api-trigger-flow-13b47191.png" alt="A Jira Automation flow with a Work item assigned trigger, a condition on the assignee, and a Send web request action, with the Send web request settings open beside it" />
+
+## Request body
+
+```json
+{
+  "instructions": "Update the documentation for Jira ticket {{issue.key}}. Comment on the ticket with a link to the docs PR.",
+  "context": {
+    "jira_issue": "{{issue.key}}",
+    "jira_url": "{{issue.url}}"
+  }
+}
+```
+
+Jira [smart values](https://support.atlassian.com/cloud-automation/docs/jira-smart-values-issues/) such as `{{issue.key}}` resolve each time the flow runs, so each request names the ticket that ran the flow.
+
+- `instructions` is required and tells Promptless what to do. Name the ticket, and add any standing guidance for this flow, such as which docs to update.
+- `context` is optional. It appears with the request in trigger history on the [Triggers page](https://app.gopromptless.ai/triggers).
+
+## Confirm it works
+
+To test the action before you save, expand **Validate your web request configuration**, enter a ticket key, and select **Validate**. Validating sends a real request, so Promptless starts a session for that ticket.
+
+A request that starts a session returns `202 Accepted`:
+
+```json
+{
+  "trigger_event_id": "550e8400-e29b-41d4-a716-446655440000",
+  "deduplicated": false
+}
+```
+
+The request then appears on the Promptless [Triggers page](https://app.gopromptless.ai/triggers) with its instructions and context. For any other status, open the flow's **Audit log** and see [Error responses](/docs/for-docs/connect/triggers/api#error-responses).
+
+## See also
+
+- [API triggers](/docs/for-docs/connect/triggers/api)
+- [Jira triggers](/docs/for-docs/connect/triggers/jira)
+- [Atlassian integration](/docs/for-docs/reference/integrations/atlassian)
