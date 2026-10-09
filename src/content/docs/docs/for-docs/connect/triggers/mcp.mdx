@@ -158,7 +158,7 @@ A token is tied to one organization. When your client names the server URL in it
 
 ## Available tools
 
-Both server URLs carry these 11 tools, which let you check on your collections, tasks, and suggestions, or queue and change your documentation work. The direct-edit URL adds six more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Six tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
+Both server URLs carry these 12 tools. They let you check on your collections, tasks, and suggestions, queue and change your documentation work, or report a problem to the Promptless team. The direct-edit URL adds six more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Six tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, and `close_suggestion`. These tools and `message_promptless_support` always ask before they run.
 
 <Aside type="note">
   If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, and `wait_for_task_update` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
@@ -320,6 +320,21 @@ Searches your existing suggestions by keyword and status. Use it to check whethe
 | `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100.                                                                                                                                                                                                                                                                                                                          |
 
 When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. A `query` is required and must be at least 3 characters, so `search_suggestions` no longer returns all your suggestions when called without one. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the suggestion-triage workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
+
+### `message_promptless_support`
+
+Sends a problem report or a request for help to the Promptless team from your editor. Use it when a task, suggestion, or tool doesn't behave the way you expect. You report from the same conversation where you hit the problem.
+
+| Argument   | Required | Description                                                                                                                 |
+| ---------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `concern`  | Yes      | What went wrong or what you need, 1–2000 characters. Include the task or suggestion IDs involved so the team can find them. |
+| `severity` | Yes      | How urgent the problem is: `low`, `medium`, or `high`.                                                                      |
+
+The report includes your organization, your name and email, and your editor's registered client name. You don't need to say who you are in `concern`. On success, the tool returns `sent: true` and a confirmation `message`.
+
+The report is one-way. Replies don't come back through the tool, so your editor doesn't wait for one. For other ways to reach the team, see [Get support](/docs/for-docs/reference/getting-help).
+
+Any signed-in member of your organization can send a report. Like the work-changing tools, it asks before it runs.
 
 ## Read and edit documentation directly
 
@@ -505,6 +520,7 @@ Tool failures come back as errors your editor's model sees, each surfaced as `co
 - **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
 - **`stale_head`**: the suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.
 - **An `old_text` that matches no place or several places**: `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.
+- **A `message_promptless_support` report that wasn't sent**: an empty or over-length `concern`, or a `severity` other than `low`, `medium`, or `high`, is refused before anything is sent. Keep `concern` to 1–2000 characters. If the tool returns a retry delay, send the report again after that many seconds. If the tool says it couldn't confirm delivery, the report may have arrived, so don't resend it automatically. Email [help@gopromptless.ai](mailto\:help@gopromptless.ai) instead if you need to be sure.
 - **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
