@@ -17,7 +17,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 The trace analyzer runs as the `pig-trace-analyzer` service in your infrastructure. It receives traces from enrolled hosts, stores them in your PostgreSQL database and trace bucket, and analyzes sessions using your chosen model provider.
 
-This guide uses worker chart `0.3.4` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+This guide uses worker chart `0.3.5` for operator-managed releases. The published chart pins its worker image by digest. Your operations team schedules and applies each upgrade. For automatic updates with pause and version-pin controls, use the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
 
 ## Before you begin
 
@@ -103,7 +103,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        analysisModelApiKeyKey: analysis-model-api-key
        # migrationPostgresDsnKey: migration-postgres-dsn  # optional: run migrations with a separate credential
 
-     instructionHub:
+     pig:
        configHash: REPLACE_CONFIG_HASH
        storageBackend: postgres_s3
        postgresCaConfigMapName: postgres-ca
@@ -149,13 +149,13 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
 
-     For an ingestion-only pilot, leave `instructionHub.analysis.activationAt` empty. The chart then omits the model settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
+     For an ingestion-only pilot, leave `pig.analysis.activationAt` empty. The chart then omits the model settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
 
   3. **Render and install.** Download the pinned public worker chart, then render it to catch missing required values without changing the cluster:
 
      ```bash
      helm pull oci://ghcr.io/promptless/charts/pig-trace-analyzer \
-       --version 0.3.4 --untar
+       --version 0.3.5 --untar
      helm lint ./pig-trace-analyzer --values values.yaml
      helm template pig-trace-analyzer ./pig-trace-analyzer \
        --namespace pig --values values.yaml > rendered-worker.yaml
@@ -178,6 +178,8 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 </Steps>
 
 ## Upgrade a manual installation
+
+When you upgrade from chart `0.3.4`, rename the top-level `instructionHub` key in your values file to `pig` and keep its nested settings unchanged. The chart ignores values left under `instructionHub`, so rendering fails with `pig.configHash is required`.
 
 Review the target release's database, storage, and schema requirements before each upgrade. Apply required infrastructure changes through your platform workflow and verify the recovery points for that exact release before a destructive migration. The manual chart does not enforce the supervisor's confirmation ConfigMap.
 

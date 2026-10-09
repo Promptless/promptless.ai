@@ -14,7 +14,7 @@ sidebar:
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
 
-This page describes the current worker chart, version `0.3.4`. Helm values become environment variables in the worker. Start with [Manually manage the analyzer](/docs/governance/deploy-the-worker/manual-helm) for a complete values file.
+This page describes the current worker chart, version `0.3.5`. Helm values become environment variables in the worker. Start with [Manually manage the analyzer](/docs/governance/deploy-the-worker/manual-helm) for a complete values file.
 
 <Aside type="note" title="Configuration scope">
   This reference covers the worker Helm chart. The [automatic-update configuration](/docs/governance/deploy-the-worker/configuration-reference) uses `PIGDeployment` fields, which are not worker chart values.
@@ -22,7 +22,7 @@ This page describes the current worker chart, version `0.3.4`. Helm values becom
 
 ## Deployment and storage
 
-Unless noted, Helm keys in this table are under `instructionHub`. Environment-variable suffixes have the prefix `INSTRUCTION_HUB_`.
+Unless noted, Helm keys in this table are under `pig`. Environment-variable suffixes have the prefix `PIG_`.
 
 | Helm key              | Environment-variable suffix | Meaning                                                                                        |
 | --------------------- | --------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -40,12 +40,12 @@ The service listens on port 8080 by default. Use that value for `service.workerP
 
 ## Native storage and workload identity
 
-Select one backend. Keep the relevant values under `instructionHub`:
+Select one backend. Keep the relevant values under `pig`:
 
 <Tabs>
   <TabItem label="AWS S3">
     ```yaml
-    instructionHub:
+    pig:
       storageBackend: postgres_s3
       traceObjectS3Bucket: acme-pig-traces
       traceObjectS3Prefix: acme/traces
@@ -56,7 +56,7 @@ Select one backend. Keep the relevant values under `instructionHub`:
 
   <TabItem label="Azure Blob Storage">
     ```yaml
-    instructionHub:
+    pig:
       storageBackend: postgres_azure_blob
       traceObjectAzureAccountUrl: https://REPLACE_STORAGE_ACCOUNT.blob.core.windows.net
       traceObjectAzureContainer: traces
@@ -70,7 +70,7 @@ Select one backend. Keep the relevant values under `instructionHub`:
 
   <TabItem label="Google Cloud Storage">
     ```yaml
-    instructionHub:
+    pig:
       storageBackend: postgres_gcs
       traceObjectGcsBucket: acme-pig-traces
       traceObjectPrefix: acme/traces
@@ -89,7 +89,7 @@ The SDK for the selected backend discovers credentials through workload identity
 | `traceObjectGcsBucket`       | `TRACE_OBJECT_GCS_BUCKET`        |
 | `traceObjectPrefix`          | `TRACE_OBJECT_PREFIX`            |
 
-These suffixes use the `INSTRUCTION_HUB_` prefix. `traceObjectPrefix` defaults to `trace-objects` and applies to Azure and GCS. S3 uses `traceObjectS3Prefix`.
+These suffixes use the `PIG_` prefix. `traceObjectPrefix` defaults to `trace-objects` and applies to Azure and GCS. S3 uses `traceObjectS3Prefix`.
 
 ## Service account, database TLS, and image
 
@@ -101,7 +101,7 @@ serviceAccount:
   name: pig-analyzer
 migrationJob:
   serviceAccountName: pig-analyzer
-instructionHub:
+pig:
   postgresCaConfigMapName: postgres-ca
   postgresCaConfigMapKey: ca.pem
 ```
@@ -124,13 +124,13 @@ The analyzer's `terminationGracePeriodSeconds` is 120 seconds, so in-flight work
 
 ## Analysis activation
 
-All Helm keys below are under `instructionHub.analysis`. The environment-variable suffixes have the prefix `INSTRUCTION_HUB_ANALYSIS_`.
+All Helm keys below are under `pig.analysis`. The environment-variable suffixes have the prefix `PIG_ANALYSIS_`.
 
-| Helm key                | Environment-variable suffix | Meaning                                                                                                          |
-| ----------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `activationAt`          | `ACTIVATION_AT`             | Timezone-aware ISO timestamp for enabling analysis. Empty leaves trace analysis inactive.                        |
-| `quietWindowHours`      | `QUIET_WINDOW_HOURS`        | Positive quiet period before a session is eligible; default `0.5` hours.                                         |
-| `repository.mirrorRoot` | `MIRROR_ROOT`               | Default `/var/lib/instruction-hub/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
+| Helm key           | Environment-variable suffix | Meaning                                                                                              |
+| ------------------ | --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `activationAt`     | `ACTIVATION_AT`             | Timezone-aware ISO timestamp for enabling analysis. Empty leaves trace analysis inactive.            |
+| `quietWindowHours` | `QUIET_WINDOW_HOURS`        | Positive quiet period before a session is eligible; default `0.5` hours.                             |
+| `mirrorRoot`       | `MIRROR_ROOT`               | Default `/var/lib/pig/analysis-mirrors`. Keep the default to use the chart's mounted mirror storage. |
 
 When `activationAt` is nonempty, configure all model fields below. The worker validates those settings together and refuses partial analysis configuration. Changing the quiet window does not enable analysis by itself.
 
@@ -138,14 +138,14 @@ An organization administrator selects the instruction repositories the analyzer 
 
 ## Model provider
 
-These Helm keys are under `instructionHub.analysis.modelApi`:
+These Helm keys are under `pig.analysis.modelApi`:
 
-| Helm key         | Worker environment variable                     | Meaning                                                                                          |
-| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `provider`       | `INSTRUCTION_HUB_ANALYSIS_MODEL_PROVIDER`       | `openai`, `azure_openai`, or `aws_bedrock`.                                                      |
-| `authentication` | `INSTRUCTION_HUB_ANALYSIS_MODEL_AUTHENTICATION` | `api_key`, or `aws_sigv4` for Bedrock only.                                                      |
-| `baseUrl`        | `INSTRUCTION_HUB_ANALYSIS_MODEL_BASE_URL`       | Supported HTTPS Responses API endpoint.                                                          |
-| `model`          | `INSTRUCTION_HUB_ANALYSIS_MODEL_NAME`           | Model or deployment name available through that endpoint. Select it explicitly for your account. |
+| Helm key         | Worker environment variable         | Meaning                                                                                          |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `provider`       | `PIG_ANALYSIS_MODEL_PROVIDER`       | `openai`, `azure_openai`, or `aws_bedrock`.                                                      |
+| `authentication` | `PIG_ANALYSIS_MODEL_AUTHENTICATION` | `api_key`, or `aws_sigv4` for Bedrock only.                                                      |
+| `baseUrl`        | `PIG_ANALYSIS_MODEL_BASE_URL`       | Supported HTTPS Responses API endpoint.                                                          |
+| `model`          | `PIG_ANALYSIS_MODEL_NAME`           | Model or deployment name available through that endpoint. Select it explicitly for your account. |
 
 | Provider       | Accepted endpoint shape                                                                             | Authentication        |
 | -------------- | --------------------------------------------------------------------------------------------------- | --------------------- |
@@ -163,16 +163,16 @@ The analyzer sends session content and relevant instruction context to this prov
 
 Use `secrets.existingSecretName` to reference a Secret in the worker namespace. The chart defaults to these keys:
 
-| Helm mapping                      | Default Secret key       | Worker environment variable              |
-| --------------------------------- | ------------------------ | ---------------------------------------- |
-| `secrets.installTokenKey`         | `install-token`          | `INSTRUCTION_HUB_INSTALL_TOKEN`          |
-| `secrets.customerPostgresDsnKey`  | `customer-postgres-dsn`  | `INSTRUCTION_HUB_CUSTOMER_POSTGRES_DSN`  |
-| `secrets.analysisModelApiKeyKey`  | `analysis-model-api-key` | `INSTRUCTION_HUB_ANALYSIS_MODEL_API_KEY` |
-| `secrets.migrationPostgresDsnKey` | none (unset by default)  | `INSTRUCTION_HUB_MIGRATION_POSTGRES_DSN` |
+| Helm mapping                      | Default Secret key       | Worker environment variable  |
+| --------------------------------- | ------------------------ | ---------------------------- |
+| `secrets.installTokenKey`         | `install-token`          | `PIG_INSTALL_TOKEN`          |
+| `secrets.customerPostgresDsnKey`  | `customer-postgres-dsn`  | `PIG_CUSTOMER_POSTGRES_DSN`  |
+| `secrets.analysisModelApiKeyKey`  | `analysis-model-api-key` | `PIG_ANALYSIS_MODEL_API_KEY` |
+| `secrets.migrationPostgresDsnKey` | none (unset by default)  | `PIG_MIGRATION_POSTGRES_DSN` |
 
 The model key is referenced when an activation time is configured with `api_key`. The analyzer receives GitHub App tokens for the selected instruction repositories from Promptless, so the worker Secret holds no repository credential.
 
-Set `secrets.migrationPostgresDsnKey` to run schema migrations with a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). The chart injects `INSTRUCTION_HUB_MIGRATION_POSTGRES_DSN` into the migration Job only; the serving analyzer never receives it. Both credentials must reach the same database over `sslmode=verify-full`. Leaving this key unset runs migrations with `customer-postgres-dsn`.
+Set `secrets.migrationPostgresDsnKey` to run schema migrations with a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). The chart injects `PIG_MIGRATION_POSTGRES_DSN` into the migration Job only; the serving analyzer never receives it. Both credentials must reach the same database over `sslmode=verify-full`. Leaving this key unset runs migrations with `customer-postgres-dsn`.
 
 The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
 
