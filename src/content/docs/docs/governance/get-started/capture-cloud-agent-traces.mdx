@@ -1,0 +1,156 @@
+---
+title: Capture traces from cloud agents
+description: Create a cloud integration grant so Claude Code or Codex executions in cloud sandboxes, such as Claude Tag, enroll themselves and upload traces to your analyzer.
+slug: docs/governance/get-started/capture-cloud-agent-traces
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+sidebar:
+  hidden: false
+  order: 5
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Cloud agents run in short-lived sandboxes where no one can approve host enrollment in a browser. To analyze their sessions, an organization admin creates a cloud integration grant. Each execution then uses the grant to enroll itself and upload its native Claude Code or Codex traces to your analyzer. You can use this setup for Claude Tag or for any cloud runner that can supply a secret to its sandbox.
+
+Traces from cloud executions appear in the trace feed with the integration that captured them. Trace bytes still go only to your analyzer and your storage. Promptless holds the grant and execution metadata.
+
+For agents on people's own machines, use [host enrollment](/docs/governance/get-started/enroll-your-hosts) instead.
+
+## Before you start
+
+- An analyzer registered in **Settings → Workers** that runs a PIG release with cloud enrollment support. Check the release notes in [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases) before you create a grant.
+- A public HTTPS address for the analyzer that the cloud sandbox can reach. A private Service or VPN endpoint is not enough. Claude Tag blocks private IP ranges. Route the three collector paths below, and make sure the endpoint answers without redirects:
+
+  - `POST /v0/cloud-enrollment/leases`
+  - `GET /v0/host-enrollment/policy`
+  - `POST /v0/traces/batches`
+
+  The policy and upload requests carry a `target` query parameter, so allow it on those paths. See [Networking and identity](/docs/governance/deploy-the-worker/networking-and-identity) for ingress setup.
+- The native source enabled in the analyzer's host enrollment policy. Claude Code and Codex are enabled by default. Cloud uploads follow the same policy as enrolled hosts. A grant can't turn on a disabled source.
+- An organization admin account in Promptless.
+- For Claude Code, the `pig` CLI from the [toolchain setup](/docs/governance/get-started/set-up-your-instruction-hub) to build the capture plugin.
+- A POSIX sandbox with Python 3.9 or later available as `python3`.
+
+<Aside type="note">
+  Cloud capture uploads the same session content as host enrollment, including prompts, responses, tool calls, and files present in the session. Review the [data boundaries](/docs/governance/start-here/trust-and-data-model) before you enable it.
+</Aside>
+
+## Set up cloud capture
+
+<Steps>
+  1. **Create a grant**
+
+     In the PIG sidebar, open **Settings → Cloud integrations**. Select the analyzer's **Installation**, then fill in **Create grant**:
+
+     | Field                         | What to enter                                                                                                                      |
+     | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+     | **Integration name**          | A name you recognize in the trace feed, such as `Engineering Tag`.                                                                 |
+     | **Provider**                  | `claude_tag` for Claude Tag. For another runner, a lowercase identifier of your choice, such as `ci_runner`.                       |
+     | **Native source**             | **Claude Code** or **Codex**, matching the transcripts the agent writes.                                                           |
+     | **Expires at**                | When the grant stops working, in your local time, up to 365 days ahead.                                                            |
+     | **Execution limit**           | Total executions the grant can enroll over its lifetime, from 1 to 100,000. Expired and revoked executions count toward the limit. |
+     | **Execution lease (seconds)** | How long one enrollment stays valid between renewals, from 60 to 3,600. Collectors renew their lease while the grant is active.    |
+
+     Select **Create grant**.
+
+  2. **Save the token**
+
+     The dialog shows the grant's token, which starts with `plicg_`, once. Select **Copy token** and store it in your provider's secret store before you select **Done**. Promptless keeps only a hash of the token and can't show it again.
+
+     Keep the token out of Git, the capture plugin, command-line arguments, and chat. If you lose it, revoke the grant and create a replacement.
+
+     The dialog also shows the **Integration ID** and setup steps for this grant. To reopen them later without the token, select **Setup** on the grant's row.
+
+  3. **Give the sandbox the token**
+
+     How the collector receives the token depends on the provider:
+
+     - **Claude Tag (`claude_tag`).** In the Tag connection for your analyzer's HTTPS host, store the token as the bearer credential. Restrict the connection to the three collector paths and methods. Tag adds the `Authorization` header to the collector's requests. See [Claude Tag connections](https://claude.com/docs/claude-tag/admins/add-connections).
+     - **Other runners.** In the runner's secret settings, set exactly one of `PROMPTLESS_CLOUD_GRANT`, which holds the token, or `PROMPTLESS_CLOUD_GRANT_FILE`, which holds the path to a file that contains it.
+
+  4. **Install the collector**
+
+     For Claude Code, build the capture plugin with the grant's provider and Integration ID. Use `--transport proxy` for Claude Tag and `--transport secret` for other runners:
+
+     ```bash
+     pig cloud-bundle \
+       --worker-url https://traces.acme.example \
+       --provider claude_tag \
+       --integration-id YOUR_INTEGRATION_ID \
+       --transport proxy \
+       --output pig-cloud-capture.zip
+     ```
+
+     Install `pig-cloud-capture.zip` as a plugin in the cloud runner. The ZIP contains the collector and its hooks, and no credentials. The plugin runs the collector on `SessionStart`, `UserPromptSubmit`, `Stop`, `SubagentStop`, and `SessionEnd`. Each run uploads the execution's root transcript and its subagent transcripts.
+
+     For Codex, or a runner that can't install a Claude plugin, unzip the same bundle into the sandbox and run its collector directly. Create a `cloud-capture.json` with your values:
+
+     ```json title="cloud-capture.json"
+     {
+       "worker_url": "https://traces.acme.example",
+       "provider": "ci_runner",
+       "target": "codex",
+       "transport": "secret",
+       "integration_id": "YOUR_INTEGRATION_ID"
+     }
+     ```
+
+     Then have the runner call the collector from the unzipped directory before the sandbox exits. Pass the session ID, the transcript path, and the hook event as JSON on standard input:
+
+     ```bash
+     printf '%s\n' '{"session_id":"job-123","transcript_path":"/workspace/session.jsonl","hook_event_name":"Stop"}' |
+       python3 runtime/promptless-host-runtime cloud-collect --config cloud-capture.json
+     ```
+
+     For Codex, the collector reads only the transcript file you pass.
+
+  5. **Verify capture**
+
+     Run a short, non-sensitive task in the cloud runner. Then open the trace feed and set **Cloud integration** to your grant. The trace should appear with your integration's name. Expand it to check its **Cloud provider**, **Integration**, and **Cloud execution** ID.
+
+     Before you rely on capture for a provider, confirm the whole path:
+
+     - A new execution enrolls under your grant.
+     - Its main and subagent records arrive in full.
+     - After you revoke the grant, later uploads fail.
+
+     For Claude Tag, also confirm that the Tag connection passes the collector's `X-Promptless-Producer-Token` header through to the analyzer. Promptless hasn't yet verified this header through Tag.
+</Steps>
+
+## How executions enroll
+
+Each execution enrolls on its own. Before its first upload, the collector creates a private execution credential and registers the execution with the analyzer. Promptless assigns it a lease and a host identity, `cloud-<lease-id>`. Every later request carries both the grant token and the execution credential. The analyzer checks both with Promptless on every request.
+
+The collector keeps its state under `~/.promptless/cloud/` in the sandbox, separate from any host enrollment on the same machine. When a hook runs again in the same execution, the collector renews the lease and keeps the same host identity. When an upload fails, the next hook retries it.
+
+Capture lasts only as long as the sandbox. If the sandbox shuts down before its last hook finishes, the records it didn't upload are lost. Where your provider supports a teardown phase, keep the sandbox running until the final collector run finishes. The collector writes `status.json` next to its state with `drained` after a successful run, or `partial` when an upload failed.
+
+## Find cloud traces
+
+In the trace feed, use the **Cloud provider** and **Cloud integration** filters to show traces from one provider or one grant. A cloud trace is titled with its provider and integration name. Its details show the provider, the integration, and the execution ID the runner supplied. Traces from enrolled hosts have no cloud details.
+
+The trace's native source stays the agent that wrote it. A Claude Tag trace has the source `claude` and the provider `claude_tag`. The provider and integration record which grant captured the trace. They don't prove that a particular provider ran it.
+
+## Revoke access
+
+On **Settings → Cloud integrations**, each grant shows its status: **Active**, **Expired**, or **Revoked**. To stop a grant, select **Revoke** on its row and confirm. Revocation applies to the grant and all its executions on their next request. Traces already captured stay in the feed, along with their integration details.
+
+Revoking a grant is permanent. To restore capture, create a new grant and rebuild the plugin or update the runner's configuration with the new Integration ID and token.
+
+## Troubleshooting
+
+| Symptom                                                                  | What to check                                                                                                                                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The page asks you to sign in with an admin account                       | Only organization admins can manage cloud grants.                                                                                                                                                    |
+| The page asks you to register an analyzer                                | Add an analyzer in **Settings → Workers** first.                                                                                                                                                     |
+| Grant creation couldn't be confirmed                                     | Select **Refresh grants**. Revoke any new grant whose token you didn't save, then create a replacement.                                                                                              |
+| The collector can't reach the analyzer                                   | Allow the analyzer's public HTTPS host and the three collector paths in the sandbox's network policy. The endpoint must answer without redirects.                                                    |
+| Requests fail authentication                                             | Check that the grant is **Active** and that the token reaches the collector one way only. Duplicate `Authorization` headers fail. In secret mode, set only one of the two grant variables.           |
+| Requests fail with `503`                                                 | The analyzer couldn't reach Promptless to check the credentials. Retry after Promptless is reachable again.                                                                                          |
+| Enrollment returns `403`                                                 | The grant is expired, revoked, or used up, or it belongs to another installation or native source. Create a new grant. The host enrollment policy can also block the native source. Enable it there. |
+| Enrollment returns `409`                                                 | The execution's local state changed or the execution was revoked. Restore that execution's `~/.promptless/cloud/` state, or start a new execution.                                                   |
+| `status.json` reports `blocked` with reason `bootstrap_upgrade_required` | The collector is older than the analyzer accepts, so it uploads nothing. Rebuild the plugin with a current `pig` CLI.                                                                                |
