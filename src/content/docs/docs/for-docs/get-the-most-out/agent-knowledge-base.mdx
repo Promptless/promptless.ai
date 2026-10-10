@@ -14,7 +14,7 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-Promptless updates these files automatically as it learns from your feedback. Organization admins can edit them directly, while other members have read-only access.
+Promptless updates these files automatically as it learns from your feedback. Organization admins can edit them in the dashboard or [push changes with Git](#clone-and-push-the-knowledge-base-with-git), while other members have read-only access.
 
 ## Access the Agent Knowledge Base
 
@@ -112,6 +112,65 @@ In the dialog:
 2. Click **Create**
 
 The file opens in the editor immediately. To create nested paths, enter `nested/path/filename` in the dialog. Promptless creates any intermediate folders automatically.
+
+## Clone and push the Knowledge Base with Git
+
+The Agent Knowledge Base is a Git repository. Clone it to read and change these files from your own editor, scripts, or CI pipeline. Promptless serves your organization's repository at `https://api.gopromptless.ai/v1/knowledge-base.git` and picks it from the organization your API key belongs to.
+
+You need a Promptless API key. Organization admins create keys on **Settings > API Access**. See [Create an API key](/docs/for-docs/connect/triggers/api#create-an-api-key).
+
+### Clone the repository
+
+Clone the repository:
+
+```bash
+git clone https://api.gopromptless.ai/v1/knowledge-base.git
+```
+
+When Git asks for credentials, enter any username, and enter your API key as the password. Any active API key can clone, fetch, and pull.
+
+To skip the prompt, for example in a CI job, put the key in the URL:
+
+```bash
+git clone https://x-access-token:<your-api-key>@api.gopromptless.ai/v1/knowledge-base.git
+```
+
+<Aside type="caution">
+  Git saves a clone URL in the clone's `.git/config` file, so a key in the URL stays on disk in plain text. In a shared or long-lived checkout, use a [Git credential helper](https://git-scm.com/docs/gitcredentials) to store the key instead.
+</Aside>
+
+### Push changes
+
+Pushing needs the same admin role as editing in the dashboard. Keys created on **Settings > API Access** can push. A key tied to a person's account can push only while that person is an organization admin.
+
+Promptless agents and dashboard edits commit to the same `main` branch, so pull before you edit:
+
+1. Run `git pull` to get the latest commits.
+2. Edit the files, and commit your changes.
+3. Run `git push`.
+
+If someone else committed to `main` after your last pull, Git refuses the push. Run `git pull`, resolve any conflicts, and push again.
+
+Promptless checks each push against these rules:
+
+- Push one update to `main` per push. Promptless refuses pushes to other branches, branch deletions, and force-pushes.
+- Keep each push to 100 MB or less.
+- Give your commits any author except an address that Promptless agents commit with, such as `agent+<id>@gopromptless.ai`. Promptless uses those addresses to link a commit to the agent session that made it. Commits that are already on a branch of the repository pass this check, so you can merge a branch that Promptless created.
+
+When a push includes a commit with a Promptless agent address, Git prints the refused commits. To fix them, set your own email address and rewrite the commits:
+
+```bash
+git config user.email <your-email>
+git rebase --exec 'git commit --amend --no-edit --reset-author' origin/main
+```
+
+Promptless records which API key made each accepted push.
+
+### After you push
+
+Promptless stores your commits unchanged, so their SHAs match your local clone. Your changes appear in the dashboard's file tree, and the next Promptless session reads them.
+
+Promptless validates `promptless.yaml` after each push. If a push leaves the file invalid, Git still accepts the push. Promptless keeps using your last valid configuration, and the [Configuration page](https://app.gopromptless.ai/configuration) shows the error until a later change fixes the file.
 
 ## How Promptless uses these files
 
