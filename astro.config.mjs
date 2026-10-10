@@ -46,6 +46,7 @@ const redirects = {
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
   '/lavacon/book': '/lavacon#book',
+  '/campaign/lavacon-2026': '/lavacon',
   // The DoGBench field guide's QR codes encode these short links, so the codes stay small enough to scan in print.
   // The book prints each full destination beside its code.
   '/dogbench/code': 'https://github.com/Promptless/dogbench',
@@ -71,6 +72,9 @@ const redirects = {
   '/oss': '/docs/for-docs/start-here/open-source-quickstart',
   '/media-kit': '/docs/media-kit',
   '/brand': '/docs/media-kit',
+  '/referrals': '/docs/for-docs/referral-program',
+  '/referral-program': '/docs/for-docs/referral-program',
+  '/docs/referral-program': '/docs/for-docs/referral-program',
   '/blog/all': '/blog',
   '/changelog/all': '/changelog',
   ...Object.fromEntries(redirectEntries),
@@ -333,8 +337,11 @@ export default defineConfig({
           {
             // Generated OpenAPI pages and hidden self-hosting pages belong to
             // Promptless for Docs even though autogenerate cannot discover them.
+            // The referral program page stays out of the nav (sidebar.hidden)
+            // but renders with the Promptless for Docs sidebar.
             topics: {
               for_docs: [
+                '/docs/for-docs/referral-program',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
