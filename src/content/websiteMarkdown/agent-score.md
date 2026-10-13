@@ -1,6 +1,6 @@
 ---
 title: Agent Score
-description: Free tool that scores how well AI agents can read a docs site, from 0 to 100, using the open-source afdocs checks. Public reports, score history, fixes, and a CI recipe.
+description: Free tool that scores how well AI agents can read a docs site, from 0 to 100, using the open-source afdocs checks. Public reports, score history, and fixes.
 routePath: /agent-score
 ---
 Agent Score runs [afdocs](https://github.com/agent-ecosystem/afdocs) against a docs site and grades it from 0 to 100 across 28 checks in 7 categories. There is no signup and no email gate. Every scan gets a public report at `https://promptless.ai/agent-score/<host>[/<path>]`, for example [docs.promptless.ai](https://promptless.ai/agent-score/docs.promptless.ai.md), with per-check fixes, score history, and what changed since the last scan. Append `.md` to any report URL for its markdown version.
@@ -26,34 +26,7 @@ npx afdocs@latest check https://docs.example.com --format scorecard
 npx afdocs@latest check https://docs.example.com --fixes --verbose
 ```
 
-## Automate it
-
-The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic`, so the same command in CI produces the same numbers. A daily GitHub Actions job that fails below a score of 90:
-
-```yaml
-name: Agent Score
-on:
-  schedule:
-    - cron: '0 17 * * *'
-  workflow_dispatch:
-jobs:
-  afdocs:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: |
-          set +e
-          OUTPUT=$(npx -y afdocs@latest check "https://docs.example.com" --format json --score --sampling deterministic)
-          set -e
-          SCORE=$(printf '%s' "$OUTPUT" | jq -r '.scoring.overall // empty')
-          [ -n "$SCORE" ] || { echo "::error::Could not parse the afdocs score"; exit 1; }
-          [ "$SCORE" -ge 90 ] || { echo "::error::Agent Score $SCORE is below 90"; exit 1; }
-```
-
-For vitest, add `agent-docs.test.ts` with `import { describeAgentDocsPerCheck } from 'afdocs/helpers'; describeAgentDocsPerCheck();` and put the site URL in `agent-docs.config.yml`.
+The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic`, so the same command locally produces the same numbers.
 
 ## Methodology
 
@@ -69,10 +42,10 @@ Checks are weighted by tier: critical 10, high 7, medium 4, low 2. Warnings earn
 
 ## Why it matters
 
-Developers send coding agents such as Claude Code, Cursor, and ChatGPT to read docs before they do. When an agent cannot parse a page, nobody sees an error; the developer just gets a worse answer. Agent Score measures that, and the same open-source command keeps the score from slipping in CI.
+Developers send coding agents such as Claude Code, Cursor, and ChatGPT to read docs before they do. When an agent cannot parse a page, nobody sees an error. The developer gets a worse answer. Agent Score measures that, and each failing check comes with a fix.
 
-## Promptless keeps docs agent-ready automatically
+## Promptless keeps your docs updated
 
-Promptless is an AI agent that drafts documentation updates when your product changes. [Book a demo](https://promptless.ai/demo) or read [We scored 100 on agent-friendly docs. Here's why that's not enough](https://promptless.ai/blog/technical/agent-friendly-docs-necessary-not-sufficient.md).
+Promptless is an AI agent that drafts documentation updates when your product changes. [Book a demo](https://promptless.ai/demo) or read [how we scored 100 on agent-friendly docs](https://promptless.ai/blog/technical/agent-friendly-docs-necessary-not-sufficient.md).
 
 Built by Promptless. Powered by afdocs.

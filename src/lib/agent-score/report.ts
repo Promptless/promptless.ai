@@ -170,7 +170,6 @@ export interface MarkdownReportLinks {
   pageUrl: string;
   jsonUrl: string;
   badgeUrl: string;
-  automateUrl: string;
 }
 
 /** The agent-readable twin of the score page. */
@@ -254,7 +253,6 @@ export function buildMarkdownReport(site: SiteResponse, links: MarkdownReportLin
     cliCommand(latest.scanUrl, '--fixes --verbose'),
     '```',
     '',
-    `Automate it in CI: ${links.automateUrl}`,
     '',
     `Built by Promptless. Powered by [afdocs](${AFDOCS_REPO_URL}) (MIT) by Dachary Carey, which implements the [Agent-Friendly Docs Spec](${SPEC_URL}).`,
   );

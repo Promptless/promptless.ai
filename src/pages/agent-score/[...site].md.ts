@@ -44,7 +44,6 @@ export const GET: APIRoute = async ({ params, site }) => {
     pageUrl: `${origin}${scorePagePath(slug)}`,
     jsonUrl: getSiteJsonUrl(slug, PUBLIC_AGENT_SCORE_API_BASE),
     badgeUrl: getBadgeUrl(slug, PUBLIC_AGENT_SCORE_API_BASE),
-    automateUrl: `${origin}/agent-score#automate`,
   });
   return markdown(`${body}\n`);
 };

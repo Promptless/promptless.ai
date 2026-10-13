@@ -1,60 +1,21 @@
 ---
 /**
- * "Run it yourself" and "Automate it": the open-source CLI path, placed right
- * under the hero on purpose. The workflow mirrors
- * .github/workflows/afdocs-scheduled.yml, which runs against promptless.ai.
+ * The open-source CLI path, placed right under the hero so the first thing a
+ * visitor learns is that they can run the same checks themselves.
  */
 import { Copy } from '@lucide/astro';
 import { AFDOCS_REPO_URL, AFDOCS_SITE_URL, AUTHOR_URL, SPEC_URL } from '@lib/agent-score/meta';
 
 const command = 'npx afdocs@latest check https://docs.example.com --format scorecard';
-
-const workflow = `name: Agent Score
-on:
-  schedule:
-    - cron: '0 17 * * *' # daily
-  workflow_dispatch:
-
-jobs:
-  afdocs:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Score docs with afdocs
-        run: |
-          set +e
-          OUTPUT=$(npx -y afdocs@latest check "https://docs.example.com" \\
-            --format json --score --sampling deterministic)
-          set -e
-          SCORE=$(printf '%s' "$OUTPUT" | jq -r '.scoring.overall // empty')
-          if [ -z "$SCORE" ]; then
-            echo "::error::Could not parse the afdocs score"
-            exit 1
-          fi
-          echo "Agent Score: $SCORE"
-          if [ "$SCORE" -lt 90 ]; then
-            echo "::error::Agent Score $SCORE is below 90"
-            exit 1
-          fi`;
-
-const vitest = `// agent-docs.test.ts
-// Reads the url from agent-docs.config.yml
-import { describeAgentDocsPerCheck } from 'afdocs/helpers';
-
-describeAgentDocsPerCheck();`;
 ---
 
 <section class="pl-as-section pl-as-section-tight" id="run-it-yourself" aria-labelledby="pl-as-diy-title">
   <div class="pl-as-diy">
     <div>
-      <p class="pl-as-eyebrow">Open source</p>
       <h2 class="pl-as-h2" id="pl-as-diy-title">Run it yourself</h2>
       <p class="pl-as-lede">
-        Agent Score is a hosted run of afdocs. Run the same command from your terminal and you get the same checks and
-        the same scoring, with a fix for every issue when you add <code>--fixes</code>. Requires Node 22 or later.
+        Agent Score is a hosted run of afdocs. The same command in your terminal runs the same checks with the same
+        scoring. Add <code>--fixes</code> to get a fix for every issue. Requires Node 22 or later.
       </p>
       <p class="pl-as-credit">
         <a href={AFDOCS_REPO_URL} target="_blank" rel="noopener" data-track-action="view_afdocs" data-track-funnel="education" data-track-location="agent_score_diy">afdocs</a>{' '}
@@ -62,7 +23,7 @@ describeAgentDocsPerCheck();`;
         <a href={AUTHOR_URL} target="_blank" rel="noopener" data-track-action="view_afdocs_author" data-track-funnel="education" data-track-location="agent_score_diy">Dachary Carey</a>{' '}
         and implements the{' '}
         <a href={SPEC_URL} target="_blank" rel="noopener" data-track-action="view_agent_docs_spec" data-track-funnel="education" data-track-location="agent_score_diy">Agent-Friendly Docs Spec</a>.
-        Promptless did not write it; we run it.
+        Promptless did not write it. We run it.
       </p>
       <ul class="pl-as-links">
         <li><a href={AFDOCS_REPO_URL} target="_blank" rel="noopener">github.com/agent-ecosystem/afdocs</a></li>
@@ -93,43 +54,6 @@ Agent-Friendly Docs Scorecard
 
   <span class="pl-as-warn">WARN</span>  llms-txt-directive-html   No llms.txt directive found…
   <span class="pl-as-ok">PASS</span>  rendering-strategy        All 50 sampled pages contain…</code></pre>
-    </div>
-  </div>
-</section>
-
-<section class="pl-as-section pl-as-section-tight" id="automate" aria-labelledby="pl-as-automate-title">
-  <p class="pl-as-eyebrow">Keep it there</p>
-  <h2 class="pl-as-h2" id="pl-as-automate-title">Automate it</h2>
-  <p class="pl-as-lede">
-    Scores drift when docs change. Run afdocs on a schedule and fail the build when the score drops below your bar.
-    This is the workflow we run against promptless.ai every day.
-  </p>
-  <div class="pl-as-automate">
-    <div class="pl-as-terminal">
-      <div class="pl-as-terminal-bar">
-        <span class="pl-as-terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span class="pl-as-terminal-title pl-as-mono-label">.github/workflows/agent-score.yml</span>
-        <button class="pl-as-btn pl-as-btn-ghost" type="button" data-as-copy data-as-copy-target="#pl-as-workflow" aria-label="Copy the GitHub Actions workflow">
-          <Copy size={14} aria-hidden="true" /><span data-as-copy-label>Copy</span>
-        </button>
-      </div>
-      <pre><code id="pl-as-workflow">{workflow}</code></pre>
-    </div>
-    <div class="pl-as-automate-side">
-      <div class="pl-as-terminal">
-        <div class="pl-as-terminal-bar">
-          <span class="pl-as-terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="pl-as-terminal-title pl-as-mono-label">vitest</span>
-          <button class="pl-as-btn pl-as-btn-ghost" type="button" data-as-copy data-as-copy-target="#pl-as-vitest" aria-label="Copy the vitest helper">
-            <Copy size={14} aria-hidden="true" /><span data-as-copy-label>Copy</span>
-          </button>
-        </div>
-        <pre><code id="pl-as-vitest">{vitest}</code></pre>
-      </div>
-      <p class="pl-as-note pl-as-panel">
-        <strong>Same numbers, here and in CI.</strong> The hosted scanner runs the identical command,{' '}
-        <code>afdocs check &lt;url&gt; --format json --score</code>, with <code>--sampling deterministic</code> so the same pages are sampled every time. Pin the afdocs version shown on your report to match it exactly.
-      </p>
     </div>
   </div>
 </section>

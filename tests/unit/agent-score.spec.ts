@@ -78,7 +78,6 @@ test('markdown report includes history, changes, and every check', () => {
     pageUrl: 'https://promptless.ai/agent-score/docs.promptless.ai',
     jsonUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/docs.promptless.ai',
     badgeUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/docs.promptless.ai/badge.svg',
-    automateUrl: 'https://promptless.ai/agent-score#automate',
   });
   assert.match(md, /^# Agent Score: docs\.promptless\.ai/);
   assert.match(md, /\[llms\.txt\]\(\/llms\.txt\)/);

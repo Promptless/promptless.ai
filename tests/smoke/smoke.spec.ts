@@ -836,9 +836,10 @@ test('every link to a built same-origin page resolves successfully', async () =>
 
       const target = new URL(href, `https://promptless.ai${sourceRoute}`);
       if (target.origin !== 'https://promptless.ai' || target.pathname === '/mcp') continue;
-      // Agent Score reports (/agent-score/<site>) render on demand, so the
-      // static preview cannot serve them; the adapter-build test covers routing.
-      if (target.pathname.startsWith('/agent-score/')) continue;
+      // Agent Score reports (/agent-score/<site>) and the landing's markdown
+      // twin render on demand, so the static preview cannot serve them; the
+      // adapter-build test covers routing.
+      if (target.pathname.startsWith('/agent-score/') || target.pathname === '/agent-score.md') continue;
       targets.set(`${target.pathname}${target.search}`, sourceRoute);
     }
   }
@@ -944,9 +945,10 @@ test('agent score landing renders its form, credits, and CLI contract', async ()
   assert.match(html, /href="https:\/\/github\.com\/agent-ecosystem\/afdocs"/);
   assert.match(html, /href="https:\/\/github\.com\/dacharyc"/);
   assert.match(html, /href="https:\/\/agentdocsspec\.com\/spec\/web\/"/);
-  assert.match(html, /id="automate"/);
-  assert.match(html, /--sampling deterministic/);
+  assert.doesNotMatch(html, /id="automate"/, 'The landing page has no Automate section.');
+  assert.doesNotMatch(html, /pl-as-eyebrow/, 'The landing page has no eyebrow labels.');
   assert.match(html, /id="leaderboard"/);
+  assert.match(html, /href="\/agent-score\.md"/);
   assert.match(html, /id="methodology"/);
   assert.match(html, /href="\/blog\/technical\/agent-friendly-docs-necessary-not-sufficient"/);
   assert.match(html, /og\/agent-score\.png/);
@@ -964,7 +966,7 @@ test('adapter build renders Agent Score reports on demand', (t) => {
   const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
     routes?: Array<{ src?: string; dest?: string }>;
   };
-  for (const pathname of ['/agent-score/docs.stripe.com', '/agent-score/stripe.com/docs', '/agent-score/docs.stripe.com.md', '/agent-score/docs.stripe.com/og.png']) {
+  for (const pathname of ['/agent-score.md', '/agent-score/docs.stripe.com', '/agent-score/stripe.com/docs', '/agent-score/docs.stripe.com.md', '/agent-score/docs.stripe.com/og.png']) {
     const route = (config.routes ?? []).find((entry) => entry.src && entry.dest && new RegExp(entry.src).test(pathname));
     assert.ok(route, `Expected a config.json route mapping ${pathname} to a function.`);
     assert.ok(
@@ -985,7 +987,6 @@ test('website markdown endpoints are available for agent-friendly content', asyn
     '/pricing.md',
     '/free-tools.md',
     '/free-tools/broken-link-report.md',
-    '/agent-score.md',
   ];
 
   for (const route of routes) {

@@ -3,7 +3,7 @@
  * markdown twin, and its OG image route.
  */
 import { getAgentScoreApiBase } from './config';
-import type { SiteResponse } from './types';
+import type { LeaderboardResponse, SiteResponse } from './types';
 
 export type SiteFetchResult =
   | { kind: 'ok'; site: SiteResponse }
@@ -25,6 +25,20 @@ export function getSiteJsonUrl(slug: string, base = getAgentScoreApiBase()): str
 
 export function getBadgeUrl(slug: string, base = getAgentScoreApiBase()): string {
   return `${base}/sites/${slug}/badge.svg`;
+}
+
+/** Latest completed scan per site, or `null` when the API is unavailable. */
+export async function fetchLeaderboard(sort: 'top' | 'recent' = 'top', limit = 100): Promise<LeaderboardResponse | null> {
+  try {
+    const response = await fetch(`${getAgentScoreApiBase()}/leaderboard?sort=${sort}&limit=${limit}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as LeaderboardResponse;
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchSite(slug: string): Promise<SiteFetchResult> {
