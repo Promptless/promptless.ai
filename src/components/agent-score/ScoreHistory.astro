@@ -1,0 +1,214 @@
+---
+/**
+ * Score history (overall line chart + per-category sparks) and the
+ * "What changed since last scan" diff. Rendered server-side as SVG; the toggle
+ * is wired in ReportClient.astro.
+ */
+import { CATEGORIES, STATUS_LABEL, categoryName, checkName, gradeTone } from '@lib/agent-score/meta';
+import { formatDate, formatShortDate } from '@lib/agent-score/report';
+import type { CheckStatus, SiteResponse } from '@lib/agent-score/types';
+
+interface Props {
+  site: SiteResponse;
+}
+
+const { site } = Astro.props;
+const { latest, previous } = site;
+// history is newest-first; the chart reads left (oldest) to right (newest).
+const points = [...site.history].slice(0, 30).reverse();
+const hasTrend = points.length > 1;
+const tone = gradeTone(latest.grade);
+
+// --- Chart geometry -------------------------------------------------------
+const W = 640;
+const H = 230;
+const pad = { top: 22, right: 20, bottom: 30, left: 34 };
+const minScore = Math.min(...points.map((p) => p.overall));
+const yMin = Math.max(0, Math.min(60, Math.floor((minScore - 10) / 10) * 10));
+const yMax = 100;
+const x = (i: number) => pad.left + (points.length === 1 ? (W - pad.left - pad.right) / 2 : (i / (points.length - 1)) * (W - pad.left - pad.right));
+const y = (v: number) => pad.top + (1 - (v - yMin) / (yMax - yMin)) * (H - pad.top - pad.bottom);
+const step = yMax - yMin > 50 ? 20 : 10;
+const gridValues: number[] = [];
+for (let v = yMin; v <= yMax; v += step) gridValues.push(v);
+const linePath = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.overall).toFixed(1)}`).join(' ');
+const areaPath = `${linePath} L${x(points.length - 1).toFixed(1)},${y(yMin).toFixed(1)} L${x(0).toFixed(1)},${y(yMin).toFixed(1)} Z`;
+const labelEvery = Math.max(1, Math.ceil(points.length / 6));
+const showValues = points.length <= 12;
+
+// --- Per-category sparks --------------------------------------------------
+const sparkPoints = points.slice(-12);
+// Scale bars against a floor below the lowest category score so small moves
+// stay visible (absolute 0-100 bars all look the same in the 80s and 90s).
+const allCategoryValues = sparkPoints.flatMap((p) => Object.values(p.categoryScores ?? {})).filter((v): v is number => typeof v === 'number');
+const sparkFloor = Math.max(0, Math.floor((Math.min(100, ...allCategoryValues) - 5) / 5) * 5);
+const sparkHeight = (v: number | null) => (v === null ? 4 : Math.round(12 + (88 * (v - sparkFloor)) / Math.max(1, 100 - sparkFloor)));
+const categories = CATEGORIES.map((category) => {
+  const values = sparkPoints.map((p) => p.categoryScores?.[category.id] ?? null);
+  const current = latest.categories.find((c) => c.id === category.id);
+  return {
+    id: category.id,
+    name: current?.name || category.name,
+    values,
+    score: current?.score ?? null,
+    tone: gradeTone(current?.grade),
+  };
+});
+
+// --- Changes --------------------------------------------------------------
+const delta = previous ? latest.overall - previous.overall : 0;
+const deltaClass = delta > 0 ? 'pl-as-up' : delta < 0 ? 'pl-as-down' : 'pl-as-flat';
+const changes = [...site.changes].sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta));
+const engineChanged = hasTrend && site.history[0].engineVersion !== site.history[1]?.engineVersion;
+const fmtDelta = (value: number) => {
+  const rounded = Math.round(value * 10) / 10;
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : '±'}${Math.abs(rounded)}`;
+};
+const statusLabel = (status: CheckStatus | null) => (status ? STATUS_LABEL[status] : 'New');
+---
+
+<section class="pl-as-section pl-as-section-tight" id="history" aria-labelledby="pl-as-history-title">
+  <div class="pl-as-section-head" style="margin-bottom:1rem">
+    <div>
+      <p class="pl-as-eyebrow">Over time</p>
+      <h2 class="pl-as-h2" id="pl-as-history-title" style="margin:0">Score history</h2>
+    </div>
+  </div>
+
+  <div class="pl-as-history">
+    <div class="pl-as-panel pl-as-history-chart">
+      <div class="pl-as-panel-head">
+        <div>
+          <h3>{hasTrend ? `${site.history.length} scans since ${formatDate(site.firstScannedAt)}` : 'One scan so far'}</h3>
+          <p>Overall score per scan, newest on the right.</p>
+        </div>
+        {hasTrend && (
+          <div class="pl-as-toggle" role="group" aria-label="History view">
+            <button type="button" data-history-view="overall" aria-pressed="true">Overall</button>
+            <button type="button" data-history-view="categories" aria-pressed="false">By category</button>
+          </div>
+        )}
+      </div>
+
+      {
+        hasTrend ? (
+          <>
+            <div data-history-panel="overall">
+              <svg class="pl-as-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Overall score over ${points.length} scans: ${points.map((p) => p.overall).join(', ')}`} data-tone={tone}>
+                <defs>
+                  <linearGradient id="pl-as-area" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" style="stop-color:var(--tone);stop-opacity:0.28" />
+                    <stop offset="100%" style="stop-color:var(--tone);stop-opacity:0" />
+                  </linearGradient>
+                </defs>
+                <g class="pl-as-chart-grid">
+                  {gridValues.map((v) => (
+                    <>
+                      <line x1={pad.left} x2={W - pad.right} y1={y(v)} y2={y(v)} />
+                      <text x={pad.left - 8} y={y(v) + 3} text-anchor="end">{v}</text>
+                    </>
+                  ))}
+                </g>
+                <path d={areaPath} fill="url(#pl-as-area)" />
+                <path class="pl-as-chart-line" d={linePath} />
+                {points.map((p, i) => (
+                  <g>
+                    <title>{`${formatDate(p.scannedAt)}: ${p.overall} (${p.grade}), afdocs ${p.engineVersion}`}</title>
+                    <circle class:list={['pl-as-chart-point', { 'pl-as-chart-point-latest': i === points.length - 1 }]} cx={x(i)} cy={y(p.overall)} r={i === points.length - 1 ? 5 : 4} />
+                    {showValues && (
+                      <text class="pl-as-chart-value" x={x(i)} y={y(p.overall) - 11} text-anchor="middle">{p.overall}</text>
+                    )}
+                  </g>
+                ))}
+                <g class="pl-as-chart-axis">
+                  {points.map((p, i) =>
+                    i % labelEvery === 0 || i === points.length - 1 ? (
+                      <text x={x(i)} y={H - 8} text-anchor={i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle'}>{formatShortDate(p.scannedAt)}</text>
+                    ) : null,
+                  )}
+                </g>
+              </svg>
+            </div>
+            <div data-history-panel="categories" hidden>
+              <p class="pl-as-evidence-caption" style="margin-bottom:0.75rem">Last {sparkPoints.length} scans per category, scaled from {sparkFloor} to 100.</p>
+              <ul class="pl-as-catbars">
+                {categories.map((category) => (
+                  <li data-tone={category.tone}>
+                    <span title={category.name}>{category.name}</span>
+                    <span class="pl-as-spark" role="img" aria-label={`${category.name}: ${category.values.map((v) => v ?? 'n/a').join(', ')}`}>
+                      {category.values.map((v) => (
+                        <i style={`height:${sparkHeight(v)}%`} title={v === null ? 'not scored' : String(v)} />
+                      ))}
+                    </span>
+                    <b>{category.score ?? '–'}</b>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        ) : (
+          <div class="pl-as-first-scan">
+            <strong>First scan. Rescan later to see trends.</strong>
+            <span>Every scan of {site.slug} is kept, so the chart and the change list fill in as you fix things.</span>
+          </div>
+        )
+      }
+    </div>
+
+    <div class="pl-as-panel pl-as-changes">
+      <div class="pl-as-panel-head">
+        <div>
+          <h3>What changed since last scan</h3>
+          <p>{previous ? `Compared with ${formatDate(previous.scannedAt)}` : 'Nothing to compare yet'}</p>
+        </div>
+        {previous && (
+          <span class={`pl-as-delta ${deltaClass}`} title={`${previous.overall} → ${latest.overall}`}>
+            <span class="pl-as-mono-label" style="color:inherit">{previous.overall} → {latest.overall}</span>
+            <span class="pl-as-delta-big">{fmtDelta(delta)}</span>
+          </span>
+        )}
+      </div>
+      {
+        !previous ? (
+          <p class="pl-as-check-message" style="margin:0">
+            After the next scan, every check that changes status or score shows up here, so you can see which fix moved
+            the number.
+          </p>
+        ) : changes.length ? (
+          <ul class="pl-as-change-list">
+            {changes.map((change) => {
+              const cls = change.scoreDelta > 0 ? 'pl-as-up' : change.scoreDelta < 0 ? 'pl-as-down' : 'pl-as-flat';
+              return (
+                <li class="pl-as-change">
+                  <div style="min-width:0">
+                    <span class="pl-as-change-name">{checkName(change.checkId, change.name)}</span>
+                    <span class="pl-as-change-flow">
+                      <span class="pl-as-chip" data-status={change.from ?? 'skip'}>{statusLabel(change.from)}</span>
+                      <span aria-hidden="true">→</span>
+                      <span class="pl-as-chip" data-status={change.to ?? 'skip'}>{statusLabel(change.to)}</span>
+                      <span>{categoryName(change.category)}</span>
+                    </span>
+                  </div>
+                  <span class={`pl-as-change-points ${cls}`}>{fmtDelta(change.scoreDelta)} pts</span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p class="pl-as-check-message" style="margin:0">No check changed status or score since the last scan.</p>
+        )
+      }
+      {previous && changes.length > 0 && (
+        <p class="pl-as-evidence-caption" style="margin-top:0.85rem">
+          Deltas are check points: each check is worth its tier weight (critical 10, high 7, medium 4, low 2).
+        </p>
+      )}
+      {engineChanged && (
+        <p class="pl-as-evidence-caption" style="margin-top:0.85rem">
+          afdocs changed from v{site.history[1].engineVersion} to v{site.history[0].engineVersion} between these scans, so
+          some differences may come from the engine rather than the site.
+        </p>
+      )}
+    </div>
+  </div>
+</section>

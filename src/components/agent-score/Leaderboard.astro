@@ -1,0 +1,124 @@
+---
+/** Leaderboard of scored sites, loaded client-side from GET /leaderboard. */
+import { getAgentScoreApiBase } from '@lib/agent-score/config';
+
+const apiBase = getAgentScoreApiBase();
+---
+
+<section class="pl-as-section" id="leaderboard" aria-labelledby="pl-as-board-title">
+  <div class="pl-as-section-head">
+    <div>
+      <p class="pl-as-eyebrow">Leaderboard</p>
+      <h2 class="pl-as-h2" id="pl-as-board-title">Scored docs sites</h2>
+      <p class="pl-as-lede">
+        Every scan is public. Each site is keyed by its exact host and path, so <code>docs.example.com</code> and{' '}
+        <code>example.com/docs</code> are scored separately.
+      </p>
+    </div>
+    <div class="pl-as-toggle" role="group" aria-label="Sort the leaderboard">
+      <button type="button" data-sort="top" aria-pressed="true">Top scores</button>
+      <button type="button" data-sort="recent" aria-pressed="false">Recently scored</button>
+    </div>
+  </div>
+  <div data-as-board data-api-base={apiBase} aria-live="polite" aria-busy="true">
+    <ul class="pl-as-board" aria-hidden="true">
+      {Array.from({ length: 6 }, () => <li class="pl-as-board-skeleton" />)}
+    </ul>
+  </div>
+</section>
+
+<script>
+  import { gradeTone } from '@lib/agent-score/meta';
+  import { formatShortDate } from '@lib/agent-score/report';
+  import type { LeaderboardResponse } from '@lib/agent-score/types';
+
+  const container = document.querySelector<HTMLElement>('[data-as-board]');
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#leaderboard [data-sort]'));
+  const cache = new Map<string, LeaderboardResponse>();
+
+  const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  function renderMessage(title: string, body: string, withCta: boolean) {
+    if (!container) return;
+    const box = el('div', 'pl-as-panel pl-as-empty');
+    box.append(el('strong', undefined, title), el('p', undefined, body));
+    if (withCta) {
+      const link = el('a', 'pl-as-btn pl-as-btn-primary', 'Score your docs');
+      link.setAttribute('href', '#agent-score-hero-form-url');
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const input = document.getElementById('agent-score-hero-form-url');
+        input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (input as HTMLInputElement | null)?.focus({ preventScroll: true });
+      });
+      box.append(link);
+    }
+    container.replaceChildren(box);
+  }
+
+  function render(data: LeaderboardResponse, sort: string) {
+    if (!container) return;
+    if (!data.entries.length) {
+      renderMessage('No sites scored yet', 'Be the first: score your docs above and your site shows up here.', true);
+      return;
+    }
+    const list = el('ol', 'pl-as-board');
+    data.entries.forEach((entry, index) => {
+      const item = el('li', 'pl-as-board-item');
+      const link = el('a');
+      link.setAttribute('href', `/agent-score/${entry.slug}`);
+      link.dataset.trackAction = 'view_agent_score_report';
+      link.dataset.trackFunnel = 'evaluation';
+      link.dataset.trackLocation = 'agent_score_leaderboard';
+      const rank = el('span', 'pl-as-board-rank', sort === 'top' ? String(index + 1).padStart(2, '0') : '·');
+      const text = el('span');
+      text.style.minWidth = '0';
+      text.append(
+        el('span', 'pl-as-board-name', entry.displayName || entry.slug),
+        el('span', 'pl-as-board-meta', `${formatShortDate(entry.scannedAt)} · ${entry.scanCount} scan${entry.scanCount === 1 ? '' : 's'}`),
+      );
+      const score = el('span', 'pl-as-board-score');
+      score.dataset.tone = gradeTone(entry.grade);
+      const grade = el('span', 'pl-as-grade', entry.grade);
+      score.append(el('b', undefined, String(entry.overall)), grade);
+      link.append(rank, text, score);
+      item.append(link);
+      list.append(item);
+    });
+    container.replaceChildren(list);
+  }
+
+  async function load(sort: string) {
+    if (!container) return;
+    const apiBase = container.dataset.apiBase ?? '';
+    container.setAttribute('aria-busy', 'true');
+    try {
+      let data = cache.get(sort);
+      if (!data) {
+        const response = await fetch(`${apiBase}/leaderboard?limit=24&sort=${sort}`);
+        if (!response.ok) throw new Error(String(response.status));
+        data = (await response.json()) as LeaderboardResponse;
+        cache.set(sort, data);
+      }
+      render(data, sort);
+    } catch {
+      renderMessage('The leaderboard is unavailable right now', 'Scanning still works. Try again in a minute.', false);
+    } finally {
+      container.setAttribute('aria-busy', 'false');
+    }
+  }
+
+  buttons.forEach((button) => {
+    button.addEventListener('click', () => {
+      buttons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      load(button.dataset.sort ?? 'top');
+    });
+  });
+
+  load('top');
+</script>
