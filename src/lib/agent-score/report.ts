@@ -206,7 +206,10 @@ export function buildMarkdownReport(site: SiteResponse, links: MarkdownReportLin
     }
   }
 
-  if (site.previous) {
+  if (site.previous && !site.previous.comparable) {
+    lines.push('', '## What changed since the last scan', '');
+    lines.push(`Previous scan on ${formatDate(site.previous.scannedAt)} scored ${site.previous.overall} (Grade ${site.previous.grade}) under afdocs scoring version ${site.previous.scoringVersion ?? 'unknown'}; this scan used ${latest.engine.scoringVersion}, so the two are not comparable.`);
+  } else if (site.previous) {
     lines.push('', '## What changed since the last scan', '');
     lines.push(`Previous scan on ${formatDate(site.previous.scannedAt)} scored ${site.previous.overall} (Grade ${site.previous.grade}); change ${signed(latest.overall - site.previous.overall, 0)}.`);
     if (site.changes.length) {

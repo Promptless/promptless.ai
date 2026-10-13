@@ -88,6 +88,7 @@ const ERROR_COPY: Record<string, string> = {
   timeout: 'The scan timed out. The site may be slow, very large, or blocking automated requests.',
   unreachable: 'We could not reach that site. Check the URL, and that it is publicly accessible.',
   afdocs_failed: 'afdocs could not finish scanning this site.',
+  launch_failed: 'The scanner could not be started. Try again in a few minutes.',
 };
 
 export interface ProgressElements {
