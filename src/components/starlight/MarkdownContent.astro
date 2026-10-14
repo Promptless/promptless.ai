@@ -1,0 +1,53 @@
+---
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+---
+
+<Default><slot /></Default>
+<span class="sr-only" id="heading-link-copy-status" role="status"></span>
+
+<script>
+  const copyStatus = document.querySelector('#heading-link-copy-status');
+  const headingLinks = document.querySelectorAll<HTMLAnchorElement>('.sl-markdown-content .sl-anchor-link');
+
+  for (const link of headingLinks) {
+    const heading = link.previousElementSibling?.textContent?.trim();
+    if (heading) link.setAttribute('aria-label', `Copy link to ${heading}`);
+  }
+
+  document.addEventListener('click', async (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!(event.target instanceof Element)) return;
+
+    const link = event.target.closest<HTMLAnchorElement>('.sl-markdown-content .sl-anchor-link');
+    if (!link) return;
+
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(link.href);
+      copied = true;
+    } catch {
+      const input = document.createElement('input');
+      input.value = link.href;
+      document.body.append(input);
+      input.select();
+      try {
+        copied = document.execCommand('copy');
+      } catch {
+        copied = false;
+      } finally {
+        input.remove();
+      }
+    }
+
+    if (copied) {
+      link.dataset.copyStatus = 'Copied';
+      if (copyStatus) copyStatus.textContent = 'Section link copied to clipboard.';
+      window.setTimeout(() => {
+        delete link.dataset.copyStatus;
+        if (copyStatus) copyStatus.textContent = '';
+      }, 2000);
+    } else {
+      if (copyStatus) copyStatus.textContent = 'Could not copy the section link.';
+    }
+  });
+</script>
