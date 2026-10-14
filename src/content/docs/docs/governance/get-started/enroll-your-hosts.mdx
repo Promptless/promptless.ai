@@ -32,6 +32,24 @@ Your operator should provide the analyzer's HTTPS address and confirm its organi
   Trace collection can include prompts, responses, tool calls, and code or documents present in sessions. On first discovery, the collector can upload existing session history, not just sessions started after enrollment. Review the [data boundaries](/docs/governance/start-here/trust-and-data-model) and agree on the pilot hosts and repositories before enabling collection.
 </Aside>
 
+To hand enrollment to a coding agent on the pilot host, copy this prompt. You still approve the host in your browser. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
+
+```text title="Ask your agent: enable collection and enroll this host"
+Enable PIG trace collection for our Instruction Hub and enroll this host.
+Follow https://promptless.ai/docs/governance/get-started/enroll-your-hosts.md
+and phase 6 of https://promptless.ai/docs/governance/agent-setup-guide.md
+
+Collection is approved for this host only.
+Inputs (discover these before you ask me):
+- Hub repository: [hub repository URL or local path]
+- Analyzer address: [for example, https://traces.acme.example]
+- Host family: [the --host value from the guide, for example codex or claude]
+
+Show me the hub.yaml diff and wait for my approval before you publish it.
+Tell me when to approve the host in my browser. Report the runtime status
+and anything still blocked.
+```
+
 <Steps>
   1. **Enable collection in the hub**
 
@@ -73,6 +91,16 @@ Your operator should provide the analyzer's HTTPS address and confirm its organi
 
      Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
 
+     To enroll a machine you reach over SSH, or another host without a local browser, add `--device` to the manual enrollment command:
+
+     ```bash
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex --device
+     ```
+
+     The command prints an approval link. Open the link on a device that has a browser, such as your laptop, and approve the host there. The host needs no local browser, inbound port, or loopback callback.
+
+     The command waits about 35 seconds for approval. If it prints `"status": "setup_pending"`, approve the link and run the same command again. Each run resumes the same approval until it expires 15 minutes after the command first printed the link. After that, the next run prints a new link.
+
      The host stores its `plihost_` credential locally with owner-only access. It is different from the analyzer's deployment credential. Do not copy host credentials between machines or into your hub.
 
   4. **Verify collection and analysis**
@@ -106,6 +134,8 @@ The runtime tracks source progress locally and uploads incremental trace data. A
 | Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js    |
 | The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                     |
 | The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                         |
+| The host has no local browser                  | Run `enroll` with `--device` and open the printed approval link on another device                                                      |
+| Device enrollment reports too many requests    | Wait before retrying; approve or let pending approvals expire, since each pending approval counts toward a per-deployment limit        |
 | Host is enrolled but no trace appears          | Complete a supported native session; inspect runtime diagnostics and check the host's collection policy and network access             |
 | Trace is stored but analysis does not complete | Ask the operator to check the selected instruction repositories, quiet-period eligibility, model configuration, and the analysis queue |
 | A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support      |
