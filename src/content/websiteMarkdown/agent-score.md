@@ -28,19 +28,9 @@ npx afdocs@latest check https://docs.example.com --fixes --verbose
 
 The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic`.
 
-## What the 28 checks cover
+## Checks
 
-Every check is a yes-or-no test an HTTP client can run. None of them read your prose. See the [check reference](https://afdocs.dev/checks/) and [how the score is calculated](https://afdocs.dev/agent-score-calculation).
-
-- **Content Discoverability** (7 checks): llms.txt exists, is valid, fits size limits, links resolve and point to markdown, and pages point agents to it.
-- **Markdown Availability** (2 checks): `.md` URLs and `Accept: text/markdown` content negotiation.
-- **Page Size and Truncation Risk** (6 checks): server-side rendering, page and transfer size, where content starts, and single-fetch completeness.
-- **Content Structure** (5 checks): tabbed content, section headers, code fences, link portability, and embedded data.
-- **URL Stability and Redirects** (2 checks): real error status codes and same-host redirects.
-- **Observability and Content Health** (3 checks): llms.txt coverage, markdown and HTML parity, and cache headers.
-- **Authentication and Access** (3 checks): login walls, alternative access paths, and bot protection.
-
-Grades: A+ is 100, A is 90 to 99, B is 80 to 89, C is 70 to 79, D is 60 to 69, and F is below 60. A missing llms.txt caps the score at 59. Client-side rendering or a login wall on most pages caps it at 39.
+28 checks in 7 categories: content discoverability, markdown availability, page size, content structure, URL stability, observability, and authentication. Every check is a yes-or-no test an HTTP client can run; none of them read your prose. See the [check reference](https://afdocs.dev/checks/) and [how the score is calculated](https://afdocs.dev/agent-score-calculation).
 
 ## Auditing the content itself
 
