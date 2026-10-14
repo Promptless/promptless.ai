@@ -1,0 +1,209 @@
+---
+title: Set up PIG with a coding agent
+description: Hand PIG setup to Claude Code, Codex, or another coding agent. The agent inspects your environment, sets up an Instruction Hub and plugins, and can deploy trace analysis and enroll hosts.
+slug: docs/governance/agent-setup-guide
+type: guide
+tags:
+  - agent-instructions
+  - governance
+  - guide
+  - deployment
+sidebar:
+  hidden: false
+  label: Set up with a coding agent
+---
+
+A coding agent such as Claude Code or Codex can set up Promptless Instruction Governance (PIG) for you by following the setup guides. It reuses what already exists and asks you before a change that costs money, grants access, or publishes to your team. Hand it the whole setup with the prompt below, or one phase at a time with the **Ask your agent** prompt in each setup guide.
+
+## Before you hand off setup
+
+- Decide whether you want trace analysis. A hub and its plugins work without it. Trace analysis adds a self-hosted analyzer, a PostgreSQL database, object storage, and a model provider.
+- Start the agent in a terminal that can reach your Git provider and, for trace analysis, your cloud account and Kubernetes cluster.
+- Expect to handle sign-ins, the Promptless Dashboard, and host enrollment approval yourself. The agent tells you when.
+- Store secrets in your secret manager and give the agent their names, never their values.
+
+## Ask your agent to set up PIG
+
+Copy this prompt into your agent and fill in the values you know.
+
+```text title="Ask your agent: set up PIG end to end"
+Set up Promptless Instruction Governance (PIG) for my team. Follow
+https://promptless.ai/docs/governance/agent-setup-guide.md
+
+Outcome: a published Instruction Hub, its plugins installed in my agent, and a
+hub skill working in a real task. Trace analysis: [yes or no]. If yes, also
+deploy the analyzer, enroll this host, and verify one real session in the
+Promptless Dashboard.
+
+Known inputs (discover the rest before you ask me):
+- Hub repository: [existing hub URL, or the GitHub or GitLab group for a new one]
+- My agent: [Claude Code, Codex, Cursor, or Gemini CLI]
+- Cloud: [AWS, Azure, Google Cloud, or another Kubernetes platform]
+- Cluster: [kubectl context and namespace, if known]
+
+Ask me before paid, access, publishing, or destructive changes, and never ask
+me to paste a credential. Report what you verified, what is blocked, and my
+next step.
+```
+
+## Instructions for coding agents
+
+The rest of this page is for you, the agent. Read all of it before you run a command. The linked guides are the source of truth for commands and configuration; if this page differs from one, follow the guide and report the difference. Append `.md` to a guide's URL to read it as Markdown. The [documentation index](/llms.txt) lists every page.
+
+### Act within scope, ask before consequential changes
+
+Without asking, run read-only inspection, prepare files on a local branch, render templates, and run dry runs, `terraform plan`, `pig validate`, and `pig verify`. Reuse existing resources and resume from the first incomplete phase.
+
+Before each of these actions, show the plan, diff, or `terraform plan` output and wait for approval. An approval covers only the plan you showed.
+
+- Creating a repository, or pushing to a branch that publishes, such as the hub's source branch.
+- Applying Terraform, installing the Helm bootstrap, or applying a `PIGDeployment`. These create paid resources or start workloads and schema migrations.
+- Granting access: IAM, repository and CI token permissions, and the GitHub App's repository access.
+- Enabling trace collection, which can upload the host's existing session history.
+- Replacing, deleting, or importing existing infrastructure, Terraform state, Helm releases, or hub content.
+
+Before each phase that writes, report the exact target: Git remote and branch, cloud account and region, Kubernetes context and namespace, and Promptless organization. Stop if it differs from what the user described.
+
+When a step fails, stop and report it. Do not invent commands, flags, or keys, or switch deployment paths without agreement. Never weaken security to get past an error, such as by disabling TLS verification, making storage public, or broadening IAM.
+
+Preserve what others own. Keep the user's uncommitted changes and work on a branch. Keep existing Terraform state, backends, and module pins, and do not import resources another workflow owns. Keep the Helm bootstrap out of Terraform `helm_release` resources and continuous GitOps reconciliation; after bootstrap, PIG owns its releases, as [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) describes.
+
+### Keep credentials out of the conversation
+
+- Ask for the name of a secret, Kubernetes Secret, or environment variable, never its value.
+- Deliver credentials only through the user's secret manager, a Kubernetes Secret created from it, or the CI provider's own token.
+- Keep credentials out of Git, Helm arguments, committed `.tfvars` files, logs, and output. To confirm a Secret, check its keys, not its value.
+- Treat Terraform state and saved plans as secrets. Do not copy host enrollment credentials between machines or into the hub.
+
+### Pause for steps only a person can do
+
+Tell the user what to do and what to tell you afterward, then resume with the listed check.
+
+| Step                                                                                    | Who                                        | How you resume                                                  |
+| --------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------- |
+| Sign in to a Git provider, cloud CLI, or cluster                                        | The user                                   | Rerun the identity check, such as `aws sts get-caller-identity` |
+| Add an analyzer in **Settings → Workers** and store its credential                      | A Promptless organization admin            | Check that the named Kubernetes Secret has the expected key     |
+| Select instruction repositories in **Settings → Workers**                               | A Promptless organization admin            | Confirm with the user that the repositories appear on the card  |
+| Enable CI job token push access in GitLab                                               | A GitLab project maintainer                | Rerun the publishing pipeline and inspect its jobs              |
+| Run Claude Code `/plugin` commands, install a Cursor plugin, or review plugins in Codex | The user                                   | Confirm the installed plugin, then run the skill check          |
+| Import a Cursor team marketplace                                                        | A Cursor team administrator                | Confirm the imported plugins with the user                      |
+| Approve host enrollment                                                                 | A signed-in Promptless organization member | Rerun the runtime `status` or `enroll` command                  |
+
+### Report the result
+
+Report:
+
+- Each phase as verified, skipped, or blocked, with the check that proved it.
+- The identifiers you created or reused, such as the hub repository, release version, deployment, namespace, and session ID.
+- What is blocked, the user's next action, and anything you could not test.
+
+Do not report an outcome you did not check.
+
+## Phase 1: Inspect the environment and choose a path
+
+1. Look for `hub.yaml` and `plugins/pig.yaml` in the current repository and any repository the user named, and for installed `pig` plugins in the user's agent.
+2. Check tools. Hub work needs Git and Python 3.11 or later. Trace analysis also needs `kubectl`, Helm 3 or later, Terraform for a cloud guide, and the cloud's CLI.
+3. If the request does not say, ask whether the user wants trace analysis. If so, run `kubectl get pigdeployments --all-namespaces` and `helm list --all-namespaces` against the confirmed context.
+4. Check [Supported agents](/docs/governance/reference/supported-agents). Every build target receives plugins, but plan trace analysis only for agents listed for native trace collection.
+5. Choose a path from [Deploy trace analysis](/docs/governance/deploy-the-worker/plan-your-deployment):
+   - AWS with an existing EKS cluster: [Deploy on AWS](/docs/governance/deploy-the-worker/deploy-on-aws), the path the current release targets.
+   - AKS or GKE: [Deploy on Azure](/docs/governance/deploy-the-worker/deploy-on-azure) or [Deploy on Google Cloud](/docs/governance/deploy-the-worker/deploy-on-gcp). Tell the user these paths are experimental.
+   - A cluster with a database, bucket, and workload identity in place: [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker).
+   - A team that applies every upgrade itself: [Manual Helm management](/docs/governance/deploy-the-worker/manual-helm).
+
+**Stop** and ask how to continue when:
+
+- Trace analysis needs a Kubernetes cluster and none exists. The cloud guides do not create one.
+- The user wants collection from an agent without native trace collection.
+- The instruction repositories to analyze are not on GitHub. A GitLab hub can publish plugins, but the analyzer reads only GitHub repositories.
+
+**Done when** the user agrees on the hub to create or adopt, the agent to install for, and whether and where to deploy the analyzer.
+
+## Phase 2: Create or adopt an Instruction Hub
+
+Follow [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub) and [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions). You need the organization name, marketplace ID, repository location, and first skills or instructions to include.
+
+1. Install the toolchain in a dedicated virtual environment, or reuse one where `pig --help` works.
+2. To adopt a hub, clone it and work on a branch; do not run `pig init` over it. To create one, run `pig init` in a new directory and keep the `pig` plugin, whose ID the toolchain requires.
+3. Add skills and group them into plugins. To import instructions, run `pig scan` on one source at a time and review each import, because it replaces a destination skill with the same ID.
+4. Run `pig validate --hub .`, then `pig verify --hub .`, and commit to a local branch.
+
+Ask for approval before you create the remote repository or push to it.
+
+**Done when** `pig verify` prints a verified release ID and the commit contains `hub.yaml`, `plugins/`, and `assets/`. To resume, rerun `pig verify` on an existing `hub.yaml`.
+
+## Phase 3: Configure publishing
+
+Follow [Publish your hub](/docs/governance/get-started/publish-and-install-plugins#publish-your-hub).
+
+1. Check for `.github/workflows/instruction-hub-*.yml` or an `include` of the toolchain template in `.gitlab-ci.yml`.
+2. Add the guide's workflow files or GitLab template. Set `hub-root` when the hub is not at the repository root.
+3. Check repository settings. GitHub workflows need write permission to the source branch and `release/stable`. GitLab needs job token push access, which a project maintainer enables.
+
+Ask for approval before you push the workflow to the source branch, which starts publishing.
+
+**Done when** the run succeeded and `release/stable` contains `hub.release.json` and `dist/<target>/<plugin-id>/` for each plugin in `stable_plugins`. If publication stops because a branch advanced, update from the latest source and rerun. Do not force-push.
+
+## Phase 4: Install plugins and check a skill
+
+Follow [Install the plugins](/docs/governance/get-started/publish-and-install-plugins#install-the-plugins).
+
+1. Confirm the user can read the hub repository and `release/stable`.
+2. Install `pig` and the needed plugins from the agent's tab in the guide. Run Codex and Gemini CLI terminal commands yourself; ask the user to run Claude Code slash commands and app or dashboard steps.
+3. Reload or restart the agent as the guide describes.
+
+**Done when** the plugin is listed at the published version. A hub skill must also run in a real task in a new session and read its supporting files.
+
+## Phase 5: Deploy the trace analyzer
+
+Skip this phase without trace analysis and report the hub as ready. Otherwise, follow [Deploy trace analysis](/docs/governance/deploy-the-worker/plan-your-deployment), the cloud guide from phase 1, [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), and the [configuration reference](/docs/governance/deploy-the-worker/configuration-reference). You need:
+
+- The cloud account, region, and cluster context.
+- The analyzer hostname and how its certificate is managed.
+- The model provider and model.
+- The secret names for the analyzer credential, database connection string, and model key.
+
+1. Check [Before you begin](/docs/governance/deploy-the-worker/plan-your-deployment#before-you-begin) and list missing items before you start.
+2. Ask a Promptless organization admin to [register the analyzer](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). The credential is shown once; the admin stores it in the secret manager.
+3. Choose a release from [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases) and use its exact tag and chart version. If none is published, stop. Never use an unreleased branch or candidate tag.
+4. For a cloud guide, check out the release tag, fill the example inputs with confirmed values, and configure the user's remote state backend. Run `terraform init`, `terraform validate`, and `terraform plan -out=pig.tfplan`.
+5. Show the plan summary. Stop if it replaces the cluster, broadens shared permissions, or destroys retained storage. After approval, apply the saved plan and save the `deployment_configuration` output, which contains no credentials.
+6. Create the namespaces and the analyzer ServiceAccount with the output's annotations. Confirm the guide's Secret has the required keys from the secret manager.
+7. Pull the pinned bootstrap chart, verify its release checksum, and show the permissions and images from `helm template`. Install after approval.
+8. Write `pig-deployment.yaml` from the guide's example and the Terraform output. Show the `kubectl apply --dry-run=server` result, then apply after approval.
+9. Wait for the `PIGDeployment` to report ready, and check `/healthz` over HTTPS from the hosts' network.
+10. Ask a Promptless organization admin to [select instruction repositories](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories).
+
+**Done when** the `PIGDeployment` is ready and the health check passes from the hosts' network. In **Settings → Workers**, the analyzer must show a recent **Last checked in** time and selected repositories. This proves the deployment runs; phase 7 proves analysis works.
+
+To resume, read the status of an existing `PIGDeployment`, Helm release, or Terraform state and continue from the first failing check. Do not reinstall the bootstrap over a supervisor that has updated itself. For a blocked update, follow [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+
+## Phase 6: Enable trace collection and enroll a host
+
+Follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts). You need the analyzer's HTTPS address and the agreed pilot host.
+
+1. Confirm collection is approved for this host, and point the user to the [trust and data model](/docs/governance/start-here/trust-and-data-model). The first collection can upload existing session history.
+2. Set `trace_ingestion.enabled: true` in `hub.yaml`, run `pig verify`, and show the diff. Publish through the hub's CI after approval.
+3. Update the `pig` plugin on the pilot host, and set `PROMPTLESS_WORKER_BASE_URL` to the analyzer's address where the agent launches.
+4. Start enrollment in a new session or with the runtime's `enroll` command, adding `--device` on a host without a browser. After the user approves the host in the browser, rerun the command.
+5. Run the runtime's `ensure` and `status` commands for the same host family.
+
+**Done when** the runtime reports the host enrolled against the expected analyzer and the analyzer accepts its check-in.
+
+## Phase 7: Verify the whole setup
+
+Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment).
+
+1. Ask the user to run a small, non-sensitive task that uses a hub skill in a new session, in a repository selected for analysis. Record the agent source and session ID.
+2. Wait for the configured quiet window after the session ends.
+3. Run each check in the guide for that session ID with read-only database sessions. Do not copy session content into your report.
+
+**Done when** all of these pass for the same session:
+
+- A hub skill ran.
+- The host is enrolled and checked in.
+- The trace is stored and readable through the analyzer's identity.
+- At least one analysis run succeeded. Zero findings is a valid result.
+- The session and analyzer status appear in the Promptless Dashboard.
+
+A ready pod, published release, listed plugin, or upload acknowledgment alone does not pass. When a check fails, find the first failing stage with [observability and troubleshooting](/docs/governance/deploy-the-worker/observability) and report it.

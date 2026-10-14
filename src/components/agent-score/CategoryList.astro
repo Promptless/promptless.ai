@@ -1,0 +1,141 @@
+---
+import { Check, ChevronDown, Minus, TriangleAlert, X } from '@lucide/astro';
+import Evidence from './Evidence.astro';
+import { STATUS_LABEL, categoryName, checkName, getCategoryMeta, gradeTone } from '@lib/agent-score/meta';
+import { potentialGain } from '@lib/agent-score/report';
+import type { CheckResult, ScanResult } from '@lib/agent-score/types';
+
+interface Props {
+  latest: ScanResult;
+}
+
+const { latest } = Astro.props;
+const icons = { pass: Check, warn: TriangleAlert, fail: X, error: X, skip: Minus } as const;
+const fmt = (value: number) => (Math.round(value * 10) / 10).toString();
+const pointsLabel = (check: CheckResult) =>
+  typeof check.max === 'number' && check.scoreDisplayMode !== 'notApplicable' ? `${fmt(check.earned ?? 0)}/${fmt(check.max)} pts` : 'not scored';
+const chips = [
+  ['pass', 'passed'],
+  ['warn', 'warn'],
+  ['fail', 'failed'],
+  ['error', 'errored'],
+  ['skip', 'skipped'],
+] as const;
+---
+
+<section class="pl-as-section pl-as-section-tight" id="checks" aria-labelledby="pl-as-checks-title">
+  <div class="pl-as-section-head" style="margin-bottom:1rem">
+    <div>
+      <h2 class="pl-as-h2" id="pl-as-checks-title" style="margin:0">Check results</h2>
+    </div>
+    <div class="pl-as-toggle" role="group" aria-label="Expand or collapse categories">
+      <button type="button" data-cats-expand="open">Expand all</button>
+      <button type="button" data-cats-expand="close">Collapse all</button>
+    </div>
+  </div>
+
+  {
+    latest.diagnostics.length > 0 && (
+      <div style="margin-bottom:1rem">
+        {latest.diagnostics.map((diagnostic) => (
+          <div class="pl-as-diagnostic" data-status={diagnostic.severity === 'critical' ? 'fail' : diagnostic.severity === 'warning' ? 'warn' : 'skip'}>
+            <div class="pl-as-diagnostic-head">
+              <span class="pl-as-chip" data-status={diagnostic.severity === 'critical' ? 'fail' : diagnostic.severity === 'warning' ? 'warn' : 'skip'}>
+                {diagnostic.severity}
+              </span>
+              <span class="pl-as-mono-label">Diagnostic · {diagnostic.id}</span>
+            </div>
+            <p>{diagnostic.message}</p>
+            <p><strong>Fix:</strong> {diagnostic.resolution}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  <p class="pl-as-filter-note" data-filter-note hidden>
+    <span data-filter-label></span>
+    <button class="pl-as-btn pl-as-btn-ghost" type="button" data-filter-clear>Show all checks</button>
+  </p>
+
+  <div class="pl-as-cats" data-cats>
+    {
+      latest.categories.map((category) => {
+        const tone = gradeTone(category.grade);
+        const meta = getCategoryMeta(category.id);
+        const open = category.counts.fail + category.counts.warn + category.counts.error > 0;
+        return (
+          <details class="pl-as-panel pl-as-cat" id={`category-${category.id}`} data-category={category.id} open={open}>
+            <summary>
+              <span class="pl-as-cat-title">
+                <h3>{categoryName(category.id, category.name)}</h3>
+                <span class="pl-as-chips">
+                  {chips.map(([status, label]) =>
+                    category.counts[status] > 0 ? (
+                      <span class="pl-as-chip" data-status={status}>
+                        {category.counts[status]} {label}
+                      </span>
+                    ) : null,
+                  )}
+                </span>
+              </span>
+              <span class="pl-as-cat-side">
+                <span class="pl-as-cat-score" data-tone={tone}>
+                  <span class="pl-as-cat-score-line">
+                    <b>{category.score ?? '–'}</b>
+                    {category.grade && <span class="pl-as-grade" data-tone={tone}>{category.grade}</span>}
+                  </span>
+                  <span class="pl-as-bar"><span style={`width:${category.score ?? 0}%`} /></span>
+                </span>
+                <ChevronDown class="pl-as-chevron" size={18} aria-hidden="true" />
+              </span>
+            </summary>
+            <div class="pl-as-cat-body">
+              {meta && <p class="pl-as-cat-rationale">{meta.rationale}</p>}
+              <ul class="pl-as-checks">
+                {category.checks.map((check) => {
+                  const Icon = icons[check.status] ?? Minus;
+                  const gain = potentialGain(check, latest);
+                  const showFix = (check.status === 'warn' || check.status === 'fail' || check.status === 'error') && check.resolution;
+                  return (
+                    <li class="pl-as-check" id={`check-${check.id}`} data-status={check.status}>
+                      <span class="pl-as-status-icon" title={STATUS_LABEL[check.status]}>
+                        <Icon size={13} stroke-width={2.5} aria-hidden="true" />
+                        <span class="sr-only">{STATUS_LABEL[check.status]}</span>
+                      </span>
+                      <div class="pl-as-check-main">
+                        <div class="pl-as-check-head">
+                          <span class="pl-as-check-name">
+                            <strong>{checkName(check.id, check.name)}</strong>
+                            <code>{check.id}</code>
+                          </span>
+                          <span class="pl-as-check-score">
+                            <span class="pl-as-chip" data-tier={check.tier} title={`Weight ${check.weight}`}>
+                              {check.tier} · {check.weight}
+                            </span>
+                            <span class="pl-as-check-points">{pointsLabel(check)}</span>
+                          </span>
+                        </div>
+                        <p class="pl-as-check-message">{check.message}</p>
+                        {showFix && (
+                          <div class="pl-as-fix">
+                            <div class="pl-as-fix-head">
+                              <span class="pl-as-mono-label">Fix</span>
+                              {gain >= 0.5 && <span class="pl-as-mono-label">up to +{fmt(gain)} overall</span>}
+                            </div>
+                            <p>{check.resolution}</p>
+                          </div>
+                        )}
+                        {check.status !== 'skip' && <Evidence evidence={check.evidence} />}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </details>
+        );
+      })
+    }
+  </div>
+</section>
