@@ -62,7 +62,8 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 - **Redirects**: Defined in `astro.config.mjs` (static) merged with
   `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
   manifest script never writes it), so add redirect entries for moved or renamed
-  pages by hand.
+  pages by hand. Every source also matches with a trailing slash
+  (`scripts/normalize-vercel-redirects.ts`), so add only the no-slash form.
 - **Sidebar**: The docs nav is **directory-driven** (Starport Phase 3, ADR
   0003). `starlight-sidebar-topics` wraps Starlight's native folder
   `autogenerate` in `astro.config.mjs`, walking the `src/content/docs/docs/`
