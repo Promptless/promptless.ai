@@ -47,9 +47,9 @@ test('category metadata covers the 28 afdocs checks', () => {
 });
 
 test('fixtures match the contract shape the pages render', () => {
-  for (const name of ['docs.promptless.ai', 'docs.acme-api.dev']) {
+  for (const [name, slug] of [['promptless.ai-docs', 'promptless.ai/docs'], ['docs.acme-api.dev', 'docs.acme-api.dev']]) {
     const site = fixture(name);
-    assert.equal(site.slug, name);
+    assert.equal(site.slug, slug);
     assert.equal(site.latest.categories.map((c) => c.id).join(), CATEGORIES.map((c) => c.id).join());
     const checks = site.latest.categories.flatMap((c) => c.checks);
     assert.equal(checks.length, site.latest.summary.total);
@@ -73,13 +73,13 @@ test('summary sentence and fix prompt describe the scan', () => {
 });
 
 test('markdown report includes history, changes, and every check', () => {
-  const site = fixture('docs.promptless.ai');
+  const site = fixture('promptless.ai-docs');
   const md = buildMarkdownReport(site, {
-    pageUrl: 'https://promptless.ai/agent-score/docs.promptless.ai',
-    jsonUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/docs.promptless.ai',
-    badgeUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/docs.promptless.ai/badge.svg',
+    pageUrl: 'https://promptless.ai/agent-score/promptless.ai/docs',
+    jsonUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/promptless.ai/docs',
+    badgeUrl: 'https://api.gopromptless.ai/public/free-tools/agent-score/sites/promptless.ai/docs/badge.svg',
   });
-  assert.match(md, /^# Agent Score: docs\.promptless\.ai/);
+  assert.match(md, /^# Agent Score: promptless\.ai\/docs/);
   assert.match(md, /\[llms\.txt\]\(\/llms\.txt\)/);
   assert.match(md, /## Score history/);
   assert.match(md, /## What changed since the last scan/);
