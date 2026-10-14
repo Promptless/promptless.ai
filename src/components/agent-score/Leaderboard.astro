@@ -1,26 +1,12 @@
 ---
-/** Leaderboard of scored sites, loaded client-side from GET /leaderboard. */
+/** Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only. */
 import { getAgentScoreApiBase } from '@lib/agent-score/config';
 
 const apiBase = getAgentScoreApiBase();
 ---
 
 <section class="pl-as-section" id="leaderboard" aria-labelledby="pl-as-board-title">
-  <div class="pl-as-section-head">
-    <div>
-      <h2 class="pl-as-h2" id="pl-as-board-title">Scored docs sites</h2>
-      <p class="pl-as-lede">
-        Every scan is public. <code>docs.example.com</code> and <code>example.com/docs</code> are scored separately.
-      </p>
-    </div>
-    <div class="pl-as-board-controls">
-      <div class="pl-as-toggle" role="group" aria-label="Sort the leaderboard">
-        <button type="button" data-sort="top" aria-pressed="true">Top scores</button>
-        <button type="button" data-sort="recent" aria-pressed="false">Recently scored</button>
-      </div>
-      <a class="pl-as-btn" href="/agent-score.md" data-track-action="view_agent_mode" data-track-funnel="education" data-track-location="agent_score_leaderboard">Agent mode</a>
-    </div>
-  </div>
+  <h2 class="pl-as-h2" id="pl-as-board-title">Leaderboard</h2>
   <div data-as-board data-api-base={apiBase} aria-live="polite" aria-busy="true">
     <ul class="pl-as-board" aria-hidden="true">
       {Array.from({ length: 6 }, () => <li class="pl-as-board-skeleton" />)}
@@ -30,12 +16,9 @@ const apiBase = getAgentScoreApiBase();
 
 <script>
   import { gradeTone } from '@lib/agent-score/meta';
-  import { formatShortDate } from '@lib/agent-score/report';
   import type { LeaderboardResponse } from '@lib/agent-score/types';
 
   const container = document.querySelector<HTMLElement>('[data-as-board]');
-  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('#leaderboard [data-sort]'));
-  const cache = new Map<string, LeaderboardResponse>();
 
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
     const node = document.createElement(tag);
@@ -62,51 +45,36 @@ const apiBase = getAgentScoreApiBase();
     container.replaceChildren(box);
   }
 
-  function render(data: LeaderboardResponse, sort: string) {
+  function render(data: LeaderboardResponse) {
     if (!container) return;
     if (!data.entries.length) {
-      renderMessage('No sites scored yet', 'Be the first: score your docs above and your site shows up here.', true);
+      renderMessage('No sites scored yet', 'Score your docs above and your site shows up here.', true);
       return;
     }
     const list = el('ol', 'pl-as-board');
-    data.entries.forEach((entry, index) => {
+    data.entries.forEach((entry) => {
       const item = el('li', 'pl-as-board-item');
       const link = el('a');
       link.setAttribute('href', `/agent-score/${entry.slug}`);
       link.dataset.trackAction = 'view_agent_score_report';
       link.dataset.trackFunnel = 'evaluation';
       link.dataset.trackLocation = 'agent_score_leaderboard';
-      const rank = el('span', 'pl-as-board-rank', sort === 'top' ? String(index + 1).padStart(2, '0') : '·');
-      const text = el('span');
-      text.style.minWidth = '0';
-      text.append(
-        el('span', 'pl-as-board-name', entry.displayName || entry.slug),
-        el('span', 'pl-as-board-meta', `${formatShortDate(entry.scannedAt)} · ${entry.scanCount} scan${entry.scanCount === 1 ? '' : 's'}`),
-      );
-      const score = el('span', 'pl-as-board-score');
+      const score = el('b', 'pl-as-board-score', String(entry.overall));
       score.dataset.tone = gradeTone(entry.grade);
-      const grade = el('span', 'pl-as-grade', entry.grade);
-      score.append(el('b', undefined, String(entry.overall)), grade);
-      link.append(rank, text, score);
+      link.append(score, el('span', 'pl-as-board-name', entry.displayName || entry.slug));
       item.append(link);
       list.append(item);
     });
     container.replaceChildren(list);
   }
 
-  async function load(sort: string) {
+  async function load() {
     if (!container) return;
     const apiBase = container.dataset.apiBase ?? '';
-    container.setAttribute('aria-busy', 'true');
     try {
-      let data = cache.get(sort);
-      if (!data) {
-        const response = await fetch(`${apiBase}/leaderboard?limit=24&sort=${sort}`);
-        if (!response.ok) throw new Error(String(response.status));
-        data = (await response.json()) as LeaderboardResponse;
-        cache.set(sort, data);
-      }
-      render(data, sort);
+      const response = await fetch(`${apiBase}/leaderboard?limit=24&sort=top`);
+      if (!response.ok) throw new Error(String(response.status));
+      render((await response.json()) as LeaderboardResponse);
     } catch {
       renderMessage('The leaderboard is unavailable right now', 'Scanning still works. Try again in a minute.', false);
     } finally {
@@ -114,12 +82,5 @@ const apiBase = getAgentScoreApiBase();
     }
   }
 
-  buttons.forEach((button) => {
-    button.addEventListener('click', () => {
-      buttons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
-      load(button.dataset.sort ?? 'top');
-    });
-  });
-
-  load('top');
+  load();
 </script>
