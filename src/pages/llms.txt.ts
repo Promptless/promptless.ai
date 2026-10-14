@@ -5,9 +5,10 @@ import { docsPage, link, llmsIndexResponse, marketingPage, type LlmsSection } fr
 // then every important page's markdown twin grouped by site section, with
 // nested indexes for the docs, blog, and changelog. This project route replaces
 // the fixed-format index the starlight-llms-txt plugin would inject at the same
-// path (see src/lib/starlight-llms-corpora.ts). The signup URL and plan prices
-// are the only hand-written facts; keep them in step with the quickstart and
-// src/content/website/pricing.mdx.
+// path (see src/lib/starlight-llms-corpora.ts). The signup URL, plan prices, and
+// the agent setup steps are hand-written facts; keep them in step with the
+// quickstart, src/content/website/pricing.mdx, and the MCP triggers page
+// (src/content/docs/docs/for-docs/connect/triggers/mcp.mdx).
 
 export const prerender = true;
 
@@ -17,8 +18,42 @@ const BLURB =
 const NOTE =
   'This file indexes the markdown version of every page on promptless.ai. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
 
+const MCP_URL = 'https://api.gopromptless.ai/mcp';
+
+// Setup steps a coding agent can follow from this file alone.
+const AGENT_SETUP = [
+  `Coding agents such as Claude Code, Codex, Cursor, and VS Code connect to Promptless through its MCP server at \`${MCP_URL}\`.`,
+  '',
+  'Install the MCP server for a person who signs in with OAuth in the browser:',
+  '',
+  `- Claude Code: run \`claude mcp add --transport http promptless ${MCP_URL}\`, then run \`/mcp\`, pick promptless, and approve the connection in the browser.`,
+  `- Codex CLI: run \`codex mcp add promptless --url ${MCP_URL}\`, then run \`codex mcp login promptless\`.`,
+  `- VS Code: run \`code --add-mcp '{"name":"promptless","type":"http","url":"${MCP_URL}"}'\`, then start promptless from MCP: List Servers.`,
+  `- Cursor: add \`{"mcpServers": {"promptless": {"url": "${MCP_URL}"}}}\` to \`mcp.json\`, then select Needs login.`,
+  '',
+  'A person who has no Promptless organization yet can create one on the consent page when they approve the connection.',
+  '',
+  'Create a Promptless account as an agent, for a person to claim later:',
+  '',
+  `1. Send \`curl -X POST https://api.gopromptless.ai/agent-signups -H "Content-Type: application/json" -d '{"organization_name": "Acme Docs"}'\`. The request needs no authentication, and the name is 1 to 100 characters. The \`201\` response returns \`access_token\`, \`claim_url\`, and \`expires_at\` only once, so keep them.`,
+  `2. Connect with the access token: \`claude mcp add --transport http promptless ${MCP_URL} --header "Authorization: Bearer <access_token>"\`. In Codex, run \`codex mcp add promptless --url ${MCP_URL} --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN\` and set \`PROMPTLESS_ACCESS_TOKEN\` to the access token.`,
+  '3. Give the `claim_url` to the person who should own the account. They sign in or create a Promptless account, then claim it and become its admin. An account nobody claims within 72 hours is deleted.',
+  '4. Until the claim, only the `get_account_status` and `connect_integration` tools work. Call `connect_integration` to get a 24-hour link that a person opens to connect GitHub, Slack, or another integration.',
+  '5. After the claim, the access token stops working. Remove the token-based promptless server and connect again with OAuth as above.',
+].join('\n');
+
 async function buildSections(): Promise<LlmsSection[]> {
   return [
+    {
+      heading: 'Set up Promptless from a coding agent',
+      intro: AGENT_SETUP,
+      links: [
+        docsPage('/docs/for-docs/connect/triggers/mcp', {
+          label: 'MCP setup',
+          description: 'Full connection steps for each editor, agent sign-up and claiming, connecting integrations, and every MCP tool.',
+        }),
+      ],
+    },
     {
       heading: 'Docs',
       links: [
@@ -37,9 +72,14 @@ async function buildSections(): Promise<LlmsSection[]> {
         docsPage('/docs/for-docs/connect/triggers/mcp', {
           label: 'MCP setup',
           description:
-            'Connect Claude Code with `claude mcp add --transport http promptless https://api.gopromptless.ai/mcp`; the page has the Cursor, VS Code, and Codex commands. OAuth sign-in, and it requires an existing Promptless organization.',
+            'Connect Claude Code, Cursor, VS Code, or Codex over MCP with OAuth sign-in, or let a coding agent create an account for a person to claim.',
         }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
+        docsPage('/docs/governance/agent-setup-guide', {
+          label: 'Set up PIG with a coding agent',
+          description:
+            'Instructions a coding agent follows to set up an Instruction Hub, publish and install plugins, and optionally deploy the trace analyzer, enroll hosts, and verify a session.',
+        }),
         link('Full corpus', '/llms-full.txt', 'every documentation page in one file'),
         link('Abridged corpus', '/llms-small.txt', 'the documentation with asides and details removed'),
       ],
