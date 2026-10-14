@@ -22,20 +22,33 @@ test('parseSlug rejects non-public and malformed hosts', () => {
   }
 });
 
-test('normalizeTargetUrl accepts bare hosts and strips query, fragment, and default ports', () => {
+test('normalizeTargetUrl accepts bare hosts and strips query and fragment', () => {
   const cases: Array<[string, string, string]> = [
     ['docs.stripe.com', 'docs.stripe.com', 'https://docs.stripe.com'],
     ['https://Stripe.com/docs/?utm=1#top', 'stripe.com/docs', 'https://stripe.com/docs'],
-    ['http://docs.example.com:80/guide/', 'docs.example.com/guide', 'http://docs.example.com/guide'],
+    ['http://docs.example.com/guide/', 'docs.example.com/guide', 'http://docs.example.com/guide'],
   ];
   for (const [input, slug, url] of cases) {
     const result = normalizeTargetUrl(input);
     assert.ok(result.ok, `Expected ${input} to normalize.`);
     assert.deepEqual(result.value, { slug, url });
   }
-  for (const input of ['ftp://docs.example.com', 'https://user:pw@docs.example.com', 'https://docs.example.com:8443', 'not a url']) {
-    assert.equal(normalizeTargetUrl(input).ok, false, `Expected ${input} to be rejected.`);
+  for (const input of ['ftp://docs.example.com', 'https://user:pw@docs.example.com', 'not a url']) {
+    const result = normalizeTargetUrl(input);
+    assert.ok(!result.ok, `Expected ${input} to be rejected.`);
+    assert.equal(result.code, 'invalid');
   }
+});
+
+test('normalizeTargetUrl rejects every explicit port with the custom_port code', () => {
+  for (const input of ['https://docs.example.com:8443', 'https://docs.example.com:443', 'http://docs.example.com:80/guide', 'docs.example.com:', 'https://[2606:4700::1]:443']) {
+    const result = normalizeTargetUrl(input);
+    assert.ok(!result.ok, `Expected ${input} to be rejected.`);
+    assert.equal(result.code, 'custom_port', `Expected ${input} to be rejected as a custom port.`);
+  }
+  const bracketed = normalizeTargetUrl('https://[2606:4700::1]/docs');
+  assert.ok(!bracketed.ok);
+  assert.equal(bracketed.code, 'invalid', 'an IPv6 literal without a port is rejected as a bad host, not as a port');
 });
 
 test('category metadata covers the 28 afdocs checks', () => {
