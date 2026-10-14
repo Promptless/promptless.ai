@@ -55,9 +55,13 @@ The supervisor sets the analyzer's environment variables, so the two must use th
 Use the `pig-supervisor` chart for the highest version in the [stable catalog](https://github.com/Promptless/pig-deploy/blob/main/catalog/stable.json). An unpinned supervisor selects that release, so the bootstrap image matches the release it installs. The chart's values are unchanged from 0.3.4, so you can reuse your current bootstrap values with the new supervisor image digest.
 
 1. Set `PIG_CHART_VERSION` to that version and [pull the chart](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-get-a-pinned-bootstrap-chart). Verify the archive against the release's published checksums. Save the current `PIGDeployment`, Ingress, supervisor Deployment, and bootstrap Helm values.
+
 2. Set `spec.release.paused` to `true`. Wait for `status.phase: complete` with no migration Job running.
+
 3. Scale the supervisor Deployment to zero and wait for its Pod to terminate.
+
 4. While the supervisor is stopped, apply a `PIGDeployment` with `channel: stable`, `paused: false`, and no `pinnedVersion`.
+
 5. Upgrade the bootstrap release with the new chart:
 
    ```bash
@@ -67,6 +71,7 @@ Use the `pig-supervisor` chart for the highest version in the [stable catalog](h
    ```
 
 6. Confirm that the supervisor completes the transition. Check that `currentVersion` shows the new release and that the deployment reports `Ready=True` without `Blocked=True`.
+
 7. Confirm that the Ingress UID, hostname, certificate, and load balancer address match the saved objects, then check HTTPS health and collector access.
 
 Pausing release adoption does not stop the 0.3.4 supervisor from reconciling the analyzer, so stop the supervisor before you change the release policy. If the `PIGDeployment` already shows a `targetVersion` of 0.3.5 or later, contact Promptless before you stop the supervisor.
