@@ -1,0 +1,132 @@
+---
+/**
+ * Collapsible evidence drawer for one check: scalar details, thresholds, and up
+ * to 25 sampled page rows from the trimmed afdocs `details` object.
+ */
+interface Props {
+  evidence: Record<string, unknown> | null | undefined;
+}
+
+const { evidence } = Astro.props;
+const TABLE_KEYS = ['pageResults', 'endpointResults', 'candidateUrls', 'sizes'];
+const MAX_ROWS = 25;
+const MAX_COLUMNS = 5;
+
+type Scalar = string | number | boolean | null;
+const isScalar = (value: unknown): value is Scalar =>
+  value === null || ['string', 'number', 'boolean'].includes(typeof value);
+
+const formatValue = (value: unknown): string => {
+  if (value === null || value === undefined) return '–';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (typeof value === 'number') return Number.isInteger(value) ? value.toLocaleString('en-US') : String(Math.round(value * 100) / 100);
+  const text = String(value);
+  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
+};
+
+const shortUrl = (value: string): string => {
+  try {
+    const url = new URL(value);
+    return `${url.pathname}${url.search}` || '/';
+  } catch {
+    return value;
+  }
+};
+
+const scalars: Array<[string, string]> = [];
+let thresholds: Array<[string, string]> = [];
+const tables: Array<{ key: string; columns: string[]; rows: Array<Record<string, unknown>>; total: number }> = [];
+
+if (evidence && typeof evidence === 'object') {
+  for (const [key, value] of Object.entries(evidence)) {
+    if (isScalar(value)) {
+      scalars.push([key, formatValue(value)]);
+    } else if (key === 'thresholds' && value && typeof value === 'object') {
+      thresholds = Object.entries(value as Record<string, unknown>)
+        .filter(([, v]) => isScalar(v))
+        .map(([k, v]) => [k, formatValue(v)]);
+    } else if (TABLE_KEYS.includes(key) && Array.isArray(value) && value.length) {
+      const rows: Array<Record<string, unknown>> = value
+        .slice(0, MAX_ROWS)
+        .map((row) => (row && typeof row === 'object' ? (row as Record<string, unknown>) : { value: row }));
+      const frequency = new Map<string, number>();
+      for (const row of rows) {
+        for (const [k, v] of Object.entries(row)) {
+          if (isScalar(v) && k !== 'url') frequency.set(k, (frequency.get(k) ?? 0) + 1);
+        }
+      }
+      const hasUrl = rows.some((row) => typeof row.url === 'string');
+      const others = [...frequency.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+      const columns = [...(hasUrl ? ['url'] : []), ...others].slice(0, MAX_COLUMNS);
+      tables.push({ key, columns, rows, total: value.length });
+    }
+  }
+}
+
+const hasEvidence = scalars.length || thresholds.length || tables.length;
+---
+
+{
+  hasEvidence ? (
+    <details class="pl-as-evidence">
+      <summary>Evidence</summary>
+      <div class="pl-as-evidence-body">
+        {scalars.length > 0 && (
+          <dl class="pl-as-kv">
+            {scalars.map(([key, value]) => (
+              <div>
+                <dt title={key}>{key}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {thresholds.length > 0 && (
+          <>
+            <p class="pl-as-evidence-caption">Thresholds</p>
+            <dl class="pl-as-kv">
+              {thresholds.map(([key, value]) => (
+                <div>
+                  <dt title={key}>{key}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+        {tables.map((table) => (
+          <>
+            <p class="pl-as-evidence-caption">
+              {table.key} · showing {table.rows.length}
+              {table.total > table.rows.length ? ` of ${table.total}` : ''}
+            </p>
+            <div class="pl-as-table-wrap">
+              <table class="pl-as-table">
+                <thead>
+                  <tr>
+                    {table.columns.map((column) => (
+                      <th scope="col">{column}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {table.rows.map((row) => (
+                    <tr>
+                      {table.columns.map((column) =>
+                        column === 'url' && typeof row.url === 'string' ? (
+                          <td title={row.url}>{shortUrl(row.url)}</td>
+                        ) : (
+                          <td>{formatValue(row[column])}</td>
+                        ),
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ))}
+      </div>
+    </details>
+  ) : null
+}
