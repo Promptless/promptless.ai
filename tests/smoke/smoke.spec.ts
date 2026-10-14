@@ -866,6 +866,9 @@ test('website header replaces home search with the launch announcement', async (
     homeHtml,
     /href="\/blog\/product-updates\/introducing-promptless-for-agent-instructions"/i
   );
+  // LavaCon 2026 shares the announcement slot until the booth closes; both
+  // links are rendered and an inline script picks one by date.
+  assert.match(homeHtml, /id="pl-header-announcement-lavacon"[^>]*href="\/lavacon"/i);
   // The global modal is mounted on the homepage for Cmd/Ctrl+K and chat
   // persistence. Its header control is still replaced by the announcement.
   const homeHeader = homeHtml.match(/<header\b[^>]*>[\s\S]*?<\/header>/i)?.[0];
