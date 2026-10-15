@@ -2,7 +2,7 @@
  * Text builders shared by the score page, its markdown twin, the OG card, and
  * the "Copy fix prompt" button.
  */
-import { AFDOCS_REPO_URL, SPEC_URL, categoryName, checkName } from './meta';
+import { AFDOCS_REPO_URL, SKIP_CHECKS_FLAG, SPEC_URL, categoryName, checkName } from './meta';
 import type { CheckResult, ScanResult, SiteResponse } from './types';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -37,7 +37,7 @@ export function summarySentence(displayName: string, latest: ScanResult): string
 }
 
 export function cliCommand(scanUrl: string, flags = '--format scorecard'): string {
-  return `npx afdocs@latest check ${scanUrl}${flags ? ` ${flags}` : ''}`;
+  return `npx afdocs@latest check ${scanUrl} ${SKIP_CHECKS_FLAG}${flags ? ` ${flags}` : ''}`;
 }
 
 /** Sum of max points across scored checks: the score's denominator. */
@@ -206,7 +206,10 @@ export function buildMarkdownReport(site: SiteResponse, links: MarkdownReportLin
     }
   }
 
-  if (site.previous) {
+  if (site.previous && !site.previous.comparable) {
+    lines.push('', '## What changed since the last scan', '');
+    lines.push(`Previous scan on ${formatDate(site.previous.scannedAt)} scored ${site.previous.overall} (Grade ${site.previous.grade}) under afdocs scoring version ${site.previous.scoringVersion ?? 'unknown'}; this scan used ${latest.engine.scoringVersion}, so the two are not comparable.`);
+  } else if (site.previous) {
     lines.push('', '## What changed since the last scan', '');
     lines.push(`Previous scan on ${formatDate(site.previous.scannedAt)} scored ${site.previous.overall} (Grade ${site.previous.grade}); change ${signed(latest.overall - site.previous.overall, 0)}.`);
     if (site.changes.length) {
@@ -246,7 +249,7 @@ export function buildMarkdownReport(site: SiteResponse, links: MarkdownReportLin
     '',
     '## Run this yourself',
     '',
-    'The hosted scanner runs the same open-source command with `--sampling deterministic`, so local numbers match:',
+    'The hosted scanner runs afdocs with `--sampling deterministic` and skips the llms.txt coverage check, so local numbers match:',
     '',
     '```bash',
     cliCommand(latest.scanUrl, '--format scorecard'),

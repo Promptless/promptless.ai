@@ -55,7 +55,9 @@ const apiBase = getAgentScoreApiBase();
 <script>
   import { capture, gaCtaClick } from '@lib/agent-score/client/analytics';
   import { getProgressElements, pollScan, renderProgress, ScanRequestError, startScan } from '@lib/agent-score/client/scan';
-  import { normalizeTargetUrl, scorePagePath } from '@lib/agent-score/slug';
+  import { CUSTOM_PORT_REASON, normalizeTargetUrl, scorePagePath } from '@lib/agent-score/slug';
+
+  const CUSTOM_PORT_HELP = `${CUSTOM_PORT_REASON} Letting a public tool open any port a visitor names is too risky, so this is not something we plan to support. For a site on another port, <a href="/agent-score#run-it-yourself">run afdocs yourself</a> or <a href="mailto:help@gopromptless.ai">email us</a> and we can run the scan for you.`;
 
   document.querySelectorAll<HTMLFormElement>('form[data-as-scan-form]').forEach((form) => {
     const apiBase = form.dataset.apiBase ?? '';
@@ -73,6 +75,11 @@ const apiBase = getAgentScoreApiBase();
       status.textContent = message;
       status.dataset.tone = tone;
     };
+    // The custom-port message is fixed copy with two links, so it is the one status rendered as HTML.
+    const setCustomPortStatus = () => {
+      status.innerHTML = CUSTOM_PORT_HELP;
+      status.dataset.tone = 'error';
+    };
     const setBusy = (busy: boolean) => {
       button.disabled = busy;
       input.readOnly = busy;
@@ -84,7 +91,8 @@ const apiBase = getAgentScoreApiBase();
       setStatus('');
       const normalized = normalizeTargetUrl(input.value);
       if (!normalized.ok) {
-        setStatus(normalized.reason, 'error');
+        if (normalized.code === 'custom_port') setCustomPortStatus();
+        else setStatus(normalized.reason, 'error');
         input.focus();
         return;
       }

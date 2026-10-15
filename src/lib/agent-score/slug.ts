@@ -17,6 +17,23 @@ export type SlugParseResult =
   | { ok: true; slug: string; host: string; segments: string[] }
   | { ok: false; reason: string };
 
+/**
+ * Why a typed URL was rejected. `custom_port` gets a longer explanation in the
+ * form, with links to afdocs and support; everything else shows `reason` as is.
+ */
+export type RejectionCode = 'custom_port' | 'invalid';
+
+export type NormalizeTargetResult = { ok: true; value: NormalizedTarget } | { ok: false; code: RejectionCode; reason: string };
+
+export const CUSTOM_PORT_REASON = 'Agent Score only scans sites on the standard https and http ports.';
+
+/** True when the authority part of a URL names a port, even an empty or default one such as `:443`. */
+function hasExplicitPort(withScheme: string): boolean {
+  const authority = withScheme.slice(withScheme.indexOf('://') + 3).split(/[/?#]/, 1)[0];
+  const hostAndPort = authority.slice(authority.lastIndexOf('@') + 1);
+  return hostAndPort.slice(hostAndPort.lastIndexOf(']') + 1).includes(':');
+}
+
 function validateParts(host: string, segments: string[]): SlugParseResult {
   if (!HOST_PATTERN.test(host)) {
     return { ok: false, reason: 'Enter a public hostname, like docs.example.com.' };
@@ -67,30 +84,31 @@ export interface NormalizedTarget {
  * Normalize what a visitor typed into the scan form. Accepts bare hosts
  * (`docs.example.com`) as well as full http(s) URLs. Mirrors the backend's
  * normalization so the client can show validation errors before a round trip;
- * the backend remains the authority.
+ * the backend remains the authority. Any explicit port is rejected, `:443`
+ * included: the hosted scanner only opens the standard ports.
  */
-export function normalizeTargetUrl(input: string): { ok: true; value: NormalizedTarget } | { ok: false; reason: string } {
+export function normalizeTargetUrl(input: string): NormalizeTargetResult {
   const trimmed = input.trim();
-  if (!trimmed) return { ok: false, reason: 'Enter the URL of a docs site.' };
+  if (!trimmed) return { ok: false, code: 'invalid', reason: 'Enter the URL of a docs site.' };
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   let parsed: URL;
   try {
     parsed = new URL(withScheme);
   } catch {
-    return { ok: false, reason: 'That does not look like a URL. Try https://docs.example.com.' };
+    return { ok: false, code: 'invalid', reason: 'That does not look like a URL. Try https://docs.example.com.' };
   }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    return { ok: false, reason: 'Only http and https URLs can be scanned.' };
+    return { ok: false, code: 'invalid', reason: 'Only http and https URLs can be scanned.' };
   }
   if (parsed.username || parsed.password) {
-    return { ok: false, reason: 'Remove the username and password from the URL.' };
+    return { ok: false, code: 'invalid', reason: 'Remove the username and password from the URL.' };
   }
-  if (parsed.port && parsed.port !== '80' && parsed.port !== '443') {
-    return { ok: false, reason: 'Only the standard ports (80 and 443) can be scanned.' };
+  if (hasExplicitPort(withScheme)) {
+    return { ok: false, code: 'custom_port', reason: CUSTOM_PORT_REASON };
   }
   const segments = parsed.pathname.split('/').filter(Boolean);
   const result = validateParts(parsed.hostname.toLowerCase(), segments);
-  if (!result.ok) return result;
+  if (!result.ok) return { ok: false, code: 'invalid', reason: result.reason };
   const path = segments.length ? `/${segments.join('/')}` : '';
   return { ok: true, value: { slug: result.slug, url: `${parsed.protocol}//${result.host}${path}` } };
 }

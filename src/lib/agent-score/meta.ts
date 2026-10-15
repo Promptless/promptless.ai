@@ -114,7 +114,28 @@ export const CATEGORIES: CategoryMeta[] = [
   },
 ];
 
-export const TOTAL_CHECKS = CATEGORIES.reduce((sum, category) => sum + category.checks.length, 0);
+/**
+ * afdocs checks the hosted scanner turns off with `--skip-checks`. afdocs
+ * reports them as skipped and leaves them out of the score, so a local run
+ * needs the same flag to match a hosted score.
+ *
+ * - llms-txt-coverage compares llms.txt against sitemap.xml and expects every
+ *   sitemap URL to be listed. An llms.txt is a curated index, not a mirror of
+ *   the sitemap, so Agent Score does not grade on it.
+ */
+export const SKIPPED_CHECK_IDS = ['llms-txt-coverage'] as const;
+export const SKIP_CHECKS_FLAG = `--skip-checks ${SKIPPED_CHECK_IDS.join(',')}`;
+
+export function isSkippedCheck(id: string): boolean {
+  return (SKIPPED_CHECK_IDS as readonly string[]).includes(id);
+}
+
+/** Checks in a category that the hosted scanner actually scores. */
+export function scoredChecks(category: CategoryMeta): CategoryMeta['checks'] {
+  return category.checks.filter((check) => !isSkippedCheck(check.id));
+}
+
+export const TOTAL_CHECKS = CATEGORIES.reduce((sum, category) => sum + scoredChecks(category).length, 0);
 
 const CATEGORY_BY_ID = new Map(CATEGORIES.map((category) => [category.id, category]));
 

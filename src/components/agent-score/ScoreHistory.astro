@@ -56,7 +56,8 @@ const categories = CATEGORIES.map((category) => {
 });
 
 // --- Changes --------------------------------------------------------------
-const delta = previous ? latest.overall - previous.overall : 0;
+const comparable = previous?.comparable ?? false;
+const delta = previous && comparable ? latest.overall - previous.overall : 0;
 const deltaClass = delta > 0 ? 'pl-as-up' : delta < 0 ? 'pl-as-down' : 'pl-as-flat';
 const changes = [...site.changes].sort((a, b) => Math.abs(b.scoreDelta) - Math.abs(a.scoreDelta));
 const engineChanged = hasTrend && site.history[0].engineVersion !== site.history[1]?.engineVersion;
@@ -160,7 +161,7 @@ const statusLabel = (status: CheckStatus | null) => (status ? STATUS_LABEL[statu
           <h3>What changed since last scan</h3>
           <p>{previous ? `Compared with ${formatDate(previous.scannedAt)}` : 'Nothing to compare yet'}</p>
         </div>
-        {previous && (
+        {previous && comparable && (
           <span class={`pl-as-delta ${deltaClass}`} title={`${previous.overall} → ${latest.overall}`}>
             <span class="pl-as-mono-label" style="color:inherit">{previous.overall} → {latest.overall}</span>
             <span class="pl-as-delta-big">{fmtDelta(delta)}</span>
@@ -172,6 +173,12 @@ const statusLabel = (status: CheckStatus | null) => (status ? STATUS_LABEL[statu
           <p class="pl-as-check-message" style="margin:0">
             After the next scan, every check that changes status or score shows up here, so you can see which fix moved
             the number.
+          </p>
+        ) : !comparable ? (
+          <p class="pl-as-check-message" style="margin:0">
+            The afdocs scoring version changed from {previous.scoringVersion ?? 'unknown'} to{' '}
+            {latest.engine.scoringVersion} between these scans, so their scores and checks are not compared. The next
+            scan will show changes again.
           </p>
         ) : changes.length ? (
           <ul class="pl-as-change-list">
