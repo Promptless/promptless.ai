@@ -16,9 +16,9 @@ export class ScanRequestError extends Error {
 }
 
 const POLL_INTERVAL_MS = 2_000;
-// The backend kills afdocs after 300 s and marks stale scans failed after 10
-// minutes; stop polling a little after that so a tab never polls forever.
-const POLL_GIVE_UP_MS = 11 * 60 * 1000;
+// The backend kills afdocs after 900 s and Kubernetes ends the scan's Job at
+// 960 s; stop polling a minute after that so a tab never polls forever.
+const POLL_GIVE_UP_MS = 17 * 60 * 1000;
 
 async function readError(response: Response): Promise<ScanRequestError> {
   const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
