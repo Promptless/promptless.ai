@@ -836,6 +836,10 @@ test('every link to a built same-origin page resolves successfully', async () =>
 
       const target = new URL(href, `https://promptless.ai${sourceRoute}`);
       if (target.origin !== 'https://promptless.ai' || target.pathname === '/mcp') continue;
+      // Agent Score reports (/agent-score/<site>) and the landing's markdown
+      // twin render on demand, so the static preview cannot serve them; the
+      // adapter-build test covers routing.
+      if (target.pathname.startsWith('/agent-score/') || target.pathname === '/agent-score.md') continue;
       targets.set(`${target.pathname}${target.search}`, sourceRoute);
     }
   }
@@ -918,6 +922,63 @@ test('free tool page renders its link and form contract', async () => {
   assert.match(html, /aria-live="polite"/);
 
   assert.doesNotMatch(html, /data-website-sidebar="true"/);
+});
+
+test('agent score landing renders its form, credits, and CLI contract', async () => {
+  const freeToolsHtml = await (await fetch(`${preview.baseUrl}/free-tools`)).text();
+  assert.match(freeToolsHtml, /href="\/agent-score"/);
+
+  const response = await fetch(`${preview.baseUrl}/agent-score`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+
+  assert.match(html, /<h1[^>]*>How well can/);
+  assert.match(html, /id="agent-score-hero-form"/);
+  assert.match(html, /data-as-scan-form/);
+  assert.match(html, /data-api-base="https?:\/\/[^"]+\/public\/free-tools\/agent-score"/);
+  assert.match(html, /name="url"/);
+  assert.match(html, /name="website"/);
+  assert.match(html, /aria-live="polite"/);
+  assert.doesNotMatch(html, /type="email"/, 'Agent Score must not ask for an email.');
+  assert.match(html, /id="run-it-yourself"/);
+  assert.match(html, /npx afdocs@latest check https:\/\/docs\.example\.com --format scorecard/);
+  assert.match(html, /href="https:\/\/github\.com\/agent-ecosystem\/afdocs"/);
+  assert.match(html, /href="https:\/\/github\.com\/dacharyc"/);
+  assert.match(html, /href="https:\/\/agentdocsspec\.com\/spec\/web\/"/);
+  assert.doesNotMatch(html, /id="automate"/, 'The landing page has no Automate section.');
+  assert.doesNotMatch(html, /pl-as-eyebrow/, 'The landing page has no eyebrow labels.');
+  assert.match(html, /id="leaderboard"/);
+  assert.match(html, /href="\/agent-score\.md"/);
+  assert.match(html, /id="methodology"/);
+  assert.match(html, /href="\/blog\/technical\/agent-friendly-docs-necessary-not-sufficient"/);
+  assert.match(html, /og\/agent-score\.png/);
+
+  const nav = getPrimaryNav(html);
+  assertActiveLink(nav, '/free-tools', 'Free tools');
+});
+
+test('adapter build renders Agent Score reports on demand', (t) => {
+  const configPath = path.join(REPO_ROOT, '.vercel', 'output', 'config.json');
+  if (!existsSync(configPath)) {
+    t.skip('No .vercel/output/config.json — static build.');
+    return;
+  }
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+    routes?: Array<{ src?: string; dest?: string }>;
+  };
+  for (const pathname of ['/agent-score.md', '/agent-score/docs.stripe.com', '/agent-score/stripe.com/docs', '/agent-score/docs.stripe.com.md', '/agent-score/docs.stripe.com/og.png']) {
+    const route = (config.routes ?? []).find((entry) => entry.src && entry.dest && new RegExp(entry.src).test(pathname));
+    assert.ok(route, `Expected a config.json route mapping ${pathname} to a function.`);
+    assert.ok(
+      existsSync(path.join(REPO_ROOT, '.vercel', 'output', 'functions', `${route.dest}.func`)),
+      `Expected the ${route.dest} serverless function to exist for ${pathname}.`
+    );
+  }
+  // The OG route reads these at request time (src/lib/agent-score/og.ts).
+  const functionsDir = path.join(REPO_ROOT, '.vercel', 'output', 'functions');
+  const funcs = readdirSync(functionsDir).filter((name) => name.endsWith('.func'));
+  const hasFonts = funcs.some((name) => existsSync(path.join(functionsDir, name, 'scripts', 'marketing-image', 'fonts', 'Inter-Bold.ttf')));
+  assert.ok(hasFonts, 'Expected the Inter fonts to be bundled into the render function.');
 });
 
 test('website markdown endpoints are available for agent-friendly content', async () => {
