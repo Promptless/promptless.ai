@@ -20,7 +20,7 @@ The current stable release, PIG 0.3.6, targets AWS/EKS. Azure/AKS and GCP/GKE ar
 - Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment), including [analyzer registration](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Keep the one-time analyzer credential in your secret manager.
 - Have a dedicated PostgreSQL 15–18 database, exactly one native object-storage location, an analyzer workload identity, and a hostname with a certificate. The [AWS](/docs/governance/deploy-the-worker/deploy-on-aws), [Azure](/docs/governance/deploy-the-worker/deploy-on-azure), and [Google Cloud](/docs/governance/deploy-the-worker/deploy-on-gcp) guides provision these with Terraform and save a `deployment-configuration.json` file used below.
 - Use Kubernetes 1.30 or later and `kubectl` with permission to create namespaces, custom resource definitions, and cluster-scoped RBAC.
-- Install Helm 3.8 or later, `curl`, `jq`, and `sha256sum` (`shasum -a 256` on macOS).
+- Install Helm 3.8 or later, `curl`, `jq`, and `sha256sum`. On macOS, use `shasum -a 256` wherever this guide runs `sha256sum`.
 - Have an ingress controller in the cluster that can serve HTTPS for your hostname to every enrolled host.
 
 This guide uses namespace `pig` for the analyzer, `pig-system` for the supervisor, deployment name `acme`, and hostname `traces.acme.example`. Replace them consistently. The analyzer Service and the collector Ingress are both named after the deployment: `acme-analyzer`.
@@ -56,10 +56,11 @@ Terraform owns cloud infrastructure. Your Kubernetes configuration owns the name
 
 ## 1. Select and verify a release
 
-Download the release files from the [`v0.3.6` release](https://github.com/Promptless/pig-deploy/releases/tag/v0.3.6) and the public stable catalog:
+In an empty working directory, download the release files from the [`v0.3.6` release](https://github.com/Promptless/pig-deploy/releases/tag/v0.3.6) and the public stable catalog. Run the rest of this guide from this directory; `PIG_RELEASE_DIR` records it for the cloud guides.
 
 ```bash
 PIG_VERSION='0.3.6'
+PIG_RELEASE_DIR="$PWD"
 RELEASE_URL="https://github.com/Promptless/pig-deploy/releases/download/v${PIG_VERSION}"
 for file in release.json SHA256SUMS "pig-supervisor-${PIG_VERSION}.tgz" "pig-deploy-${PIG_VERSION}.tar.gz"; do
   curl --fail --silent --show-error --location --remote-name "${RELEASE_URL}/${file}"
@@ -71,7 +72,7 @@ curl --fail --silent --show-error --location --output stable.json \
 Check the downloaded archives and the release manifest:
 
 ```bash
-sha256sum --check --ignore-missing SHA256SUMS
+grep -E " (pig-supervisor|pig-deploy)-${PIG_VERSION}\.t" SHA256SUMS | sha256sum --check
 jq -r --arg v "$PIG_VERSION" '.releases[] | select(.version == $v) | .sha256' stable.json
 sha256sum release.json
 jq -r '.artifacts.supervisorChart.sha256' release.json

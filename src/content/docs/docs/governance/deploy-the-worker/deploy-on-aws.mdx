@@ -46,10 +46,10 @@ Report the resources created and the next step.
 
 ## 1. Get the versioned Terraform example
 
-Download and verify the release files as described in [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). Then extract the Terraform example from the verified archive:
+Download and verify the release files as described in [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). In the same shell, from that release directory, extract the Terraform example from the verified archive:
 
 ```bash
-PIG_VERSION='0.3.6'
+cd "$PIG_RELEASE_DIR"
 tar -xzf "pig-deploy-${PIG_VERSION}.tar.gz"
 cd "pig-deploy-${PIG_VERSION}/examples/aws"
 ```
@@ -104,15 +104,15 @@ The example references the AWS module in the same archive, so the module and the
 
      ```bash
      terraform apply pig.tfplan
-     terraform output -json deployment_configuration > deployment-configuration.json
+     terraform output -json deployment_configuration > "$PIG_RELEASE_DIR/deployment-configuration.json"
      ```
 
-     The output contains database connection metadata, the S3 storage block, the ServiceAccount annotation, and pod labels. It contains no credential values.
+     This saves the output next to the verified release files. The output contains database connection metadata, the S3 storage block, the ServiceAccount annotation, and pod labels. It contains no credential values.
 </Steps>
 
 ## 3. Connect the infrastructure to PIG
 
-Use `deployment-configuration.json` as the source of truth for the Kubernetes configuration in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker):
+Return to the release directory. Use `deployment-configuration.json` there as the source of truth for the Kubernetes configuration in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker):
 
 | Output                        | Destination                                                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------- |
@@ -124,6 +124,7 @@ Use `deployment-configuration.json` as the source of truth for the Kubernetes co
 Read the connection metadata and storage block:
 
 ```bash
+cd "$PIG_RELEASE_DIR"
 jq '.postgres | {host, port, database, username, sslmode}' deployment-configuration.json
 jq '.storage' deployment-configuration.json
 ```
@@ -164,7 +165,7 @@ After the analyzer starts and the ALB's targets are healthy, point the hostname'
 
 ## 5. Bootstrap and verify
 
-Continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from step 2. Apply the ServiceAccount annotation, Secrets, CA ConfigMap, and S3 storage block from this guide before you create the `PIGDeployment`.
+Continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from step 2, in `$PIG_RELEASE_DIR`, where the verified chart and `deployment-configuration.json` are. Apply the ServiceAccount annotation, Secrets, CA ConfigMap, and S3 storage block from this guide before you create the `PIGDeployment`.
 
 Keep the Helm bootstrap outside Terraform reconciliation. Do not add a `helm_release` resource for the self-updating supervisor or import its generated workloads into Terraform.
 
