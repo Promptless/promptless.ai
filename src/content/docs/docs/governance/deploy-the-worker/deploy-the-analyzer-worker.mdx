@@ -1,6 +1,6 @@
 ---
 title: Install with Helm
-description: Bootstrap automatic trace analysis updates on Kubernetes, configure your storage and model, and verify a real session.
+description: Verify a published PIG release, bootstrap the supervisor and collector Ingress with Helm, create the PIGDeployment, and enable analysis on Kubernetes.
 slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
 type: guide
 tags:
@@ -9,19 +9,21 @@ tags:
   - deployment
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Install PIG on an existing Kubernetes cluster with a one-time Helm bootstrap. Configure a `PIGDeployment` resource to connect your database, trace bucket, and model. PIG then updates the analyzer and supervisor automatically to stable releases.
+Install the PIG trace analyzer on an existing Kubernetes cluster. A one-time Helm bootstrap installs the supervisor and the HTTPS collector Ingress. A `PIGDeployment` resource then connects the analyzer to your database, trace bucket, and model, and the supervisor installs and updates the analyzer from published releases.
 
-The current stable release, PIG 0.3.6, targets AWS/EKS. Azure/AKS and GCP/GKE are experimental.
+The current stable release, PIG 0.3.6, targets AWS/EKS. Azure/AKS and GCP/GKE are experimental. Every command and example on this page is for 0.3.6; the [installation overview](/docs/governance/deploy-the-worker/plan-your-deployment#follow-the-installation-path) shows where this guide fits.
 
 ## Before you begin
 
-Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment). You need a dedicated PostgreSQL database, native object storage, an analyzer workload identity, and an HTTPS endpoint. Use the AWS, Azure, or Google Cloud Terraform guide if you need to provision these resources.
+- Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment), including [analyzer registration](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Keep the one-time analyzer credential in your secret manager.
+- Have a dedicated PostgreSQL 15–18 database, exactly one native object-storage location, an analyzer workload identity, and a hostname with a certificate. The [AWS](/docs/governance/deploy-the-worker/deploy-on-aws), [Azure](/docs/governance/deploy-the-worker/deploy-on-azure), and [Google Cloud](/docs/governance/deploy-the-worker/deploy-on-gcp) guides provision these with Terraform and save a `deployment-configuration.json` file used below.
+- Use Kubernetes 1.30 or later and `kubectl` with permission to create namespaces, custom resource definitions, and cluster-scoped RBAC.
+- Install Helm 3.8 or later, `curl`, `jq`, and `sha256sum` (`shasum -a 256` on macOS).
+- Have an ingress controller in the cluster that can serve HTTPS for your hostname to every enrolled host.
 
-[Add the analyzer in PIG Settings](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer) and store its credential in your secret manager. The analyzer resolves its installation identity from this credential and connects to Promptless by default. The credential is separate from individual host enrollment credentials.
-
-Use `pig` for the analyzer namespace and `pig-system` for the supervisor. The example deployment name is `acme`. Replace the example names, URLs, and IDs throughout.
+This guide uses namespace `pig` for the analyzer, `pig-system` for the supervisor, deployment name `acme`, and hostname `traces.acme.example`. Replace them consistently. The analyzer Service and the collector Ingress are both named after the deployment: `acme-analyzer`.
 
 To hand this installation to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
 
@@ -31,33 +33,67 @@ bootstrap. Follow
 https://promptless.ai/docs/governance/deploy-the-worker/deploy-the-analyzer-worker.md
 and phase 5 of https://promptless.ai/docs/governance/agent-setup-guide.md
 
-Outcome: a ready PIGDeployment with a passing HTTPS health check.
+Outcome: a verified release, a ready PIGDeployment, and HTTPS health and
+routing checks passing from the enrolled hosts' network.
 Inputs (discover these before you ask me):
 - Kubernetes context: [context name]
 - Deployment name and hostname: [for example, acme and traces.acme.example]
-- PIG release: [release tag, or "latest published release"]
+- Ingress controller and certificate: [for example, ingress-nginx with a
+  TLS Secret, or AWS Load Balancer Controller with an ACM certificate]
 - Storage and model settings: [Terraform output file, or where to find them]
 - Secret names: [secret-manager entries for the analyzer credential,
   database connection string, and model key]
 
-Show me the rendered chart and the server-side dry run, and wait for my
-approval before `helm install` and `kubectl apply`. Report the deployment
-status, the health check, and anything still blocked.
+Show me the checksum results, the rendered chart, and the server-side dry
+run, and wait for my approval before `helm install` and `kubectl apply`.
+Report the deployment conditions, the health and routing checks, and
+anything still blocked.
 ```
 
-## 1. Get a pinned bootstrap chart
+## Who owns each resource
 
-Choose a release from the public [PIG deployment releases](https://github.com/Promptless/pig-deploy/releases). Read its requirements and use the exact supervisor chart version listed in that release. The chart version selects the bootstrap; your deployment's release policy controls subsequent updates. This guide uses chart 0.3.4 or later, which creates the HTTPS collector Ingress from its values.
+Terraform owns cloud infrastructure. Your Kubernetes configuration owns the namespaces, ServiceAccount, Secrets, CA ConfigMap, certificates, and `PIGDeployment` spec. The `pig-supervisor` Helm release owns the supervisor and the collector Ingress. The supervisor owns the analyzer workloads it generates and its own updates. Keep one owner per resource: a second controller that reapplies the bootstrap chart or reconciles generated workloads undoes the supervisor's updates. [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership#resource-ownership) lists each resource and how to keep Flux and other controllers within these boundaries.
+
+## 1. Select and verify a release
+
+Download the release files from the [`v0.3.6` release](https://github.com/Promptless/pig-deploy/releases/tag/v0.3.6) and the public stable catalog:
 
 ```bash
-PIG_CHART_VERSION='REPLACE_WITH_CHART_VERSION'
-helm pull oci://ghcr.io/promptless/charts/pig-supervisor \
-  --version "$PIG_CHART_VERSION" --destination .
+PIG_VERSION='0.3.6'
+RELEASE_URL="https://github.com/Promptless/pig-deploy/releases/download/v${PIG_VERSION}"
+for file in release.json SHA256SUMS "pig-supervisor-${PIG_VERSION}.tgz" "pig-deploy-${PIG_VERSION}.tar.gz"; do
+  curl --fail --silent --show-error --location --remote-name "${RELEASE_URL}/${file}"
+done
+curl --fail --silent --show-error --location --output stable.json \
+  https://raw.githubusercontent.com/Promptless/pig-deploy/main/catalog/stable.json
 ```
 
-Keep the chart archive, its release digest, and your bootstrap values with your recovery records. Verify the archive against the published release checksum before installing it.
+Check the downloaded archives and the release manifest:
 
-## 2. Prepare configuration and credentials
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+jq -r --arg v "$PIG_VERSION" '.releases[] | select(.version == $v) | .sha256' stable.json
+sha256sum release.json
+jq -r '.artifacts.supervisorChart.sha256' release.json
+```
+
+Both archives must report `OK`. The catalog digest must equal the `release.json` digest, and the manifest's chart digest must equal the chart archive's digest from `SHA256SUMS`. For 0.3.6, expect these values:
+
+| File                       | SHA-256                                                            |
+| -------------------------- | ------------------------------------------------------------------ |
+| `release.json`             | `a4eafe78f13c7748d446fa149f60a4071a92cfb276d3ca7a8e4c98cca32af977` |
+| `pig-supervisor-0.3.6.tgz` | `5fc16c87f3db452e6d831b7f31c75a61e5f79c9ac8483dda037e3e34b90bb74b` |
+| `pig-deploy-0.3.6.tar.gz`  | `993bf8405b5972d8cc22d18fc0d79a371691cf9128c23ddd5fce747ad502cd43` |
+
+Stop if any value differs. Review the release requirements before you continue:
+
+```bash
+jq '.requirements | {kubernetesMin, postgresMin, postgresMax, storageBackends, schemaTo}' release.json
+```
+
+Keep these files, your bootstrap values, and your `PIGDeployment` manifest with your recovery records. The `pig-deploy-0.3.6.tar.gz` archive contains the Terraform examples used by the cloud guides.
+
+## 2. Create the namespaces and analyzer ServiceAccount
 
 <Steps>
   1. **Confirm the cluster and create the namespaces.**
@@ -68,7 +104,7 @@ Keep the chart archive, its release digest, and your bootstrap values with your 
      kubectl create namespace pig-system --dry-run=client -o yaml | kubectl apply -f -
      ```
 
-  2. **Configure the analyzer ServiceAccount.** Create `pig-analyzer` in `pig` with the workload identity annotations from your cloud guide. Terraform owns the cloud identity and trust policy; your Kubernetes workflow owns the ServiceAccount. Apply these before starting the analyzer.
+  2. **Create the analyzer ServiceAccount.** The analyzer and its maintenance Jobs share this account. Copy `service_account_annotations` from your Terraform output, such as `eks.amazonaws.com/role-arn` on AWS.
 
      ```yaml title="analyzer-service-account.yaml"
      apiVersion: v1
@@ -76,80 +112,134 @@ Keep the chart archive, its release digest, and your bootstrap values with your 
      metadata:
        name: pig-analyzer
        namespace: pig
-       annotations: {} # Add your cloud identity annotations.
+       annotations:
+         eks.amazonaws.com/role-arn: REPLACE_WITH_TERRAFORM_OUTPUT # From service_account_annotations
      ```
 
      ```bash
      kubectl apply -f analyzer-service-account.yaml
      ```
 
-  3. **Deliver secrets and certificates.** Use your secret manager to create `pig-credentials` in `pig` with the keys below. If your ingress controller uses Kubernetes TLS Secrets, create `pig-tls` for your analyzer hostname. AWS ALB installations use ACM and omit that Secret; follow the [AWS HTTPS setup](/docs/governance/deploy-the-worker/deploy-on-aws). If PostgreSQL requires a CA bundle, create ConfigMap `pig-postgres-ca` with key `ca.pem`.
-
-     | Secret key      | Value                                                          |
-     | --------------- | -------------------------------------------------------------- |
-     | `install-token` | This deployment's Promptless installation token.               |
-     | `postgres-dsn`  | Its dedicated database connection string with TLS settings.    |
-     | `model-api-key` | Your analysis model key; omit for Bedrock Signature Version 4. |
-
-     Keep credential values out of Git and Helm arguments. [PostgreSQL configuration](/docs/governance/deploy-the-worker/postgresql) explains the CA mount and connection string.
+     Terraform owns the cloud role and its trust policy. Keep the ServiceAccount namespace and name that Terraform configured in that trust policy.
 </Steps>
 
-## 3. Bootstrap PIG
+## 3. Deliver secrets and the database CA
 
-Save the bootstrap values:
+Create these objects in namespace `pig` before you create the `PIGDeployment`. Deliver Secret values through your secret manager, such as an External Secrets Operator resource. Keep values out of Git, Helm values, and command arguments.
 
-```yaml title="supervisor-values.yaml"
-watchNamespace: pig
-ingress:
-  serviceName: acme-analyzer # Your PIGDeployment name plus -analyzer
-  hostname: traces.acme.example
-  ingressClassName: nginx
-  tlsSecretName: pig-tls
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
-```
+| Object                      | Key                  | Value                                                                                               |
+| --------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
+| Secret `pig-credentials`    | `install-token`      | The analyzer credential from registration.                                                          |
+| Secret `pig-credentials`    | `postgres-dsn`       | The application connection string, with `sslmode=verify-full`.                                      |
+| Secret `pig-credentials`    | `model-api-key`      | The model key for `authentication: api_key`. Omit it for Bedrock with `aws_sigv4`.                  |
+| ConfigMap `pig-postgres-ca` | `ca.pem`             | The CA bundle that verifies your database certificate, such as the RDS regional bundle.             |
+| Secret `pig-migration`      | `postgres-dsn`       | Optional. A schema-owner connection string used only by preflight and migration Jobs.               |
+| Secret `pig-tls`            | `tls.crt`, `tls.key` | Your hostname's certificate and key, when your ingress controller reads certificates from a Secret. |
 
-The chart creates the collector Ingress in `pig` and routes it to the analyzer Service. Set `ingress.serviceName` to your `PIGDeployment` name followed by `-analyzer`; it also names the Ingress. Use an existing ingress class and a certificate covering your hostname. Omit `tlsSecretName` when your ingress controller supplies the certificate, as [AWS ALB with ACM](/docs/governance/deploy-the-worker/deploy-on-aws#4-configure-https-ingress) does. The ingress-nginx annotation permits 10 MiB uploads; configure the equivalent for your controller and every proxy on the path. [Bootstrap chart values](/docs/governance/deploy-the-worker/configuration-reference#bootstrap-chart-values) lists every `ingress` field.
-
-Render the pinned chart and review its image identities, Secret access, custom resource definition, collector Ingress, and Kubernetes permissions:
+If you deliver the Secret directly, write each value to a local file with owner-only permissions and create the Secret from the files:
 
 ```bash
-helm lint "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
-  --values supervisor-values.yaml
-helm template pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+kubectl create secret generic pig-credentials --namespace pig \
+  --from-file=install-token=./install-token \
+  --from-file=postgres-dsn=./postgres-dsn \
+  --from-file=model-api-key=./model-api-key
+kubectl create configmap pig-postgres-ca --namespace pig --from-file=ca.pem=./ca.pem
+```
+
+Delete the local credential files afterward. The CA bundle is public and belongs in a ConfigMap. The supervisor mounts it at `/etc/pig/postgres-ca/ca.pem` and sets `PGSSLROOTCERT` for the analyzer and its Jobs.
+
+With one credential, the application role also owns the schema and runs migrations. To keep schema ownership away from the serving analyzer, deliver `pig-migration` and reference it in the `PIGDeployment`. The application role then needs data access only. [Separate the migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential) shows the connection string format and the role grants.
+
+Confirm the keys without printing values:
+
+```bash
+kubectl get secret pig-credentials --namespace pig -o json | jq '.data | keys'
+kubectl get configmap pig-postgres-ca --namespace pig -o json | jq '.data | keys'
+```
+
+## 4. Bootstrap the supervisor and collector Ingress
+
+The bootstrap values set the namespace the supervisor watches and configure the collector Ingress. `ingress.serviceName`, `ingress.hostname`, and `ingress.ingressClassName` are required, and the chart fails to render without them. Choose the values for your ingress controller:
+
+<Tabs>
+  <TabItem label="Ingress with a TLS Secret">
+    For ingress-nginx and other controllers that read the certificate from Secret `pig-tls`:
+
+    ```yaml title="supervisor-values.yaml"
+    watchNamespace: pig
+    ingress:
+      serviceName: acme-analyzer # Your PIGDeployment name plus -analyzer
+      hostname: traces.acme.example
+      ingressClassName: nginx
+      tlsSecretName: pig-tls # A TLS Secret in namespace pig
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "256m"
+    ```
+  </TabItem>
+
+  <TabItem label="AWS Application Load Balancer">
+    For the AWS Load Balancer Controller with an ACM certificate. [Deploy on AWS](/docs/governance/deploy-the-worker/deploy-on-aws#4-prepare-https-ingress) lists the prerequisites.
+
+    ```yaml title="supervisor-values.yaml"
+    watchNamespace: pig
+    ingress:
+      serviceName: acme-analyzer # Your PIGDeployment name plus -analyzer
+      hostname: traces.acme.example
+      ingressClassName: alb
+      annotations:
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/certificate-arn: REPLACE_ACM_CERTIFICATE_ARN
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+        alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    ```
+
+    Omit `tlsSecretName`; the load balancer uses the ACM certificate. Use `scheme: internal` only when every enrolled host can reach the private address.
+  </TabItem>
+</Tabs>
+
+The Ingress exposes only the [five collector routes](/docs/governance/deploy-the-worker/networking-and-identity#route-collector-requests) and is created in `watchNamespace`. The `256m` request-body limit accepts the collector's largest request with room to spare; [networking](/docs/governance/deploy-the-worker/networking-and-identity#set-request-limits-and-timeouts) explains the limits for other proxies. [Bootstrap chart values](/docs/governance/deploy-the-worker/configuration-reference#bootstrap-chart-values) lists every field.
+
+Lint and render the verified chart. Review the supervisor image digest, the custom resource definition, the RBAC, and the Ingress in the output:
+
+```bash
+helm lint "./pig-supervisor-${PIG_VERSION}.tgz" --values supervisor-values.yaml
+helm template pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
   --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
 ```
 
 Then install it:
 
 ```bash
-helm install pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+helm install pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
   --namespace pig-system --values supervisor-values.yaml \
   --wait --timeout 10m
 ```
 
-The supervisor waits for a `PIGDeployment` before starting release transitions. It uses the chart's scoped Kubernetes permissions; it does not need a cloud management role.
+The supervisor starts and waits for a `PIGDeployment`. The Ingress has no backend until the analyzer starts.
 
-<Aside type="caution" title="One owner after bootstrap">
-  Keep this release outside Terraform's `helm_release` resources. If Flux performs the bootstrap, suspend its HelmRelease in Git before creating the deployment below. GitOps can continue managing your desired configuration and secret delivery. Follow [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) for the handoff.
+<Aside type="caution" title="Bootstrap once">
+  Keep this Helm release outside Terraform `helm_release` resources and continuous GitOps reconciliation. If Flux performs the bootstrap, suspend its HelmRelease before you create the `PIGDeployment`. For later Ingress changes, follow [change the collector ingress](/docs/governance/deploy-the-worker/gitops-ownership#change-the-collector-ingress).
 </Aside>
 
-## 4. Configure your deployment
+## 5. Create the PIGDeployment
 
-Save the following resource. This example uses S3 and OpenAI; substitute your [native storage block](/docs/governance/deploy-the-worker/object-storage#configure-the-location) and [model settings](/docs/governance/deploy-the-worker/model-providers).
+Save the resource below. It uses S3 and OpenAI. Replace the storage block with the single block from `deployment_configuration.storage`, copy `pod_labels` into `spec.podLabels`, and set your [model settings](/docs/governance/deploy-the-worker/model-providers).
 
 ```yaml title="pig-deployment.yaml"
 apiVersion: governance.promptless.ai/v1alpha1
 kind: PIGDeployment
 metadata:
-  name: acme
+  name: acme # The analyzer Service and Ingress are named acme-analyzer.
   namespace: pig
 spec:
   release:
     channel: stable
     paused: false
-    pinnedVersion: ""
+    pinnedVersion: "" # Set to "0.3.6" to hold the release you verified.
   serviceAccountName: pig-analyzer
+  podLabels: {} # Copy deployment_configuration.pod_labels from Terraform.
   hosted:
     installTokenSecretRef:
       name: pig-credentials
@@ -159,15 +249,20 @@ spec:
       dsnSecretRef:
         name: pig-credentials
         key: postgres-dsn
+      # Optional schema-owner credential used only by preflight and migration Jobs.
+      # migrationDsnSecretRef:
+      #   name: pig-migration
+      #   key: postgres-dsn
       caConfigMapRef:
         name: pig-postgres-ca
         key: ca.pem
+    # Exactly one storage block, copied from deployment_configuration.storage.
     s3:
       region: us-west-2
-      bucket: REPLACE_TRACE_BUCKET
+      bucket: acme-pig-traces # Your trace bucket
       prefix: acme/traces
   analysis:
-    activationAt: "2026-09-15T00:00:00Z"
+    activationAt: "2026-10-15T00:00:00Z" # Sessions with activity at or after this time are eligible.
     quietWindowHours: 0.5
     model:
       provider: openai
@@ -179,13 +274,17 @@ spec:
         key: model-api-key
 ```
 
-Choose your collection rollout time for `activationAt`; analysis waits for the session's quiet window. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings, described in [Select instruction repositories](#5-select-instruction-repositories).
+Use a deployment name of at most 54 lowercase letters, digits, or hyphens that starts with a letter. It must match `ingress.serviceName` without the `-analyzer` suffix.
 
-Omit the PostgreSQL CA reference only if your DSN uses the container's trusted certificate store.
+The release policy controls every later update:
 
-On Azure, also add the pod labels from the Terraform guide under `spec.podLabels`. Workload identity must reach the pods as well as the ServiceAccount.
+- `channel: stable` with an empty `pinnedVersion` installs the highest stable release and follows each new one, including schema migrations.
+- `pinnedVersion` holds an exact published release, such as the `0.3.6` you verified.
+- `paused: true` stops release transitions. A pause before the first install blocks installation.
 
-Apply the resource after the bootstrap ownership handoff:
+[Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) explains pausing, pinning, and blocked updates. Release 0.3.6 needs no release confirmation ConfigMap; add `spec.release.confirmation` only when a target release requires one.
+
+Validate the resource against the installed custom resource definition, then apply it through its owner:
 
 ```bash
 kubectl apply --dry-run=server -f pig-deployment.yaml
@@ -193,31 +292,67 @@ kubectl apply -f pig-deployment.yaml
 kubectl get pigdeployment acme --namespace pig --watch
 ```
 
-The supervisor checks dependencies, applies schema migrations, and starts `acme-analyzer`. It derives the registered configuration from the deployment settings; you do not invent a configuration hash.
-
-## 5. Select instruction repositories
-
-After the analyzer registers and first checks in, it appears in the Promptless Dashboard. An organization administrator then chooses which repositories the analyzer reads. In the PIG sidebar, open **Settings → Workers** and use the **Instruction repositories** card to select where your instructions live; analysis reads every selected repository.
-
-<Steps>
-  1. **Add a repository.** Choose one from the dropdown and select **Add**. The dropdown lists the repositories the connected GitHub App can access. To add a repository that is not listed, grant the GitHub App access to it.
-  2. **Set per-repository options.** Turn on **GitHub issues** to project a repository's findings into GitHub issues. Turn on **Proposed fixes** to let remediation open pull requests against it; **Proposed fixes** becomes available once **GitHub issues** is on.
-  3. **Remove a repository** with **Remove**.
-</Steps>
-
-Reading instructions requires Contents read access. GitHub issues and proposed fixes require write access when enabled. Removing a repository preserves existing findings and pull requests.
-
-Members who are not administrators see the selected repositories as a read-only list. For how a finding maps to a repository and its GitHub issue, see [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
-
-## 6. Verify and operate
-
-Check the deployment conditions and endpoint:
+The supervisor checks PostgreSQL, TLS, and object read and write access, applies schema migrations, starts `acme-analyzer`, and verifies its connection to Promptless. When the installation completes, it reports `Ready=True`. A dependency failure reports `Blocked=True` with the Job to inspect:
 
 ```bash
 kubectl describe pigdeployment acme --namespace pig
-curl --fail https://traces.acme.example/healthz
+kubectl logs deployment/pig-supervisor --namespace pig-system --tail=100
 ```
 
-Then [verify a complete session](/docs/governance/deploy-the-worker/verify-your-deployment): enrollment, durable readable objects, successful analysis, and visible dashboard status. A healthy endpoint completes only the routing check.
+`Ready=True` means the workloads and dependency checks passed. The `Acceptance` condition stays `False` with reason `AwaitingCanonicalAcceptance` until a real session completes the [end-to-end verification](/docs/governance/deploy-the-worker/verify-your-deployment).
 
-Use [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) for pause and pin controls, and [observability](/docs/governance/deploy-the-worker/observability) for ongoing monitoring.
+## 6. Point DNS at the ingress and check HTTPS
+
+Read the address your ingress controller assigned to the Ingress:
+
+```bash
+kubectl get ingress acme-analyzer --namespace pig \
+  -o jsonpath='{.status.loadBalancer.ingress[0]}{"\n"}'
+```
+
+Create or update the DNS record for `traces.acme.example` to point at that address. For an ALB, wait until its targets are healthy first. Then run these checks from the network your enrolled hosts use, not from inside the cluster:
+
+```bash
+curl --fail --silent --show-error https://traces.acme.example/healthz
+curl --silent --output /dev/null --write-out '%{http_code}\n' \
+  https://traces.acme.example/v0/host-enrollment/policy
+```
+
+The health check returns `"status": "ok"` and the `deployment_instance_id` of this installation. The unauthenticated policy request returns `401` from the analyzer, which shows the route reaches it. A `404` means a proxy does not route that path, and a certificate error means the hostname and certificate do not match. Fix these before you enroll a host.
+
+Serve HTTPS directly at this hostname. Hosts use the address without a path, and cloud agents reject redirects. Cloud agents also need a public HTTPS endpoint; see [cloud agents](/docs/governance/deploy-the-worker/networking-and-identity#reach-the-analyzer-from-cloud-agents).
+
+## 7. Select instruction repositories
+
+After the analyzer first checks in, its row on the [Workers settings page](https://app.gopromptless.ai/pig/settings/workers) changes from **Awaiting connection** to **Healthy**. An organization administrator then chooses the repositories the analyzer reads, on the **Instruction repositories** card. Analysis reads every selected repository.
+
+<Steps>
+  1. **Add a repository.** Choose it from **Select a repository** and select **Add**. The list shows repositories the connected GitHub App can access; grant the app access to add another.
+  2. **Optional. Set repository actions.** Turn on **Create Repo Issues** to open GitHub issues for the repository's findings. Turn on **Propose Remediations** to let remediation open pull requests; it requires **Create Repo Issues**.
+  3. **Remove a repository** with **Remove** when the analyzer should stop reading it. Existing findings and pull requests remain.
+</Steps>
+
+Each repository needs a `main` branch, and the GitHub App needs Contents read access to it. **Create Repo Issues** also needs Issues write access, and **Propose Remediations** needs Issues, Contents, and Pull requests write access. Members who are not administrators see the selected repositories as a read-only list. For how a finding maps to a repository and its GitHub issue, see [Understand findings](/docs/governance/findings-and-remediation/understand-findings).
+
+## 8. Enable trace analysis
+
+On the **Analyzers** card of the same page, find your analyzer's **Trace analyzer** switch. New analyzers start with it **On**; an organization administrator confirms it, or sets it to **On** to let this analyzer run analyses. **Off** stops analyses while uploads continue. The change applies at the analyzer's next check-in.
+
+Analysis runs only when all of these are true:
+
+- **Trace analyzer** is **On** for the analyzer.
+- At least one instruction repository is selected.
+- `spec.analysis.activationAt` is set, and a session has activity at or after that time.
+- The session has finished, or its quiet window has passed.
+
+Deployment checks pass while analysis is off or no repository is selected, so `Ready=True` alone does not show that analysis can run. When you switch analysis on, eligible stored sessions since `activationAt` become due for analysis.
+
+## 9. Enroll a host and verify a session
+
+<Steps>
+  1. [Enable trace collection and enroll one pilot host](/docs/governance/get-started/enroll-your-hosts) with `https://traces.acme.example` as the analyzer address.
+  2. Run a short session that uses an installed hub skill in a selected repository.
+  3. [Verify that session end to end](/docs/governance/deploy-the-worker/verify-your-deployment). Check the enrolled host, the stored and readable trace object, a succeeded analysis, and its Dashboard acknowledgement. Zero findings is a valid result.
+</Steps>
+
+Use [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) for pause and pin controls, backups, and recovery, and [observability](/docs/governance/deploy-the-worker/observability) for ongoing monitoring.

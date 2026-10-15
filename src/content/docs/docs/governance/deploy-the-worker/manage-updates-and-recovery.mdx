@@ -27,7 +27,7 @@ release:
   pinnedVersion: ""
 ```
 
-Stable releases include a compatible transition for the installed version, Promptless, and customer data. The supervisor follows any required intermediate migrations instead of jumping directly to an incompatible version. The stable channel is a release policy, not permission to erase data or modify shared infrastructure.
+Stable releases include a compatible transition for the installed version, Promptless, and customer data. The supervisor follows every required intermediate migration on the way to the target release. The stable channel is a release policy, not permission to erase data or modify shared infrastructure.
 
 Your team continues to maintain shared clusters, networking, ingress controllers, the bootstrap release's collector Ingress, externally managed secrets, and backup policies. New access requirements or a failed preflight produce a blocked update with a specific action. Once that blocker is resolved, the supervisor resumes the stable-release transition without a separate approval for each release.
 
@@ -54,7 +54,7 @@ The supervisor sets the analyzer's environment variables, so the two must use th
 
 Use the `pig-supervisor` chart for the highest version in the [stable catalog](https://github.com/Promptless/pig-deploy/blob/main/catalog/stable.json). An unpinned supervisor selects that release, so the bootstrap image matches the release it installs. The chart's values are unchanged from 0.3.4, so you can reuse your current bootstrap values with the new supervisor image digest.
 
-1. Set `PIG_CHART_VERSION` to that version and [pull the chart](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-get-a-pinned-bootstrap-chart). Verify the archive against the release's published checksums. Save the current `PIGDeployment`, Ingress, supervisor Deployment, and bootstrap Helm values.
+1. Set `PIG_VERSION` to that version, then download and verify its files as in [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). Save the current `PIGDeployment`, Ingress, supervisor Deployment, and bootstrap Helm values.
 
 2. Set `spec.release.paused` to `true`. Wait for `status.phase: complete` with no migration Job running.
 
@@ -65,7 +65,7 @@ Use the `pig-supervisor` chart for the highest version in the [stable catalog](h
 5. Upgrade the bootstrap release with the new chart:
 
    ```bash
-   helm upgrade pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+   helm upgrade pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
      --namespace pig-system --values supervisor-values.yaml \
      --wait --timeout 5m
    ```
@@ -95,6 +95,8 @@ The supervisor records the current release, target release, update stage, and a 
 3. Require release-specific recovery confirmation before a destructive migration, then run the release's coordinated schema migrations. Your backup workflow creates and retains the recovery points.
 4. Roll out the analyzer and supervisor in the release's declared order.
 5. Verify health, storage access, and hosted synchronization before marking the target installed.
+
+An update completes while analysis is disabled or no instruction repositories are selected, so you can upgrade an installation without turning analysis on first. [Verifying a complete session](/docs/governance/deploy-the-worker/verify-your-deployment) still requires analysis enabled and at least one selected instruction repository.
 
 Some transitions can keep ingestion running while analysis pauses. A release that needs an ingestion interruption reports that state. Hosts can retry from their retained native ledgers, so do not delete those ledgers during recovery; successful retries depend on the source still being available.
 
@@ -197,7 +199,7 @@ Do not patch a GitOps-managed object without updating its source; the GitOps con
 
 Keep the last healthy version running. Check the reported resource, action, and identity, then repair the underlying condition. Common causes include rotated tokens, unreachable databases, missing object-storage permissions, insufficient capacity, and unavailable model endpoints. If capacity or a cloud permission is required, review and apply the corresponding Terraform change.
 
-The supervisor retries recoverable failures and preserves its progress. Avoid reinstalling under a different deployment ID; that creates a second identity instead of repairing the existing deployment.
+The supervisor retries recoverable failures and preserves its progress. Keep the same deployment ID, the `deployment_instance_id` that [`/healthz` returns](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#6-point-dns-at-the-ingress-and-check-https). Reinstalling under a different ID creates a second identity and leaves the existing deployment unrepaired.
 
 ### A migration fails
 

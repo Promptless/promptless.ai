@@ -63,6 +63,22 @@ Schema migrations and normal analyzer traffic can use one database role or two. 
 
 Both credentials must reach the same database over `sslmode=verify-full`; PIG confirms this before it migrates. When you supply only the application credential, that single role runs migrations and serves traffic.
 
+For a new database named `pig`, a database administrator can create both roles. Set their login passwords through your secret-management process, then connect to `pig` before running the schema grants:
+
+```sql
+CREATE ROLE pig_migrator LOGIN;
+CREATE ROLE pig_app LOGIN;
+GRANT CONNECT ON DATABASE pig TO pig_migrator;
+GRANT CONNECT, TEMPORARY ON DATABASE pig TO pig_app;
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+GRANT USAGE, CREATE ON SCHEMA public TO pig_migrator;
+GRANT USAGE ON SCHEMA public TO pig_app;
+```
+
+Migrations grant the application role data access to the PIG tables. They do not create roles or transfer schema ownership. Keep the migration role out of the application role's memberships, and keep the application role's `TEMPORARY` permission.
+
+Deliver the two connection strings as `pig-credentials/postgres-dsn` for `pig_app` and `pig-migration/postgres-dsn` for `pig_migrator`, both with `sslmode=verify-full` and the same host and database.
+
 Deliver the migration credential the way your installation path expects: the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references) for a manual installation, or [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage) for a supervisor-managed one. The migration credential reaches only the preflight and migration Jobs, never the serving analyzer.
 
 ## Back up and restore

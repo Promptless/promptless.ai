@@ -13,12 +13,12 @@ Terraform prepares cloud infrastructure. Helm bootstraps PIG once. After bootstr
 
 ## Resource ownership
 
-| Owner                         | Resources                                                                                                                                            |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Terraform                     | Cloud databases, storage, workload identity trust and grants, networking, backup and retention settings.                                             |
-| Your Kubernetes configuration | Namespaces, analyzer ServiceAccount and identity annotations, `PIGDeployment.spec`, external secret delivery, and certificates.                      |
-| Bootstrap Helm release        | The HTTPS collector Ingress, configured through the chart's `ingress` values.                                                                        |
-| PIG                           | Generated analyzer workloads, migration Jobs, supervisor application resources, and the PIG custom resource definition within installed permissions. |
+| Owner                             | Resources                                                                                                                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Terraform                         | Cloud databases, storage, workload identity trust and grants, networking, backup and retention settings.                                                                             |
+| Your Kubernetes configuration     | Namespaces, the analyzer ServiceAccount and its identity annotations, `PIGDeployment.spec`, external Secret delivery, the database CA ConfigMap, and certificates.                   |
+| The `pig-supervisor` Helm release | The supervisor Deployment, its RBAC, and the HTTPS collector Ingress, configured through the chart's `ingress` values. Its first install creates the PIG custom resource definition. |
+| The supervisor                    | Generated analyzer Deployment and Service, migration and verification Jobs, its own image updates, and additive custom resource definition updates within installed permissions.     |
 
 The supervisor cannot widen its own permission grants. A release requiring new bootstrap permissions blocks until an administrator reviews and installs those grants. Cloud management permissions remain with Terraform.
 
@@ -34,7 +34,7 @@ Run a later `helm upgrade` only to [change the collector ingress](#change-the-co
 
 If Flux installs the bootstrap, hand ownership to PIG before enabling application updates.
 
-1. Create an `OCIRepository` for `oci://ghcr.io/promptless/charts/pig-supervisor`, pinned to the chart digest from your selected release. Create a `HelmRelease` in `pig-system`, with `watchNamespace: pig` in its values. Use the same reviewed chart and values as the direct Helm guide.
+1. Create an `OCIRepository` for `oci://ghcr.io/promptless/charts/pig-supervisor`, pinned to the chart's OCI digest from the release manifest, `artifacts.supervisorChart.ociDigest`. For 0.3.6 it is `sha256:ee04fc023c7a6a22fde882cdb1852646b08804fe822a246d4040c7afe73b09fb`. Create a `HelmRelease` in `pig-system` with the same bootstrap values as the direct Helm guide, including `watchNamespace: pig` and the required `ingress` fields.
 
 2. Keep `PIGDeployment` out of the reconciled path while Flux installs the chart. The supervisor waits for this resource before starting release transitions.
 
@@ -75,12 +75,12 @@ kubectl get deployment pig-supervisor --namespace pig-system \
   -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
 ```
 
-Then render the chart, compare the Ingress with the live object, and upgrade:
+Then render the verified chart, compare the Ingress with the live object, and upgrade. `PIG_VERSION` is the chart version you [verified](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release):
 
 ```bash
-helm template pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+helm template pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
   --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
-helm upgrade pig-supervisor "./pig-supervisor-${PIG_CHART_VERSION}.tgz" \
+helm upgrade pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
   --namespace pig-system --values supervisor-values.yaml --wait --timeout 5m
 ```
 

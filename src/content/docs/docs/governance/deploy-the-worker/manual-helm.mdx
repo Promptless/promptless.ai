@@ -29,7 +29,7 @@ Complete the [deployment planning checklist](/docs/governance/deploy-the-worker/
 - An S3 bucket, Azure Blob container, or Google Cloud Storage bucket, with read and write access through workload identity.
 - An existing ServiceAccount named `pig-analyzer` in namespace `pig`, bound to that identity. Both the analyzer and migration Job use it.
 - A reachable HTTPS hostname, a certificate, and an existing ingress controller or equivalent route to the worker Service on port 8080.
-- Credentials for your analysis model. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories) after the analyzer registers.
+- Credentials for your analysis model. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories) after the analyzer registers.
 
 The complete example below uses Acme's S3 on EKS. For AKS or GKE, substitute the native storage and identity settings in the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#native-storage-and-workload-identity). The [cloud deployment guides](/docs/governance/deploy-the-worker/plan-your-deployment#choose-an-installation-path) cover the infrastructure requirements.
 
@@ -91,7 +91,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
      BASH
      ```
 
-     The analyzer reads the selected instruction repositories with GitHub App tokens Promptless supplies, scoped to Contents read. GitHub issues and proposed fixes use write access granted to the same GitHub App, which an administrator enables per repository in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories). Confirm the connected GitHub App can access each repository you select.
+     The analyzer reads the selected instruction repositories with GitHub App tokens Promptless supplies, scoped to Contents read. GitHub issues and proposed fixes use write access granted to the same GitHub App, which an administrator enables per repository in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories). Confirm the connected GitHub App can access each repository you select.
 
   2. **Configure the worker.** Save this as `values.yaml`. Replace every `REPLACE_` value and the hostname with your environment's values. Choose a model name your provider account can use.
 
@@ -127,7 +127,7 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
        enabled: true
        className: nginx
        annotations:
-         nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+         nginx.ingress.kubernetes.io/proxy-body-size: "256m"
        hosts:
          - host: traces.acme.example
        tls:
@@ -145,9 +145,9 @@ Allow worker egress to PostgreSQL, your object store, Promptless, GitHub, and th
 
      Set `activationAt` to your chosen analysis start time; use a timezone-aware timestamp. The half-hour quiet window gives sessions time to finish before analysis. These resource values are a starting allocation: adjust them after measuring representative sessions.
 
-     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. An enabled gateway requires `hosts` and `tls` and routes only the exact [collector paths](/docs/governance/deploy-the-worker/networking-and-identity#route-uploads-and-health-checks). If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
+     The example assumes an existing NGINX IngressClass named `nginx`, a TLS Secret named `acme-pig-tls` in `pig`, and DNS pointing to that ingress. Set `gateway.className` to your controller's class. An enabled gateway requires `hosts` and `tls` and routes only the exact [collector paths](/docs/governance/deploy-the-worker/networking-and-identity#route-collector-requests). If your platform manages the route separately, set `gateway.enabled: false` and route HTTPS traffic to `pig-trace-analyzer` in `pig` on port 8080.
 
-     The NGINX annotation permits trace uploads up to 10 MiB. Configure every ingress, load balancer, and proxy on the upload path to accept at least that request-body size. A smaller limit can return HTTP 413 while health checks pass. Other ingress controllers require their equivalent setting.
+     The NGINX annotation accepts request bodies up to 256 MiB. The collector's largest upload is 10 MiB encoded. Configure every ingress, load balancer, and proxy on the upload path to accept at least that. A smaller limit can return HTTP 413 while health checks pass. [Request limits and timeouts](/docs/governance/deploy-the-worker/networking-and-identity#set-request-limits-and-timeouts) explains both limits.
 
      For an ingestion-only pilot, leave `pig.analysis.activationAt` empty. The chart then omits the model settings from the worker. Complete all analysis settings before enabling analysis. See the [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) for supported providers and value mappings.
 
