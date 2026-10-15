@@ -64,7 +64,6 @@ Current `action` values:
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 | `book_demo` (Agent Score) | `agent_score_landing`, `agent_score_report` (the Promptless block at the end of each Agent Score page) |
 | `read_blog_post` | `agent_score_landing`, `agent_score_report` (links to the "We scored 100" post) |
-| `view_agent_score_example` | `agent_score_hero` (the docs.promptless.ai example link) |
 | `view_agent_score_report` | `agent_score_leaderboard` (a leaderboard entry) |
 | `share_agent_score` | `agent_score_report` (network in `campaign`: `x` or `linkedin`) |
 | `view_agent_score_json` | `agent_score_report` (opens the public JSON for the site) |
