@@ -51,9 +51,9 @@ test('normalizeTargetUrl rejects every explicit port with the custom_port code',
   assert.equal(bracketed.code, 'invalid', 'an IPv6 literal without a port is rejected as a bad host, not as a port');
 });
 
-test('category metadata covers the 28 afdocs checks', () => {
+test('category metadata scores 27 of the 28 afdocs checks', () => {
   assert.equal(CATEGORIES.length, 7);
-  assert.equal(TOTAL_CHECKS, 28);
+  assert.equal(TOTAL_CHECKS, 27);
   assert.equal(gradeForScore(100), 'A+');
   assert.equal(gradeForScore(86), 'B');
   assert.equal(gradeForScore(59), 'F');
@@ -79,7 +79,7 @@ test('summary sentence and fix prompt describe the scan', () => {
   assert.match(prompt, /^# Agent Score fix report: docs\.acme-api\.dev/);
   assert.match(prompt, /## Failing checks/);
   assert.match(prompt, /## Warnings/);
-  assert.ok(prompt.trimEnd().endsWith('npx afdocs@latest check https://docs.acme-api.dev --fixes --verbose\n```'));
+  assert.ok(prompt.trimEnd().endsWith('npx afdocs@latest check https://docs.acme-api.dev --skip-checks llms-txt-coverage --fixes --verbose\n```'));
 
   const ordered = actionableChecks(site.latest).map((item) => item.gain);
   assert.deepEqual(ordered, [...ordered].sort((a, b) => b - a), 'fixes are ordered by potential gain');
