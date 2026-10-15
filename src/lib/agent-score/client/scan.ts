@@ -144,12 +144,5 @@ export function renderProgress(els: ProgressElements, status: Pick<ScanStatusRes
   els.count.textContent = `${completed}/${total} checks · ${elapsed}s`;
   els.bar.style.width = `${Math.max(4, (completed / total) * 100)}%`;
   const current = friendlyCheckName(progress?.currentCheck);
-  els.detail.replaceChildren();
-  if (current) {
-    const code = document.createElement('code');
-    code.textContent = progress?.currentCheck ?? '';
-    els.detail.append(`Checking ${current} `, code);
-  } else {
-    els.detail.textContent = 'Discovering pages from llms.txt and the sitemap…';
-  }
+  els.detail.textContent = current ? `Checking ${current}` : 'Discovering pages from llms.txt and the sitemap…';
 }
