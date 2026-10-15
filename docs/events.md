@@ -59,8 +59,18 @@ Current `action` values:
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
+| `view_event` | `nav` (homepage announcement slot; event slug in `campaign`, e.g. `lavacon-2026`) |
 | `view_dogbench` | `footer` (Content column link), `footer_card` (homepage-only card); both open dogbench.ai |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
+| `book_demo` (Agent Score) | `agent_score_landing`, `agent_score_report` (the Promptless block at the end of each Agent Score page) |
+| `read_blog_post` | `agent_score_landing`, `agent_score_report` (links to the "We scored 100" post) |
+| `view_agent_score_example` | `agent_score_hero` (the docs.promptless.ai example link) |
+| `view_agent_score_report` | `agent_score_leaderboard` (a leaderboard entry) |
+| `share_agent_score` | `agent_score_report` (network in `campaign`: `x` or `linkedin`) |
+| `view_agent_score_json` | `agent_score_report` (opens the public JSON for the site) |
+| `view_agent_score_markdown` | `agent_score_report` ("Agent mode", the `.md` twin) |
+| `view_afdocs`, `view_afdocs_author`, `view_agent_docs_spec` | `agent_score_diy`, `agent_score_credit` (credit links to afdocs, Dachary Carey, and the spec) |
+| `view_home` | `agent_score_credit` |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign
 it holds three buttons: Sign in (`sign_in`), Get a demo (`book_demo`), and
@@ -187,6 +197,60 @@ this event.
 | `check_anchors` | boolean | Include anchor links |
 | `max_pages` | number \| null | Page limit |
 | `$set: { email }` | string | Identifies the visitor |
+
+---
+
+## Agent Score events
+
+Fired by the Agent Score pages (`/agent-score`, `/agent-score/<site>`). Source
+files live in `src/components/agent-score/`; captures go through the guarded
+helper in `src/lib/agent-score/client/analytics.ts`. No email is collected, so
+none of these set `$set`.
+
+### `agent_score_scan_requested`
+
+Fires when a visitor submits the Agent Score URL form, before the request.
+Also sends `gtag('event', 'cta_click', { action: 'agent_score_scan' })`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `target_url` | string | Normalized URL to scan (`https://host/path`) |
+| `location` | string | `agent_score_hero` (landing) or `agent_score_not_found` (unscored or invalid site page) |
+
+**Source**: ScanForm.astro
+
+### `agent_score_rescan_requested`
+
+Fires when a visitor clicks Rescan on a report page.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug, e.g. `docs.stripe.com` or `stripe.com/docs` |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportClient.astro
+
+### `agent_score_fix_prompt_copied`
+
+Fires after the "Copy fix prompt" button copies the generated agent prompt.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportSummary.astro (wired by `src/lib/agent-score/client/copy.ts`)
+
+### `agent_score_badge_copied`
+
+Fires after the badge popover copies the markdown embed snippet.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportHeader.astro (wired by `src/lib/agent-score/client/copy.ts`)
 
 ---
 
