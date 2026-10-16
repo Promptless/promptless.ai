@@ -194,20 +194,25 @@ const apiBaseUrl = (rawApiBaseUrl || fallbackApiBaseUrl).replace(/\/+$/, '');
         const submissionId = payload?.submission_id ? ` (id: ${payload.submission_id})` : '';
         setStatus(`Report queued. We will email the CSV when the crawl completes${submissionId}.`, 'success');
 
-        window.posthog?.capture('broken_link_report_submitted', {
-          target_url: url,
-          check_external: checkExternal,
-          check_anchors: checkAnchors,
-          max_pages: maxPages.value,
-          $set: { email },
-        });
+        // The PostHog snippet defines window.posthog before init, so capture is
+        // missing wherever PostHog is not configured. The request has already
+        // succeeded; analytics must not turn it into an error.
+        if (typeof window.posthog?.capture === 'function') {
+          window.posthog.capture('broken_link_report_submitted', {
+            target_url: url,
+            check_external: checkExternal,
+            check_anchors: checkAnchors,
+            max_pages: maxPages.value,
+            $set: { email },
+          });
 
-        window.posthog?.capture('email_captured', {
-          intent: 'free_tool',
-          location: 'free_tools',
-          campaign: '',
-          $set: { email },
-        });
+          window.posthog.capture('email_captured', {
+            intent: 'free_tool',
+            location: 'free_tools',
+            campaign: '',
+            $set: { email },
+          });
+        }
 
         form.reset();
         const anchorsToggle = form.querySelector('#broken-link-check-anchors');

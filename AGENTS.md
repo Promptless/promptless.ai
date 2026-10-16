@@ -25,9 +25,11 @@ docs/
 
 ```
 src/
-+-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/)
++-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/, agent-score/)
+|   +-- agent-score/    # Agent Score landing (static) + on-demand [...site] report, .md twin, og.png
 +-- components/
 |   +-- site/           # Marketing page components (Hero, DemoBooking, PricingCards, VideoEmbed, etc.)
+|   +-- agent-score/    # Agent Score landing sections, report sections, scan form, client scripts
 |   +-- starlight/      # Starlight component overrides (Header, Footer, Sidebar, etc.)
 |   +-- shared/         # Cross-cutting components (AnalyticsClickTracker, AnnouncementBanner, TopHeader)
 |   +-- posthog.astro   # PostHog analytics init snippet
@@ -38,11 +40,13 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
-+-- styles/             # Global CSS (custom.css, site.css)
+|   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
++-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
 tests/smoke/            # Smoke tests
+tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
@@ -62,7 +66,8 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 - **Redirects**: Defined in `astro.config.mjs` (static) merged with
   `src/lib/generated/redirects.json`. `redirects.json` is hand-maintained (the
   manifest script never writes it), so add redirect entries for moved or renamed
-  pages by hand.
+  pages by hand. Every source also matches with a trailing slash
+  (`scripts/normalize-vercel-redirects.ts`), so add only the no-slash form.
 - **Sidebar**: The docs nav is **directory-driven** (Starport Phase 3, ADR
   0003). `starlight-sidebar-topics` wraps Starlight's native folder
   `autogenerate` in `astro.config.mjs`, walking the `src/content/docs/docs/`
@@ -90,7 +95,8 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run dev:agent-score-mock # local Agent Score API mock on 127.0.0.1:5000 (see README)
+npm run build            # production build (Vercel adapter; also renders /agent-score/<site> on demand)
 npm run check            # typecheck + MCP contract tests + build
 npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
 npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
@@ -124,9 +130,10 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
 - **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
   *content* against three schemas (Starlight mirror, Google OKF, extension
   seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags` and a quoted ISO 8601 `timestamp`. Add repo-specific
-  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
-  Runs on Node 24. See ADR 0006.
+  and should carry `tags`. Add repo-specific required fields in
+  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
+  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
+  which stopped populating `timestamp`.
 
 ## Diagrams
 
