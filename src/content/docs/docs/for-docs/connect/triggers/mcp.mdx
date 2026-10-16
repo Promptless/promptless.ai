@@ -22,7 +22,7 @@ Connect Claude Code, Cursor, Claude, or another MCP client to Promptless. From t
   MCP is the no-key, interactive editor path. The [API trigger](/docs/for-docs/connect/triggers/api) is the server-to-server and CI path: an API key plus `POST /triggers`. Both dispatch through the same pipeline, so a task behaves identically whichever way you start it.
 </Aside>
 
-To use Promptless from the Claude.ai or ChatGPT web app, follow [Use Promptless from Claude.ai or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt).
+To connect Claude on the web, desktop, or mobile, or ChatGPT, follow [Use Promptless from Claude or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt). That page covers the connector setup, plan requirements, and approval for those apps.
 
 <Aside type="note" title="Before you start">
   You need an MCP-capable editor, such as Claude Code or Cursor, or a chat app that accepts custom connectors, such as Claude. Your organization must have [finished setting up Promptless](https://app.gopromptless.ai/configuration). No API key is required.
@@ -107,17 +107,7 @@ The same URL and command also appear in the dashboard under **Settings**, in the
 
 ### Claude
 
-Add Promptless to Claude as a [custom connector](https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp):
-
-<Steps>
-  1. In Claude, open **Customize** > **Connectors**, select **+**, then select **Add custom connector**.
-
-  2. Enter `https://api.gopromptless.ai/mcp`, then select **Add**.
-
-  3. Select **Connect**, and authorize the connection in the browser tab that opens. See [Authorize in the browser](#authorize-in-the-browser).
-</Steps>
-
-On a Team or Enterprise plan, an Owner adds the connector under **Organization settings** > **Connectors**, then each member selects **Connect** in **Customize** > **Connectors**. Turn the connector on for a conversation from the **+** menu under **Connectors**.
+Claude on the web, desktop, and mobile, and ChatGPT, connect at `https://api.gopromptless.ai/mcp/with-direct-edits`, not `/mcp`. A chat app has no local copy of your documentation repository, so it needs the tools that search, read, and edit the docs. For the steps, including the Team and Enterprise steps for Claude, see [Use Promptless from Claude or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt).
 
 ### Other MCP clients
 
@@ -158,7 +148,7 @@ A token is tied to one organization. When your client names the server URL in it
 
 ## Available tools
 
-Both server URLs carry these 11 tools, which let you check on your collections, tasks, and suggestions, or queue and change your documentation work. The direct-edit URL adds six more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). Five tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Six tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
+Both server URLs carry these 14 tools. With them, you check on your collections, tasks, suggestions, and account setup, queue and change documentation work, and contact Promptless support. The direct-edit URL adds six more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). Six tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, `wait_for_task_update`, and `get_account_status`. Your editor can auto-approve them, so routine status checks stop prompting you each time. Eight tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, `close_suggestion`, `connect_integration`, and `message_promptless_support`. These always ask before they run.
 
 <Aside type="note">
   If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, and `wait_for_task_update` tools and the updated tool descriptions. `submit_documentation_task` and `request_changes` now return a `next_call` for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
@@ -321,6 +311,34 @@ Searches your existing suggestions by keyword and status. Use it to check whethe
 
 When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. A `query` is required and must be at least 3 characters, so `search_suggestions` no longer returns all your suggestions when called without one. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the suggestion-triage workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
 
+### `get_account_status`
+
+Reports your organization's setup: its name, which integrations are connected, and the setup steps that remain. It takes no arguments and is read-only. When `submit_documentation_task` reports that the organization hasn't finished setting up Promptless, call `get_account_status` for the remaining steps.
+
+The result carries `organization_id`, `organization_name`, `integrations` (each with its `type` and, when known, the connected `account`), and `next_steps`. `claimed` is false and `expires_at` is set only for an organization that an agent created and no person has claimed yet. For an organization a person set up, `claimed` is true and `expires_at` is null.
+
+### `connect_integration`
+
+Creates a link that a person opens in a browser to connect one integration, such as GitHub, to your organization. Send the link to someone who administers that tool. They sign in to Promptless, confirm, and approve the connection with the provider. Only a member of the organization can complete it.
+
+| Argument   | Required | Description                                                                                                                                                                              |
+| ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `provider` | Yes      | The integration to connect, such as `github`. An unknown provider returns `invalid_arguments` with the list of valid values.                                                             |
+| `options`  | No       | Provider-specific inputs: `products`, the Atlassian products to connect (required for Atlassian), or `subdomain` (required for Zendesk), the `<subdomain>` in `<subdomain>.zendesk.com`. |
+
+The result carries the `connect_url`, its `expires_at`, and `instructions` to pass along. The link works until `expires_at`. Creating a link changes nothing until someone opens it, and each call returns an equivalent link. After the person finishes, call `get_account_status` to confirm the connection.
+
+### `message_promptless_support`
+
+Sends a report to the Promptless team, such as a problem with a task or a question about your setup. The report is one way: no reply comes back through the tool, so don't wait for one. The report includes your name, email, and MCP client name.
+
+| Argument   | Required | Description                                                                                       |
+| ---------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `concern`  | Yes      | What went wrong or what you need, from 1 to 2,000 characters. Include any task or suggestion IDs. |
+| `severity` | Yes      | `low`, `medium`, or `high`.                                                                       |
+
+The result confirms that the report was sent. If Promptless can't confirm delivery, the tool returns an error and asks your client not to retry automatically.
+
 ## Read and edit documentation directly
 
 These six tools are available only at `https://api.gopromptless.ai/mcp/with-direct-edits`. With them, your client finds pages, edits them on an open suggestion's branch, checks the diff, and opens the pull request with `update_suggestion`.
@@ -469,7 +487,7 @@ To find MCP-originated suggestions on the [Suggestions list](https://app.gopromp
 
 Connections re-authorize automatically, so you rarely notice. The connection you approved lasts 90 days; after that, automatic refresh stops and you re-consent in the browser the way you did at setup.
 
-To revoke a connection, remove the `promptless` server from your editor: in Claude Code, remove the `promptless` server; in Cursor, remove it from your MCP settings. In Claude, remove the connector from **Customize** > **Connectors**. There's no revoke button in the dashboard. The **Editor connection (MCP)** section there is instructional only.
+To revoke a connection, remove the `promptless` server from your editor: in Claude Code, remove the `promptless` server; in Cursor, remove it from your MCP settings. For Claude and ChatGPT, see [Reconnect or disconnect](/docs/for-docs/work-the-queue/claude-and-chatgpt#reconnect-or-disconnect). There's no revoke button in the dashboard. The **Editor connection (MCP)** section there is instructional only.
 
 Promptless re-checks your organization membership on every call; if you lose active membership, the connection is revoked. Each member manages their own connection. An admin can't revoke another member's connection for them.
 
