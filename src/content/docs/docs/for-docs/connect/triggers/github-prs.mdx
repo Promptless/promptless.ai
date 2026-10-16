@@ -42,9 +42,9 @@ Triggers when a pull request merges. Use this mode when you want documentation o
 
 ### Updated
 
-Triggers when new commits are pushed to an open pull request, re-reviewing it on every push. This mode is available for GitHub PR triggers only. It turns Promptless into a review bot for pull requests, keeping its suggestions current as the PR evolves. Use it when you want an open pull request re-reviewed continuously as it changes, rather than analyzed once. `opened`, `first_approval`, and `merge` each fire once; `updated` fires on every push.
+Triggers when new commits are pushed to an open pull request, re-reviewing it on every push. This mode is available for GitHub PR triggers only. It keeps Promptless's suggestions current as the PR evolves. Use it when you want an open pull request re-reviewed continuously as it changes, rather than analyzed once. `opened`, `first_approval`, and `merge` each fire once; `updated` fires on every push.
 
-This mode is opt-in and inert by default: nothing fires on pushes unless a `github_pr` clause explicitly lists `trigger_on: [updated]`.
+This mode is opt-in and inert by default: nothing fires on pushes unless a `github_pr` clause explicitly lists `trigger_on: [updated]`. Turn it on in YAML mode. The dashboard's **When should Promptless run?** options don't include it.
 
 Every push produces a re-review pass, so a PR with many incremental commits yields many passes. That is more activity than the single-shot modes above. That volume is why the mode is gated behind explicit configuration. Scope it tightly: name an explicit `repos` list and narrow it further with `trigger_directories`.
 
@@ -84,7 +84,19 @@ This means Promptless understands the *why* behind changes, even when reviewers 
   Adding, renaming, or modifying a GitHub PR trigger requires the GitHub integration to be connected first. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
 </Aside>
 
-Configure GitHub PR triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section:
+To add a GitHub PR trigger in the dashboard:
+
+1. On the **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add an automatic or scheduled trigger**, then select **GitHub pull requests**.
+2. Under **Which repositories?**, select **All repositories**, or select **Specific repos** and pick the repositories to watch.
+3. Under **When should Promptless run?**, select one or more of **When it’s opened**, **When it’s first approved**, and **When it’s merged**.
+4. To narrow the trigger further, open **More filters (optional)**. Use it to narrow the trigger by folder, target branch, GitHub topic, or repository owner, or to skip specific repositories. See [Directory-specific triggers](#directory-specific-triggers) and [Repository topics](#repository-topics).
+5. Select **Add trigger**.
+
+To change a saved trigger, expand it on the **Triggers** tab, edit its fields, and select **Save changes**.
+
+### Configure in YAML
+
+In YAML mode, a GitHub PR trigger is an entry in the `triggers` section of `promptless.yaml`:
 
 ```yaml
 triggers:
@@ -102,7 +114,7 @@ triggers:
           - src/
 ```
 
-To turn `updated` on, add it to an existing clause's `trigger_on` list. That clause must already name an explicit `repos` list, because an `updated` clause can't use `repos: all`:
+To turn `updated` on, add it in YAML mode to a clause's `trigger_on` list. That clause must name an explicit `repos` list, because an `updated` clause can't use `repos: all`. Scope it with `trigger_directories` too, since every push starts a new review:
 
 ```diff
  triggers:
@@ -121,35 +133,18 @@ To turn `updated` on, add it to an existing clause's `trigger_on` list. That cla
            - src/
 ```
 
-### Review-bot setup with `updated`
-
-To run the review-bot cadence on its own, give the `updated` clause an explicit `repos` list and scope it with `trigger_directories`:
-
-```yaml
-triggers:
-  docs-review-bot:
-    trigger_type: github_pr
-    match:
-      - repos:
-          - acme/docs
-        trigger_on:
-          - updated          # Re-review on each new push
-        trigger_directories:
-          - docs/
-```
-
-The explicit-`repos` requirement is enforced per match clause, not per trigger. One trigger can therefore pair a broad clause for other events with a scoped `updated` clause. The `repos: all` restriction applies only to the clause that lists `updated`; other clauses in the same trigger can still use `repos: all`:
+If your trigger watches `repos: all`, keep that clause for the other events and add a second, scoped clause for `updated`. The trigger runs when either clause matches:
 
 ```yaml
 triggers:
   my-pr-trigger:
     trigger_type: github_pr
     match:
-      - repos: all           # broad clause for one-shot events
+      - repos: all           # all repositories, one-time events
         trigger_on:
           - opened
           - merge
-      - repos:               # scoped clause required for updated
+      - repos:               # explicit repos, required for updated
           - acme/docs
         trigger_on:
           - updated
@@ -185,7 +180,7 @@ If you have many repositories, you can use GitHub topics to control which ones t
 
 1. **Tag your repositories in GitHub**: Add topics to the repositories you want Promptless to monitor (e.g., "docs-watch", "promptless"). To add topics to a repository, go to the repository's main page and click "Add topics" in the About section.
 
-2. **Configure your project**: When creating or editing a GitHub project, check the "Trigger on repos with certain topics" option. Enter the topic(s) you want to monitor. You can specify multiple topics, and Promptless triggers on any repository that has at least one of those topics.
+2. **Configure your trigger**: On the GitHub pull requests trigger, open **More filters (optional)** and enter the topics under **Only repos tagged with these GitHub topics**. You can enter multiple topics. Promptless triggers on any repository that has at least one of them. In YAML, this filter is the clause's `repo_topics` list.
 
 3. **Manage through GitHub**: To add a new repository to Promptless, tag it with the configured topic in GitHub. To remove a repository, remove the topic from the repository settings.
 
