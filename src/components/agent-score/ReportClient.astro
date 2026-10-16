@@ -1,5 +1,5 @@
 ---
-/** Client behavior for the score page: filters, history toggle, rescan, active-scan polling. */
+/** Client behavior for the score page: rescan and active-scan polling. */
 ---
 
 <script>
@@ -12,80 +12,6 @@
     current.searchParams.delete('scan');
     history.replaceState(history.state, '', current.pathname + current.search + current.hash);
   }
-
-  // --- Status filters (stat tiles) -----------------------------------------
-  const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>('.pl-as-stat[data-filter]'));
-  const cats = Array.from(document.querySelectorAll<HTMLDetailsElement>('.pl-as-cat'));
-  const note = document.querySelector<HTMLElement>('[data-filter-note]');
-  const noteLabel = document.querySelector<HTMLElement>('[data-filter-label]');
-  const labels: Record<string, string> = { pass: 'passing', warn: 'warning', fail: 'failing', skip: 'skipped' };
-  let activeFilter: string | null = null;
-
-  function applyFilter(filter: string | null) {
-    activeFilter = filter;
-    tiles.forEach((tile) => tile.setAttribute('aria-pressed', String(tile.dataset.filter === filter)));
-    let shown = 0;
-    cats.forEach((cat) => {
-      let matches = 0;
-      cat.querySelectorAll<HTMLElement>('.pl-as-check').forEach((row) => {
-        const status = row.dataset.status ?? '';
-        const match = !filter || status === filter || (filter === 'fail' && status === 'error');
-        row.hidden = !match;
-        if (match) matches += 1;
-      });
-      cat.hidden = Boolean(filter) && matches === 0;
-      if (filter && matches) cat.open = true;
-      shown += filter ? matches : 0;
-    });
-    if (note && noteLabel) {
-      note.hidden = !filter;
-      noteLabel.textContent = filter ? `Showing ${shown} ${labels[filter] ?? filter} ${shown === 1 ? 'check' : 'checks'}.` : '';
-    }
-  }
-
-  tiles.forEach((tile) => {
-    tile.addEventListener('click', () => {
-      const next = tile.dataset.filter === activeFilter ? null : tile.dataset.filter ?? null;
-      applyFilter(next);
-      if (next) document.getElementById('checks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  });
-  document.querySelector('[data-filter-clear]')?.addEventListener('click', () => applyFilter(null));
-
-  document.querySelectorAll<HTMLButtonElement>('[data-cats-expand]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const open = button.dataset.catsExpand === 'open';
-      cats.forEach((cat) => {
-        if (!cat.hidden) cat.open = open;
-      });
-    });
-  });
-
-  // --- History view toggle -------------------------------------------------
-  const viewButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-history-view]'));
-  viewButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      const view = button.dataset.historyView;
-      viewButtons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
-      document.querySelectorAll<HTMLElement>('[data-history-panel]').forEach((panel) => {
-        panel.hidden = panel.dataset.historyPanel !== view;
-      });
-    });
-  });
-
-  // --- Close the badge popover on outside click / Escape -------------------
-  document.addEventListener('click', (event) => {
-    document.querySelectorAll<HTMLDetailsElement>('.pl-as-popover[open]').forEach((popover) => {
-      if (!popover.contains(event.target as Node)) popover.open = false;
-    });
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    document.querySelectorAll<HTMLDetailsElement>('.pl-as-popover[open]').forEach((popover) => {
-      popover.open = false;
-      popover.querySelector('summary')?.focus();
-    });
-  });
 
   // --- Rescan --------------------------------------------------------------
   const rescan = document.querySelector<HTMLButtonElement>('[data-as-rescan]');
