@@ -18,16 +18,18 @@ Fires every time a visitor gives us their email, regardless of context.
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `intent` | string | Why they gave it: `demo`, `newsletter` |
-| `location` | string | Where: `hero`, `demo_page`, `blog` |
+| `intent` | string | Why they gave it: `demo`, `newsletter`, `free_tool` |
+| `location` | string | Where: `hero`, `demo_page`, `blog`, `free_tools` |
 | `campaign` | string | Campaign slug or empty |
 | `$set: { email }` | string | Always set to identify the person |
 
 **Sources**: HeroV2.astro, DemoBooking.astro, BlogRequestDemo.astro,
-BlogNewsletterCTA.astro
+BlogNewsletterCTA.astro, BrokenLinkReportForm.astro
 
 Replaces the old `demo_requested`, `blog_demo_requested`, and
-`blog_newsletter_subscribed` events.
+`blog_newsletter_subscribed` events. The `broken_link_report_submitted` event
+still fires separately with tool-specific properties — but `email_captured`
+fires alongside it.
 
 ---
 
@@ -52,11 +54,22 @@ Current `action` values:
 | `sign_up` | `nav`, `mobile_menu`, `pricing_startup` |
 | `sign_in` | `nav`, `mobile_menu` |
 | `watch_demo` | `jobs_page` |
+| `use_free_tool` | `free_tools` |
 | `view_commits` | `demo_social_proof` |
 | `ask_ai` | `homepage_ask_ai` (provider in `campaign`: `claude`, `chatgpt`, `gemini`, or `perplexity`) |
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
+| `view_event` | `nav` (homepage announcement slot; event slug in `campaign`, e.g. `lavacon-2026`) |
+| `view_dogbench` | `footer` (Content column link), `footer_card` (homepage-only card); both open dogbench.ai |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
+| `book_demo` (Agent Score) | `agent_score_landing`, `agent_score_report` (the Promptless block at the end of each Agent Score page) |
+| `read_blog_post` | `agent_score_landing`, `agent_score_report` (links to the "We scored 100" post) |
+| `view_agent_score_report` | `agent_score_leaderboard` (a leaderboard entry) |
+| `share_agent_score` | `agent_score_report` (network in `campaign`: `x` or `linkedin`) |
+| `view_agent_score_json` | `agent_score_report` (opens the public JSON for the site) |
+| `view_agent_score_markdown` | `agent_score_report` ("Agent mode", the `.md` twin) |
+| `view_afdocs`, `view_afdocs_author`, `view_agent_docs_spec` | `agent_score_diy`, `agent_score_credit` (credit links to afdocs, Dachary Carey, and the spec) |
+| `view_home` | `agent_score_credit` |
 
 The `nav` row is the highest-traffic CTA location — after the Apr 2026 redesign
 it holds three buttons: Sign in (`sign_in`), Get a demo (`book_demo`), and
@@ -167,6 +180,76 @@ old Pagefind observer.
 | `results` | number | Number of displayed results |
 | `latency_ms` | number | Input-to-results duration, including initial loading but excluding the analytics debounce |
 | `query_ms` | number | Search execution time in the worker |
+
+---
+
+## `broken_link_report_submitted`
+
+Fires when a visitor submits the broken link checker tool. Already implemented
+in `BrokenLinkReportForm.astro`. Note: `email_captured` also fires alongside
+this event.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `target_url` | string | URL to scan |
+| `check_external` | boolean | Include external links |
+| `check_anchors` | boolean | Include anchor links |
+| `max_pages` | number \| null | Page limit |
+| `$set: { email }` | string | Identifies the visitor |
+
+---
+
+## Agent Score events
+
+Fired by the Agent Score pages (`/agent-score`, `/agent-score/<site>`). Source
+files live in `src/components/agent-score/`; captures go through the guarded
+helper in `src/lib/agent-score/client/analytics.ts`. No email is collected, so
+none of these set `$set`.
+
+### `agent_score_scan_requested`
+
+Fires when a visitor submits the Agent Score URL form, before the request.
+Also sends `gtag('event', 'cta_click', { action: 'agent_score_scan' })`.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `target_url` | string | Normalized URL to scan (`https://host/path`) |
+| `location` | string | `agent_score_hero` (landing) or `agent_score_not_found` (unscored or invalid site page) |
+
+**Source**: ScanForm.astro
+
+### `agent_score_rescan_requested`
+
+Fires when a visitor clicks Rescan on a report page.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug, e.g. `docs.stripe.com` or `stripe.com/docs` |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportClient.astro
+
+### `agent_score_fix_prompt_copied`
+
+Fires after the "Copy fix prompt" button copies the generated agent prompt.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportSummary.astro (wired by `src/lib/agent-score/client/copy.ts`)
+
+### `agent_score_badge_copied`
+
+Fires after the badge popover copies the markdown embed snippet.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug |
+| `location` | string | `agent_score_report` |
+
+**Source**: ReportHeader.astro (wired by `src/lib/agent-score/client/copy.ts`)
 
 ---
 
