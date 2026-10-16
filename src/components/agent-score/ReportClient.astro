@@ -1,0 +1,158 @@
+---
+/** Client behavior for the score page: filters, history toggle, rescan, active-scan polling. */
+---
+
+<script>
+  import { capture, gaCtaClick } from '@lib/agent-score/client/analytics';
+  import { getProgressElements, pollScan, renderProgress, ScanRequestError, startScan } from '@lib/agent-score/client/scan';
+
+  // Drop the cache-busting ?scan= param a fresh scan redirect adds.
+  const current = new URL(window.location.href);
+  if (current.searchParams.has('scan')) {
+    current.searchParams.delete('scan');
+    history.replaceState(history.state, '', current.pathname + current.search + current.hash);
+  }
+
+  // --- Status filters (stat tiles) -----------------------------------------
+  const tiles = Array.from(document.querySelectorAll<HTMLButtonElement>('.pl-as-stat[data-filter]'));
+  const cats = Array.from(document.querySelectorAll<HTMLDetailsElement>('.pl-as-cat'));
+  const note = document.querySelector<HTMLElement>('[data-filter-note]');
+  const noteLabel = document.querySelector<HTMLElement>('[data-filter-label]');
+  const labels: Record<string, string> = { pass: 'passing', warn: 'warning', fail: 'failing', skip: 'skipped' };
+  let activeFilter: string | null = null;
+
+  function applyFilter(filter: string | null) {
+    activeFilter = filter;
+    tiles.forEach((tile) => tile.setAttribute('aria-pressed', String(tile.dataset.filter === filter)));
+    let shown = 0;
+    cats.forEach((cat) => {
+      let matches = 0;
+      cat.querySelectorAll<HTMLElement>('.pl-as-check').forEach((row) => {
+        const status = row.dataset.status ?? '';
+        const match = !filter || status === filter || (filter === 'fail' && status === 'error');
+        row.hidden = !match;
+        if (match) matches += 1;
+      });
+      cat.hidden = Boolean(filter) && matches === 0;
+      if (filter && matches) cat.open = true;
+      shown += filter ? matches : 0;
+    });
+    if (note && noteLabel) {
+      note.hidden = !filter;
+      noteLabel.textContent = filter ? `Showing ${shown} ${labels[filter] ?? filter} ${shown === 1 ? 'check' : 'checks'}.` : '';
+    }
+  }
+
+  tiles.forEach((tile) => {
+    tile.addEventListener('click', () => {
+      const next = tile.dataset.filter === activeFilter ? null : tile.dataset.filter ?? null;
+      applyFilter(next);
+      if (next) document.getElementById('checks')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  document.querySelector('[data-filter-clear]')?.addEventListener('click', () => applyFilter(null));
+
+  document.querySelectorAll<HTMLButtonElement>('[data-cats-expand]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const open = button.dataset.catsExpand === 'open';
+      cats.forEach((cat) => {
+        if (!cat.hidden) cat.open = open;
+      });
+    });
+  });
+
+  // --- History view toggle -------------------------------------------------
+  const viewButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-history-view]'));
+  viewButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const view = button.dataset.historyView;
+      viewButtons.forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      document.querySelectorAll<HTMLElement>('[data-history-panel]').forEach((panel) => {
+        panel.hidden = panel.dataset.historyPanel !== view;
+      });
+    });
+  });
+
+  // --- Close the badge popover on outside click / Escape -------------------
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll<HTMLDetailsElement>('.pl-as-popover[open]').forEach((popover) => {
+      if (!popover.contains(event.target as Node)) popover.open = false;
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll<HTMLDetailsElement>('.pl-as-popover[open]').forEach((popover) => {
+      popover.open = false;
+      popover.querySelector('summary')?.focus();
+    });
+  });
+
+  // --- Rescan --------------------------------------------------------------
+  const rescan = document.querySelector<HTMLButtonElement>('[data-as-rescan]');
+  const progressRoot = document.querySelector<HTMLElement>('[data-rescan-progress]');
+  const status = document.querySelector<HTMLElement>('[data-rescan-status]');
+  if (rescan && progressRoot && status) {
+    const apiBase = rescan.dataset.apiBase ?? '';
+    const slug = rescan.dataset.slug ?? '';
+    const latestScan = rescan.dataset.latestScan ?? '';
+    const label = rescan.querySelector<HTMLElement>('[data-rescan-label]');
+    const progress = getProgressElements(progressRoot);
+
+    const setStatus = (message: string, tone: 'neutral' | 'error' = 'neutral') => {
+      status.textContent = message;
+      status.dataset.tone = tone;
+    };
+    const setBusy = (busy: boolean) => {
+      rescan.disabled = busy;
+      if (label) label.textContent = busy ? 'Scanning…' : 'Rescan';
+    };
+    const reloadWith = (scanId: string) => {
+      window.location.replace(`${window.location.pathname}?scan=${encodeURIComponent(scanId)}`);
+    };
+
+    const follow = async (scanId: string) => {
+      setBusy(true);
+      const startedAt = Date.now();
+      try {
+        const final = await pollScan(apiBase, scanId, (update) => renderProgress(progress, update, startedAt));
+        if (final.status === 'complete') {
+          reloadWith(final.scanId);
+          return;
+        }
+      } catch (error) {
+        progressRoot.hidden = true;
+        setStatus(error instanceof ScanRequestError ? error.message : 'Lost track of the scan. Reload to check on it.', 'error');
+      }
+      setBusy(false);
+    };
+
+    rescan.addEventListener('click', async () => {
+      setStatus('');
+      capture('agent_score_rescan_requested', { slug, location: 'agent_score_report' });
+      gaCtaClick('agent_score_rescan', 'agent_score_report', window.location.pathname);
+      setBusy(true);
+      renderProgress(progress, { status: 'queued', progress: null, error: null, slug }, Date.now());
+      try {
+        const created = await startScan(apiBase, rescan.dataset.scanUrl ?? '');
+        if (created.cached) {
+          progressRoot.hidden = true;
+          setBusy(false);
+          if (created.scanId !== latestScan) {
+            reloadWith(created.scanId);
+            return;
+          }
+          setStatus('This site was scanned less than 10 minutes ago, so this is already the latest result. Try again later.');
+          return;
+        }
+        await follow(created.scanId);
+      } catch (error) {
+        progressRoot.hidden = true;
+        setBusy(false);
+        setStatus(error instanceof ScanRequestError ? error.message : 'Could not start the scan. Please try again.', 'error');
+      }
+    });
+
+    // Someone else's scan of this site is already running: show it.
+    if (rescan.dataset.activeScan) follow(rescan.dataset.activeScan);
+  }
+</script>
