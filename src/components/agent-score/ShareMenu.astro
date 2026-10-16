@@ -1,0 +1,47 @@
+---
+/** One Share button for the report's outbound links. */
+import { ChevronDown, Share2 } from '@lucide/astro';
+
+interface Props {
+  pageUrl: string;
+  shareText: string;
+  jsonUrl: string;
+  mdPath: string;
+}
+
+const { pageUrl, shareText, jsonUrl, mdPath } = Astro.props;
+const xUrl = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`;
+const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`;
+const track = { 'data-track-funnel': 'evaluation', 'data-track-location': 'agent_score_report' };
+---
+
+<details class="pl-as-menu">
+  <summary class="pl-as-report-btn">
+    <Share2 size={15} aria-hidden="true" />
+    Share
+    <ChevronDown size={14} aria-hidden="true" />
+  </summary>
+  <div class="pl-as-menu-panel">
+    <button type="button" data-as-copy data-as-copy-text={pageUrl}><span data-as-copy-label>Copy link</span></button>
+    <a href={xUrl} target="_blank" rel="noopener" data-track-action="share_agent_score" data-track-campaign="x" {...track}>Post on X</a>
+    <a href={linkedInUrl} target="_blank" rel="noopener" data-track-action="share_agent_score" data-track-campaign="linkedin" {...track}>Share on LinkedIn</a>
+    <hr />
+    <a href={mdPath} data-track-action="view_agent_score_markdown" {...track}>Markdown version</a>
+    <a href={jsonUrl} target="_blank" rel="noopener" data-track-action="view_agent_score_json" {...track}>JSON</a>
+  </div>
+</details>
+
+<script>
+  document.addEventListener('click', (event) => {
+    document.querySelectorAll<HTMLDetailsElement>('.pl-as-menu[open]').forEach((menu) => {
+      if (!menu.contains(event.target as Node)) menu.open = false;
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    document.querySelectorAll<HTMLDetailsElement>('.pl-as-menu[open]').forEach((menu) => {
+      menu.open = false;
+      menu.querySelector('summary')?.focus();
+    });
+  });
+</script>
