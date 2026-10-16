@@ -46,9 +46,16 @@ because it replaces the deprecated tool and records each fact in a checked form.
    checks the form of values that are present. Examples are kebab-case ids,
    list-only keywords, full dates, and the seven named risk flags. It doesn't
    require extra keys.
-3. `schemas/custom-frontmatter.schema.json`, which requires `title`,
-   `description`, `id`, and `type`. It limits `type` to `landing`, `guide`, or
-   `reference` and keeps the OKF format check on `tags`.
+3. `tgdp:templates:1.1` and its strict overlay `tgdp:templates-strict:1.1`,
+   built into manni. Together they require `type` and limit it to the 25
+   [Good Docs Project template slugs](https://www.thegooddocsproject.dev/template).
+   Pages use `concept`, `how-to`, `reference`, `quickstart`,
+   `installation-guide`, `troubleshooting`, `glossary`, and `contact-support`.
+4. `schemas/custom-frontmatter.schema.json`, for rules no schema above covers.
+   It requires `id`, which `manni:core:1.0.0` defines but doesn't require,
+   because `docs.metadata.yaml` joins on it. It also keeps the OKF format check
+   on `tags`, which no manni vocabulary defines. `manni:core:1.0.0` already
+   requires `title` and `description`.
 
 Each vocabulary marks every field as belonging in the page or in external
 metadata. Fields readers and agents act on go in frontmatter. These are
@@ -79,6 +86,11 @@ Reviewers delete that entry once they've checked the values.
   history for the comparison.
 - Tradeoff: new pages must carry an `id`, and a page's `docs.metadata.yaml`
   entry follows that `id`.
+- Tradeoff: `type` moved from the repo's own `landing`, `guide`, and
+  `reference` values to TGDP slugs. Former landing pages are `concept`, and
+  each former guide is `how-to`, `concept`, `quickstart`,
+  `installation-guide`, or `troubleshooting`. The `tags` lists still carry the
+  old values.
 - Not filled: `authors`, `reviewed-by`, `last-reviewed`, and `provenance`
   change at merge time. They would need a derive run on `main` to stay current.
   `stakeholders`, `review-interval`, and `verified-against` are team

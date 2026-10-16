@@ -131,8 +131,11 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
 - **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `schemas/`, `manni.yml`) —
   frontmatter *content* against the Starlight mirror, the open and strict
   versions of six manni vocabularies (core, stewardship, audience, lifecycle,
-  structure, ai-context), and the extension seam. **Every docs page requires
-  `title`, `description`, `id`, and `type`** (`landing` | `guide` | `reference`).
+  structure, ai-context), The Good Docs Project page types (`tgdp:templates:1.1`
+  and its strict overlay), and the extension seam. **Every docs page requires
+  `title`, `description`, `id`, and `type`**. `type` is a
+  [Good Docs Project template slug](https://www.thegooddocsproject.dev/template),
+  such as `concept`, `how-to`, `reference`, `quickstart`, or `troubleshooting`.
   `id` is the slug without `docs/`, with `/` replaced by `-`; keep it when a
   page moves. Reader-facing fields (`keywords`, `audiences`, `intent`,
   `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
@@ -142,8 +145,9 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   `docs.metadata.yaml`, keyed by `id`; never put them in a page.
   `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
   after you commit a change to a page's body, run `npx manni meta derive` and
-  commit the result, or CI fails with `derived:stale`. Add repo-specific
-  required fields in `schemas/custom-frontmatter.schema.json`, not the config.
+  commit the result, or CI fails with `derived:stale`. Add repo-specific rules
+  that no listed schema covers in `schemas/custom-frontmatter.schema.json`, not
+  the config. It currently requires `id` and checks `tags`.
   Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
 
 ## Diagrams
