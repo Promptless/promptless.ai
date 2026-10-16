@@ -15,6 +15,17 @@ Install the PIG trace analyzer on an existing Kubernetes cluster. A one-time Hel
 
 The current stable release, PIG 0.3.6, targets AWS/EKS. Azure/AKS and GCP/GKE are experimental. Every command and example on this page is for 0.3.6; the [installation overview](/docs/governance/deploy-the-worker/plan-your-deployment#follow-the-installation-path) shows where this guide fits.
 
+## Security posture
+
+Both the worker Deployment and the migration Job run under a restricted security context that the chart applies. These settings are baked into the chart, so `values.yaml` exposes no keys to change them.
+
+Each workload:
+
+- Runs as a non-root user, with the user ID, group ID, and filesystem group all set to `10001`.
+- Uses a read-only root filesystem, drops all Linux capabilities, and blocks privilege escalation.
+- Runs under the `RuntimeDefault` seccomp profile.
+- Mounts a writable `/tmp` backed by an ephemeral `emptyDir`, which gives each container scratch space without a persistent volume.
+
 ## Before you begin
 
 - Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment), including [analyzer registration](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Keep the one-time analyzer credential in your secret manager.
