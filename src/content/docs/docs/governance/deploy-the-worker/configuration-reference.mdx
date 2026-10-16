@@ -1,16 +1,15 @@
 ---
 title: Deployment configuration
-description: Reference the PIGDeployment fields for automatic updates, storage, repository access, models, and Secret references.
+description: Reference the PIGDeployment fields and bootstrap ingress values for automatic updates, storage, models, and Secret references.
 slug: docs/governance/deploy-the-worker/configuration-reference
 type: reference
 tags:
   - agent-instructions
   - governance
   - deployment
-timestamp: "2026-09-15T00:00:00Z"
 ---
 
-This reference covers the `PIGDeployment` resource used by the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) covers worker chart `0.3.0`; its values are a separate interface.
+This reference covers the `PIGDeployment` resource used by the [default Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). The [manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference) covers worker chart `0.3.6`; its values are a separate interface.
 
 ## Resource identity
 
@@ -22,78 +21,87 @@ metadata:
   namespace: pig
 ```
 
-Keep the resource name, namespace, and registered deployment ID stable. The example generates analyzer Deployment and Service `acme-analyzer`. Secret and ConfigMap references resolve in the deployment's namespace.
+Keep the resource name, namespace, and registered deployment ID stable. Use at most 54 lowercase letters, digits, or hyphens, starting with a letter and ending with a letter or digit. The example generates analyzer Deployment and Service `acme-analyzer`. Secret and ConfigMap references resolve in the deployment's namespace. Create exactly one `PIGDeployment` in each watched namespace.
 
 The bootstrap chart's `watchNamespace` selects the analyzer namespace. Install one supervisor for that scope and keep its bootstrap values with your recovery records.
+
+## Bootstrap chart values
+
+The `pig-supervisor` bootstrap chart creates the HTTPS collector Ingress. Configure it in the chart's `ingress` values, separately from the `PIGDeployment` resource. The Ingress is created in `watchNamespace` and routes the [collector paths](/docs/governance/deploy-the-worker/networking-and-identity#route-collector-requests) to the analyzer Service.
+
+| Value                      | Meaning                                                                                                                                  |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `watchNamespace`           | Required. Namespace of the `PIGDeployment`, its Secrets, and the analyzer, such as `pig`. The Ingress is created there.                  |
+| `image.digest`             | Supervisor image digest. The published chart sets it; carry forward the running digest before a later `helm upgrade`.                    |
+| `releaseCatalogURL`        | Release catalog the supervisor reads. Defaults to the public stable catalog.                                                             |
+| `ingress.serviceName`      | Required. The analyzer Service name, your `PIGDeployment` name followed by `-analyzer`, such as `acme-analyzer`. Also names the Ingress. |
+| `ingress.hostname`         | Required. Analyzer hostname reachable from enrolled hosts.                                                                               |
+| `ingress.ingressClassName` | Required. An existing Kubernetes ingress class.                                                                                          |
+| `ingress.tlsSecretName`    | Optional TLS Secret covering the hostname; omit when the ingress controller supplies the certificate, such as ACM.                       |
+| `ingress.annotations`      | Controller-specific annotations, such as the ingress-nginx request-body limit or AWS ALB scheme and ACM certificate.                     |
+
+The Ingress belongs to the bootstrap Helm release. Deleting or pausing the `PIGDeployment` leaves it in place; uninstalling the bootstrap release removes it. Ingress changes do not change the analyzer's registered configuration or trigger its revalidation. To change them, follow [change the collector ingress](/docs/governance/deploy-the-worker/gitops-ownership#change-the-collector-ingress).
 
 ## Release policy
 
 Fields are under `spec.release`:
 
-| Field                            | Meaning                                                                                                              |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `channel`                        | `stable` follows every stable release, including major releases and schema migrations.                               |
-| `paused`                         | `false` permits release transitions. `true` stops new transitions while preserving service and credential refresh.   |
-| `pinnedVersion`                  | Empty follows the channel; an exact supported release pins the target. A pause takes precedence.                     |
-| `confirmation.configMapRef.name` | Customer-owned ConfigMap in the deployment namespace with confirmations for the exact deployment and target release. |
+| Field                       | Meaning                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `channel`                   | `stable` follows every stable release, including major releases and schema migrations.                                         |
+| `paused`                    | `false` permits release transitions. `true` stops new transitions while preserving service and credential refresh.             |
+| `pinnedVersion`             | Empty follows the channel; an exact supported release pins the target. A pause takes precedence.                               |
+| `confirmation.configMapRef` | Name of a customer-owned ConfigMap in the deployment namespace with confirmations for the exact deployment and target release. |
 
 The policy coordinates the analyzer and supervisor together. A pin does not bypass compatibility or migration checks. See [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
-The confirmation ConfigMap binds `releaseDigest` and `deploymentID`. Recovery confirmation uses `confirmedAt`, `postgresRecoveryPoint`, and `objectRecoveryPoint`. Operator capacity acknowledgement uses `capacityConfirmedAt`, `capacityRequirementsDigest`, and `capacityEvidence`. Supply the fields required by the target release; see [confirm release prerequisites](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites). These acknowledgements do not replace live dependency checks or mirror Terraform state.
+The confirmation ConfigMap binds `releaseDigest` and the Kubernetes object's `deploymentUID`. Recovery confirmation uses `confirmedAt`, `postgresRecoveryPoint`, and `objectRecoveryPoint`. Operator capacity acknowledgement uses `capacityConfirmedAt`, `capacityRequirementsDigest`, and `capacityEvidence`. Supply the fields required by the target release; see [confirm release prerequisites](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites). These acknowledgements do not replace live dependency checks or mirror Terraform state.
 
-## Identity and endpoint
+## Identity and hosted connection
 
 Fields are under `spec`:
 
-| Field                          | Meaning                                                                                                                |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.                             |
-| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in.                    |
-| `hosted.runtimeURL`            | Runtime URL from your Promptless deployment registration.                                                              |
-| `hosted.deploymentID`          | Stable registered deployment identifier.                                                                               |
-| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                                               |
-| `endpoint.hostname`            | Analyzer hostname reachable from enrolled hosts.                                                                       |
-| `endpoint.ingressClassName`    | An existing Kubernetes ingress class.                                                                                  |
-| `endpoint.tlsSecretName`       | Optional TLS Secret covering the hostname; omit when the ingress controller uses an external certificate, such as ACM. |
-| `endpoint.ingressAnnotations`  | Controller-specific annotations, including the encoded upload-body limit of at least 10 MiB.                           |
+| Field                          | Meaning                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `serviceAccountName`           | Existing analyzer ServiceAccount, such as `pig-analyzer`, with cloud data-access bindings.          |
+| `podLabels`                    | Additional analyzer pod labels required by your platform, such as Azure's workload identity opt-in. |
+| `hosted.runtimeURL`            | Optional Promptless endpoint override. Defaults to `https://api.gopromptless.ai`.                   |
+| `hosted.installTokenSecretRef` | Secret `name` and `key` containing the deployment token.                                            |
 
-The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token is separate from individual host credentials.
+The generated Service uses port 8080. The supervisor derives the registered configuration from the effective settings. The install token identifies the installation and is separate from individual host credentials.
 
 ## Storage
 
 Fields are under `spec.storage`. Configure `postgres` and **exactly one** of `s3`, `azureBlob`, or `gcs`.
 
-| Field                                                             | Meaning                                                                                           |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `postgres.dsnSecretRef`                                           | Secret `name` and `key` containing the database connection string with TLS settings.              |
-| `postgres.caConfigMapRef`                                         | Optional ConfigMap `name` and `key` for a CA bundle mounted at `/etc/pig/postgres-ca/ca.pem`.     |
-| `s3.region`, `s3.bucket`, `s3.prefix`                             | AWS region, bucket, and dedicated trace prefix. Uses the analyzer's AWS workload identity.        |
-| `azureBlob.accountURL`, `azureBlob.container`, `azureBlob.prefix` | HTTPS storage account URL, private container, and trace prefix. Uses Microsoft Entra Workload ID. |
-| `gcs.bucket`, `gcs.prefix`                                        | Google Cloud Storage bucket and trace prefix. Uses Workload Identity Federation for GKE.          |
+| Field                                                             | Meaning                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `postgres.dsnSecretRef`                                           | Secret `name` and `key` containing the database connection string with TLS settings.                                                                                                                                                                                  |
+| `postgres.migrationDsnSecretRef`                                  | Optional Secret `name` and `key` for a [separate migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential). The supervisor passes it to preflight and migration Jobs; the serving analyzer uses `postgres.dsnSecretRef`. |
+| `postgres.caConfigMapRef`                                         | Optional ConfigMap `name` and `key` for a CA bundle mounted at `/etc/pig/postgres-ca/ca.pem`.                                                                                                                                                                         |
+| `s3.region`, `s3.bucket`, `s3.prefix`                             | AWS region, bucket, and dedicated trace prefix. Uses the analyzer's AWS workload identity.                                                                                                                                                                            |
+| `azureBlob.accountURL`, `azureBlob.container`, `azureBlob.prefix` | HTTPS storage account URL, private container, and trace prefix. Uses Microsoft Entra Workload ID.                                                                                                                                                                     |
+| `gcs.bucket`, `gcs.prefix`                                        | Google Cloud Storage bucket and trace prefix. Uses Workload Identity Federation for GKE.                                                                                                                                                                              |
 
 Storage configuration grants no cloud management authority. Changing a location does not move existing data. Plan that transition using the [object-storage guidance](/docs/governance/deploy-the-worker/object-storage).
 
-## Analysis and repository
+## Analysis
 
 Fields are under `spec.analysis`:
 
-| Field                       | Meaning                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `activationAt`              | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.                  |
-| `quietWindowHours`          | Positive interval after session activity before analysis; the example uses `0.5` hours.                 |
-| `repository.url`            | Canonical credential-free GitHub HTTPS URL, such as `https://github.com/acme/acme-instruction-hub.git`. |
-| `repository.id`             | Positive numeric GitHub repository ID.                                                                  |
-| `repository.fullName`       | Matching owner and repository, such as `acme/acme-instruction-hub`.                                     |
-| `repository.tokenSecretRef` | Secret `name` and `key` for private-repository read access; omit for a public hub.                      |
-| `model.provider`            | `openai`, `azure_openai`, or `aws_bedrock`.                                                             |
-| `model.authentication`      | `api_key`, or `aws_sigv4` for Bedrock.                                                                  |
-| `model.baseURL`             | A supported HTTPS Responses API endpoint.                                                               |
-| `model.name`                | The model or deployment name available in your provider account.                                        |
-| `model.apiKeySecretRef`     | Secret `name` and `key`; omit for Signature Version 4.                                                  |
+| Field                   | Meaning                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `activationAt`          | Timezone-aware ISO timestamp for analysis eligibility. Leave empty for ingestion only.  |
+| `quietWindowHours`      | Positive interval after session activity before analysis; the example uses `0.5` hours. |
+| `model.provider`        | `openai`, `azure_openai`, or `aws_bedrock`.                                             |
+| `model.authentication`  | `api_key`, or `aws_sigv4` for Bedrock.                                                  |
+| `model.baseURL`         | A supported HTTPS Responses API endpoint.                                               |
+| `model.name`            | The model or deployment name available in your provider account.                        |
+| `model.apiKeySecretRef` | Secret `name` and `key`; omit for Signature Version 4.                                  |
 
-A nonempty activation time requires complete repository and model settings. The repository must have a readable `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
+The `model` settings are required even when `activationAt` is empty. An organization administrator selects the instruction repositories the analyzer reads in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories); the analyzer reads GitHub repositories with a `main` branch. Hub publishing support for another Git host does not imply analyzer or remediation support for it.
 
-Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. Promptless's connected repository integration separately authorizes finding and remediation workflows; a successful analyzer clone does not verify that integration.
+Use the [model-provider reference](/docs/governance/deploy-the-worker/model-providers) for accepted endpoint shapes and authentication. GitHub issues and proposed fixes use write access granted to the connected GitHub App for the selected repositories. A successful analysis clone does not verify that access.
 
 ## Validate a change
 

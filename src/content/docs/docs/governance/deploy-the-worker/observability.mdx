@@ -7,7 +7,6 @@ tags:
   - agent-instructions
   - governance
   - reference
-timestamp: "2026-09-15T00:00:00Z"
 sidebar:
   hidden: false
   order: 9
@@ -16,6 +15,8 @@ sidebar:
 Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis completes, and findings and status synchronize to the Promptless Dashboard. A healthy pod covers only part of that flow.
 
 The analyzer emits structured logs by default. Datadog tracing and Sentry error reporting are optional. The [supervisor](/docs/governance/deploy-the-worker/manage-updates-and-recovery) reports release and migration status for deployments with automatic updates.
+
+The analyzer exposes two health endpoints. `/readyz` reports readiness and gates upload and analysis traffic on recent database and object-storage checks, so a storage problem withdraws the analyzer from service. `/healthz` reports liveness and fails when background tasks stop or a storage check makes no progress for 180 seconds. A storage outage the analyzer detects makes it unready, not unhealthy. The supervisor sets the analyzer's Kubernetes readiness probe to `/readyz`, so the Service and the collector Ingress send traffic only to a ready pod. The Ingress exposes `/healthz` for load-balancer health checks; `/readyz` stays inside the cluster.
 
 ## Checks to keep visible
 
@@ -27,7 +28,9 @@ The analyzer emits structured logs by default. Datadog tracing and Sentry error 
 | Hosted synchronization | Deployment status and newly projected trace metadata or findings reach Promptless.                                    | Local work completes but hosted state remains stale.                                         |
 | Remediation            | An outcome explaining a pull request, external owner, or missing evidence.                                            | A finding has no visible progress after prerequisites are met.                               |
 
-Set thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
+Set alert thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
+
+Promptless marks a healthy analyzer stale when 15 minutes have passed since Promptless received its last check-in. This threshold is fixed. A stale analyzer fails deployment verification and acceptance.
 
 ## Read structured logs
 
@@ -60,6 +63,8 @@ Check the host credential, hosted deployment registration, hostname, TLS certifi
 
 Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and object-storage authorization, location, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
 
+The analyzer retries a pending or failed canonical write in the background with a persisted backoff. A `write_failed` status that clears on its own needs no intervention. Run `pig-trace-analyzer db-status` for a count of pending objects and the age of the oldest one. Investigate when that backlog grows or stops draining after you restore access. See the [worker maintenance commands](/docs/governance/deploy-the-worker/manual-helm#inspect-and-repair-worker-storage).
+
 ### Storage succeeds, but analysis fails
 
 Confirm that analysis is enabled, the session is eligible after its quiet window, and the repository and model settings are complete. Use the run's failure category to narrow the investigation. Test repository read access and model authorization independently; neither follows from successful object-storage access.
@@ -68,7 +73,7 @@ The worker retries transient failures during an analysis run. If the run reaches
 
 ### Local analysis succeeds, but hosted state is stale
 
-Check outbound access to Promptless and the registered install token, deployment ID, and configuration hash. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
+Check outbound access to Promptless, the installation credential, and the configuration hash. If the credential was rotated, confirm that the Secret contains the replacement and the analyzer has restarted. Finding projection also requires the hosted repository connection to work. A zero-finding run has no new issue to project. Check the run and deployment status before treating a missing issue as a failure.
 
 ### An upgrade is blocked or fails
 
