@@ -11,50 +11,72 @@ tags:
 
 import PigNetwork from '../../../../../components/docs/PigNetwork.astro';
 
-Enrolled hosts send traces to an HTTPS endpoint in your infrastructure. The analyzer connects to your database, trace bucket, GitHub, model provider, and Promptless. A private endpoint works when every enrolled host can reach it.
+Enrolled hosts send traces to an HTTPS endpoint in your infrastructure. The analyzer connects to your database, trace bucket, GitHub, model provider, and Promptless.
 
 <PigNetwork />
 
 ## Allow the required paths
 
-| Source                       | Destination                                                       | Purpose                                                                        |
-| ---------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Enrolled hosts               | Analyzer ingress, HTTPS 443.                                      | Enrollment, check-ins, and trace uploads.                                      |
-| Analyzer and migration Jobs  | Your PostgreSQL endpoint, normally TCP 5432.                      | Data access and schema migrations over TLS.                                    |
-| Analyzer                     | Your trace storage endpoint, HTTPS 443.                           | Write raw uploads and read trace objects.                                      |
-| Analyzer                     | Registered Promptless runtime URL, HTTPS 443.                     | Policy, status, findings, and remediation synchronization.                     |
-| Analyzer                     | GitHub repositories and required GitHub API endpoints, HTTPS 443. | Read the selected instruction repositories and coordinate connected workflows. |
-| Analyzer                     | Your model endpoint, HTTPS 443.                                   | Analyze sessions using your provider account.                                  |
-| Supervisor and cluster nodes | Release metadata and artifact registries, HTTPS 443.              | Resolve releases and pull images.                                              |
-| Workloads using federation   | Your cloud's identity endpoints.                                  | Obtain and refresh workload credentials.                                       |
+| Source                       | Destination                                                               | Purpose                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Enrolled hosts               | Analyzer ingress, HTTPS 443.                                              | Enrollment, check-ins, and trace uploads.                                      |
+| Analyzer and migration Jobs  | Your PostgreSQL endpoint, normally TCP 5432.                              | Data access and schema migrations over TLS.                                    |
+| Analyzer                     | Your trace storage endpoint, HTTPS 443.                                   | Write raw uploads and read trace objects.                                      |
+| Analyzer                     | Promptless endpoint, `https://api.gopromptless.ai` by default, HTTPS 443. | Policy, status, findings, and remediation synchronization.                     |
+| Analyzer                     | GitHub repositories and required GitHub API endpoints, HTTPS 443.         | Read the selected instruction repositories and coordinate connected workflows. |
+| Analyzer                     | Your model endpoint, HTTPS 443.                                           | Analyze sessions using your provider account.                                  |
+| Supervisor and cluster nodes | Release metadata and artifact registries, HTTPS 443.                      | Resolve releases and pull images.                                              |
+| Workloads using federation   | Your cloud's identity endpoints.                                          | Obtain and refresh workload credentials.                                       |
 
 Allow cluster DNS and your platform's required control-plane traffic. Apply policies to migration Jobs as well as long-running pods. Storage private endpoints need matching private DNS and routing; creating an endpoint alone does not make it reachable.
 
-## Route uploads and health checks
+## Route collector requests
 
-The analyzer Service listens on port 8080. Route these paths through your HTTPS ingress:
+The analyzer Service listens on port 8080. The bootstrap chart's Ingress routes exactly these paths to it. Route the same paths through any other HTTPS gateway or proxy in front of the Ingress:
 
-- `/healthz`
-- `/v0/host-enrollment/policy`
-- `/v0/host-enrollment/check-ins`
-- `/v0/traces/batches`
+| Method | Exact path                      | Purpose                                         |
+| ------ | ------------------------------- | ----------------------------------------------- |
+| GET    | `/healthz`                      | Process health.                                 |
+| GET    | `/v0/host-enrollment/policy`    | Collector policy for an enrolled host.          |
+| POST   | `/v0/host-enrollment/check-ins` | Host check-ins.                                 |
+| POST   | `/v0/cloud-enrollment/leases`   | Cloud agent enrollment and lease renewal.       |
+| POST   | `/v0/traces/batches`            | Trace uploads, with a `target` query parameter. |
 
-Configure every proxy and load balancer on the upload path to accept **at least 10 MiB** per encoded request. For ingress-nginx:
+Keep other analyzer routes, such as `/readyz`, off the endpoint. Kubernetes Ingress routes paths but does not filter methods; restrict methods at a gateway if your policy requires it.
+
+Enrolled hosts send `Authorization: Bearer` with their host credential. Cloud agents also send an `X-Promptless-Producer-Token` header. Forward both headers to the analyzer unchanged and keep their values out of proxy logs. TLS and gateway access controls add to the analyzer's own authentication. They do not replace it.
+
+Hosts use the configured `https://` address without a path, and cloud agents reject redirects. Serve the collector routes over HTTPS at that hostname. If you expose plain HTTP at all, redirect it to HTTPS at the controller.
+
+## Set request limits and timeouts
+
+Every proxy and load balancer on the upload path must accept the collector's requests:
+
+- **Request body.** The collector sends one compressed, base64-encoded source chunk per upload. Its encoded body is at most 10 MiB. The analyzer accepts encoded bodies up to twice its decoded trace-batch limit plus 64 KiB. With the default 256 MiB decoded limit, that is about 512 MiB. Set each proxy's limit to at least 10 MiB. The examples use `256m` for ingress-nginx, which fits within both limits. AWS lists no request-body quota for Application Load Balancers with IP targets.
+- **Timeouts.** The collector waits up to 10 seconds for each network read and retries later from its local ledger when a request fails. The default 60-second proxy read timeout of ingress-nginx and the default 60-second idle timeout of an ALB both exceed this. Avoid lowering them below 10 seconds.
+
+For ingress-nginx, set the limit in the bootstrap values:
 
 ```yaml
-endpoint:
-  ingressAnnotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "256m"
 ```
 
-Use your ingress controller's equivalent setting. A smaller limit can reject uploads with HTTP 413 while `/healthz` still succeeds. The decoded trace-batch limit is a separate application setting.
+Use the equivalent setting for other controllers and for any gateway, CDN, or corporate proxy in front of them. A limit below 10 MiB can reject uploads with HTTP 413 while `/healthz` still succeeds.
+
+## Reach the analyzer from cloud agents
+
+A private endpoint works when every enrolled host can reach it, for example over your VPN. Cloud agents run in a provider's sandbox and need an HTTPS endpoint reachable from that sandbox's network. Claude Tag's Agent Proxy blocks private IP ranges even when the destination hostname is allowed. A cluster Service or a VPN-only endpoint cannot serve it.
+
+For those collectors, use a public HTTPS Ingress, such as an internet-facing ALB. Allow the exact hostname and the methods above in the agent's network policy. See [Claude Tag network access](https://claude.com/docs/claude-tag/admins/add-connections#restrict-by-path-or-method). Reachability alone does not enroll a cloud agent. Its collector also needs an authorized cloud enrollment credential from Promptless. Verify the certificate, health response, and a trace upload from the actual sandbox before you rely on collection.
 
 ## Separate identities by purpose
 
 | Identity                      | Scope                                                                                                     |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Host enrollment credential    | An individual enrolled host's collection access.                                                          |
-| Deployment installation token | The registered analyzer's connection to Promptless.                                                       |
+| Deployment installation token | The analyzer installation's connection to Promptless.                                                     |
 | Analyzer workload identity    | Its configured trace objects and, if selected, authorized model access.                                   |
 | PostgreSQL role               | The dedicated PIG database and schema migrations.                                                         |
 | Instruction repository access | GitHub App tokens Promptless supplies for the selected instruction repositories, scoped to Contents read. |
