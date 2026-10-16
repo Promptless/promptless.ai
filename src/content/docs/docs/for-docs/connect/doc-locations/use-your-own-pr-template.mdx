@@ -1,0 +1,77 @@
+---
+title: Use your own PR template
+description: Have Promptless write documentation pull request and merge request descriptions in your repository's PR template, and place the Open in Promptless link with the {suggestion_url} placeholder.
+slug: docs/for-docs/connect/doc-locations/use-your-own-pr-template
+type: guide
+tags:
+  - connect
+  - doc-locations
+  - publishing
+  - guide
+sidebar:
+  hidden: false
+  order: 25
+---
+
+If your documentation repository has a pull request template, Promptless writes its documentation PRs to that template. Reviewers get the same headings and checklist they see on every other PR in the repository. To keep a link back to the suggestion in the Promptless dashboard, add a `{suggestion_url}` placeholder where you want the link to go.
+
+Templates work the same way for GitLab merge requests.
+
+## Add a template Promptless can find
+
+Promptless reads templates from your repository's default branch, at the standard locations for each platform:
+
+| Platform | Template locations                                                                                                                                                                           |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub   | `pull_request_template.md`, or any `.md` file in a `PULL_REQUEST_TEMPLATE/` directory, at the repository root, in `docs/`, or in `.github/`. File and directory names aren't case-sensitive. |
+| GitLab   | Any `.md` file in `.gitlab/merge_request_templates/`                                                                                                                                         |
+
+When a GitHub repository has no template of its own, Promptless checks your organization's public `.github` repository for a default template. When a repository has more than one template, Promptless picks the one whose subject matches the change.
+
+## How Promptless fills in your template
+
+For each suggestion, Promptless writes one description that it saves on the suggestion and uses as the PR or merge request body. With a template, Promptless:
+
+- Keeps your template's headings and fills them with why the docs changed, what changed, and how the change was verified.
+- Checks only the checklist items the change satisfies.
+- Removes instructional text meant for the person filling in the template.
+
+Suggestion descriptions follow the template even when automatic PR creation is off. A PR you open later from the dashboard starts from the filled-in template. An existing suggestion picks up the template the next time Promptless updates its description.
+
+By default, Promptless also adds generated content to the PR body. An "Open in Promptless" link goes at the top, and the [trigger events](/docs/for-docs/connect/doc-locations/github-repos#trigger-events-in-pull-request-descriptions) and a tip follow your template. To have the PR body contain only your filled-in template, set `publishing.suppress_pr_description_extras: true` in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
+
+## Place the Open in Promptless link in your template
+
+Add this line to your template where you want the link to the suggestion, such as below the checklist:
+
+```md
+[Open in Promptless]({suggestion_url})
+```
+
+For example, a template with the placeholder at the end:
+
+```md title=".github/pull_request_template.md"
+## Summary
+
+<!-- Describe what changed and why. -->
+
+## Checklist
+
+- [ ] Links and images work.
+- [ ] Changed pages render correctly.
+
+[Open in Promptless]({suggestion_url})
+```
+
+When Promptless saves a suggestion description, it replaces each `{suggestion_url}` with the suggestion's dashboard URL, such as `https://app.gopromptless.ai/suggestions/<suggestion-id>`. It does the same in a PR description you enter when you create the PR from the dashboard. The rest of the description stays as written.
+
+The placeholder works whether or not `suppress_pr_description_extras` is on:
+
+| `suppress_pr_description_extras` | Result                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `true`                           | The placeholder is the only suggestion link in the PR, at the position your template sets.  |
+| `false` (default)                | The PR shows your placeholder link, and the generated "Open in Promptless" link at the top. |
+
+### Keep the placeholder out of PRs people open by hand
+
+People who open PRs by hand get the same template. Promptless doesn't fill in the placeholder in their PRs, so that link doesn't work. To keep your template unchanged, ask for the link in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) guidance, for example: "End each PR description with `[Open in Promptless]({suggestion_url})`." Only Promptless reads that guidance.
