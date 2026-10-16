@@ -203,7 +203,26 @@ export default defineConfig({
                   ],
                 },
                 { label: 'Tune', collapsed: true, items: [{ autogenerate: { directory: 'docs/for-docs/tune', collapsed: true } }] },
-                { label: 'Work the queue', collapsed: true, items: [{ autogenerate: { directory: 'docs/for-docs/work-the-queue', collapsed: true } }] },
+                {
+                  label: 'Work the queue',
+                  collapsed: true,
+                  // Enumerated because this group contains a subdirectory,
+                  // claude-and-chatgpt/. See "Get the most out of it" below.
+                  items: [
+                    { label: 'Giving feedback', slug: 'docs/for-docs/work-the-queue/giving-feedback' },
+                    { label: 'Review & edit PRs', slug: 'docs/for-docs/work-the-queue/reviewing-prs' },
+                    { label: 'Review from Slack / Teams', slug: 'docs/for-docs/work-the-queue/reviewing-from-slack-and-teams' },
+                    {
+                      label: 'Claude & ChatGPT',
+                      collapsed: true,
+                      items: [
+                        { label: 'Overview', slug: 'docs/for-docs/work-the-queue/claude-and-chatgpt' },
+                        { autogenerate: { directory: 'docs/for-docs/work-the-queue/claude-and-chatgpt', collapsed: true } },
+                      ],
+                    },
+                    { label: 'Assignment & routing', slug: 'docs/for-docs/work-the-queue/assignment-and-routing' },
+                  ],
+                },
                 {
                   label: 'Get the most out of it',
                   collapsed: true,
