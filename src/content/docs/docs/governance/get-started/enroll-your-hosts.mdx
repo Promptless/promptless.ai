@@ -1,6 +1,6 @@
 ---
 title: Enroll your hosts
-description: Enable optional trace collection, authorize a Claude or Codex host, and verify that its sessions reach your trace analyzer.
+description: Enable optional trace collection, authorize a Claude, Codex, or Cursor host, and verify that its sessions reach your trace analyzer.
 slug: docs/governance/get-started/enroll-your-hosts
 type: guide
 tags:
@@ -18,7 +18,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 Host enrollment connects a person's agent installation to your trace analyzer. Instructions work without enrollment. Enable collection when you want PIG to analyze how those instructions perform in real sessions.
 
-This guide continues the Acme example. It covers Claude Code and Codex; the Claude collector can also discover Claude Desktop traces on the same machine. Cursor and Gemini plugins do not currently collect native traces.
+This guide continues the Acme example. It covers Claude Code, Codex, and Cursor; the Claude collector can also discover Claude Desktop traces on the same machine. Gemini plugins do not currently collect native traces.
 
 For agents that run in cloud sandboxes, such as Claude Tag, see [Capture traces from cloud agents](/docs/governance/get-started/capture-cloud-agent-traces).
 
@@ -26,7 +26,7 @@ For agents that run in cloud sandboxes, such as Claude Tag, see [Capture traces 
 
 ## Before you start
 
-You need an [installed analyzer](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) that passes its HTTPS checks from the host's network, a published hub, and the installed `pig` plugin. Install Python 3.9 or later on the host. A signed-in Promptless organization member must approve enrollment. Claude's generated launcher also needs Node.js. Codex's generated hooks use a POSIX shell.
+You need an [installed analyzer](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) that passes its HTTPS checks from the host's network, a published hub, and the installed `pig` plugin. Install Python 3.9 or later on the host. A signed-in Promptless organization member must approve enrollment. The generated launchers for Claude and Cursor also need Node.js. Codex's generated hooks use a POSIX shell. Cursor collection also needs analyzer release 0.3.3 or later.
 
 Your operator should provide the analyzer's HTTPS address and confirm its organization identity. For Acme, this guide uses `https://traces.acme.example`. Use the address without a path. The host must reach that address and the Promptless enrollment service.
 
@@ -64,7 +64,9 @@ and anything still blocked.
 
      Run `pig verify`, commit the change, and publish it through your hub's CI. Then [update the installed plugins](/docs/governance/get-started/publish-and-install-plugins#keep-installations-current) on your pilot host.
 
-     The compiler adds the host runtime and collection hooks to the literal `pig` plugin for Claude and Codex. It does not add them to `docs` or `dev`, and it does not provision an analyzer. With the setting omitted or `false`, generated runtime files and collection hooks are absent.
+     The compiler adds the host runtime and collection hooks to the literal `pig` plugin for Claude, Codex, and Cursor. It does not add them to `docs` or `dev`, and it does not provision an analyzer. With the setting omitted or `false`, generated runtime files and collection hooks are absent.
+
+     For Cursor, confirm that the [Workers settings page](https://app.gopromptless.ai/pig/settings/workers) shows **Cursor ingestion supported** for your analyzer. Analyzer releases 0.3.3 and later, including the current stable 0.3.6, report Cursor support when they check in. The default enrollment policy then includes Cursor. If a later check-in stops reporting support, the policy drops Cursor again.
 
   2. **Set the analyzer address**
 
@@ -80,7 +82,7 @@ and anything still blocked.
 
   3. **Approve the host**
 
-     Start a new Claude Code or Codex session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
+     Start a new Claude Code, Codex, or Cursor session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
 
      The approval page is hosted at `https://app.gopromptless.ai/pig/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
 
@@ -91,7 +93,7 @@ and anything still blocked.
      python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex
      ```
 
-     Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
+     Use `--host claude` for Claude Code, `--host cursor` for Cursor, or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
 
      The command opens the approval page in the host's browser. If it prints `"status": "setup_pending"`, approve the host in the browser and run the same command again. The host must be able to open a local browser and receive the `127.0.0.1` callback. Approval links expire after 15 minutes.
 
@@ -127,16 +129,36 @@ Generated hooks run collection in the background during session startup and supp
 
 The runtime tracks source progress locally and uploads incremental trace data. A connectivity problem can delay collection without interrupting the agent task. Keep the native session files and runtime state intact while troubleshooting so the collector can retry. See [Trace object and sources](/docs/governance/reference/trace-object-and-sources) for source details.
 
+## Cursor collection
+
+With trace collection enabled, the Cursor `pig` plugin registers four lifecycle hooks: `sessionStart`, `stop`, `sessionEnd`, and `subagentStop`. Each hook has a 250 ms timeout and starts a background collector. The collector reads Cursor's saved conversation data from its local session database in read-only mode. To avoid delaying Cursor's own writes, it skips a database that does not use SQLite's write-ahead log (WAL) mode.
+
+The collector covers Agent sessions and subagents in the Cursor desktop app. It does not collect from the Cursor CLI, Cloud Agents, or Tab completions, and it does not export binary images. If the analyzer or enrollment fails, Cursor keeps working, and a later hook retries the pending collection.
+
+Cursor's hooks run the launcher with the `PATH` the Cursor app sees, so Node.js and Python must be on that `PATH`. The launcher looks for `python3` or `python`, and on Windows for `py -3` first. If it cannot find Python 3.9 or later, it records the problem in `~/.promptless/instruction-hub/cursor-launcher-status.json`.
+
+To enroll or collect manually, first set `CURSOR_PLUGIN_ROOT` to the installed plugin directory. The runtime reads the installed release from it. Then run the commands in steps 3 and 4 with `--host cursor`:
+
+```bash
+export CURSOR_PLUGIN_ROOT="$PIG_PLUGIN_ROOT"
+python3 "$CURSOR_PLUGIN_ROOT/runtime/promptless-host-runtime" collect --host cursor --include-active
+```
+
+On Windows, set `$env:CURSOR_PLUGIN_ROOT` in PowerShell and run the runtime with `py -3` in place of `python3`.
+
+The adapter's data format was checked against Cursor desktop 3.19.19, and synthetic tests cover the collector and analyzer contracts. End-to-end capture from the Cursor desktop app on macOS, Linux, and Windows has not yet been qualified. Enroll one pilot host per operating system and confirm a stored trace and a completed analysis for it before you enable Cursor collection more widely.
+
 ## Troubleshooting
 
-| Symptom                                        | What to check                                                                                                                                                     |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js                               |
-| The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                                                |
-| The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                                                    |
-| Host is enrolled but no trace appears          | Complete a supported native session, run `collect --include-active`, and check its status, the diagnostics log, the collection policy, and access to the analyzer |
-| Trace is stored but analysis does not complete | Ask the operator to check the selected instruction repositories, quiet-period eligibility, model configuration, and the analysis queue                            |
-| A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support                                 |
+| Symptom                                        | What to check                                                                                                                                                                         |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js                                                   |
+| The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                                                                    |
+| The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                                                                        |
+| Host is enrolled but no trace appears          | Complete a supported native session, run `collect --include-active`, and check its status, the diagnostics log, the collection policy, and access to the analyzer                     |
+| A Cursor host is enrolled but no trace appears | Confirm the Workers settings page shows **Cursor ingestion supported**, Node.js and Python are on the `PATH` Cursor sees, and `cursor-launcher-status.json` reports no missing Python |
+| Trace is stored but analysis does not complete | Ask the operator to check the selected instruction repositories, quiet-period eligibility, model configuration, and the analysis queue                                                |
+| A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support                                                     |
 
 Local diagnostics are stored under `~/.promptless/instruction-hub/`, including `last-bootstrap-status.json` and `host-runtime-diagnostics.jsonl`. Review them for the failed stage before sharing a redacted excerpt with your operator. Enrollment state contains credentials and should not be pasted into a ticket.
 
