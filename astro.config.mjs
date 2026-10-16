@@ -253,6 +253,7 @@ export default defineConfig({
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
+                    { label: 'Claude & ChatGPT connector', slug: 'docs/for-docs/reference/claude-and-chatgpt-connector' },
                     { label: 'Getting support', slug: 'docs/for-docs/reference/getting-help' },
                   ],
                 },
