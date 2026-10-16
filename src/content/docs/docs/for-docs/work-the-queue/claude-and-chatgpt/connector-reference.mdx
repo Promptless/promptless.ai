@@ -1,0 +1,100 @@
+---
+title: Promptless connector reference
+description: What a Promptless connection in Claude or ChatGPT can access, the server URL and OAuth details, and the 20 tools that the connector provides.
+slug: docs/for-docs/work-the-queue/claude-and-chatgpt/connector-reference
+type: reference
+tags:
+  - work-the-queue
+  - reference
+  - mcp
+sidebar:
+  label: Connector reference
+  hidden: false
+  order: 3
+audience:
+  - org-admin
+  - security-reviewer
+purpose: >
+  Gives Owners, admins, and reviewers of the Promptless connector for Claude and
+  ChatGPT the access scope, server details, and tool list in one place.
+out_of_scope:
+  - Setup steps (owned by /docs/for-docs/work-the-queue/claude-and-chatgpt/claude and /docs/for-docs/work-the-queue/claude-and-chatgpt/chatgpt)
+  - Tool arguments, results, and errors (owned by /docs/for-docs/connect/triggers/mcp)
+last_verified: 2026-10-16
+---
+
+{/* Facts checked against runtime origin/main on 2026-10-16. Tool lists come from runtime/mcp/profiles.py.
+    Annotations come from runtime/mcp/*tools*.py. Token lifetimes come from runtime/mcp_oauth/oauth_provider.py. */}
+
+The Promptless connector lets Claude and ChatGPT start and follow documentation tasks, and search, read, and edit documentation in a Promptless organization. This page lists what a connection can access, the server details, and the tools that the connector provides.
+
+To set up the connector, see [Connect Promptless to Claude](/docs/for-docs/work-the-queue/claude-and-chatgpt/claude) or [Connect Promptless to ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt/chatgpt). For the arguments, results, and errors of each tool, see [MCP triggers](/docs/for-docs/connect/triggers/mcp#available-tools).
+
+## What a connection can access
+
+A connection acts as the person who approved it, in the one Promptless organization that they selected. There are no narrower permissions to select. A connection can:
+
+- Read all documentation tasks, doc collections, and suggestions in the organization. This includes work that started from Slack, GitHub, the dashboard, or the API.
+- Start documentation tasks, which can open docs pull requests.
+- Revise, retitle, label, assign, and close any suggestion in the organization, not only the suggestions of the person who connected.
+- Search and read the documentation, and edit files on the branch of an open suggestion. It does not write to the default branch of the documentation repository.
+- Create links that connect an integration, such as GitHub, to the organization.
+- Send a report to the Promptless support team.
+
+Claude and ChatGPT ask before a tool that changes data runs, unless the user changes the tool permissions. Promptless checks the organization membership of the user on each call. If the user is no longer an active member, the connection stops working.
+
+Each member connects their own Promptless account, so each connection has the Promptless access of that member only. The Promptless dashboard does not have a control to disconnect a chat app. Each member disconnects their own connection in the chat app.
+
+For more about access and membership, see [Authorize in the browser](/docs/for-docs/connect/triggers/mcp#authorize-in-the-browser). For data handling, see the [Promptless privacy policy](/docs/for-docs/security/privacy-policy).
+
+## Server details
+
+| Item                  | Value                                                                         |
+| --------------------- | ----------------------------------------------------------------------------- |
+| Server URL            | `https://api.gopromptless.ai/mcp/with-direct-edits`                           |
+| Authentication        | OAuth 2.1 authorization code flow with PKCE (`S256`)                          |
+| Client registration   | Dynamic client registration. No client ID or client secret is necessary.      |
+| Access token lifetime | 8 hours. The app refreshes the token automatically.                           |
+| Connection lifetime   | 90 days from approval. After 90 days, the user approves the connection again. |
+| Approval request      | Expires after 30 minutes                                                      |
+| Data scope            | One Promptless organization, which the user selects on the approval page      |
+| Account               | A Promptless account. No API key is necessary.                                |
+| Privacy policy        | [Promptless privacy policy](/docs/for-docs/security/privacy-policy)           |
+| Support               | [help@gopromptless.ai](mailto\:help@gopromptless.ai)                          |
+
+Chat apps must use this server URL. A chat app has no local copy of the documentation repository, so this URL adds tools to search, read, and edit the documentation directly. Editors use `https://api.gopromptless.ai/mcp`, which does not have these tools. Both URLs use the same sign-in and the same access. The connection uses the [Model Context Protocol](https://modelcontextprotocol.io) (MCP).
+
+## Tools
+
+The chat app selects the Promptless tool that matches the request. Each tool has MCP annotations (`readOnlyHint` and `destructiveHint`) that tell the app if the tool changes data. The **Type** column shows these annotations:
+
+- **Read-only**: The tool does not change data.
+- **Changes data**: The tool adds work or input. It does not change or remove existing content.
+- **Changes existing content**: The tool changes or closes an existing suggestion or file.
+
+| Tool                         | Action                                                                                             | Type                     |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------ |
+| `list_doc_collections`       | Lists the doc collections of the organization.                                                     | Read-only                |
+| `list_recent_tasks`          | Lists the recent tasks of the organization, newest first.                                          | Read-only                |
+| `get_task_status`            | Gets the status and conversation of one task.                                                      | Read-only                |
+| `wait_for_task_update`       | Waits up to 30 seconds for new messages or a status change on one task.                            | Read-only                |
+| `search_suggestions`         | Finds suggestions by keyword, status, or label.                                                    | Read-only                |
+| `get_suggestion_diff`        | Shows the changes that a suggestion proposes.                                                      | Read-only                |
+| `list_documentation_files`   | Lists the files in a doc collection.                                                               | Read-only                |
+| `search_documentation`       | Finds text in the documentation files.                                                             | Read-only                |
+| `read_documentation_file`    | Reads one documentation file.                                                                      | Read-only                |
+| `get_account_status`         | Shows the setup status and connected integrations of the organization.                             | Read-only                |
+| `submit_documentation_task`  | Starts a documentation task. The task can open a docs pull request.                                | Changes data             |
+| `send_task_message`          | Adds an instruction to a task that is in progress.                                                 | Changes data             |
+| `answer_task_question`       | Sends the answer to a question that a task asked.                                                  | Changes data             |
+| `request_changes`            | Asks Promptless to revise a suggestion.                                                            | Changes data             |
+| `connect_integration`        | Creates a link that a person opens to connect an integration, such as GitHub, to the organization. | Changes data             |
+| `message_promptless_support` | Sends a report to the Promptless support team. Replies do not come back through the tool.          | Changes data             |
+| `update_suggestion`          | Sets the title, labels, or assignees of a suggestion, or opens its docs pull request.              | Changes existing content |
+| `close_suggestion`           | Closes a suggestion and its docs pull request.                                                     | Changes existing content |
+| `write_documentation_file`   | Creates or replaces one file on the branch of an open suggestion.                                  | Changes existing content |
+| `edit_documentation_file`    | Replaces specific text in one file on the branch of an open suggestion.                            | Changes existing content |
+
+The two file tools write only to the branch of an open suggestion, as one commit for each call. They cannot edit a closed suggestion.
+
+For the arguments and results of each tool, see [Available tools](/docs/for-docs/connect/triggers/mcp#available-tools).
