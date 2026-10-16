@@ -24,9 +24,9 @@ This guide continues the Acme example. It covers Claude Code and Codex; the Clau
 
 ## Before you start
 
-You need an [available analyzer](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), a published hub, and the installed `pig` plugin. Install Python 3.9 or later on the host. A signed-in Promptless organization member must approve enrollment. Claude's generated launcher also needs Node.js. Codex's generated hooks use a POSIX shell.
+You need an [installed analyzer](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) that passes its HTTPS checks from the host's network, a published hub, and the installed `pig` plugin. Install Python 3.9 or later on the host. A signed-in Promptless organization member must approve enrollment. Claude's generated launcher also needs Node.js. Codex's generated hooks use a POSIX shell.
 
-Your operator should provide the analyzer's HTTPS address and confirm its organization identity. For Acme, this guide uses `https://traces.acme.example`. The host must reach that address and the Promptless enrollment service.
+Your operator should provide the analyzer's HTTPS address and confirm its organization identity. For Acme, this guide uses `https://traces.acme.example`. Use the address without a path. The host must reach that address and the Promptless enrollment service.
 
 <Aside type="note">
   Trace collection can include prompts, responses, tool calls, and code or documents present in sessions. On first discovery, the collector can upload existing session history, not just sessions started after enrollment. Review the [data boundaries](/docs/governance/start-here/trust-and-data-model) and agree on the pilot hosts and repositories before enabling collection.
@@ -80,7 +80,7 @@ and anything still blocked.
 
      Start a new Claude Code or Codex session. The generated startup hook initializes the local runtime and starts enrollment when needed. In the browser, sign in to the correct Promptless organization and approve the host. Any signed-in organization member can approve; organization administrator access is not required.
 
-     The approval page is hosted at `https://app.gopromptless.ai/instruction-hub/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
+     The approval page is hosted at `https://app.gopromptless.ai/pig/enroll`. It is separate from the analyzer URL. The runtime uses a local `127.0.0.1` callback during approval and retrieves a one-time host credential afterward. Enrollment records the approving user.
 
      If you need to start enrollment manually, find the installed `pig` plugin directory in your agent's plugin installation details and substitute its absolute path:
 
@@ -91,15 +91,7 @@ and anything still blocked.
 
      Use `--host claude` for Claude Code or `--host claude-desktop` for Claude Desktop. The runtime is bundled inside the plugin; it is not installed as a global `promptless-host-runtime` terminal command. If the `runtime` directory is missing, check that you published and installed the release with trace ingestion enabled.
 
-     To enroll a machine you reach over SSH, or another host without a local browser, add `--device` to the manual enrollment command:
-
-     ```bash
-     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" enroll --host codex --device
-     ```
-
-     The command prints an approval link. Open the link on a device that has a browser, such as your laptop, and approve the host there. The host needs no local browser, inbound port, or loopback callback.
-
-     The command waits about 35 seconds for approval. If it prints `"status": "setup_pending"`, approve the link and run the same command again. Each run resumes the same approval until it expires 15 minutes after the command first printed the link. After that, the next run prints a new link.
+     The command opens the approval page in the host's browser. If it prints `"status": "setup_pending"`, approve the host in the browser and run the same command again. The host must be able to open a local browser and receive the `127.0.0.1` callback. Approval links expire after 15 minutes.
 
      The host stores its `plihost_` credential locally with owner-only access. It is different from the analyzer's deployment credential. Do not copy host credentials between machines or into your hub.
 
@@ -112,13 +104,19 @@ and anything still blocked.
      python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" status --host codex
      ```
 
-     Use the same host family as in enrollment. Run a small, non-sensitive task in a repository configured for analysis, then finish the session. The operator should verify all three outcomes:
+     `status` reports local enrollment state only. Use the same host family as in enrollment. Run a small, non-sensitive task in a repository selected for analysis, then finish the session. To confirm the upload from the host, run a collection in the foreground:
+
+     ```bash
+     python3 "$PIG_PLUGIN_ROOT/runtime/promptless-host-runtime" collect --host codex --include-active
+     ```
+
+     It prints `"status": "trace_upload_complete"` with a nonzero `batch_count` when the analyzer acknowledged the session's data. `trace_upload_partial` means some data remains for a later retry. The operator should then verify all three outcomes:
 
      1. **Enrollment.** The analyzer recognizes the host and accepts its check-in.
      2. **Stored trace.** The native session has reached the analyzer and its raw data is stored in the configured trace bucket.
      3. **Completed analysis.** After the configured quiet period, the session has a completed analysis run for the expected repository.
 
-     A completed run can produce no findings. That is a valid result; pod readiness, enrollment, and an upload acknowledgment alone are not evidence that analysis completed. Use the operator's [deployment verification steps](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) to inspect the server-side result.
+     A completed run can produce no findings. That is a valid result; pod readiness, enrollment, and an upload acknowledgment alone are not evidence that analysis completed. Use the operator's [deployment verification steps](/docs/governance/deploy-the-worker/verify-your-deployment) to inspect the server-side result.
 </Steps>
 
 ## How collection continues
@@ -129,16 +127,14 @@ The runtime tracks source progress locally and uploads incremental trace data. A
 
 ## Troubleshooting
 
-| Symptom                                        | What to check                                                                                                                          |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js    |
-| The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                     |
-| The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                         |
-| The host has no local browser                  | Run `enroll` with `--device` and open the printed approval link on another device                                                      |
-| Device enrollment reports too many requests    | Wait before retrying; approve or let pending approvals expire, since each pending approval counts toward a per-deployment limit        |
-| Host is enrolled but no trace appears          | Complete a supported native session; inspect runtime diagnostics and check the host's collection policy and network access             |
-| Trace is stored but analysis does not complete | Ask the operator to check the selected instruction repositories, quiet-period eligibility, model configuration, and the analysis queue |
-| A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support      |
+| Symptom                                        | What to check                                                                                                                                                     |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing happens at session startup             | Confirm the enabled release of `pig` is installed, hooks are allowed, and Python is available; Claude's launcher also needs Node.js                               |
+| The wrong deployment appears during approval   | Set `PROMPTLESS_WORKER_BASE_URL` in the agent's process environment and restart it before retrying                                                                |
+| The browser cannot finish approval             | Sign in to the correct organization; check access to Promptless, the analyzer, and the local loopback callback                                                    |
+| Host is enrolled but no trace appears          | Complete a supported native session, run `collect --include-active`, and check its status, the diagnostics log, the collection policy, and access to the analyzer |
+| Trace is stored but analysis does not complete | Ask the operator to check the selected instruction repositories, quiet-period eligibility, model configuration, and the analysis queue                            |
+| A collected repository is not analyzed         | The current analyzer binds GitHub repositories by repository ID; GitLab publishing support does not imply GitLab analysis support                                 |
 
 Local diagnostics are stored under `~/.promptless/instruction-hub/`, including `last-bootstrap-status.json` and `host-runtime-diagnostics.jsonl`. Review them for the failed stage before sharing a redacted excerpt with your operator. Enrollment state contains credentials and should not be pasted into a ticket.
 
