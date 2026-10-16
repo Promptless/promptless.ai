@@ -48,6 +48,17 @@ PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key
 
 If `PUBLIC_FREE_TOOLS_API_BASE_URL` is unset, local dev defaults to `http://127.0.0.1:5000` and production defaults to `https://api.gopromptless.ai`.
 
+### Agent Score local development
+
+Agent Score (`/agent-score`, `/agent-score/<host>[/<path>]`) calls the same API base. The score pages render on demand, so they need data from an API even in dev. Without the real backend, run the bundled mock in a second terminal:
+
+```bash
+npm run dev:agent-score-mock   # mock API on http://127.0.0.1:5000 (fixtures in src/lib/agent-score/fixtures/)
+npm run dev                    # then open http://localhost:4321/agent-score/docs.promptless.ai
+```
+
+The mock serves `docs.promptless.ai` (3 scans with changes) and `docs.acme-api.dev` (one low-scoring scan), simulates a scan of any other URL over about 10 seconds, and keeps new results in memory until it restarts. Scan a hostname containing `unreachable`, `ratelimit`, or `private` to see the error states, set `AGENT_SCORE_MOCK_EMPTY_LEADERBOARD=1` for the empty leaderboard, and `AGENT_SCORE_MOCK_SCAN_SECONDS` to change the scan length. The contract types live in `src/lib/agent-score/types.ts`.
+
 ### Deployment
 
 - Production and preview deployments are handled by Vercel Git integration.
