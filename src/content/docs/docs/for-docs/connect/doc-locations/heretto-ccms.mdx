@@ -1,6 +1,6 @@
 ---
 title: Heretto CCMS
-description: Keep your DITA documentation in a Heretto CCMS folder, review Promptless suggestions against it, and publish accepted changes back to Heretto.
+description: Keep your DITA documentation in a Heretto CCMS folder and have your writers accept or reject Promptless suggestions in Heretto's topic editor.
 slug: docs/for-docs/connect/doc-locations/heretto-ccms
 type: reference
 tags:
@@ -12,15 +12,16 @@ sidebar:
   order: 25
 ---
 
-If your team writes DITA topics and maps in Heretto CCMS, you can point Promptless at a Heretto folder. Promptless reads the folder's content, suggests documentation updates against it, and writes each suggestion you publish back into Heretto. Your writers keep working in Heretto.
+If your team writes DITA topics and maps in Heretto CCMS, you can point Promptless at a Heretto folder. Promptless reads the folder's content and drafts suggestions against it. When you send a suggestion to Heretto, Promptless adds its changes to the topics as Heretto suggestions. Your writers then accept or reject each change in Heretto's topic editor, where they already work.
 
 ## How it works
 
 1. **Reading the folder**: Each time Promptless works on documentation for the collection, it reads the folder's current DITA and XML files from Heretto. Suggestions start from what Heretto holds at that moment.
-2. **Suggestions**: Promptless drafts suggestions against those files and saves each changed file's original and proposed content. You review and comment on them in the Promptless dashboard, the same way as suggestions for any other doc collection. To change a suggestion's content, ask Promptless to revise it.
-3. **Publishing**: When you publish a suggestion, Promptless saves each changed file to the Heretto file at the same path. For a new file, Promptless creates the file and any missing folders.
+2. **Suggestions**: Promptless drafts suggestions against those files and saves each changed file's original and proposed content. You can review and comment on them in the Promptless dashboard. Each DITA topic shows as the rendered topic with insertions and deletions marked, and **View source** switches to the XML diff. To change a suggestion's content, ask Promptless to revise it.
+3. **Suggesting in Heretto**: When you send a suggestion to Heretto, Promptless writes each change into the file at the same path. Each change is a Heretto suggestion from the connected Heretto account. For a new file, Promptless creates the file and any missing folders, and the file's whole content is one Heretto suggestion.
+4. **Review in Heretto**: Writers accept or reject each change in Heretto's topic editor. Promptless checks Heretto every hour and records the outcome on the suggestion once every change is resolved.
 
-Promptless writes to Heretto only when you publish a suggestion, so the `auto_create_pr` and `auto_merge` publishing settings don't apply to Heretto collections.
+Promptless writes to Heretto only when you send a suggestion there, so the `auto_create_pr` and `auto_merge` publishing settings don't apply to Heretto collections.
 
 When you ask Promptless to revise an open suggestion, it rebuilds the suggestion from its saved content and checks which files changed in Heretto since. It folds those Heretto changes into the revised suggestion, so the suggestion can be published again.
 
@@ -61,11 +62,22 @@ doc_collections:
 
 Each Heretto folder can belong to only one doc collection. Leave out `default_branch`, because a Heretto folder has no branches. The other fields, such as `docs_root_url`, `filter`, and `vale_config_path`, work as they do for other doc collections. After you save, the collection appears on the **Doc collections** tab in **Form** mode, where you can edit its **Heretto host** and **Root folder ID**. See the [configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for every field.
 
-## Publish a suggestion to Heretto
+## Send a suggestion to Heretto for review
 
-On the suggestion's review page in the dashboard, select **Publish to Heretto**. Promptless writes each changed file to Heretto and then marks the suggestion published. Publishing from Slack or Microsoft Teams follows the same steps.
+On the suggestion's review page in the dashboard, select **Suggest in Heretto**. Promptless writes the changes into Heretto, and **Review in Heretto** then opens the first changed file in Heretto's topic editor. Each file's diff also links to that file with **Open in Heretto**. Publishing from Slack or Microsoft Teams writes the same changes and replies with the review link.
 
-The review page in Promptless is where you approve the change.
+## Review changes in Heretto
+
+1. Open a changed topic in Heretto's topic editor. Each change from Promptless appears inline as a suggestion from the connected Heretto account.
+2. Right-click a change and choose **Accept Change** or **Reject Change**.
+3. Repeat for every change in every file the suggestion touches.
+
+Within an hour after the last change is resolved, Promptless updates the suggestion:
+
+- If writers rejected every change, so each file holds its original content again, the suggestion closes as **Rejected in Heretto**.
+- Otherwise, including when writers accepted some changes and rejected others or made their own edits, the suggestion is marked merged as **Accepted in Heretto**.
+
+When writers reject a new file, Heretto leaves an empty topic with no title at that path. Delete it in Heretto. Deleting a new file also counts as rejecting it. Accepting or rejecting a whole new topic can show error messages in Heretto's editor, but the change still saves.
 
 ## What Promptless can change in Heretto
 
@@ -73,17 +85,18 @@ A suggestion can edit existing DITA and XML files and add new ones. Promptless h
 
 Promptless doesn't read images or other binary files, or files larger than 5 MB. Suggestions can't add or change images.
 
-## When Heretto refuses a publish
+## When Promptless can't suggest in Heretto
 
-Before it saves anything, Promptless checks every changed file. If any file fails a check, Promptless writes none of them. The dashboard names each file that failed and why, and the suggestion stays open so you can publish again after you fix the cause.
+Before it saves anything, Promptless checks every changed file. If any file fails a check, Promptless writes none of them. The dashboard names each file that failed and why. The suggestion stays open, so you can select **Suggest in Heretto** again after you fix the cause.
 
-| Condition                                                                         | What to do                                                                                                                              |
-| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Someone edited the file in Heretto after Promptless wrote the suggestion.         | Ask Promptless to revise the suggestion. It folds the Heretto edits into the suggestion, and you can publish again.                     |
-| The file is locked in Heretto.                                                    | Ask the person holding the lock to release it, then publish again.                                                                      |
-| The suggestion deletes or renames a file.                                         | Heretto's API can't delete or move files. Make that change in Heretto yourself, and ask Promptless to revise the suggestion without it. |
-| The suggestion adds a file that already exists in Heretto with different content. | Ask Promptless to revise the suggestion so it edits the existing file.                                                                  |
-| The suggestion changes a file that no longer exists at that path in Heretto.      | Ask Promptless to revise the suggestion against the file's current location.                                                            |
-| The suggestion changes a file that isn't DITA or XML.                             | Ask Promptless to revise the suggestion without that file.                                                                              |
+| Condition                                                                                                                      | What to do                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Someone edited the file in Heretto after Promptless wrote the suggestion.                                                      | Ask Promptless to revise the suggestion. It folds the Heretto edits into the suggestion, and you can suggest it in Heretto again.       |
+| The file is locked in Heretto.                                                                                                 | Ask the person holding the lock to release it, then select **Suggest in Heretto** again.                                                |
+| The suggestion deletes or renames a file.                                                                                      | Heretto's API can't delete or move files. Make that change in Heretto yourself, and ask Promptless to revise the suggestion without it. |
+| The suggestion adds a file that already exists in Heretto with different content.                                              | Ask Promptless to revise the suggestion so it edits the existing file.                                                                  |
+| The suggestion changes a file that no longer exists at that path in Heretto.                                                   | Ask Promptless to revise the suggestion against the file's current location.                                                            |
+| The suggestion changes a file that isn't DITA or XML.                                                                          | Ask Promptless to revise the suggestion without that file.                                                                              |
+| A change can't be written as a Heretto suggestion. For example, it changes the topic's root element, or the XML doesn't parse. | Ask Promptless to revise the suggestion so the file is well-formed XML and keeps its root element.                                      |
 
-If a publish stops partway, for example because Heretto is unreachable, publish again. Promptless skips files that already hold the suggestion's content.
+If writing stops partway, for example because Heretto is unreachable, select **Suggest in Heretto** again. Promptless skips files that already carry the suggestion's changes.
