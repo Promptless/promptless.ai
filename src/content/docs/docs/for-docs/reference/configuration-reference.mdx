@@ -26,7 +26,7 @@ When you need precise control over the file format, switch to **YAML** mode usin
 
 In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) is not a field you set. It comes from the integration that reaches the repository. The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
-Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too. You never end up with a rule pointing at something that no longer exists.
+Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too. Deleting the doc collection that `style.rules_collection` names clears that setting. You never end up with a rule pointing at something that no longer exists.
 
 ### Provider connection and trigger availability
 
@@ -137,13 +137,14 @@ In a typical pull request workflow, this overlaps with your PR triggers. Merging
 
 ## File structure
 
-The configuration file has four top-level sections:
+The configuration file has five top-level sections:
 
 ```yaml
 doc_collections:   # Where documentation lives (keyed by repo)
 context_sources:   # Integrations for additional context
 triggers:          # Events that initiate documentation work
 policies:          # Publishing and notification rules
+style:             # Where your organization's style rules live
 ```
 
 All sections are optional. Unknown keys are rejected with validation errors.
@@ -624,6 +625,19 @@ Both conditions must match if both are specified (AND logic).
   Policies resolve at publish time, not when the trigger activates. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
 </Aside>
 
+## Style
+
+The `style` section sets where your organization's style rules live. Promptless keeps one set of style rules for every connected doc collection. See [Turn your style guidance into rules](/docs/for-docs/audit/standards-enforcement#turn-your-style-guidance-into-rules).
+
+```yaml
+style:
+  rules_collection: acme/style-guide
+```
+
+| Field              | Description                                                                                                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rules_collection` | Optional. The `doc_collections` key of the GitHub or GitLab repository that owns your style rules. Promptless syncs its rules from this repository and proposes rule changes to it as suggestions. Omit it to keep the rules in your Agent Knowledge Base. |
+
 ## Example configuration
 
 ```yaml
@@ -699,6 +713,7 @@ Common validation errors:
 - Missing required fields (e.g., `host` for `github_enterprise` platform)
 - Duplicate repository keys in `doc_collections`
 - Malformed `doc_collections` keys. A GitHub, GitHub OSS, or GitHub Enterprise key must be exactly `owner/repo`, with no extra path segments. A GitLab key is the project's full path, so nested namespace segments are valid. No key may carry surrounding whitespace.
+- A `style.rules_collection` value that isn't a `doc_collections` key, or that names a Heretto collection. Choose a GitHub or GitLab collection, or remove the setting.
 - A provider-backed trigger added, renamed, or modified while its integration is disconnected. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
 
 <Aside type="tip">
@@ -709,7 +724,7 @@ Common validation errors:
 
 Promptless automatically updates your configuration when repositories or Slack channels are renamed:
 
-- **GitHub repository renames**: The `doc_collections` key and any references in trigger `repos`/`excluded_repos` are updated.
+- **GitHub repository renames**: The `doc_collections` key, any references in trigger `repos`/`excluded_repos`, and `style.rules_collection` are updated.
 - **Slack channel renames**: Channel names in `slack_listen` triggers and the `slack_channel` of `notification` and `escalation` policies are updated. Teams conversation IDs are not Slack channel names and are left unchanged.
 
 These updates are committed directly to your Agent Knowledge Base.
