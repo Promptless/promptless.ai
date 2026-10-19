@@ -87,9 +87,11 @@ Reviewers delete that entry once they've checked the values.
 - Tradeoff: a PR that changes a page's body must restamp `last-updated` with
   `npx manni meta derive`, or the `manni` check fails. CI checks out full
   history for the comparison.
-- Tradeoff: a page's `docs.metadata.yaml` entry follows its `id`, but no
-  schema requires `id`. A page without one validates and silently loses its
-  maintainer metadata, so reviewers check that new pages carry an `id`.
+- Tradeoff: no schema requires `id`, but `manni meta validate` fails without
+  it. `owner` and `created` live in `docs.metadata.yaml` under the page's
+  `id`, so a page without one fails `derived:stale` because derive has no
+  entry to stamp. A `docs.metadata.yaml` entry whose page dropped its `id`
+  fails as an orphan.
 - Tradeoff: `tags` and the `type` slug list aren't validated. A misspelled
   `type`, such as `how-too`, passes CI.
 - Tradeoff: `type` moved from the repo's own `landing`, `guide`, and

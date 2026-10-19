@@ -137,10 +137,11 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   [Good Docs Project template slug](https://www.thegooddocsproject.dev/template)
   for `type`, such as `concept`, `how-to`, `reference`, `quickstart`, or
   `troubleshooting`; CI doesn't reject other values, so check the spelling.
-  Give every page an `id`: the slug without `docs/`, with `/` replaced by
-  `-`; keep it when a page moves. CI doesn't require `id`, but
-  `docs.metadata.yaml` joins on it, so a page without one loses its
-  maintainer metadata. Reader-facing fields (`keywords`, `audiences`, `intent`,
+  Every page also needs an `id`: the slug without `docs/`, with `/` replaced
+  by `-`; keep it when a page moves. No schema requires `id`, but CI fails
+  without it: `owner` and `created` are stamped into `docs.metadata.yaml`
+  under the page's `id`, so a page with no `id` fails `derived:stale`, and an
+  entry whose page lost its `id` fails as an orphan. Reader-facing fields (`keywords`, `audiences`, `intent`,
   `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
   `related-pages`, `risks`, `sample-questions`, `last-updated`) live in
   frontmatter. Maintainer fields (`owner`, `created`, `personas`, `journeys`,
