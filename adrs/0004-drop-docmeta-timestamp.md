@@ -1,6 +1,6 @@
 # Drop the docmeta timestamp field
 
-- Status: accepted
+- Status: accepted; partially superseded by [ADR 0005](0005-adopt-manni-vocabularies.md), which adds a git-derived `last-updated`
 - Date: 2026-09-17
 - Deciders: Manny
 - Context source: #docs Slack thread, 2026-09-17 (Prithvi raised the question; Manny approved removal)

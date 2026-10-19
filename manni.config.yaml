@@ -1,0 +1,70 @@
+# manni configuration — frontmatter (metadata) validation for docs content.
+#
+# Complements remark-lint (Markdown structure, .remarkrc.mjs) and Vale (prose
+# style, .vale.ini) by validating frontmatter *content* against JSON Schema.
+# Astro's zod schema only fails at build time and silently strips unknown keys;
+# `manni meta validate` fails fast in CI with per-field, per-line PR
+# annotations. See adrs/0005-adopt-manni-vocabularies.md.
+#
+# Run locally with `npm run lint:frontmatter` (manni requires Node >= 24).
+# CI: .github/workflows/manni.yml.
+
+# Which documents exist. Every manni tool reads this list.
+# Scope is src/content/docs, matching this repo's Vale and remark-lint scope,
+# so blog, changelog, and marketing content are not held to the docs schema.
+collections:
+  - name: site
+    paths:
+      - "src/content/docs/**/*.{md,mdx}"
+    url: https://promptless.ai/docs/
+    externalMetadata:
+      # Maintainer-facing metadata — every field the vocabularies below mark
+      # `x-manni-location: external` (owner, created, personas, journeys,
+      # visibility, source-of-truth, meta-provenance, ...). Keeping it here
+      # leaves page frontmatter to what readers and agents use. Entries are
+      # keyed by each page's `id`, so moving or renaming a page never orphans
+      # its entry.
+      - file: ./docs.metadata.yaml
+        join: id
+
+meta:
+  # Judge pages by exactly this set, in order, rather than manni's built-in
+  # default set (which adds google:okf, passo-uno:seven-action, and the
+  # evals, graph, and citations vocabularies).
+  defaults: false
+  schemas:
+    # 1. Starlight's frontmatter contract, built into manni. Requires `title`
+    #    and checks the form of every other Starlight field that is present.
+    #    Bump the version when Starlight's minor version changes.
+    - astro:starlight:0.41
+    # 2. The manni vocabularies, each followed by its strict overlay. An
+    #    overlay narrows the form of values that are present and requires no
+    #    extra key. Reference:
+    #    https://hawkeyexl.github.io/manni/meta/reference/schemas/manni-vocabularies/
+    - manni:core:1.0.0
+    - manni:core-strict:1.0.0
+    - manni:stewardship:1.1.0
+    - manni:stewardship-strict:1.1.0
+    - manni:audience:1.0.0
+    - manni:audience-strict:1.0.0
+    - manni:lifecycle:1.0.0
+    - manni:lifecycle-strict:1.0.0
+    - manni:structure:1.0.0
+    - manni:structure-strict:1.0.0
+    - manni:ai-context:1.0.0
+    - manni:ai-context-strict:1.0.0
+    # 3. The Good Docs Project page types. Requires a non-empty `type`; the 25
+    #    TGDP template slugs (concept, how-to, reference, quickstart,
+    #    troubleshooting, ...) are recommended, not enforced.
+    #    Reference: https://www.thegooddocsproject.dev/template
+    - tgdp:templates:1.1
+
+  # Stewardship fields stamped from evidence instead of typed by hand, so they
+  # cannot go stale quietly: `validate` fails when a stamp disagrees with git
+  # or CODEOWNERS. Run `npx manni meta derive` to restamp. These are the
+  # merge-safe fields, so stamps written on a branch stay current after a
+  # squash merge. CI needs full git history (fetch-depth: 0) to compare them.
+  derive:
+    collections: [site]
+    fields: [created, last-updated, owner]
+    sources: [git, codeowners]
