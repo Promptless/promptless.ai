@@ -54,36 +54,33 @@ import { Aside } from '@astrojs/starlight/components';
   You can set up this trigger by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add a commit trigger watching the main branch of my acme/api repo." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Promptless can monitor direct commits to your default branches for documentation updates. This is useful for teams that merge changes directly without pull requests, or when you want to capture documentation needs from hotfixes and emergency changes.
+A GitHub commit trigger starts documentation work from commits pushed to a branch you monitor. Use it when changes reach your default branch without a pull request, such as direct pushes, hotfixes, and emergency changes.
 
 ## How it works
 
-When a commit is pushed directly to a monitored branch:
+When a commit is pushed to a monitored branch, Promptless reads its diff and commit message. If the change needs a documentation update, Promptless creates documentation suggestions.
 
-1. **Commit Detection**: Promptless receives notification of the new commit
-2. **Analysis**: The system processes the code diff and commit message to understand the changes
-3. **Relevance Assessment**: Promptless determines if the changes require documentation updates
-4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions
+The trigger requires the GitHub integration. To connect it, see the [GitHub integration](/docs/for-docs/reference/integrations/github) setup guide.
+
+## Use cases
+
+| Use case                 | Why a commit trigger fits                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| Changelog monitoring     | Updates documentation when changelog files change. Scope it with `trigger_directories`. |
+| Hotfix documentation     | Catches documentation needs from emergency fixes that skip the normal PR process.       |
+| Direct-to-main workflows | Covers teams that commit directly to the default branch.                                |
+| Automated updates        | Starts documentation updates from commits that automated processes push.                |
 
 ## Commit triggers vs. pull request triggers
 
-A commit trigger activates on commits pushed to a monitored branch, while a PR trigger activates on pull request activity. The two overlap in a standard GitHub workflow. When a pull request merges, its merge commit lands on the default branch and activates the commit trigger along with the `github_pr` merge event. The commit trigger is most useful when changes reach a branch without a pull request, such as direct pushes or hotfixes. You can use GitHub commit triggers alongside PR triggers, or on their own.
+A commit trigger activates on commits pushed to a monitored branch. A [GitHub PR trigger](/docs/for-docs/connect/triggers/github-prs) activates on pull request activity. The two overlap in a standard GitHub workflow. When a pull request merges, its merge commit lands on the default branch. The commit trigger then activates along with the PR trigger's merge event.
 
-### Use commits alongside PR triggers
+Use a commit trigger on its own or alongside PR triggers for the same repositories:
 
-If you configure both a GitHub PR project and a GitHub Commits project for the same repositories:
-
-- Promptless comments on PRs while they're open, providing early feedback on documentation needs
-- After the PR merges, the commit trigger updates suggestions with the final merged content
-- Useful when you want PR comments during review and updated suggestions after merge
-
-### Use commits only
-
-If you configure only a GitHub Commits project, without a corresponding PR project:
-
-- Promptless only runs after changes merge to your default branch
-- Reduces notification noise if PR triggers are too frequent
-- Since you won't get PR comments, configure a Slack notification channel to stay informed about new suggestions
+| Setup                  | When Promptless runs                            | Comments on PRs | Choose it when                                                                                                                               |
+| ---------------------- | ----------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Commit and PR triggers | While the PR is open, and again after it merges | Yes             | You want documentation feedback during review, and suggestions updated with the final merged content.                                        |
+| Commit trigger only    | After changes merge to the monitored branch     | No              | PR triggers create too much notification noise. [Configure a Slack channel](#notification-channels) so you still hear about new suggestions. |
 
 ## Configuration
 
@@ -108,11 +105,29 @@ triggers:
           - lib/
 ```
 
-See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for all available options.
+Each match clause takes these fields:
 
-## Notification channels
+| Field                 | Required | Description                                                                                                       |
+| --------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `repos`               | Yes      | The repositories to monitor, or the literal `all`.                                                                |
+| `branches`            | No       | The branches to monitor. Omit it to monitor only each repository's default branch.                                |
+| `trigger_directories` | No       | Only commits that change files in these directories trigger documentation updates, such as a changelog directory. |
 
-Commit triggers don't create PR comments. To receive updates when Promptless creates or updates suggestions, configure a Slack notification channel in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
+For every field, including repository exclusions and topic and owner filters, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers).
+
+## Publishing options
+
+Commit triggers don't comment on PRs, so set where Promptless tells you about suggestions and how far it automates publishing. Set these in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
+
+| Option                | Policy setting               | Effect                                                                                                               |
+| --------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Slack notifications   | `notification.slack_channel` | Posts to a Slack channel when Promptless creates or updates suggestions.                                             |
+| Automatic PR creation | `publishing.auto_create_pr`  | Opens a documentation PR for each suggestion.                                                                        |
+| Auto-merge            | `publishing.auto_merge`      | Merges documentation PRs into the default branch as soon as Promptless creates them. Requires automatic PR creation. |
+
+### Notification channels
+
+Send suggestion notifications to a Slack channel:
 
 ```yaml
 policies:
@@ -122,37 +137,14 @@ policies:
 ```
 
 <Aside type="note">
-  For private Slack channels, invite Promptless first by tagging `@Promptless` in the channel.
+  For a private Slack channel, invite Promptless first by tagging `@Promptless` in the channel.
 </Aside>
 
-## Directory-specific commits
+### Auto-merge mode
 
-Similar to PR triggers, you can configure Promptless to only trigger on commits that affect specific directories. This is particularly useful for monitoring changelog directories or specific feature areas.
+Auto-merge publishes documentation PRs without human review. Use it for internal documentation, high-confidence workflows that want full automation, or changelog updates that should publish immediately.
 
-When trigger directories are specified, only commits that contain changes to those directories trigger documentation updates.
-
-## Use cases
-
-GitHub commit triggers are especially useful for:
-
-- **Changelog Monitoring**: Automatically update documentation when changelog files are modified
-- **Hotfix Documentation**: Capture documentation needs from emergency fixes that bypass the normal PR process
-- **Direct-to-Main Workflows**: Support teams that commit directly to main branches
-- **Automated Updates**: Trigger documentation updates from automated commit processes
-
-## Auto-merge mode
-
-Automatically merge documentation PRs into the default branch as soon as they're created.
-
-Auto-merge requires automatic PR creation to also be enabled.
-
-Auto-merge is useful for:
-
-- **Internal documentation**: When documentation PRs don't require human review
-- **High-confidence workflows**: Teams that want full automation
-- **Changelog-driven updates**: When you want changelog updates to publish immediately
-
-Enable auto-merge in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
+Turn on both automatic PR creation and auto-merge in a policy rule scoped to the commit trigger:
 
 ```yaml
 policies:
@@ -164,7 +156,3 @@ policies:
           auto_create_pr: true
           auto_merge: true
 ```
-
-## Setup instructions
-
-To connect GitHub to Promptless, see the [GitHub Integration](/docs/for-docs/reference/integrations/github) setup guide.

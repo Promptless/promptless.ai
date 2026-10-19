@@ -44,3 +44,4 @@ New, non-migration architecture decisions go here in `adrs/` using the MADR temp
 - [0003 — Adopt Starport search and assistant](0003-starport-search-assistant.md) — accepted
 - [0004 — Drop the docmeta timestamp field](0004-drop-docmeta-timestamp.md) — accepted; partially superseded by [0005](0005-adopt-manni-vocabularies.md)
 - [0005 — Adopt manni and its strict metadata vocabularies](0005-adopt-manni-vocabularies.md) — accepted
+- [0006 — Lint docs page structure by page type with manni lint](0006-adopt-manni-lint-structure.md) — accepted
