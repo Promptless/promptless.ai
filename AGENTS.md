@@ -105,6 +105,7 @@ npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
 npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
 npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
+npx manni check <page>   # verify a page against every manni check set up here; never restamps
 ```
 
 ## Docs linting gates (Starport v1.1.0)
@@ -149,7 +150,12 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   `docs.metadata.yaml`, keyed by `id`; never put them in a page.
   `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
   after you commit a change to a page's body, run `npx manni meta derive` and
-  commit the result, or CI fails with `derived:stale`.
+  commit the result, or CI fails with `derived:stale`. Then run
+  `npx manni check <page>...` on the pages you changed to verify: it runs every
+  manni check this repo has set up, including the `meta validate` CI runs, and
+  reports a stale stamp, but it doesn't restamp, so `derive` is always the fix.
+  Pass page paths: a bare `npx manni check` exits 2 because its `cite check`
+  can't match the `id`s in `docs.metadata.yaml` to pages.
   Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
 
 ## Diagrams
