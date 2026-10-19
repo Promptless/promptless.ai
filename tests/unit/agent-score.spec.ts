@@ -4,6 +4,7 @@ import test from 'node:test';
 import { normalizeTargetUrl, parseSlug } from '../../src/lib/agent-score/slug';
 import { CATEGORIES, TOTAL_CHECKS, gradeForScore } from '../../src/lib/agent-score/meta';
 import { actionableChecks, buildFixPrompt, buildMarkdownReport, summarySentence } from '../../src/lib/agent-score/report';
+import { affectedPages, checkIssues, diagnosticIssues, fixText, shortUrl } from '../../src/lib/agent-score/issues';
 import type { SiteResponse } from '../../src/lib/agent-score/types';
 
 const fixture = (name: string) =>
@@ -60,7 +61,7 @@ test('category metadata scores 27 of the 28 afdocs checks', () => {
 });
 
 test('fixtures match the contract shape the pages render', () => {
-  for (const [name, slug] of [['promptless.ai-docs', 'promptless.ai/docs'], ['docs.acme-api.dev', 'docs.acme-api.dev']]) {
+  for (const [name, slug] of [['promptless.ai-docs', 'promptless.ai/docs'], ['docs.acme-api.dev', 'docs.acme-api.dev'], ['developer.deel.com', 'developer.deel.com']]) {
     const site = fixture(name);
     assert.equal(site.slug, slug);
     assert.equal(site.latest.categories.map((c) => c.id).join(), CATEGORIES.map((c) => c.id).join());
@@ -99,4 +100,34 @@ test('markdown report includes history, changes, and every check', () => {
   for (const check of site.latest.categories.flatMap((c) => c.checks)) {
     assert.ok(md.includes(`\`${check.id}\``), `Expected ${check.id} in the markdown report.`);
   }
+});
+
+test('issues list affected pages and drop the result restated in the fix', () => {
+  const { latest } = fixture('developer.deel.com');
+  const checks = new Map(latest.categories.flatMap((c) => c.checks).map((check) => [check.id, check]));
+
+  const size = affectedPages(checks.get('page-size-markdown')!);
+  assert.equal(size.total, 2);
+  assert.deepEqual(size.pages[0], { url: 'https://developer.deel.com/api/deel-it/endpoints/it-assets/unarchive-asset-v-2026-09-17', note: '130K chars' });
+  assert.equal(affectedPages(checks.get('markdown-link-portability')!).total, 42, 'totals come from the afdocs buckets, not the trimmed rows');
+  assert.deepEqual(
+    affectedPages(checks.get('llms-txt-links-resolve')!).pages.map((page) => page.note),
+    ['HTTP 404', 'HTTP 404', 'HTTP 403'],
+  );
+
+  assert.equal(fixText(checks.get('page-size-markdown')!), 'Break these into smaller pages or restructure serialized tabbed content.');
+  const llms = checks.get('llms-txt-exists')!;
+  assert.equal(fixText({ ...llms, resolution: 'Serve llms.txt from the docs host.' }), 'Serve llms.txt from the docs host.', 'fixes that do not restate a count stay whole');
+
+  const issues = checkIssues(latest);
+  assert.deepEqual([...issues.keys()].sort(), ['llms-txt-links-resolve', 'markdown-content-parity', 'markdown-link-portability', 'page-size-markdown', 'page-size-transfer']);
+
+  const [diagnostic] = diagnosticIssues(latest);
+  assert.equal(diagnostic.title, 'Markdown versions drop content on generated pages');
+  assert.equal(diagnostic.pageTotal, 4);
+  assert.equal(diagnostic.pages.length, 3);
+  assert.match(diagnostic.summary, /^The markdown variant is a second rendering pipeline/);
+
+  assert.equal(shortUrl('https://developer.deel.com/api/x', 'developer.deel.com'), '/api/x');
+  assert.equal(shortUrl('https://api.letsdeel.com/mcp', 'developer.deel.com'), 'api.letsdeel.com/mcp');
 });

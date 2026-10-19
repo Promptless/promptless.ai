@@ -1,6 +1,6 @@
 # ADR 0006 — Adopt docmeta (frontmatter validation) from template v1.1.0
 
-- Status: accepted
+- Status: superseded by [root ADR 0005](../../../adrs/0005-adopt-manni-vocabularies.md)
 - Date: 2026-07-13
 - Deciders: Manny
 - Context source: #docs Slack thread, 2026-07-13 ("updates were made to the template for the v1.1.0 version (mdx linting, docmeta support) … implement them for our docs")
