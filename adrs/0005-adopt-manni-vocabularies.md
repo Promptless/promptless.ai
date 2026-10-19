@@ -39,23 +39,26 @@ because it replaces the deprecated tool and records each fact in a checked form.
 `manni.config.yaml` sets `defaults: false` and judges each page in
 `src/content/docs` against this set, in order:
 
-1. `schemas/starlight-frontmatter.schema.json`, unchanged.
+1. `astro:starlight:0.41`, manni's built-in Starlight schema. It replaces the
+   hand-authored `schemas/starlight-frontmatter.schema.json` mirror, so the
+   repo no longer keeps a copy in sync with Starlight. It requires `title` and
+   checks the form of the other Starlight fields that are present.
 2. Each vocabulary followed by its strict overlay: `manni:core:1.0.0`,
    `manni:stewardship:1.1.0`, `manni:audience:1.0.0`, `manni:lifecycle:1.0.0`,
    `manni:structure:1.0.0`, and `manni:ai-context:1.0.0`. A strict overlay
    checks the form of values that are present. Examples are kebab-case ids,
    list-only keywords, full dates, and the seven named risk flags. It doesn't
    require extra keys.
-3. `tgdp:templates:1.1` and its strict overlay `tgdp:templates-strict:1.1`,
-   built into manni. Together they require `type` and limit it to the 25
-   [Good Docs Project template slugs](https://www.thegooddocsproject.dev/template).
-   Pages use `concept`, `how-to`, `reference`, `quickstart`,
-   `installation-guide`, `troubleshooting`, `glossary`, and `contact-support`.
-4. `schemas/custom-frontmatter.schema.json`, for rules no schema above covers.
-   It requires `id`, which `manni:core:1.0.0` defines but doesn't require,
-   because `docs.metadata.yaml` joins on it. It also keeps the OKF format check
-   on `tags`, which no manni vocabulary defines. `manni:core:1.0.0` already
-   requires `title` and `description`.
+3. `tgdp:templates:1.1`, built into manni. It requires a non-empty `type` and
+   recommends the 25
+   [Good Docs Project template slugs](https://www.thegooddocsproject.dev/template)
+   without enforcing them; the strict overlay is off. Pages use `concept`,
+   `how-to`, `reference`, `quickstart`, `installation-guide`,
+   `troubleshooting`, `glossary`, and `contact-support`.
+
+The repo keeps no custom schema. `manni:core:1.0.0` already requires `title`
+and `description` and sets the form of `id`. No schema in the set requires
+`id` or checks `tags`.
 
 Each vocabulary marks every field as belonging in the page or in external
 metadata. Fields readers and agents act on go in frontmatter. These are
@@ -84,8 +87,11 @@ Reviewers delete that entry once they've checked the values.
 - Tradeoff: a PR that changes a page's body must restamp `last-updated` with
   `npx manni meta derive`, or the `manni` check fails. CI checks out full
   history for the comparison.
-- Tradeoff: new pages must carry an `id`, and a page's `docs.metadata.yaml`
-  entry follows that `id`.
+- Tradeoff: a page's `docs.metadata.yaml` entry follows its `id`, but no
+  schema requires `id`. A page without one validates and silently loses its
+  maintainer metadata, so reviewers check that new pages carry an `id`.
+- Tradeoff: `tags` and the `type` slug list aren't validated. A misspelled
+  `type`, such as `how-too`, passes CI.
 - Tradeoff: `type` moved from the repo's own `landing`, `guide`, and
   `reference` values to TGDP slugs. Former landing pages are `concept`, and
   each former guide is `how-to`, `concept`, `quickstart`,
@@ -113,5 +119,6 @@ Reviewers delete that entry once they've checked the values.
 
 ### Move to manni with six vocabularies and strict overlays
 
-- Good: Only the requested vocabularies, each held to its strict form.
+- Good: Only the requested vocabularies, each held to its strict form, and
+  no schema files to maintain in the repo.
 - Bad: Longer config, and contributors restamp derived fields.
