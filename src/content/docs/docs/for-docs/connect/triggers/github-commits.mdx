@@ -3,11 +3,11 @@ title: GitHub commits
 description: Trigger documentation suggestions from direct commits to your default branches, for teams that merge without pull requests or ship hotfixes.
 id: for-docs-connect-triggers-github-commits
 slug: docs/for-docs/connect/triggers/github-commits
-type: reference
+type: how-to
 tags:
   - connect
   - triggers
-  - reference
+  - guide
 keywords:
   - GitHub commit trigger
   - github_commit
@@ -50,19 +50,9 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-<Aside type="tip">
-  You can set up this trigger by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add a commit trigger watching the main branch of my acme/api repo." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
-</Aside>
+## Overview
 
-A GitHub commit trigger starts documentation work from commits pushed to a branch you monitor. Use it when changes reach your default branch without a pull request, such as direct pushes, hotfixes, and emergency changes.
-
-## How it works
-
-When a commit is pushed to a monitored branch, Promptless reads its diff and commit message. If the change needs a documentation update, Promptless creates documentation suggestions.
-
-The trigger requires the GitHub integration. To connect it, see the [GitHub integration](/docs/for-docs/reference/integrations/github) setup guide.
-
-## Use cases
+A GitHub commit trigger starts documentation work from commits pushed to a branch you monitor. Promptless reads each commit's diff and message, and creates documentation suggestions when the change needs a documentation update. Add one when changes reach your default branch without a pull request:
 
 | Use case                 | Why a commit trigger fits                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------- |
@@ -71,39 +61,49 @@ The trigger requires the GitHub integration. To connect it, see the [GitHub inte
 | Direct-to-main workflows | Covers teams that commit directly to the default branch.                                |
 | Automated updates        | Starts documentation updates from commits that automated processes push.                |
 
-## Commit triggers vs. pull request triggers
+This guide covers choosing between commit and PR triggers, adding the trigger, and setting how Promptless notifies you and publishes its suggestions.
+
+<Aside type="tip">
+  You can also ask Promptless in Slack or Microsoft Teams to set up the trigger for you. For example, "@Promptless add a commit trigger watching the main branch of my acme/api repo." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+## Before you start
+
+- The [GitHub integration](/docs/for-docs/reference/integrations/github), connected on the [Integrations page](https://app.gopromptless.ai/integrations). Promptless can't save a GitHub commit trigger until it is. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
+- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration).
+
+## Choose commit triggers, PR triggers, or both
 
 A commit trigger activates on commits pushed to a monitored branch. A [GitHub PR trigger](/docs/for-docs/connect/triggers/github-prs) activates on pull request activity. The two overlap in a standard GitHub workflow. When a pull request merges, its merge commit lands on the default branch. The commit trigger then activates along with the PR trigger's merge event.
 
 Use a commit trigger on its own or alongside PR triggers for the same repositories:
 
-| Setup                  | When Promptless runs                            | Comments on PRs | Choose it when                                                                                                                               |
-| ---------------------- | ----------------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Commit and PR triggers | While the PR is open, and again after it merges | Yes             | You want documentation feedback during review, and suggestions updated with the final merged content.                                        |
-| Commit trigger only    | After changes merge to the monitored branch     | No              | PR triggers create too much notification noise. [Configure a Slack channel](#notification-channels) so you still hear about new suggestions. |
+| Setup                  | When Promptless runs                            | Comments on PRs | Choose it when                                                                                                                                         |
+| ---------------------- | ----------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Commit and PR triggers | While the PR is open, and again after it merges | Yes             | You want documentation feedback during review, and suggestions updated with the final merged content.                                                  |
+| Commit trigger only    | After changes merge to the monitored branch     | No              | PR triggers create too much notification noise. [Send notifications to a Slack channel](#send-notifications-to-a-slack-channel) to hear about new suggestions. |
 
-## Configuration
+## Add a commit trigger
 
-<Aside type="note">
-  Adding, renaming, or modifying a GitHub commit trigger requires the GitHub integration to be connected first. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
-</Aside>
+1. On the [Configuration page](https://app.gopromptless.ai/configuration), switch to **YAML** mode.
+2. In the `triggers` section, add a `github_commit` trigger with a match clause for the repositories you want to monitor:
 
-Configure GitHub commit triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section:
+   ```yaml
+   triggers:
+     main-commits:
+       trigger_type: github_commit
+       match:
+         - repos:
+             - acme/backend
+             - acme/frontend
+           branches:
+             - main          # omit to match only the repository's default branch
+           trigger_directories:
+             - src/
+             - lib/
+   ```
 
-```yaml
-triggers:
-  main-commits:
-    trigger_type: github_commit
-    match:
-      - repos:
-          - acme/backend
-          - acme/frontend
-        branches:
-          - main          # omit to match only the repository's default branch
-        trigger_directories:
-          - src/
-          - lib/
-```
+3. Save the configuration.
 
 Each match clause takes these fields:
 
@@ -115,9 +115,9 @@ Each match clause takes these fields:
 
 For every field, including repository exclusions and topic and owner filters, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers).
 
-## Publishing options
+## Set how Promptless publishes suggestions
 
-Commit triggers don't comment on PRs, so set where Promptless tells you about suggestions and how far it automates publishing. Set these in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
+Commit triggers don't comment on PRs, so tell Promptless where to report suggestions and how far to automate publishing. Set these options in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies):
 
 | Option                | Policy setting               | Effect                                                                                                               |
 | --------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -125,9 +125,9 @@ Commit triggers don't comment on PRs, so set where Promptless tells you about su
 | Automatic PR creation | `publishing.auto_create_pr`  | Opens a documentation PR for each suggestion.                                                                        |
 | Auto-merge            | `publishing.auto_merge`      | Merges documentation PRs into the default branch as soon as Promptless creates them. Requires automatic PR creation. |
 
-### Notification channels
+### Send notifications to a Slack channel
 
-Send suggestion notifications to a Slack channel:
+For a private Slack channel, first invite Promptless by tagging `@Promptless` in the channel. Then set the channel in a policy:
 
 ```yaml
 policies:
@@ -136,11 +136,7 @@ policies:
       slack_channel: docs-updates
 ```
 
-<Aside type="note">
-  For a private Slack channel, invite Promptless first by tagging `@Promptless` in the channel.
-</Aside>
-
-### Auto-merge mode
+### Turn on auto-merge mode
 
 Auto-merge publishes documentation PRs without human review. Use it for internal documentation, high-confidence workflows that want full automation, or changelog updates that should publish immediately.
 
@@ -156,3 +152,9 @@ policies:
           auto_create_pr: true
           auto_merge: true
 ```
+
+## See also
+
+- [GitHub PRs](/docs/for-docs/connect/triggers/github-prs), to start documentation work from pull request activity
+- [Triggers](/docs/for-docs/connect/triggers), for how triggers work and how to follow what one did
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger and policy field
