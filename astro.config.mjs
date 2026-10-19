@@ -97,6 +97,18 @@ export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
   adapter: vercel({ includeFiles: [...searchIncludeFiles, ...agentScoreIncludeFiles] }),
   redirects,
+  // The site is English-only with no locale prefix. Left to itself, Starlight
+  // generates an Astro i18n config whose default locale path is `en`, and
+  // Astro's i18n router then answers any on-demand page URL with an `en`
+  // segment with an empty 404, e.g. /agent-score/docs.oracle.com/en/cloud.
+  // Giving the one locale a path that can never be a literal URL segment (it
+  // contains a space, which URLs always percent-encode) turns that check off.
+  // Starlight derives its own locale (monolingual, `en`) from this config.
+  i18n: {
+    defaultLocale: 'en root',
+    locales: [{ path: 'en root', codes: ['en'] }],
+    routing: { prefixDefaultLocale: false, redirectToDefaultLocale: false },
+  },
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
   markdown: {
