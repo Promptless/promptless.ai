@@ -1,21 +1,54 @@
 ---
 title: Compute and sizing
 description: Size the trace analyzer from representative sessions, database load, object growth, and model throughput.
+id: governance-deploy-the-worker-compute-and-sizing
 slug: docs/governance/deploy-the-worker/compute-and-sizing
 type: reference
 tags:
   - agent-instructions
   - governance
   - deployment
+keywords:
+  - trace analyzer sizing
+  - analyzer resource requests
+  - capacity planning
+  - model throttling
+  - kubectl top
+  - pilot sizing
+language: en
+audiences:
+  - aud-agent-governance
+intent: size the PIG trace analyzer's compute, PostgreSQL, trace bucket, and model throughput from measured pilot sessions
+lifecycle: published
+last-updated: 2026-10-16
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - analyzer worker
+  - kubernetes
+  - postgresql
+  - object storage
+  - model provider
+related-pages:
+  - governance-deploy-the-worker-manage-updates-and-recovery
+  - governance-deploy-the-worker-verify-your-deployment
+risks:
+  - read-only
+sample-questions:
+  - How much CPU and memory does the PIG trace analyzer request by default?
+  - Will adding analyzer pods fix an analysis backlog caused by model throttling?
+  - Which metrics should I measure before scaling PIG trace analysis?
 ---
 
 The trace analyzer needs compute for receiving uploads, preparing traces, and running analysis. PostgreSQL stores ingestion and analysis state; the trace bucket stores session objects. Repository mirrors are disposable local storage.
 
 ## Start with a measured pilot
 
-There is no single capacity target for a number of developers. Session size, agent activity, analysis duration, and model rate limits determine the load. Start with one analyzer replica, then measure representative sessions before increasing concurrency or replicas.
+There is no single capacity target for a number of developers. Session size, agent activity, analysis duration, and model rate limits determine the load. Measure representative sessions on one analyzer replica before you change capacity.
 
-As an initial allocation, the manual Helm example requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. These values are a pilot starting point, not a throughput guarantee. The automatic installation uses its release's workload defaults; review the generated pod requests and limits before admitting production traffic.
+In PIG 0.3.6, the supervisor runs one analyzer replica. It requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. The manual Helm example uses the same values. They are a pilot starting point, not a throughput guarantee. Review the generated pod requests and limits before admitting production traffic.
 
 ```bash
 kubectl get deployment acme-analyzer --namespace pig \
