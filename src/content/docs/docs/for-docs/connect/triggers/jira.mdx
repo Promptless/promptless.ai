@@ -47,6 +47,7 @@ sidebar:
 ---
 
 import { Aside } from '@astrojs/starlight/components';
+import AtlassianConnect from '@partials/integrations/atlassian-connect.mdx';
 
 A Jira ticket can start a Promptless session, and Promptless replies on the ticket when the work is done. This is separate from using [Jira as a read-only context source](/docs/for-docs/connect/context-sources/jira). That capability lets Promptless read tickets for background but never acts on them or writes back. Creating a Jira issue on request is a separate capability, documented on the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request) page.
 
@@ -73,6 +74,14 @@ A single delivery can carry more than one built-in path. Three rules resolve tha
 
 Promptless answers on the ticket and attaches the documentation PR as a remote link (a linked reference on the Jira issue). The link is deduplicated by a stable identifier, so re-posting never adds a duplicate link.
 
+## Connect Atlassian
+
+Every path that starts a session needs Atlassian connected. Skip this section if Atlassian is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<AtlassianConnect />
+
+Connecting Atlassian turns on the built-in label path and lets you add configured Jira triggers. The mention and assignment paths also need an [attached service account](#attach-a-service-account-for-mentions-and-assignments).
+
 ## How a configured trigger activates
 
 Each trigger type names the edge an issue crosses: the moment it activates on. That moment is the issue being created, a label being added, or the status changing. A trigger activates once per crossing, never on a later delivery about an issue that still matches. Editing the description of a `DOCS` issue does not re-activate a new-issue trigger. Commenting on an issue that already carries `needs-docs` does not re-activate a label trigger.
@@ -86,7 +95,7 @@ Multi-value matches compare each value on its own. A second listed label activat
 ## Configuration
 
 <Aside type="note">
-  Adding, renaming, or modifying a Jira trigger requires Jira to be connected through Atlassian first. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
+  Adding, renaming, or modifying a Jira trigger requires Jira to be connected through Atlassian first. See [Connect Atlassian](#connect-atlassian).
 </Aside>
 
 Configure Jira triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section. Each type names the moment it activates on (an issue created, a label added, or a status change):
@@ -156,7 +165,7 @@ Attaching a dedicated Atlassian service account gives Promptless its own bot ide
 
 Gating the mention and assignment paths behind a service account is deliberate. Without a bot identity, the account Promptless acts as is a real person (the connecting account). Ordinary ticket traffic addressed to that colleague cannot be told apart from a request to summon Promptless. Requiring a service account keeps anyone from making Promptless act as the connecting account without the team opting in.
 
-Attach the service account from the Atlassian integration card by entering its **Client ID** and **Client secret**, then clicking **Attach**. See the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide for the full setup.
+Attach the service account from the Atlassian integration card by entering its **Client ID** and **Client secret**, then clicking **Attach**. The card then lists the attached account's details. A **Not working** or **Unconfirmed** badge on the service-account section flags a problem to fix. For how an Atlassian admin creates the service account's credentials and which scopes it needs, see [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account).
 
 <Aside type="note">
   Reading Jira for context is a separate, read-only capability. See the [Jira context source](/docs/for-docs/connect/context-sources/jira) page.
@@ -169,7 +178,3 @@ A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` la
 Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once. It matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless dispatches once, tagged with both keys.
 
 Separately, because the team has attached a service account, an engineer @mentions the account Promptless acts as on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
-
-## Setup instructions
-
-To connect Atlassian and attach a service account, see the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide. The Atlassian integration card then shows the attached account's details. A **Not working** or **Unconfirmed** badge on the service-account section flags a problem to fix.

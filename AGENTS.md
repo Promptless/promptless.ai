@@ -39,6 +39,7 @@ src/
 |   +-- changelog/      # Changelog entries (MDX)
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
++-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
