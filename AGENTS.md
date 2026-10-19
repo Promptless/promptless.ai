@@ -25,9 +25,11 @@ docs/
 
 ```
 src/
-+-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/)
++-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/, agent-score/)
+|   +-- agent-score/    # Agent Score landing (static) + on-demand [...site] report, .md twin, og.png
 +-- components/
 |   +-- site/           # Marketing page components (Hero, DemoBooking, PricingCards, VideoEmbed, etc.)
+|   +-- agent-score/    # Agent Score landing sections, report sections, scan form, client scripts
 |   +-- starlight/      # Starlight component overrides (Header, Footer, Sidebar, etc.)
 |   +-- shared/         # Cross-cutting components (AnalyticsClickTracker, AnnouncementBanner, TopHeader)
 |   +-- posthog.astro   # PostHog analytics init snippet
@@ -38,11 +40,13 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
-+-- styles/             # Global CSS (custom.css, site.css)
+|   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
++-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
 tests/smoke/            # Smoke tests
+tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
@@ -91,14 +95,17 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run dev:agent-score-mock # local Agent Score API mock on 127.0.0.1:5000 (see README)
+npm run build            # production build (Vercel adapter; also renders /agent-score/<site> on demand)
 npm run check            # typecheck + MCP contract tests + build
 npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
 npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
-npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
+npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
+npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
+npx manni check <page>   # verify a page against every manni check set up here; never restamps
 ```
 
 ## Docs linting gates (Starport v1.1.0)
@@ -121,14 +128,35 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   commits the fix on same-repo PRs, and blocks on anything left. Run
   `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
   Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
-  a CI guard enforces this. See ADR 0005.
-- **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
-  *content* against three schemas (Starlight mirror, Google OKF, extension
-  seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags`. Add repo-specific required fields in
-  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
-  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
-  which stopped populating `timestamp`.
+  a CI guard enforces this. See Starport ADR 0005.
+- **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `manni.yml`) —
+  frontmatter *content* against manni's built-in Starlight schema
+  (`astro:starlight:0.41`), the open and strict versions of six manni
+  vocabularies (core, stewardship, audience, lifecycle, structure,
+  ai-context), and The Good Docs Project page types (`tgdp:templates:1.1`).
+  **Every docs page requires `title`, `description`, and `type`.** Use a
+  [Good Docs Project template slug](https://www.thegooddocsproject.dev/template)
+  for `type`, such as `concept`, `how-to`, `reference`, `quickstart`, or
+  `troubleshooting`; CI doesn't reject other values, so check the spelling.
+  Every page also needs an `id`: the slug without `docs/`, with `/` replaced
+  by `-`; keep it when a page moves. No schema requires `id`, but CI fails
+  without it: `owner` and `created` are stamped into `docs.metadata.yaml`
+  under the page's `id`, so a page with no `id` fails `derived:stale`, and an
+  entry whose page lost its `id` fails as an orphan. Reader-facing fields (`keywords`, `audiences`, `intent`,
+  `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
+  `related-pages`, `risks`, `sample-questions`, `last-updated`) live in
+  frontmatter. Maintainer fields (`owner`, `created`, `personas`, `journeys`,
+  `visibility`, `source-of-truth`, `meta-provenance`) live in
+  `docs.metadata.yaml`, keyed by `id`; never put them in a page.
+  `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
+  after you commit a change to a page's body, run `npx manni meta derive` and
+  commit the result, or CI fails with `derived:stale`. Then run
+  `npx manni check <page>...` on the pages you changed to verify: it runs every
+  manni check this repo has set up, including the `meta validate` CI runs, and
+  reports a stale stamp, but it doesn't restamp, so `derive` is always the fix.
+  Pass page paths: a bare `npx manni check` exits 2 because its `cite check`
+  can't match the `id`s in `docs.metadata.yaml` to pages.
+  Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
 
 ## Diagrams
 

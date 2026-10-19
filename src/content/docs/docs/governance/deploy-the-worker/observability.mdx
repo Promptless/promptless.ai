@@ -1,12 +1,48 @@
 ---
 title: Observability and troubleshooting
 description: Observe host uploads, durable trace storage, analysis, and hosted synchronization, and diagnose failures without losing trace data.
+id: governance-deploy-the-worker-observability
 slug: docs/governance/deploy-the-worker/observability
-type: reference
+type: troubleshooting
 tags:
   - agent-instructions
   - governance
   - reference
+keywords:
+  - troubleshooting
+  - structured logs
+  - readyz
+  - healthz
+  - stale analyzer
+  - analysis failures
+  - trace_object_status
+language: en
+audiences:
+  - aud-agent-governance
+intent: monitor PIG host uploads, trace storage, analysis, and Dashboard synchronization, and diagnose the first failing stage without losing trace data
+lifecycle: published
+last-updated: 2026-10-16
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - observability
+  - analyzer worker
+  - trace
+related-pages:
+  - governance-deploy-the-worker-manage-updates-and-recovery
+  - governance-deploy-the-worker-verify-your-deployment
+  - governance-deploy-the-worker-manual-helm-reference
+  - governance-get-started-enroll-your-hosts
+  - governance-deploy-the-worker-manual-helm
+risks:
+  - read-only
+sample-questions:
+  - How do I troubleshoot PIG traces that are stored but never analyzed?
+  - When does Promptless mark a PIG analyzer as stale?
+  - Which identifiers should I correlate in PIG analyzer logs?
+  - What should I check when a host checks in but traces do not arrive?
 sidebar:
   hidden: false
   order: 9
@@ -15,6 +51,8 @@ sidebar:
 Monitor PIG as a flow: hosts upload sessions, the worker stores traces, analysis completes, and findings and status synchronize to the Promptless Dashboard. A healthy pod covers only part of that flow.
 
 The analyzer emits structured logs by default. Datadog tracing and Sentry error reporting are optional. The [supervisor](/docs/governance/deploy-the-worker/manage-updates-and-recovery) reports release and migration status for deployments with automatic updates.
+
+The analyzer exposes two health endpoints. `/readyz` reports readiness and gates upload and analysis traffic on recent database and object-storage checks, so a storage problem withdraws the analyzer from service. `/healthz` reports liveness and fails when background tasks stop or a storage check makes no progress for 180 seconds. A storage outage the analyzer detects makes it unready, not unhealthy. The supervisor sets the analyzer's Kubernetes readiness probe to `/readyz`, so the Service and the collector Ingress send traffic only to a ready pod. The Ingress exposes `/healthz` for load-balancer health checks; `/readyz` stays inside the cluster.
 
 ## Checks to keep visible
 
@@ -26,7 +64,9 @@ The analyzer emits structured logs by default. Datadog tracing and Sentry error 
 | Hosted synchronization | Deployment status and newly projected trace metadata or findings reach Promptless.                                    | Local work completes but hosted state remains stale.                                         |
 | Remediation            | An outcome explaining a pull request, external owner, or missing evidence.                                            | A finding has no visible progress after prerequisites are met.                               |
 
-Set thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
+Set alert thresholds around your team's working hours, expected trace volume, and quiet window. An idle host or a successful analysis with zero findings does not indicate a failure. Establish a baseline with the [pilot-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) before alerting.
+
+Promptless marks a healthy analyzer stale when 15 minutes have passed since Promptless received its last check-in. This threshold is fixed. A stale analyzer fails deployment verification and acceptance.
 
 ## Read structured logs
 
@@ -58,6 +98,8 @@ Check the host credential, hosted deployment registration, hostname, TLS certifi
 ### Host checks in, but storage does not complete
 
 Inspect the exact session in `agent_traces`, including `trace_object_status` and `trace_object_last_error`. Check PostgreSQL availability and object-storage authorization, location, prefix, and encryption-key permissions. Keep the same bucket and database while fixing access.
+
+The analyzer retries a pending or failed canonical write in the background with a persisted backoff. A `write_failed` status that clears on its own needs no intervention. Run `pig-trace-analyzer db-status` for a count of pending objects and the age of the oldest one. Investigate when that backlog grows or stops draining after you restore access. See the [worker maintenance commands](/docs/governance/deploy-the-worker/manual-helm#inspect-and-repair-worker-storage).
 
 ### Storage succeeds, but analysis fails
 
