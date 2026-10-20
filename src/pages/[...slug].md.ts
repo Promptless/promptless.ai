@@ -4,6 +4,7 @@ import type { APIRoute, GetStaticPaths } from 'astro';
 import matter from 'gray-matter';
 import { routeEntries } from '@lib/content-order';
 import type { RouteManifestEntry } from '@lib/route-manifest';
+import { resolveMarkdownLinks } from '@lib/markdown-links';
 
 function stripMdxImports(body: string): string {
   return body
@@ -144,18 +145,6 @@ function normalizeMdxForMarkdown(body: string): string {
   return restore(decodeHtmlEntities(normalized)).trim();
 }
 
-function resolveRelativeLinks(body: string, routePath: string): string {
-  const base = `https://x${routePath.endsWith('/') ? routePath : `${routePath}/`}`;
-  return body.replace(/\[([^\]]*)\]\((\.[^)]*)\)/g, (_match, label, href) => {
-    try {
-      const resolved = new URL(href, base).pathname;
-      return `[${label}](${resolved})`;
-    } catch {
-      return _match;
-    }
-  });
-}
-
 function contentPathFromRoute(route: RouteManifestEntry): string {
   if (route.contentType === 'docs') {
     return path.join(
@@ -193,13 +182,15 @@ export const getStaticPaths: GetStaticPaths = () => {
     }));
 };
 
-export const GET: APIRoute = async ({ props }) => {
+export const GET: APIRoute = async ({ props, site }) => {
+  if (!site) throw new Error('Markdown links require the Astro site URL.');
   const entry = props.entry as RouteManifestEntry;
   const filePath = contentPathFromRoute(entry);
+  const pageUrl = new URL(`${entry.routePath.replace(/\/$/, '')}/`, site);
 
   try {
     const raw = await readFile(filePath, 'utf8');
-    const body = resolveRelativeLinks(normalizeMdxForMarkdown(matter(raw).content), entry.routePath);
+    const body = normalizeMdxForMarkdown(matter(raw).content);
 
     const lines: string[] = [`# ${entry.title}`];
     lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
@@ -234,7 +225,7 @@ export const GET: APIRoute = async ({ props }) => {
       }
     }
 
-    return new Response(lines.join('\n'), {
+    return new Response(resolveMarkdownLinks(lines.join('\n'), pageUrl), {
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
   } catch {
@@ -252,7 +243,7 @@ export const GET: APIRoute = async ({ props }) => {
       '- [Full content index](/llms.txt)',
       '- [Full content with text](/llms-full.txt)',
     ].join('\n');
-    return new Response(body, {
+    return new Response(resolveMarkdownLinks(body, pageUrl), {
       status: 404,
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
