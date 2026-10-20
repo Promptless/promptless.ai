@@ -1,9 +1,9 @@
 ---
 title: Starport analytics
-description: What you can measure on a Starport site through the analytics event hook, third-party analytics integrations, and search-query analytics.
+description: Measure reader search and assistant activity on a Starport site by forwarding its starport:analytics browser event to your analytics provider, and read the PostHog analytics Promptless sets up.
 id: for-docs-starport-analytics
 slug: docs/for-docs/starport/analytics
-type: reference
+type: how-to
 tags:
   - starport
   - reference
@@ -18,9 +18,9 @@ language: en
 audiences:
   - aud-devrel-devex
   - aud-scaleup-docs-team
-intent: measure reader search and Ask AI activity on a Starport site by forwarding the starport:analytics event to an analytics provider and reading PostHog data
+intent: measure reader search and assistant activity on a Starport site by forwarding the starport:analytics event to an analytics provider and reading PostHog data
 lifecycle: published
-last-updated: 2026-09-12
+last-updated: 2026-10-20
 applies-to:
   - promptless-for-docs
   - starport
@@ -44,26 +44,68 @@ sidebar:
   label: Analytics
 ---
 
-A Starport site measures reader activity through the analytics tools you already run. The template gives you an event hook to connect those tools, and Promptless configures search-query analytics for you on request. For the full capability list, see [What's included in Starport](/docs/for-docs/starport/whats-included).
+import { Steps } from '@astrojs/starlight/components';
 
-## The analytics event hook
+## Overview
 
-A Starport site emits a browser custom event named `starport:analytics` for search and Ask AI assistant interactions. Those interactions include a search query, a result click, and an assistant question. You attach a listener that forwards each event to the analytics tool of your choice. Each event's `detail` carries the interaction, for example the action name and the page path. The hook keeps your analytics provider a setting you own, so you swap providers by changing the listener.
+A Starport site reports reader search and assistant activity through the analytics tools you already run. The site emits a browser event for each search and assistant interaction, and you forward those events to your analytics provider. Use this when you want to see what readers search for, which results they open, and what they ask the site assistant. If you gave Promptless a PostHog project key during setup, your site also reports page views and searches to PostHog.
 
-```js
-// Illustrative: your provider's browser SDK is loaded as `myAnalytics`.
-window.addEventListener('starport:analytics', (event) => {
-  // event.detail carries the payload for the tracked action.
-  myAnalytics.track(event.detail);
-});
-```
+For the full capability list, see [What's included in Starport](/docs/for-docs/starport/whats-included).
 
-## Connect a third-party analytics provider
+## Before you start
 
-Connecting a third-party analytics provider is the concrete path for getting your data into a tool you already use. Load your provider's browser SDK on your Starport site, then forward the `starport:analytics` event to it with a listener like the one above. From then on, your provider records the traffic and you read it in that provider's own dashboards. For how documentation impact rolls up across Promptless, see [Reporting and ROI](/docs/for-docs/measure/reporting-and-roi).
+- Your analytics provider's browser SDK, and access to add it to your Starport site.
+- Your organization's consent setup for analytics. Search and assistant events carry what readers type, so connect them only through that setup.
 
-## Search-query analytics through managed setup
+## Forward Starport events to your analytics provider
 
-Your Starport site currently reports page views and search queries to PostHog. During onboarding, Promptless sets and manages a public PostHog key, `PUBLIC_POSTHOG_KEY`, derived from your setup form. It is not a self-service setting you change afterward. Your Starport site then emits its own documentation analytics events to PostHog, and you read that traffic in PostHog.
+The site dispatches a `starport:analytics` event on `window` for each search and assistant interaction. Each event's `detail` holds the event `name` and its `properties`. Every event includes `page_url`, the path of the page the reader was on.
 
-Separately, you can connect PostHog read-only on the integrations page. Promptless then reads those page views and search queries back to find the pages that need work. See [Connections](/docs/for-docs/starport/connections) for that connection, and [Data handling and classification](/docs/for-docs/security/data-handling-and-classification) for what Promptless processes and retains.
+<Steps>
+  1. Load your provider's browser SDK on your Starport site, for example through Starlight's `head` configuration in `astro.config.mjs`.
+
+  2. Add a listener that forwards each `starport:analytics` event to your provider:
+
+     ```js
+     // Illustrative: your provider's browser SDK is loaded as `myAnalytics`.
+     window.addEventListener('starport:analytics', (event) => {
+       const { name, properties } = event.detail;
+       myAnalytics.track(name, properties);
+     });
+     ```
+
+  3. Deploy the change, run a search on the published site, and confirm that the event appears in your provider's dashboard.
+</Steps>
+
+Your provider then records the events listed here:
+
+| Event                    | When it fires                                | Properties besides `page_url`                                           |
+| ------------------------ | -------------------------------------------- | ----------------------------------------------------------------------- |
+| `search_query`           | A reader runs a search.                      | `query`, `results`, `latency_ms`, `query_ms`                            |
+| `search_result_click`    | A reader opens a search result.              | `query`, `url`, `position`, `source` (`search`, `recent`, or `starter`) |
+| `search_error`           | A search fails.                              | `code`                                                                  |
+| `assistant_question`     | A reader asks the site assistant a question. | `question`, `question_length`                                           |
+| `assistant_source_click` | A reader opens a page the assistant cited.   | `url`                                                                   |
+| `assistant_latency`      | The assistant starts or finishes an answer.  | `stage` (`first_text` or `complete`), `latency_ms`, `interrupted`       |
+| `assistant_error`        | The assistant can't finish an answer.        | `code`                                                                  |
+| `assistant_feedback`     | A reader rates an answer.                    | `message_id`, `value` (`up` or `down`)                                  |
+
+To switch providers, change the listener.
+
+## Read docs analytics in PostHog
+
+If you gave Promptless a PostHog project key during setup, Promptless sets it as the site's `PUBLIC_POSTHOG_KEY` and manages it for you. Your site then reports page views, searches, and search-result clicks to that PostHog project.
+
+<Steps>
+  1. In PostHog, open the project whose key you gave Promptless.
+
+  2. Look for the `$pageview`, `docs_search`, and `docs_search_result_clicked` events from your docs site.
+</Steps>
+
+To let Promptless read that data back and find the pages that need work, connect PostHog read-only. See [Connect PostHog](/docs/for-docs/starport/connections#connect-posthog).
+
+## See also
+
+- [Monitor a Starport site through read-only connections](/docs/for-docs/starport/connections), to let Promptless read your deploy status and reader analytics.
+- [Data handling and classification](/docs/for-docs/security/data-handling-and-classification), for what Promptless processes and retains.
+- [Reporting and ROI](/docs/for-docs/measure/reporting-and-roi), for documentation impact across Promptless.
