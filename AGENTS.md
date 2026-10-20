@@ -103,7 +103,9 @@ npm run test:smoke       # smoke tests (serves .vercel/output/static or dist fro
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
-npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
+npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
+npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
+npx manni check          # run every manni check set up here (or pass pages); never restamps
 ```
 
 ## Docs linting gates (Starport v1.1.0)
@@ -126,14 +128,34 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   commits the fix on same-repo PRs, and blocks on anything left. Run
   `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
   Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
-  a CI guard enforces this. See ADR 0005.
-- **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
-  *content* against three schemas (Starlight mirror, Google OKF, extension
-  seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags`. Add repo-specific required fields in
-  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
-  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
-  which stopped populating `timestamp`.
+  a CI guard enforces this. See Starport ADR 0005.
+- **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `manni.yml`) —
+  frontmatter *content* against manni's built-in Starlight schema
+  (`astro:starlight:0.41`), the open and strict versions of six manni
+  vocabularies (core, stewardship, audience, lifecycle, structure,
+  ai-context), and The Good Docs Project page types (`tgdp:templates:1.1`).
+  **Every docs page requires `title`, `description`, and `type`.** Use a
+  [Good Docs Project template slug](https://www.thegooddocsproject.dev/template)
+  for `type`, such as `concept`, `how-to`, `reference`, `quickstart`, or
+  `troubleshooting`; CI doesn't reject other values, so check the spelling.
+  Every page also needs an `id`: the slug without `docs/`, with `/` replaced
+  by `-`; keep it when a page moves. No schema requires `id`, but CI fails
+  without it: `owner` and `created` are stamped into `docs.metadata.yaml`
+  under the page's `id`, so a page with no `id` fails `derived:stale`, and an
+  entry whose page lost its `id` fails as an orphan. Reader-facing fields (`keywords`, `audiences`, `intent`,
+  `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
+  `related-pages`, `risks`, `sample-questions`, `last-updated`) live in
+  frontmatter. Maintainer fields (`owner`, `created`, `personas`, `journeys`,
+  `visibility`, `source-of-truth`, `meta-provenance`) live in
+  `docs.metadata.yaml`, keyed by `id`; never put them in a page.
+  `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
+  after you commit a change to a page's body, run `npx manni meta derive` and
+  commit the result, or CI fails with `derived:stale`. Then run
+  `npx manni check` to verify (pass page paths to check only those): it runs
+  every manni check this repo has set up, including the `meta validate` CI
+  runs, and reports a stale stamp, but it doesn't restamp, so `derive` is
+  always the fix.
+  Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
 
 ## Diagrams
 
