@@ -42,6 +42,8 @@ sample-questions:
   - How do I change the PIG collector Ingress hostname after bootstrap?
 ---
 
+import { Steps } from '@astrojs/starlight/components';
+
 ## Overview
 
 Terraform prepares cloud infrastructure, and Helm bootstraps PIG once. After bootstrap, PIG owns its application releases, including supervisor updates. GitOps can continue to own your desired deployment configuration and secret delivery.
@@ -73,29 +75,31 @@ Run a later `helm upgrade` only to [change the collector ingress](#change-the-co
 
 If Flux installs the bootstrap, hand ownership to PIG before you enable application updates.
 
-1. Create an `OCIRepository` for `oci://ghcr.io/promptless/charts/pig-supervisor`. Pin it to the chart's OCI digest from the release manifest, `artifacts.supervisorChart.ociDigest`. For 0.3.6, the digest is `sha256:ee04fc023c7a6a22fde882cdb1852646b08804fe822a246d4040c7afe73b09fb`.
+<Steps>
+  1. Create an `OCIRepository` for `oci://ghcr.io/promptless/charts/pig-supervisor`. Pin it to the chart's OCI digest from the release manifest, `artifacts.supervisorChart.ociDigest`. For 0.3.6, the digest is `sha256:ee04fc023c7a6a22fde882cdb1852646b08804fe822a246d4040c7afe73b09fb`.
 
-2. Create a `HelmRelease` in `pig-system` with the same bootstrap values as the direct Helm guide, including `watchNamespace: pig` and the required `ingress` fields.
+  2. Create a `HelmRelease` in `pig-system` with the same bootstrap values as the direct Helm guide, including `watchNamespace: pig` and the required `ingress` fields.
 
-3. Keep `PIGDeployment` out of the reconciled path while Flux installs the chart. The supervisor waits for this resource before it starts release transitions.
+  3. Keep `PIGDeployment` out of the reconciled path while Flux installs the chart. The supervisor waits for this resource before it starts release transitions.
 
-4. Wait for the bootstrap HelmRelease to become ready:
+  4. Wait for the bootstrap HelmRelease to become ready:
 
-   ```bash
-   kubectl wait helmrelease/pig-supervisor --namespace pig-system \
-     --for=condition=ready --timeout=10m
-   ```
+     ```bash
+     kubectl wait helmrelease/pig-supervisor --namespace pig-system \
+       --for=condition=ready --timeout=10m
+     ```
 
-5. Commit `spec.suspend: true` on that HelmRelease in Git. Suspending only the OCIRepository leaves the installed release active; see Flux's [HelmRelease suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend).
+  5. Commit `spec.suspend: true` on that HelmRelease in Git. Suspending only the OCIRepository leaves the installed release active; see Flux's [HelmRelease suspend control](https://fluxcd.io/flux/components/helm/helmreleases/#suspend).
 
-6. After Flux applies the change, confirm that the HelmRelease is suspended. The command prints `true`:
+  6. After Flux applies the change, confirm that the HelmRelease is suspended. The command prints `true`:
 
-   ```bash
-   kubectl get helmrelease pig-supervisor --namespace pig-system \
-     -o jsonpath='{.spec.suspend}{"\n"}'
-   ```
+     ```bash
+     kubectl get helmrelease pig-supervisor --namespace pig-system \
+       -o jsonpath='{.spec.suspend}{"\n"}'
+     ```
 
-7. Add your `PIGDeployment` to the GitOps path that owns desired configuration. Keep its secret delivery and analyzer ServiceAccount in that path too.
+  7. Add your `PIGDeployment` to the GitOps path that owns desired configuration. Keep its secret delivery and analyzer ServiceAccount in that path too.
+</Steps>
 
 Keep the bootstrap HelmRelease suspended and present in Git. Deleting it can trigger a Helm uninstall, and resuming it can restore an older chart over PIG's self-updates. Don't reconcile the chart's rendered resources separately through a Kustomization. The one exception is the collector Ingress, described in [Change the collector ingress](#change-the-collector-ingress).
 
@@ -111,30 +115,32 @@ The bootstrap release owns the collector Ingress, so hostname, class, TLS, and a
 
 The supervisor may have updated its own image since bootstrap. Carry its current values into the upgrade so that the upgrade doesn't revert a self-update.
 
-1. Read the image the supervisor runs now:
+<Steps>
+  1. Read the image the supervisor runs now:
 
-   ```bash
-   kubectl get deployment pig-supervisor --namespace pig-system \
-     -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
-   ```
+     ```bash
+     kubectl get deployment pig-supervisor --namespace pig-system \
+       -o jsonpath='{.spec.template.spec.containers[0].image}{"\n"}'
+     ```
 
-2. In your bootstrap values, set `image.digest` and `releaseCatalogURL` to the values the supervisor runs now, and make your Ingress changes.
+  2. In your bootstrap values, set `image.digest` and `releaseCatalogURL` to the values the supervisor runs now, and make your Ingress changes.
 
-3. Render the [verified](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release) chart, where `PIG_VERSION` is the chart version you verified:
+  3. Render the [verified](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release) chart, where `PIG_VERSION` is the chart version you verified:
 
-   ```bash
-   helm template pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
-     --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
-   ```
+     ```bash
+     helm template pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
+       --namespace pig-system --values supervisor-values.yaml > rendered-supervisor.yaml
+     ```
 
-4. Compare the rendered Ingress with the live object.
+  4. Compare the rendered Ingress with the live object.
 
-5. Upgrade the bootstrap release:
+  5. Upgrade the bootstrap release:
 
-   ```bash
-   helm upgrade pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
-     --namespace pig-system --values supervisor-values.yaml --wait --timeout 5m
-   ```
+     ```bash
+     helm upgrade pig-supervisor "./pig-supervisor-${PIG_VERSION}.tgz" \
+       --namespace pig-system --values supervisor-values.yaml --wait --timeout 5m
+     ```
+</Steps>
 
 If Flux performed the bootstrap, keep its HelmRelease suspended. Either run the explicit upgrade above with current values, or manage the rendered Ingress directly in your GitOps repository.
 

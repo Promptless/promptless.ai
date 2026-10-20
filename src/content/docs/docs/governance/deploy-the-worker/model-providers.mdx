@@ -41,6 +41,8 @@ sample-questions:
   - What data does the PIG analyzer send to the model provider?
 ---
 
+import { Steps } from '@astrojs/starlight/components';
+
 ## Overview
 
 The trace analyzer sends each eligible session to a model endpoint in your provider account for analysis. Use this guide to choose that endpoint and set up its authentication before you write the `spec.analysis` settings for your deployment. For a manually managed installation, set the equivalent [worker chart values](/docs/governance/deploy-the-worker/manual-helm-reference#model-provider).
@@ -67,38 +69,42 @@ The analyzer accepts only these endpoint shapes. Each URL uses HTTPS, with no em
 
 Use API key authentication with any of the three providers.
 
-1. Deliver the provider's API key through your secret manager to a Kubernetes Secret in the deployment's namespace, such as key `model-api-key` in Secret `pig-credentials`.
+<Steps>
+  1. Deliver the provider's API key through your secret manager to a Kubernetes Secret in the deployment's namespace, such as key `model-api-key` in Secret `pig-credentials`.
 
-2. Set the model fields under `spec.analysis` and reference that Secret:
+  2. Set the model fields under `spec.analysis` and reference that Secret:
 
-   ```yaml
-   model:
-     provider: openai
-     authentication: api_key
-     baseURL: https://api.openai.com/v1
-     name: REPLACE_MODEL_NAME
-     apiKeySecretRef:
-       name: pig-credentials
-       key: model-api-key
-   ```
+     ```yaml
+     model:
+       provider: openai
+       authentication: api_key
+       baseURL: https://api.openai.com/v1
+       name: REPLACE_MODEL_NAME
+       apiKeySecretRef:
+         name: pig-credentials
+         key: model-api-key
+     ```
+</Steps>
 
 ## Authenticate to Bedrock with AWS credentials
 
 Use AWS Signature Version 4 (SigV4) to authenticate to Bedrock with the analyzer's AWS workload identity in place of an API key.
 
-1. Grant the analyzer's AWS identity access to the chosen Bedrock model. Storage permissions alone don't authorize inference.
+<Steps>
+  1. Grant the analyzer's AWS identity access to the chosen Bedrock model. Storage permissions alone don't authorize inference.
 
-2. Set the model fields under `spec.analysis` with `provider: aws_bedrock` and `authentication: aws_sigv4`, and omit `apiKeySecretRef`:
+  2. Set the model fields under `spec.analysis` with `provider: aws_bedrock` and `authentication: aws_sigv4`, and omit `apiKeySecretRef`:
 
-   ```yaml
-   model:
-     provider: aws_bedrock
-     authentication: aws_sigv4
-     baseURL: https://bedrock-mantle.REGION.api.aws/v1
-     name: REPLACE_MODEL_NAME
-   ```
+     ```yaml
+     model:
+       provider: aws_bedrock
+       authentication: aws_sigv4
+       baseURL: https://bedrock-mantle.REGION.api.aws/v1
+       name: REPLACE_MODEL_NAME
+     ```
 
-   The analyzer signs each request with the AWS credentials available to its pod, such as its workload identity. It takes the signing region from the `baseURL` hostname.
+     The analyzer signs each request with the AWS credentials available to its pod, such as its workload identity. It takes the signing region from the `baseURL` hostname.
+</Steps>
 
 ## Plan access, quota, and data handling
 

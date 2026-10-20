@@ -42,6 +42,8 @@ sample-questions:
   - Which metrics should I measure before scaling PIG trace analysis?
 ---
 
+import { Steps } from '@astrojs/starlight/components';
+
 ## Overview
 
 Use this guide to size the trace analyzer for production from a measured pilot, and to find the constraint to change when analysis falls behind. The analyzer uses compute to receive uploads, prepare traces, and run analysis. PostgreSQL stores ingestion and analysis state, the trace bucket stores session objects, and the repository mirror is disposable local storage.
@@ -52,22 +54,24 @@ Load depends on session size, agent activity, analysis duration, and model rate 
 
 In PIG 0.3.6, the supervisor runs one analyzer replica. It requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. The manual Helm example uses the same values. Treat them as a pilot starting point. They don't guarantee throughput.
 
-1. Review the requests and limits on the generated analyzer Deployment:
+<Steps>
+  1. Review the requests and limits on the generated analyzer Deployment:
 
-   ```bash
-   kubectl get deployment acme-analyzer --namespace pig \
-     -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
-   ```
+     ```bash
+     kubectl get deployment acme-analyzer --namespace pig \
+       -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
+     ```
 
-2. Run representative sessions from pilot hosts, and check current pod usage:
+  2. Run representative sessions from pilot hosts, and check current pod usage:
 
-   ```bash
-   kubectl top pods --namespace pig
-   ```
+     ```bash
+     kubectl top pods --namespace pig
+     ```
 
-   `kubectl top` requires your cluster's metrics service.
+     `kubectl top` requires your cluster's metrics service.
 
-3. In your existing monitoring system, record the measurements listed in [Measure each constraint](#measure-each-constraint) over the pilot.
+  3. In your existing monitoring system, record the measurements listed in [Measure each constraint](#measure-each-constraint) over the pilot.
+</Steps>
 
 ## Measure each constraint
 

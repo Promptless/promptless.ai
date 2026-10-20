@@ -237,19 +237,21 @@ Review the target release's database, storage, and schema requirements before ea
 
 Schedule a maintenance window, and stop the running analyzer completely before you run `helm upgrade`. Some migrations, such as one that drops or renames a column, fail while an old-schema analyzer is still running or reconnecting.
 
-1. Suspend GitOps reconciliation for the release, so it does not restart the old workload.
+<Steps>
+  1. Suspend GitOps reconciliation for the release, so it does not restart the old workload.
 
-2. Scale the analyzer Deployment to zero replicas:
+  2. Scale the analyzer Deployment to zero replicas:
 
-   ```bash
-   kubectl --namespace pig scale deployment pig-trace-analyzer --replicas=0
-   ```
+     ```bash
+     kubectl --namespace pig scale deployment pig-trace-analyzer --replicas=0
+     ```
 
-3. Confirm that every analyzer pod has terminated. Helm runs the pre-upgrade migration Job before it updates the Deployment. The Deployment's `Recreate` strategy alone does not stop the old analyzer from reaching the database during migration.
+  3. Confirm that every analyzer pod has terminated. Helm runs the pre-upgrade migration Job before it updates the Deployment. The Deployment's `Recreate` strategy alone does not stop the old analyzer from reaching the database during migration.
 
-4. Install the pinned target chart with your reviewed values, as in [Install the analyzer](#install-the-analyzer).
+  4. Install the pinned target chart with your reviewed values, as in [Install the analyzer](#install-the-analyzer).
 
-5. Repeat the [complete-session verification](#verify-a-complete-session).
+  5. Repeat the [complete-session verification](#verify-a-complete-session).
+</Steps>
 
 If migration fails, preserve the Job logs and inspect the schema. Follow the release's recovery procedure. Where the failure leaves the schema incompatible with the previous application release, use a supported forward repair or a coordinated restoration. Recover with a schema-compatible image rather than the previous one, which cannot run against the new schema. Rolling back a Deployment or Helm release does not reverse committed PostgreSQL changes.
 
@@ -257,28 +259,30 @@ If migration fails, preserve the Job logs and inspect the schema. Follow the rel
 
 Use this procedure when the existing Helm release is named `instruction-hub-worker`. Substitute your actual namespace, release, and Deployment names if they differ. Keep the registered deployment identity, database, native object-storage location, and host credentials.
 
-1. Suspend GitOps reconciliation and automated deployments for the existing release. Review the target release's schema requirements and recovery procedure, and verify your database and object-storage recovery points.
-2. Prepare the target values using the existing external Secret, ServiceAccount, CA ConfigMap, and TLS Secret. If the old release owns any of these resources, provision externally owned replacements before uninstalling it. Copy credential values through your secret-management workflow without printing them, update the values references, and verify workload-identity trust for the target ServiceAccount.
-3. Stop incoming analyzer traffic and scale every existing analyzer Deployment to zero. For the default old release, run:
+<Steps>
+  1. Suspend GitOps reconciliation and automated deployments for the existing release. Review the target release's schema requirements and recovery procedure, and verify your database and object-storage recovery points.
+  2. Prepare the target values using the existing external Secret, ServiceAccount, CA ConfigMap, and TLS Secret. If the old release owns any of these resources, provision externally owned replacements before uninstalling it. Copy credential values through your secret-management workflow without printing them, update the values references, and verify workload-identity trust for the target ServiceAccount.
+  3. Stop incoming analyzer traffic and scale every existing analyzer Deployment to zero. For the default old release, run:
 
-   ```bash
-   kubectl --namespace pig scale deployment instruction-hub-worker --replicas=0
-   kubectl --namespace pig wait --for=delete pod \
-     -l app.kubernetes.io/instance=instruction-hub-worker,pod-template-hash \
-     --timeout=5m
-   ```
+     ```bash
+     kubectl --namespace pig scale deployment instruction-hub-worker --replicas=0
+     kubectl --namespace pig wait --for=delete pod \
+       -l app.kubernetes.io/instance=instruction-hub-worker,pod-template-hash \
+       --timeout=5m
+     ```
 
-   Confirm all analyzer Deployment pods have terminated before proceeding. The selector excludes retained migration Job pods.
-4. Remove the old Helm release while retaining its history:
+     Confirm all analyzer Deployment pods have terminated before proceeding. The selector excludes retained migration Job pods.
+  4. Remove the old Helm release while retaining its history:
 
-   ```bash
-   helm uninstall instruction-hub-worker --namespace pig \
-     --keep-history --wait --timeout 20m
-   kubectl --namespace pig get deployment instruction-hub-worker --ignore-not-found
-   ```
+     ```bash
+     helm uninstall instruction-hub-worker --namespace pig \
+       --keep-history --wait --timeout 20m
+     kubectl --namespace pig get deployment instruction-hub-worker --ignore-not-found
+     ```
 
-   The Deployment lookup must return no object. Preserve the namespace, external credentials and identity resources, database, and object store.
-5. Follow [Render and install](#install-the-analyzer) with the reviewed target chart and values. Update any external route or DNS alias after the new ingress exists, then [verify a complete session](#verify-a-complete-session).
+     The Deployment lookup must return no object. Preserve the namespace, external credentials and identity resources, database, and object store.
+  5. Follow [Render and install](#install-the-analyzer) with the reviewed target chart and values. Update any external route or DNS alias after the new ingress exists, then [verify a complete session](#verify-a-complete-session).
+</Steps>
 
 If replacement fails, keep the analyzer stopped and repair forward with an image compatible with the database's current schema. Do not restart a schema-1 image after schema revision 2 has been applied.
 

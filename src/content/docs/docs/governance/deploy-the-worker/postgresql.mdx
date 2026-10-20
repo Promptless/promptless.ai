@@ -40,6 +40,8 @@ sample-questions:
   - What TLS mode does the PIG analyzer require for PostgreSQL?
 ---
 
+import { Steps } from '@astrojs/starlight/components';
+
 ## Overview
 
 PIG uses PostgreSQL for trace metadata, ingestion progress, analysis runs, and synchronization state. Before you install the analyzer, use this guide to prepare a dedicated database for each deployment. It covers connectivity, TLS verification, schema and data-access roles, and coordinated backups. Keep the database across application upgrades.
@@ -58,28 +60,30 @@ The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Fl
 
 ## Deliver the connection string
 
-1. Use your secret manager to deliver the connection string as key `postgres-dsn` in Secret `pig-credentials`, in namespace `pig`. URL-encode reserved characters in the username and password. For a database with a hostname-verifiable certificate:
+<Steps>
+  1. Use your secret manager to deliver the connection string as key `postgres-dsn` in Secret `pig-credentials`, in namespace `pig`. URL-encode reserved characters in the username and password. For a database with a hostname-verifiable certificate:
 
-   ```text
-   postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
-   ```
+     ```text
+     postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
+     ```
 
-   The analyzer rejects any `sslmode` other than `verify-full`, so fix certificate errors at the certificate. Cloud SQL CA modes and server certificates differ; follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance.
+     The analyzer rejects any `sslmode` other than `verify-full`, so fix certificate errors at the certificate. Cloud SQL CA modes and server certificates differ; follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance.
 
-2. Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle.
+  2. Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle.
 
-3. Reference the Secret and ConfigMap in `PIGDeployment`:
+  3. Reference the Secret and ConfigMap in `PIGDeployment`:
 
-   ```yaml
-   storage:
-     postgres:
-       dsnSecretRef:
-         name: pig-credentials
-         key: postgres-dsn
-       caConfigMapRef:
-         name: pig-postgres-ca
-         key: ca.pem
-   ```
+     ```yaml
+     storage:
+       postgres:
+         dsnSecretRef:
+           name: pig-credentials
+           key: postgres-dsn
+         caConfigMapRef:
+           name: pig-postgres-ca
+           key: ca.pem
+     ```
+</Steps>
 
 The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both the analyzer and migration containers. Omit `caConfigMapRef` only when the container's trust store already validates the certificate and the DSN doesn't reference this file.
 
@@ -102,27 +106,29 @@ When you supply only the application credential, that single role runs migration
 
 To set up two roles for a new database named `pig`:
 
-1. As a database administrator, connect to the `pig` database and create the roles and their grants:
+<Steps>
+  1. As a database administrator, connect to the `pig` database and create the roles and their grants:
 
-   ```sql
-   CREATE ROLE pig_migrator LOGIN;
-   CREATE ROLE pig_app LOGIN;
-   GRANT CONNECT ON DATABASE pig TO pig_migrator;
-   GRANT CONNECT, TEMPORARY ON DATABASE pig TO pig_app;
-   REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-   GRANT USAGE, CREATE ON SCHEMA public TO pig_migrator;
-   GRANT USAGE ON SCHEMA public TO pig_app;
-   ```
+     ```sql
+     CREATE ROLE pig_migrator LOGIN;
+     CREATE ROLE pig_app LOGIN;
+     GRANT CONNECT ON DATABASE pig TO pig_migrator;
+     GRANT CONNECT, TEMPORARY ON DATABASE pig TO pig_app;
+     REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+     GRANT USAGE, CREATE ON SCHEMA public TO pig_migrator;
+     GRANT USAGE ON SCHEMA public TO pig_app;
+     ```
 
-   Migrations grant the application role data access to the PIG tables. They don't create roles or transfer schema ownership. Keep the migration role out of the application role's memberships, and keep the application role's `TEMPORARY` permission.
+     Migrations grant the application role data access to the PIG tables. They don't create roles or transfer schema ownership. Keep the migration role out of the application role's memberships, and keep the application role's `TEMPORARY` permission.
 
-2. Set both roles' login passwords through your secret-management process.
+  2. Set both roles' login passwords through your secret-management process.
 
-3. Deliver the two connection strings: `pig-credentials/postgres-dsn` for `pig_app` and `pig-migration/postgres-dsn` for `pig_migrator`. Both use `sslmode=verify-full` and the same host and database. PIG confirms that both reach the same database before it migrates.
+  3. Deliver the two connection strings: `pig-credentials/postgres-dsn` for `pig_app` and `pig-migration/postgres-dsn` for `pig_migrator`. Both use `sslmode=verify-full` and the same host and database. PIG confirms that both reach the same database before it migrates.
 
-4. Pass the migration credential the way your installation path expects:
-   - For a manual installation, set the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references).
-   - For a supervisor-managed installation, set [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage).
+  4. Pass the migration credential the way your installation path expects:
+     - For a manual installation, set the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references).
+     - For a supervisor-managed installation, set [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage).
+</Steps>
 
 The migration credential reaches only the preflight and migration Jobs. The serving analyzer never receives it.
 
