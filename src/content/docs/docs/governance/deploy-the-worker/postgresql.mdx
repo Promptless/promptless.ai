@@ -3,7 +3,7 @@ title: PostgreSQL
 description: Prepare private PostgreSQL connectivity, schema permissions, TLS, and recovery for trace analysis.
 id: governance-deploy-the-worker-postgresql
 slug: docs/governance/deploy-the-worker/postgresql
-type: reference
+type: how-to
 tags:
   - agent-instructions
   - governance
@@ -20,7 +20,7 @@ audiences:
   - aud-agent-governance
 intent: prepare a dedicated PostgreSQL database for PIG with TLS verification, schema and data-access roles, and coordinated backups
 lifecycle: published
-last-updated: 2026-10-16
+last-updated: 2026-10-20
 applies-to:
   - promptless-for-agent-instructions
   - deploy:self-hosted
@@ -40,82 +40,110 @@ sample-questions:
   - What TLS mode does the PIG analyzer require for PostgreSQL?
 ---
 
-PIG uses PostgreSQL for trace metadata, ingestion progress, analysis runs, and synchronization state. Give each deployment a dedicated database and retain it across application upgrades.
+import { Steps } from '@astrojs/starlight/components';
 
-## Database requirements
+## Overview
 
-- Run PostgreSQL 15, 16, 17, or 18. The current release supports these major versions and blocks a database outside this range during its preflight check.
-- Grant a role permission to run the PIG schema migrations: ownership of the PIG tables and `CREATE` on the schema. The runtime analyzer needs data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. Use one role for both, or [separate the migration credential](#separate-the-migration-credential) so schema ownership stays distinct from application data access. Neither role needs cloud administrator permissions.
-- Allow the analyzer and migration Jobs to reach the database, normally on TCP 5432, over private networking.
-- Require TLS and validate the database certificate with the provider's CA bundle. Every analyzer and migration connection requires `sslmode=verify-full`.
-- Configure automated backups, recovery retention, availability, and deletion protection through your infrastructure workflow. The default configuration retains all trace data.
+PIG uses PostgreSQL for trace metadata, ingestion progress, analysis runs, and synchronization state. Before you install the analyzer, use this guide to prepare a dedicated database for each deployment. It covers connectivity, TLS verification, schema and data-access roles, and coordinated backups. Keep the database across application upgrades.
 
-The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Flexible Server, and Google Cloud SQL for PostgreSQL. A workload identity for the trace bucket does not automatically provide database authentication.
+## Check the database requirements
+
+The database must meet these requirements:
+
+- PostgreSQL 15, 16, 17, or 18. The release's preflight check blocks a database outside this range.
+- A role that can run the PIG schema migrations: ownership of the PIG tables and `CREATE` on the schema. The serving analyzer needs data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. One role can hold both, or you can [separate the migration credential](#separate-the-migration-credential) to keep schema ownership apart from data access. Neither role needs cloud administrator permissions.
+- Private network access from the analyzer and migration Jobs, normally on TCP 5432.
+- TLS, with the database certificate validated against your provider's CA bundle. Every analyzer and migration connection requires `sslmode=verify-full`.
+- Automated backups, recovery retention, availability, and deletion protection, configured through your infrastructure workflow. The default configuration retains all trace data.
+
+The cloud guides use Amazon RDS for PostgreSQL, Azure Database for PostgreSQL Flexible Server, and Google Cloud SQL for PostgreSQL. A workload identity for the trace bucket doesn't also authenticate the analyzer to the database.
 
 ## Deliver the connection string
 
-Use your secret manager to deliver `pig-credentials/postgres-dsn` in namespace `pig`. URL-encode reserved characters in the username and password. For a database with a hostname-verifiable certificate:
+<Steps>
+  1. Use your secret manager to deliver the connection string as key `postgres-dsn` in Secret `pig-credentials`, in namespace `pig`. URL-encode reserved characters in the username and password. For a database with a hostname-verifiable certificate:
 
-```text
-postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
-```
+     ```text
+     postgresql://pig_analyzer:REPLACE_PASSWORD@REPLACE_DATABASE_HOST:5432/pig?sslmode=verify-full&sslrootcert=/etc/pig/postgres-ca/ca.pem
+     ```
 
-Set the TLS mode for the actual certificate configuration. Cloud SQL CA modes and server certificates differ; follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance. Do not disable TLS to bypass a certificate error.
+     The analyzer rejects any `sslmode` other than `verify-full`, so fix certificate errors at the certificate. Cloud SQL CA modes and server certificates differ; follow the [Cloud SQL certificate guidance](https://cloud.google.com/sql/docs/postgres/authorize-ssl) for your instance.
 
-Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle. Reference it in `PIGDeployment`:
+  2. Create ConfigMap `pig-postgres-ca` with key `ca.pem` from your provider's CA bundle.
 
-```yaml
-storage:
-  postgres:
-    dsnSecretRef:
-      name: pig-credentials
-      key: postgres-dsn
-    caConfigMapRef:
-      name: pig-postgres-ca
-      key: ca.pem
-```
+  3. Reference the Secret and ConfigMap in `PIGDeployment`:
 
-The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both analyzer and migration containers. Omit `caConfigMapRef` only when the container's trust store already validates the certificate and the DSN does not reference this file.
+     ```yaml
+     storage:
+       postgres:
+         dsnSecretRef:
+           name: pig-credentials
+           key: postgres-dsn
+         caConfigMapRef:
+           name: pig-postgres-ca
+           key: ca.pem
+     ```
+</Steps>
 
-## Migrations and connection capacity
+The CA mounts at `/etc/pig/postgres-ca/ca.pem` in both the analyzer and migration containers. Omit `caConfigMapRef` only when the container's trust store already validates the certificate and the DSN doesn't reference this file.
 
-PIG coordinates schema migrations with application releases and applies them as a distinct step before the analyzer serves traffic. The analyzer validates the schema revision at startup and serves only when it matches; it runs no schema changes itself. Keep migration access available during upgrades.
+## Plan migrations and connection capacity
 
-Each analyzer replica opens a fixed-size connection pool, and the migration step opens its own connections. Reserve database connections for the analyzer replicas, the migration step, and your own operational access.
+PIG applies schema migrations as a distinct step of each application release, before the analyzer serves traffic. At startup, the analyzer checks the schema revision and serves only when it matches. The analyzer never changes the schema itself. Keep migration access available during upgrades.
 
-Terraform owns the database instance's version, size, networking, and backups. PIG owns its application schema. Do not use Terraform to manage PIG tables or run competing schema migrations.
+Each analyzer replica opens a connection pool of up to eight connections, and the migration step opens its own connections. Reserve database connections for the analyzer replicas, the migration step, and your own operational access.
+
+Terraform owns the database instance's version, size, networking, and backups. PIG owns its application schema. Don't manage PIG tables or run competing schema migrations from Terraform.
 
 ## Separate the migration credential
 
-Schema migrations and normal analyzer traffic can use one database role or two. Supply a second connection string to give the migration step its own credential:
+Schema migrations and normal analyzer traffic can use one database role or two. With two roles, the serving analyzer can't alter the schema:
 
-- The **migration role** owns the PIG tables and holds `CREATE` on the schema. The migration step uses it to apply schema changes.
-- The **application role** holds data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. The serving analyzer uses it and cannot alter the schema.
+- The migration role owns the PIG tables and holds `CREATE` on the schema. The migration step uses it to apply schema changes.
+- The application role holds data access on those tables: `SELECT`, `INSERT`, `UPDATE`, `DELETE`, and temporary tables. The serving analyzer uses it.
 
-Both credentials must reach the same database over `sslmode=verify-full`; PIG confirms this before it migrates. When you supply only the application credential, that single role runs migrations and serves traffic.
+When you supply only the application credential, that single role runs migrations and serves traffic.
 
-For a new database named `pig`, a database administrator can create both roles. Set their login passwords through your secret-management process, then connect to `pig` before running the schema grants:
+To set up two roles for a new database named `pig`:
 
-```sql
-CREATE ROLE pig_migrator LOGIN;
-CREATE ROLE pig_app LOGIN;
-GRANT CONNECT ON DATABASE pig TO pig_migrator;
-GRANT CONNECT, TEMPORARY ON DATABASE pig TO pig_app;
-REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-GRANT USAGE, CREATE ON SCHEMA public TO pig_migrator;
-GRANT USAGE ON SCHEMA public TO pig_app;
-```
+<Steps>
+  1. As a database administrator, connect to the `pig` database and create the roles and their grants:
 
-Migrations grant the application role data access to the PIG tables. They do not create roles or transfer schema ownership. Keep the migration role out of the application role's memberships, and keep the application role's `TEMPORARY` permission.
+     ```sql
+     CREATE ROLE pig_migrator LOGIN;
+     CREATE ROLE pig_app LOGIN;
+     GRANT CONNECT ON DATABASE pig TO pig_migrator;
+     GRANT CONNECT, TEMPORARY ON DATABASE pig TO pig_app;
+     REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+     GRANT USAGE, CREATE ON SCHEMA public TO pig_migrator;
+     GRANT USAGE ON SCHEMA public TO pig_app;
+     ```
 
-Deliver the two connection strings as `pig-credentials/postgres-dsn` for `pig_app` and `pig-migration/postgres-dsn` for `pig_migrator`, both with `sslmode=verify-full` and the same host and database.
+     Migrations grant the application role data access to the PIG tables. They don't create roles or transfer schema ownership. Keep the migration role out of the application role's memberships, and keep the application role's `TEMPORARY` permission.
 
-Deliver the migration credential the way your installation path expects: the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references) for a manual installation, or [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage) for a supervisor-managed one. The migration credential reaches only the preflight and migration Jobs, never the serving analyzer.
+  2. Set both roles' login passwords through your secret-management process.
+
+  3. Deliver the two connection strings: `pig-credentials/postgres-dsn` for `pig_app` and `pig-migration/postgres-dsn` for `pig_migrator`. Both use `sslmode=verify-full` and the same host and database. PIG confirms that both reach the same database before it migrates.
+
+  4. Pass the migration credential the way your installation path expects:
+
+     - For a manual installation, set the [`secrets.migrationPostgresDsnKey` chart value](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references).
+
+     - For a supervisor-managed installation, set [`spec.storage.postgres.migrationDsnSecretRef`](/docs/governance/deploy-the-worker/configuration-reference#storage).
+</Steps>
+
+The migration credential reaches only the preflight and migration Jobs. The serving analyzer never receives it.
 
 ## Back up and restore
 
-Set your recovery objectives before choosing backup retention. Record a recovery point that preserves database object references and their corresponding trace objects. Object lifecycle rules must retain data needed by your database backups.
+Set your recovery objectives before you choose backup retention. Record a recovery point that keeps database object references consistent with their trace objects. Set object lifecycle rules to retain the data your database backups need.
 
-Before a destructive migration, provide [recovery confirmation for the exact target release](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-recovery-before-a-destructive-migration). Your backup workflow supplies the recovery-point identifiers; PIG does not create cloud backups.
+Before a destructive migration, provide [recovery confirmation for the exact target release](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-recovery-before-a-destructive-migration). Your backup workflow creates the recovery points and supplies their identifiers; PIG doesn't create cloud backups.
 
-Rehearse restoration with an isolated database and trace location. Never run two active deployments against one database during recovery. Follow [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before restoring production or changing application versions.
+Rehearse restoration with an isolated database and trace location. Never run two active deployments against one database during recovery. Before you restore production or change application versions, follow [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+
+## See also
+
+- [Deployment configuration](/docs/governance/deploy-the-worker/configuration-reference#storage), for the `spec.storage.postgres` fields
+- [Manual Helm reference](/docs/governance/deploy-the-worker/manual-helm-reference#secret-references), for the worker chart's Secret references
+- [Object storage](/docs/governance/deploy-the-worker/object-storage#set-retention-and-recovery), for object retention that matches your database backups
