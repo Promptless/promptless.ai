@@ -48,14 +48,19 @@ const apiBase = getAgentScoreApiBase();
       <span class="pl-as-progress-count" data-progress="count"></span>
     </div>
     <div class="pl-as-progress-track"><span class="pl-as-progress-bar" data-progress="bar"></span></div>
-    <p class="pl-as-progress-detail" data-progress="detail"></p>
+    <div class="pl-as-progress-foot">
+      <p class="pl-as-progress-detail" data-progress="detail"></p>
+      <button type="button" class="pl-as-progress-cancel" data-progress-cancel>Cancel</button>
+    </div>
   </div>
 </form>
 
 <script>
   import { capture, gaCtaClick } from '@lib/agent-score/client/analytics';
   import { getProgressElements, pollScan, renderProgress, ScanRequestError, startScan } from '@lib/agent-score/client/scan';
-  import { normalizeTargetUrl, scorePagePath } from '@lib/agent-score/slug';
+  import { CUSTOM_PORT_REASON, normalizeTargetUrl, scorePagePath } from '@lib/agent-score/slug';
+
+  const CUSTOM_PORT_HELP = `${CUSTOM_PORT_REASON} Letting a public tool open any port a visitor names is too risky, so this is not something we plan to support. For a site on another port, <a href="/agent-score#run-it-yourself">run afdocs yourself</a> or <a href="mailto:help@gopromptless.ai">email us</a> and we can run the scan for you.`;
 
   document.querySelectorAll<HTMLFormElement>('form[data-as-scan-form]').forEach((form) => {
     const apiBase = form.dataset.apiBase ?? '';
@@ -65,13 +70,20 @@ const apiBase = getAgentScoreApiBase();
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     const status = form.querySelector<HTMLElement>('[data-as-form-status]');
     const progressRoot = form.querySelector<HTMLElement>('[data-as-progress]');
-    if (!input || !button || !status || !progressRoot) return;
+    const cancel = form.querySelector<HTMLButtonElement>('[data-progress-cancel]');
+    if (!input || !button || !status || !progressRoot || !cancel) return;
     const progress = getProgressElements(progressRoot);
     const label = button.textContent ?? '';
+    let active: { controller: AbortController; slug: string; startedAt: number } | null = null;
 
     const setStatus = (message: string, tone: 'neutral' | 'error' = 'neutral') => {
       status.textContent = message;
       status.dataset.tone = tone;
+    };
+    // The custom-port message is fixed copy with two links, so it is the one status rendered as HTML.
+    const setCustomPortStatus = () => {
+      status.innerHTML = CUSTOM_PORT_HELP;
+      status.dataset.tone = 'error';
     };
     const setBusy = (busy: boolean) => {
       button.disabled = busy;
@@ -79,12 +91,29 @@ const apiBase = getAgentScoreApiBase();
       button.textContent = busy ? 'Scanning…' : label;
     };
 
+    // Stops following the scan and frees the form. The scan finishes on the
+    // backend regardless, so a resubmit within 10 minutes opens the cached result.
+    cancel.addEventListener('click', () => {
+      if (!active) return;
+      capture('agent_score_scan_cancelled', {
+        slug: active.slug,
+        location,
+        elapsed_seconds: Math.round((Date.now() - active.startedAt) / 1000),
+      });
+      active.controller.abort();
+      active = null;
+      progressRoot.hidden = true;
+      setBusy(false);
+      input.focus();
+    });
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       setStatus('');
       const normalized = normalizeTargetUrl(input.value);
       if (!normalized.ok) {
-        setStatus(normalized.reason, 'error');
+        if (normalized.code === 'custom_port') setCustomPortStatus();
+        else setStatus(normalized.reason, 'error');
         input.focus();
         return;
       }
@@ -94,22 +123,28 @@ const apiBase = getAgentScoreApiBase();
 
       setBusy(true);
       const startedAt = Date.now();
+      const controller = new AbortController();
+      const { signal } = controller;
+      active = { controller, slug, startedAt };
       renderProgress(progress, { status: 'queued', progress: null, error: null, slug }, startedAt);
       try {
-        const created = await startScan(apiBase, url, honeypot?.value ?? '');
+        const created = await startScan(apiBase, url, honeypot?.value ?? '', signal);
         const target = scorePagePath(created.slug || slug);
         if (created.cached || created.status === 'complete') {
           renderProgress(progress, { status: 'complete', progress: null, error: null, slug: created.slug }, startedAt);
           window.location.assign(target);
           return;
         }
-        const final = await pollScan(apiBase, created.scanId, (update) => renderProgress(progress, update, startedAt));
+        const final = await pollScan(apiBase, created.scanId, (update) => renderProgress(progress, update, startedAt), signal);
+        active = null;
         if (final.status === 'complete') {
           window.location.assign(`${target}?scan=${encodeURIComponent(final.scanId)}`);
           return;
         }
         setBusy(false);
       } catch (error) {
+        if (signal.aborted) return;
+        active = null;
         progressRoot.hidden = true;
         setBusy(false);
         setStatus(error instanceof ScanRequestError ? error.message : 'Something went wrong. Please try again.', 'error');
