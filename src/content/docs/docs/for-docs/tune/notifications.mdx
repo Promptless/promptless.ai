@@ -51,17 +51,28 @@ sidebar:
   label: Notifications
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## Overview
+
+Promptless posts a notification to Slack or Microsoft Teams when a documentation suggestion is ready for review. Customize notifications to:
+
+- Send suggestion notifications to the channels your team watches, per doc collection.
+- Send escalations, the messages about configuration and access problems that block Promptless, to a separate channel or email address.
+- Change when Promptless notifies and what its messages contain.
 
 <Aside type="tip">
-  You can set up notifications by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless send suggestion notifications to my #docs-review channel." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+  You can also ask Promptless in Slack or Microsoft Teams to set up notifications for you. For example, "@Promptless send suggestion notifications to my #docs-review channel." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Promptless sends notifications to your team when documentation suggestions are ready for review. You can configure notification channels in your organization's `promptless.yaml` file using the policies section.
+## Before you start
 
-## Notification channel configuration
+- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration) and the Agent Knowledge Base.
+- [Slack](/docs/for-docs/connect/triggers/slack-messages#connect-slack) or [Microsoft Teams](/docs/for-docs/work-the-queue/reviewing-from-slack-and-teams#connect-microsoft-teams), connected to Promptless.
 
-Set the default notification channel and create trigger-specific overrides in your [Configuration page](https://app.gopromptless.ai/configuration):
+## Choose notification channels
+
+Set the default notification channel in the `policies` section on the [Configuration page](https://app.gopromptless.ai/configuration), and add rules that override it for specific doc collections or triggers:
 
 ```yaml
 policies:
@@ -78,10 +89,10 @@ policies:
           slack_channel: internal-docs-team
 ```
 
-Slack channel names don't need the `#` prefix. When Slack channels are renamed, Promptless automatically updates your configuration. `slack_channel` and `msteams_channel` are independent. Set either, both, or neither.
+Slack channel names don't need the `#` prefix. When a Slack channel is renamed, Promptless updates your configuration automatically. `slack_channel` and `msteams_channel` are independent, so a policy can notify Slack, Teams, both, or neither.
 
 <Aside type="note">
-  You can route notifications to any Slack channel by name, including a channel created after you connected Slack. Promptless resolves it automatically when you save the config that routes to it, with no reconnect or manual channel-list refresh. Mentioning `@Promptless` in a channel also makes that channel available in the dashboard channel pickers, independent of saving your routing config. Delivery to a private channel still requires that Promptless be manually invited to the channel, so run `/invite @Promptless`.
+  You can route notifications to any Slack channel by name, including one created after you connected Slack. Promptless resolves the channel when you save the configuration that routes to it. Mentioning `@Promptless` in a channel also adds that channel to the dashboard channel pickers. For a private channel, invite Promptless first by running `/invite @Promptless` in the channel.
 </Aside>
 
 ### Disable an inherited channel
@@ -102,29 +113,71 @@ policies:
           slack_channel: null
 ```
 
-Here, suggestions for `acme/internal-docs` send no Slack notification, while every other collection still notifies `docs-updates`. Channels resolve by field presence: `slack_channel: null` disables the inherited channel, and omitting the field entirely inherits it. `msteams_channel` works the same way, and the two channels are disabled independently.
+Here, suggestions for `acme/internal-docs` send no Slack notification, while every other collection still notifies `docs-updates`. Setting `slack_channel: null` disables the inherited channel, and omitting the field inherits it. `msteams_channel` works the same way, and you disable each channel independently.
+
+### Notify a Microsoft Teams channel
+
+To announce suggestions in a Teams channel, set `msteams_channel` in a policy. Teams channels are addressed by their conversation ID, a value that looks like `19:…@thread.tacv2`. Copy it from Teams. It's the same ID you use for an `msteams_listen` trigger.
+
+<Aside type="note">
+  The Promptless bot needs prior activity in a Teams channel before it can deliver notifications there. If Promptless can't reach the configured channel, it replies in the originating thread instead.
+</Aside>
 
 See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#policies) for the complete policies schema.
 
+## Escalation channel
+
+Escalations tell you about configuration and operational problems that block Promptless, separate from notifications about suggestions. For example, a test account lacks the feature flags to reach a screen Promptless needs to screenshot. Or a PR references a Jira issue that Promptless can't read, because the Jira integration isn't connected or the project isn't accessible.
+
+Route escalations to a dedicated channel on Slack, Teams, or both, with an `escalation` section next to `notification`. It takes the same channel fields, plus `email`:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
+      email:
+        - docs-team@example.com
+```
+
+Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack, and `msteams_channel` routes them to Teams, independently. When a platform has no escalation channel, Promptless sends escalations through your suggestion-notification routing on that platform.
+
+To also escalate by email, list one or more addresses under `escalation.email`. Promptless emails only the addresses you list, and only for escalations. Suggestion notifications don't use email. Email escalation requires email delivery for your deployment. It's on by default for Promptless-hosted deployments, and self-hosted deployments must configure it.
+
+Escalations cover blockers such as these:
+
+- A test or staging account that can't reach a needed screen
+- An unreachable or unconfigured integration
+- An expired or rejected credential
+- A missing permission
+- A configuration mismatch
+
+Every escalation opens with a bold banner line that names its kind:
+
+- `Blocked — one thing needed from you`: A blocker names the resource, quotes what Promptless saw, and notes any workaround it applied. It ends with a `Need:` line naming the one action that clears the blocker and a `Next:` line saying what happens once you answer.
+- `Heads up — worth a look`: A pointer names something Promptless noticed that you can act on. For example, a published page might link to an anchor that no longer exists. It ends with one `Suggested:` action.
+
 ## Notification preferences file
 
-Notification preferences are stored in the `doc_workflow/notification_preferences.md` file within your Agent Knowledge Base. This file is a lightweight scaffold where you add overrides and customizations. Promptless handles the underlying templates and message formatting automatically.
+Promptless reads the `doc_workflow/notification_preferences.md` file in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) whenever it writes a notification. Write your preferences there in plain language. Anything you leave out keeps Promptless's default behavior.
 
-<Aside type="note">
-  If your organization previously used a `notification_skill.md` file, Promptless automatically migrates it to the new `notification_preferences.md` format. Your customizations are preserved during migration.
-</Aside>
+To edit the file, open **Settings** in the Promptless dashboard, select **Agent Knowledge Base**, and open `doc_workflow/notification_preferences.md`.
 
 ### What you can customize
 
-The preferences file lets you override:
+The preferences file overrides these defaults:
 
-- **When to notify**: Control which events trigger notifications and when to skip them
-- **Delivery channels**: Set preferences for Slack vs. GitHub notifications
-- **Message format**: Define the fields, order, and links your suggestion notifications carry. This replaces Promptless's default message format rather than adding to it. A stated format is exhaustive, and Promptless adds nothing it doesn't list
+- **When to notify.** Which events send notifications, and when to skip them.
+- **Delivery.** Where a notification goes, such as a reply in the originating Slack thread or a comment on the GitHub pull request.
+- **Message format.** The fields, order, and links your suggestion notifications carry. A format you state replaces the default format completely.
 
 ### Example customizations
 
-Here are some common ways teams customize their notifications:
+Teams commonly add instructions like these:
 
 **Change notification timing:**
 
@@ -147,7 +200,7 @@ Use a casual, friendly tone in all notification messages.
 Include enough context that someone new to the thread can understand why Promptless is posting.
 ```
 
-An instruction that only sets tone, like this one, keeps the default fields and links while changing how the message reads.
+An instruction that only sets tone, like this one, keeps the default fields and links and changes how the message reads.
 
 **Define a message format:**
 
@@ -160,7 +213,7 @@ Assigned: <assignee>
 cc: <mentions>
 ```
 
-Stating a full format like this replaces the default message format. Promptless posts exactly the fields and links you list, in the order you list them, and adds nothing else. The example above lists no Knowledge Base link, so its notifications carry none. A stated format applies to suggestion notifications only. Escalations keep their own format, and a blocker always ends with what Promptless needs from you and what happens next. A mention rule you state applies to every message Promptless sends.
+A full format like this one replaces the default message format. Promptless posts exactly the fields and links you list, in the order you list them, and adds nothing else. The example lists no Knowledge Base link, so its notifications carry none. A stated format applies to suggestion notifications only. Escalations keep their own format, and a blocker always ends with what Promptless needs from you and what happens next. A mention rule you state applies to every message Promptless sends.
 
 When no format is stated, Promptless sends one or two sentences on what changed and why, followed by labeled link lines:
 
@@ -174,22 +227,17 @@ Recorded: <Knowledge Base file URL>
 Open question: <a decision only you can make>
 ```
 
-`Recorded:` repeats once per changed Knowledge Base file, and `Open question:` appears at most once, only when a decision rests with you alone. Promptless drops any line whose value doesn't exist for a given notification rather than leaving it empty. A requested mention still appears where one applies. This default format applies when the preferences file is absent or still holds only its scaffolded placeholder text. If the file exists but can't be read, Promptless holds the notification rather than sending one in the default format.
+`Recorded:` repeats once for each Knowledge Base file the work changed. `Open question:` appears at most once, and only when a decision rests with you alone. Promptless leaves out any line that has no value for a given notification. A requested mention still appears where one applies. This default format applies when the preferences file is absent or still holds only its placeholder text. If the file exists but can't be read, Promptless holds the notification and sends nothing in the default format.
 
 A message can name a ticket, issue, or merge-request key, such as `INC-879`. When Promptless knows that key's target, it renders the key as a link. The ticket that started the work is one such target. Any other key stays plain text. This linking adds no field, so it also applies when you've stated your own format.
 
 ## Slack notification features
 
-With the [Slack integration](/docs/for-docs/reference/integrations/slack) connected, Promptless sends rich notifications that include:
-
-- **Clickable preview cards**: Suggestion notifications appear as preview cards showing the title, status, description excerpt, trigger source, and file change stats. Click anywhere on the card to open the suggestion in Promptless.
-- **Interactive buttons**: Publish suggestions or open PRs for review directly from Slack. These actions appear within the preview card.
-- **Diff file attachments**: View the full diff of documentation changes in a thread reply
-- **Channel support**: Receive notifications in channels by name, not just by ID
+In Slack, Promptless posts each suggestion notification as a preview card. Select the card to open the suggestion in Promptless, or use its buttons to publish the suggestion or open its PR without leaving Slack. A thread reply attaches the full diff of the documentation changes.
 
 ### Suggestion preview cards
 
-Slack suggestion notifications include a preview card with:
+Each preview card shows:
 
 - **Title**: The suggestion title
 - **Status badge**: Shows "New suggestion" for first notifications or "Updated suggestion" for follow-ups
@@ -201,12 +249,14 @@ Slack suggestion notifications include a preview card with:
 <img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/slack-suggestion-preview-card-4fa69850.png" alt="Slack suggestion preview card showing the title, description, files with line change stats, Triggered by link, created timestamp, Pull Request status badge, and Publish and Review in Promptless buttons" />
 
 <Aside type="tip">
-  Promptless automatically detects protected branches in your documentation repository. When detected, Slack notifications show "Create PR" or "View PR" buttons instead of "Publish" to prevent merge errors.
+  When your documentation repository has a protected branch, Slack notifications show **Create PR** or **View PR** in place of **Publish**.
 </Aside>
 
 ### Direct messages to MCP submitters
 
-Someone may submit a documentation task through an [MCP editor](/docs/for-docs/connect/triggers/mcp) (Claude Code, Cursor, and similar). Promptless sends that submitter a Slack direct message when the resulting suggestion is ready for review. This direct-message behavior applies to Slack today; Microsoft Teams doesn't send submitter direct messages. If Promptless can't reach them by direct message, it posts to the configured notification channel instead. This happens when Slack isn't connected, the `users:read.email` permission is missing, or no Slack account matches the submitter's email. When the direct message succeeds, Promptless doesn't also post that suggestion to the channel.
+Someone can submit a documentation task through an [MCP editor](/docs/for-docs/connect/triggers/mcp), such as Claude Code or Cursor. Promptless then sends that person a Slack direct message when the suggestion is ready for review. The suggestion then isn't also posted to the channel. Direct messages to submitters are available in Slack only.
+
+If Promptless can't reach the submitter by direct message, it posts to the configured notification channel. That happens when Slack isn't connected, the `users:read.email` permission is missing, or no Slack account matches the submitter's email.
 
 <Aside type="note">
   Direct messages require the [Slack integration](/docs/for-docs/reference/integrations/slack) to be connected with the `users:read.email` permission. The submitter's Slack account email must also match their Promptless account email. That is the address shown as "Authorize as \{email}" at MCP authorization.
@@ -220,68 +270,31 @@ The digest shows how many of the collection's suggestions await review and how m
 
 Below the counts, the digest lists up to five open suggestions, assigned ones first and then newest first. Each row names its assignees and links to the suggestion's docs PR or its review page. When any suggestion is assigned, select **View assigned suggestions** to open the suggestions list in the dashboard. The list is filtered to that collection's open suggestions and their assignees. Select **View all suggestions** to open the full list.
 
-## Microsoft Teams notifications
+## Post status updates in Slack threads
 
-When the [Microsoft Teams integration](/docs/for-docs/reference/integrations/microsoft-teams) is connected, you can have Promptless announce documentation suggestions in a Teams channel by setting `msteams_channel` in your policies. Unlike Slack channels, which use a name, Teams channels are addressed by their conversation ID. That is a value that looks like `19:…@thread.tacv2`. Copy it from Teams; it's the same ID you use for an `msteams_listen` trigger.
+Promptless can post a follow-up in a suggestion's original Slack thread when the suggestion resolves. The people who asked for the update then see how it ended. To turn this on:
 
-`slack_channel` and `msteams_channel` are independent, so a single policy can notify Slack, Teams, or both.
+<Steps>
+  1. In the [Promptless dashboard](https://app.gopromptless.ai/), open **Settings** and select **Organization**.
 
-<Aside type="note">
-  The Promptless bot needs prior activity in a Teams channel before it can deliver notifications there. If Promptless can't reach the configured channel, it replies in the originating thread instead.
-</Aside>
+  2. Under **Suggestion Status Updates**, check **Post Slack follow-ups when suggestions are resolved**.
 
-## Escalation channel
+  3. Select **Save**.
+</Steps>
 
-Escalation channels notify you of configuration and operational problems. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, the test account lacks the feature flags to reach a screen Promptless needs to screenshot. Or a PR references a Jira issue that Promptless can't read. Either the Jira integration isn't connected, or it's connected but the project isn't accessible.
+Promptless then posts one reply in each relevant Slack thread when:
 
-The `escalation` section is a sibling to `notification`. It has the same shape. Route these messages to a dedicated channel on Slack, Teams, or both:
+- The docs PR merges.
+- The docs PR closes without merging.
+- Someone closes the suggestion in the dashboard.
+- Promptless archives the suggestion after a period of inactivity.
 
-```yaml
-policies:
-  default:
-    notification:
-      slack_channel: docs-updates
-      msteams_channel: "19:0a1b2c3d@thread.tacv2"
-    escalation:
-      slack_channel: docs-escalations
-      msteams_channel: "19:4e5f6a7b@thread.tacv2"
-      email:
-        - docs-team@example.com
-```
+Delivery is best-effort. The suggestion's status changes even if the Slack post fails.
 
-Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack; `msteams_channel` routes them to Teams. The two are independent, like in `notification`. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+## See also
 
-List one or more addresses under `escalation.email`. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
-
-Blockers flagged here include a test or staging account that can't reach a needed screen, or an unreachable or unconfigured integration. They also include an expired or rejected credential, a missing permission, or a configuration mismatch.
-
-Every escalation opens with a bold banner line, so you can tell its kind at a glance:
-
-- `Blocked — one thing needed from you`: A blocker names the resource, quotes what Promptless saw, and notes any workaround it applied. It ends with a `Need:` line naming the one action that clears the blocker and a `Next:` line saying what happens once you answer.
-- `Heads up — worth a look`: A pointer names something Promptless noticed that you can act on. For example, a published page might link to an anchor that no longer exists. It ends with one `Suggested:` action.
-
-## Suggestion status updates
-
-When enabled, Promptless posts a follow-up reply in each suggestion's original Slack thread when the suggestion resolves. This closes the loop for anyone who requested documentation updates via Slack.
-
-Promptless posts a follow-up when a suggestion reaches one of these final states:
-
-- **Merged**: The documentation PR was merged
-- **Closed**: The documentation PR was closed without merging
-- **Rejected**: The suggestion was rejected from the dashboard
-- **Archived**: The suggestion was auto-archived for staleness
-
-Delivery is best-effort. The lifecycle transition always completes, even if the Slack post fails.
-
-### Enable status updates
-
-1. In the [Promptless dashboard](https://app.gopromptless.ai/), open **Settings** and select **Organization**
-2. Find the **Suggestion Status Updates** section
-3. Check **Post Slack follow-ups when suggestions are resolved**
-4. Save your changes
-
-Once enabled, follow-ups appear in the Slack thread where Promptless originally announced each suggestion.
-
-## Get help
-
-Need help configuring your notification preferences? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai) and we'll help you set up the customizations that work best for your team.
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#policies), for every notification and escalation field
+- [Route and assign suggestions to the right people](/docs/for-docs/work-the-queue/assignment-and-routing), for who Promptless notifies and assigns
+- [Slack integration](/docs/for-docs/reference/integrations/slack), for Slack permissions and private channel access
+- [Microsoft Teams integration](/docs/for-docs/reference/integrations/microsoft-teams), for how Promptless accesses Teams channels
+- [Get support](/docs/for-docs/reference/getting-help), for help setting up notification preferences

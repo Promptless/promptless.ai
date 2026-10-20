@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import type { APIRoute, GetStaticPaths } from 'astro';
 import matter from 'gray-matter';
 import { routeEntries } from '@lib/content-order';
+import { inlineMdxPartials } from '@lib/mdx-partials';
 import type { RouteManifestEntry } from '@lib/route-manifest';
 import { resolveMarkdownLinks } from '@lib/markdown-links';
 
@@ -190,7 +191,8 @@ export const GET: APIRoute = async ({ props, site }) => {
 
   try {
     const raw = await readFile(filePath, 'utf8');
-    const body = normalizeMdxForMarkdown(matter(raw).content);
+    const content = inlineMdxPartials(matter(raw).content, { fromFile: filePath, root: process.cwd() });
+    const body = normalizeMdxForMarkdown(content);
 
     const lines: string[] = [`# ${entry.title}`];
     lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
