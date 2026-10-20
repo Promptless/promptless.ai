@@ -1,0 +1,244 @@
+---
+/**
+ * Score history chart, 7-day window by default. Each scan sits at its real
+ * timestamp with a marker; the last score carries flat to today, but only
+ * scans are hoverable. Under the chart: a scan-count caption for the selected
+ * range and the range buttons. Day ticks redraw at the reader's local
+ * midnights.
+ */
+import { gradeTone } from '@lib/agent-score/meta';
+import type { SiteResponse } from '@lib/agent-score/types';
+
+interface Props {
+  site: SiteResponse;
+  height?: number;
+  now?: Date;
+}
+
+const { site, height = 220, now = new Date() } = Astro.props;
+const { history } = site;
+const { grade } = site.latest;
+const DAY = 86_400_000;
+const W = 1000;
+const H = height;
+const PAD_TOP = 16;
+const PAD_BOTTOM = 8;
+
+// history should always include the latest scan; fall back to it if not.
+const scans = (history.length ? history : [site.latest])
+  .map((entry) => ({ t: new Date(entry.scannedAt).getTime(), score: entry.overall }))
+  .sort((a, b) => a.t - b.t);
+const end = now.getTime();
+const first = scans[0]?.t ?? end - DAY;
+
+const lowest = Math.min(...scans.map((scan) => scan.score));
+const yMin = Math.max(0, Math.floor((lowest - 10) / 10) * 10);
+const yMax = 100;
+const yOf = (score: number) => PAD_TOP + (1 - (score - yMin) / (yMax - yMin)) * (H - PAD_TOP - PAD_BOTTOM);
+const gridStep = yMax - yMin <= 20 ? 5 : yMax - yMin <= 50 ? 10 : 25;
+const gridScores = Array.from({ length: (yMax - yMin) / gridStep + 1 }, (_, i) => yMax - i * gridStep);
+
+const short = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const long = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const monthYear = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+const scanCount = (n: number) => `${n === 0 ? 'No' : n} ${n === 1 ? 'scan' : 'scans'}`;
+
+const RANGES = [
+  { key: '7d', label: '7D', days: 7 },
+  { key: '30d', label: '30D', days: 30 },
+  { key: '90d', label: '90D', days: 90 },
+  { key: 'all', label: 'All time', days: null },
+] as const;
+const defaultRange = '7d';
+
+const tickStep = (days: number) => (days <= 10 ? 1 : days <= 35 ? 5 : days <= 100 ? 14 : 30);
+
+/**
+ * UTC midnights inside the window, every `step` days counting back from the
+ * latest one. The browser redraws these at local midnights (script below).
+ */
+function dayTicks(start: number, days: number) {
+  const step = tickStep(days);
+  const ticks: Array<{ x: number; label: string }> = [];
+  for (let t = Math.floor(end / DAY) * DAY; t > start; t -= step * DAY) {
+    const x = (t - start) / (end - start);
+    if (x > 0.03) ticks.unshift({ x, label: short.format(new Date(t)) });
+  }
+  return ticks;
+}
+
+function build(days: number | null) {
+  const start = days === null ? Math.min(first, end - 7 * DAY) : end - days * DAY;
+  const xOf = (t: number) => ((t - start) / (end - start)) * W;
+  const before = [...scans].reverse().find((scan) => scan.t < start);
+  const inside = scans.filter((scan) => scan.t >= start);
+  const pts = [
+    ...(before ? [{ t: start, score: before.score, real: false }] : []),
+    ...inside.map((scan) => ({ ...scan, real: true })),
+  ];
+  const last = pts[pts.length - 1];
+  if (last) pts.push({ t: end, score: last.score, real: false });
+  const coords = pts.map((p) => [xOf(p.t), yOf(p.score)] as const);
+  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = coords.length ? `${line} L${coords[coords.length - 1][0].toFixed(1)},${H} L${coords[0][0].toFixed(1)},${H} Z` : '';
+
+  const ticks = dayTicks(start, (end - start) / DAY);
+  const markers = pts.filter((p) => p.real).map((p) => ({ x: xOf(p.t) / W, y: yOf(p.score) / H }));
+
+  // Hover snaps to real scans only; the carried-forward line to today isn't a measurement.
+  const hover = pts
+    .filter((p) => p.real)
+    .map((p) => ({ x: xOf(p.t) / W, y: yOf(p.score) / H, score: p.score, t: p.t, date: long.format(new Date(p.t)) }));
+  const caption =
+    days === null ? `${scanCount(scans.length)} since ${monthYear.format(new Date(first))}` : `${scanCount(inside.length)} in the last ${days} days`;
+  return { start, step: tickStep((end - start) / DAY), line, area, ticks, markers, hover, caption };
+}
+
+const panels = RANGES.map((range) => ({ ...range, ...build(range.days) }));
+const tone = gradeTone(grade);
+const gradientId = `pl-as-chart-fill-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<section class="pl-as-history" aria-labelledby="pl-as-history-title" data-tone={tone} data-score-chart>
+  {
+    panels.map((panel) => (
+      <div
+        class="pl-as-chart-panel"
+        data-range-panel={panel.key}
+        hidden={panel.key !== defaultRange}
+        data-points={JSON.stringify(panel.hover)}
+        data-start={panel.start}
+        data-end={end}
+        data-step={panel.step}
+      >
+        <div class="pl-as-chart-plot" style={`height:${H}px`}>
+          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" width="100%" height={H} aria-hidden="true">
+            <defs>
+              <linearGradient id={`${gradientId}-${panel.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" style="stop-color:var(--tone);stop-opacity:0.22" />
+                <stop offset="100%" style="stop-color:var(--tone);stop-opacity:0" />
+              </linearGradient>
+            </defs>
+            {gridScores.map((score) => (
+              <line class="pl-as-chart-grid" x1="0" x2={W} y1={yOf(score)} y2={yOf(score)} vector-effect="non-scaling-stroke" />
+            ))}
+            <path d={panel.area} fill={`url(#${gradientId}-${panel.key})`} />
+            <path class="pl-as-chart-line" d={panel.line} fill="none" vector-effect="non-scaling-stroke" />
+          </svg>
+          {gridScores.map((score) => (
+            <span class="pl-as-chart-ylabel" style={`top:${(yOf(score) / H) * 100}%`}>
+              {Math.round(score)}
+            </span>
+          ))}
+          {panel.markers.map((m) => (
+            <span class="pl-as-chart-marker" style={`left:${m.x * 100}%;top:${m.y * 100}%`} />
+          ))}
+          <span class="pl-as-chart-cursor" hidden />
+          <span class="pl-as-chart-dot" hidden />
+          <span class="pl-as-chart-tip" hidden />
+        </div>
+        <div class="pl-as-chart-ticks">
+          {panel.ticks.map((tick) => (
+            <span style={`left:${tick.x * 100}%`} data-edge={tick.x > 0.96 ? 'right' : undefined}>
+              {tick.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    ))
+  }
+  <div class="pl-as-chart-foot">
+    <div>
+      <h2 id="pl-as-history-title">Score history</h2>
+      {
+        panels.map((panel) => (
+          <p class="pl-as-muted" data-range-caption={panel.key} hidden={panel.key !== defaultRange}>
+            {panel.caption}
+          </p>
+        ))
+      }
+    </div>
+    <div class="pl-as-chart-ranges" role="group" aria-label="Time range">
+      {
+        RANGES.map((range) => (
+          <button type="button" data-range={range.key} aria-pressed={range.key === defaultRange ? 'true' : 'false'}>
+            {range.label}
+          </button>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<script>
+  type Point = { x: number; y: number; score: number; t: number; date: string };
+
+  const shortDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const longDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+  /** Redraw day ticks at the reader's local midnights so a scan lands on the day they'd call it. */
+  function localTicks(panel: HTMLElement) {
+    const start = Number(panel.dataset.start);
+    const end = Number(panel.dataset.end);
+    const step = Number(panel.dataset.step) || 1;
+    const row = panel.querySelector<HTMLElement>('.pl-as-chart-ticks');
+    if (!row || !(end > start)) return;
+    const midnight = new Date(end);
+    midnight.setHours(0, 0, 0, 0);
+    const spans: HTMLSpanElement[] = [];
+    for (const d = midnight; d.getTime() > start; d.setDate(d.getDate() - step)) {
+      const x = (d.getTime() - start) / (end - start);
+      if (x <= 0.03) continue;
+      const span = document.createElement('span');
+      span.style.left = `${x * 100}%`;
+      if (x > 0.96) span.dataset.edge = 'right';
+      span.textContent = shortDate.format(d);
+      spans.unshift(span);
+    }
+    row.replaceChildren(...spans);
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-score-chart]').forEach((chart) => {
+    chart.querySelectorAll<HTMLButtonElement>('[data-range]').forEach((button) => {
+      button.addEventListener('click', () => {
+        chart.querySelectorAll<HTMLButtonElement>('[data-range]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+        chart.querySelectorAll<HTMLElement>('[data-range-panel]').forEach((panel) => {
+          panel.hidden = panel.dataset.rangePanel !== button.dataset.range;
+        });
+        chart.querySelectorAll<HTMLElement>('[data-range-caption]').forEach((caption) => {
+          caption.hidden = caption.dataset.rangeCaption !== button.dataset.range;
+        });
+      });
+    });
+
+    chart.querySelectorAll<HTMLElement>('[data-range-panel]').forEach((panel) => {
+      localTicks(panel);
+      const points = (JSON.parse(panel.dataset.points ?? '[]') as Point[]).map((p) => ({
+        ...p,
+        date: longDate.format(new Date(p.t)),
+      }));
+      const plot = panel.querySelector<HTMLElement>('.pl-as-chart-plot');
+      const cursor = panel.querySelector<HTMLElement>('.pl-as-chart-cursor');
+      const dot = panel.querySelector<HTMLElement>('.pl-as-chart-dot');
+      const tip = panel.querySelector<HTMLElement>('.pl-as-chart-tip');
+      if (!plot || !cursor || !dot || !tip || !points.length) return;
+
+      plot.addEventListener('pointermove', (event) => {
+        const rect = plot.getBoundingClientRect();
+        const fx = (event.clientX - rect.left) / rect.width;
+        const nearest = points.reduce((best, p) => (Math.abs(p.x - fx) < Math.abs(best.x - fx) ? p : best), points[0]);
+        const left = `${nearest.x * 100}%`;
+        cursor.style.left = left;
+        dot.style.left = left;
+        dot.style.top = `${nearest.y * 100}%`;
+        tip.style.left = left;
+        tip.dataset.edge = nearest.x > 0.85 ? 'right' : nearest.x < 0.15 ? 'left' : '';
+        tip.innerHTML = `<b>${nearest.score}</b> ${nearest.date}`;
+        cursor.hidden = dot.hidden = tip.hidden = false;
+      });
+      plot.addEventListener('pointerleave', () => {
+        cursor.hidden = dot.hidden = tip.hidden = true;
+      });
+    });
+  });
+</script>

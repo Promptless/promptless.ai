@@ -1,152 +1,252 @@
 ---
 title: Jira
 description: Start a Promptless session from a Jira ticket and have Promptless reply on the ticket with the documentation PR linked.
+id: for-docs-connect-triggers-jira
 slug: docs/for-docs/connect/triggers/jira
-type: reference
+type: how-to
 tags:
   - connect
   - triggers
   - reference
+keywords:
+  - Jira trigger
+  - jira_mention
+  - jira_label_added
+  - jira_status_change
+  - Atlassian service account
+  - is_done
+language: en
+audiences:
+  - aud-enterprise-docs-team
+  - aud-scaleup-docs-team
+intent: start Promptless sessions from Jira tickets by label, mention, assignment, or configured issue triggers, and get replies on the ticket
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:jira
+concepts:
+  - trigger
+  - jira
+prerequisites:
+  - for-docs-reference-integrations-atlassian
+related-pages:
+  - for-docs-connect-context-sources-jira
+  - for-docs-connect-triggers
+  - for-docs-reference-configuration-reference
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I start a Promptless session from a Jira ticket?
+  - Why doesn't mentioning or assigning Promptless in Jira do anything?
+  - How do I trigger Promptless when a Jira issue moves to a done status?
 sidebar:
   hidden: false
   order: 13.5
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+import AtlassianConnect from '@partials/integrations/atlassian-connect.mdx';
 
-A Jira ticket can start a Promptless session, and Promptless replies on the ticket when the work is done. This is separate from using [Jira as a read-only context source](/docs/for-docs/connect/context-sources/jira). That capability lets Promptless read tickets for background but never acts on them or writes back. Creating a Jira issue on request is a separate capability, documented on the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request) page.
+## Overview
+
+Start a Promptless session from a Jira ticket. Promptless reports back on the ticket, as [Reply on the ticket](#reply-on-the-ticket) describes. Use Jira triggers when your team plans and tracks documentation work in Jira.
+
+A ticket starts a session in one of four ways:
+
+| Path               | What starts a session                                                                                     | What it needs                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Label              | Adding a label whose first token is `promptless`, such as `promptless` or `promptless-urgent`.            | Atlassian connected.                    |
+| Mention            | @mentioning the account Promptless acts as in a comment.                                                  | An attached Atlassian service account.  |
+| Assignment         | Assigning the issue to the account Promptless acts as.                                                    | An attached Atlassian service account.  |
+| Configured trigger | Creating an issue, adding a label, or changing an issue's status, when it matches a Jira trigger you add. | Atlassian connected and a Jira trigger. |
+
+The label, mention, and assignment paths are built in and need no YAML configuration. A configured trigger starts sessions whether or not a service account is attached.
+
+Two related capabilities work differently. [Jira as a context source](/docs/for-docs/connect/context-sources/jira) lets Promptless read tickets for background without acting on them or writing back. To have Promptless create a Jira issue, see [Create a Jira issue on request](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request).
+
+## Before you start
+
+- Atlassian connected to Promptless. Every path needs it. If it isn't connected yet, [connect it](#connect-atlassian) first.
+- For the mention and assignment paths, an [attached Atlassian service account](#attach-a-service-account-for-mentions-and-assignments).
+- To add configured Jira triggers, an [organization admin](/docs/for-docs/reference/configuration-reference#permissions-and-conflict-detection) role.
+
+## Connect Atlassian
+
+Skip this section if Atlassian is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<AtlassianConnect />
+
+Connecting Atlassian turns on the built-in label path and lets you add configured Jira triggers.
 
 ## How a Jira ticket starts a session
 
-Four paths start a session from a ticket. Three are built in and need no YAML to configure; the fourth is a Jira trigger you configure.
+To start a session from a ticket on a built-in path, do one of the following:
 
-- **The built-in label path**: Adding a label whose first token is `promptless` (for example `promptless` or `promptless-urgent`). This path is always on whenever Atlassian is connected. These `promptless`-prefixed labels are reserved for this built-in path and never route to a configured Jira trigger.
-- **The mention path**: @mentioning the account Promptless acts as in a comment. The mention is matched by the account's ID, not the literal handle text. An @mention picked from Jira's autocomplete inserts the account's display name, so no literal `@promptless` string appears in the comment. This path requires an attached Atlassian service account (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)).
-- **The assignment path**: Assigning an issue to the account Promptless acts as. This path requires an attached Atlassian service account (see [Attach a service account for mentions and assignments](#attach-a-service-account-for-mentions-and-assignments)).
-- **The configured-trigger path**: Creating an issue, adding a label, or changing an issue's status, per your configured triggers. It is unaffected by the service account and starts sessions whether or not one is attached (see [Configuration](#configuration)).
+- Add a label whose first token is `promptless`. The label path works whenever Atlassian is connected.
+- With a service account attached, @mention the account Promptless acts as in a comment. Promptless matches the mention by the account's ID. A mention picked from Jira's autocomplete shows the account's display name, so the comment needs no literal `@promptless` text.
+- With a service account attached, assign the issue to the account Promptless acts as.
 
-The built-in label path needs no [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account): it starts a session whenever Atlassian is connected. The mention path and the assignment path require an attached service account. Without one, a mention or assignment delivery is dropped and no session starts.
+Without a service account, a mention or an assignment starts no session.
 
-On any built-in path, Promptless comments on the ticket and flags it for follow-up if it goes unanswered. This is the same way it tracks an unanswered Slack thread. (The label, mention, and assignment paths are subtypes of one built-in `jira_mention` trigger and route through a single `jira_mention` key. A policy rule therefore targets `jira_mention` rather than a per-path key.)
+Labels whose first token is `promptless` are reserved for the built-in label path, and they never route to a configured Jira trigger.
 
-A single delivery can carry more than one built-in path. Three rules resolve that:
+What Promptless posts on the ticket depends on how the session started. See [Reply on the ticket](#reply-on-the-ticket).
 
-- At most one built-in session dispatches per delivery: the highest-precedence surviving path.
-- A `promptless` label still starts a session even when the same delivery's mention or assignment was dropped. The label path is never dropped merely because another path on the delivery was.
-- With a service account attached, a delivery that both assigns the issue and adds a `promptless` label dispatches as the assignment, since assignment outranks the label.
+The three built-in paths share one built-in trigger, `jira_mention`. To set publishing or notifications for them, target `jira_mention` in a policy rule. Each path has no key of its own.
 
-## Reply on the ticket
+When one Jira update carries more than one built-in path, Promptless starts at most one session, for the highest-precedence path that applies:
 
-Promptless answers on the ticket and attaches the documentation PR as a remote link (a linked reference on the Jira issue). The link is deduplicated by a stable identifier, so re-posting never adds a duplicate link.
+- A `promptless` label starts a session even when a mention or assignment on the same update starts none.
+- Assignment outranks the label. With a service account attached, an update that both assigns the issue and adds a `promptless` label starts the session as the assignment.
 
-## How a configured trigger activates
+### Reply on the ticket
 
-Each trigger type names the edge an issue crosses: the moment it activates on. That moment is the issue being created, a label being added, or the status changing. A trigger activates once per crossing, never on a later delivery about an issue that still matches. Editing the description of a `DOCS` issue does not re-activate a new-issue trigger. Commenting on an issue that already carries `needs-docs` does not re-activate a label trigger.
+What Promptless posts on the ticket depends on how the session started:
 
-Creating an issue crosses every edge at once: the issue comes into existence with its labels and its status. A new `DOCS` issue filed with `needs-docs` matches both the new-issue trigger and the label trigger, and dispatches once tagged with both keys. The keys are the trigger names you give in the `triggers:` map (for example `jira-new-docs-issue` and `jira-needs-docs-label`).
+| How the session started                      | What Promptless posts on the ticket                                                                                                                                                                |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mentioning or assigning Promptless           | An acknowledgement, progress updates when there's something useful to share, and an answer, even when no documentation change is needed. A ticket left without an answer is flagged for follow-up. |
+| A `promptless` label or a configured trigger | A comment with the result when the work produces a suggestion, or a blocker you can act on. Promptless posts no progress updates, and no comment when there's no documentation change.             |
 
-Match semantics follow the same rules as other triggers: within one clause the fields are ANDed; multiple clauses are ORed. All Jira fields match case-insensitively.
+A result comment links the suggestion and the documentation PR. Promptless also attaches the documentation PR as a remote link, a linked reference on the Jira issue. Re-posting never adds a duplicate link. Your configured Slack or Teams notification and `escalation` channels receive their usual messages as well.
 
-Multi-value matches compare each value on its own. A second listed label activates the trigger even when the issue already holds the first. A move between two listed statuses activates it again.
+### Which account Promptless uses in Jira
 
-## Configuration
+With an [Atlassian service account](#attach-a-service-account-for-mentions-and-assignments) attached, Promptless reads tickets, comments, adds remote links, and creates issues as the service account. If Atlassian refuses the service account, Promptless reports the failure and doesn't fall back to the person who connected Atlassian.
 
-<Aside type="note">
-  Adding, renaming, or modifying a Jira trigger requires Jira to be connected through Atlassian first. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
-</Aside>
+Without a service account, Promptless reads Jira as the person who connected Atlassian. Its comments, remote links, and new issues would appear under that person's name. Promptless makes each of those writes only when your [Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) or the current request explicitly permits that action:
 
-Each Jira trigger type names the moment it activates on: an issue created, a label added, or a status change. To add one in the dashboard:
+- Permission covers only the action and scope it names. A Knowledge Base note that says Promptless may comment on `DOCS` tickets permits comments there, not remote links or new issues.
+- Permission given in one request applies to that request only.
+- A configured trigger, a notification setting, or a request for documentation work doesn't grant permission.
 
-1. On the **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add an automatic or scheduled trigger**.
-2. Under **Tasks & tickets**, select **A new Jira issue**, **A Jira label**, or **A Jira status**.
-3. Fill in the fields for that type:
-   - For **A new Jira issue**, pick the projects under **Which projects?**. This field is required.
-   - For **A Jira label**, add the labels under **Which labels?**. To limit the trigger to some projects, pick them under **Which projects?**.
-   - For **A Jira status**, add the statuses under **Which statuses?**, or turn on **Any status Jira counts as done**. To limit the trigger to some projects, pick them under **Which projects?**.
-4. To give Promptless standing instructions for every run, write them under **Anything Promptless should always do for these issues?**. See [Instructions and output](#instructions-and-output).
-5. Select **Add trigger**.
+Without permission for these extra actions, Promptless still does the documentation work. It skips writing to Jira, records why, and delivers the result through your other notification channels.
 
-In YAML mode, each Jira trigger is an entry in the `triggers` section of `promptless.yaml`:
+## Add a configured Jira trigger
 
-```yaml
-triggers:
-  jira-new-docs-issue:
-    trigger_type: jira_new_issue
-    match:
-      - project_key: [DOCS]
-  jira-needs-docs-label:
-    trigger_type: jira_label_added
-    match:
-      - new_label: [needs-docs]
-  jira-ready-for-docs:
-    trigger_type: jira_status_change
-    match:
-      - is_done: true
-      - new_status: ["In Review", "Pull Request"]
-```
+Add a configured Jira trigger to start sessions when an issue is created, gets a label, or changes status in the projects you choose.
 
-The trigger map keys (`jira-new-docs-issue`) are yours to name; the `trigger_type` values (`jira_new_issue`) are the fixed type identifiers.
+<Steps>
+  1. On the **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add an automatic or scheduled trigger**.
 
-Fields inside a clause (each `-` item under `match:`) are ANDed and clauses are ORed. So `jira-ready-for-docs` above activates when an issue reaches any done status, and separately when it reaches `In Review` or `Pull Request`.
+  2. Under **Tasks & tickets**, select **A new Jira issue**, **A Jira label**, or **A Jira status**.
+
+  3. Fill in the fields for that type:
+     - For **A new Jira issue**, pick the projects under **Which projects?**. This field is required.
+     - For **A Jira label**, add the labels under **Which labels?**. To limit the trigger to some projects, pick them under **Which projects?**.
+     - For **A Jira status**, add the statuses under **Which statuses?**, or turn on **Any status Jira counts as done**. To limit the trigger to some projects, pick them under **Which projects?**.
+
+  4. Optional. To give Promptless standing instructions for every run, write them under **Anything Promptless should always do for these issues?**. See [Instructions and output](#instructions-and-output).
+
+  5. Select **Add trigger**.
+</Steps>
+
+To add the triggers in YAML instead:
+
+<Steps>
+  1. On the [Configuration page](https://app.gopromptless.ai/configuration), switch to **YAML** mode.
+
+  2. In the `triggers` section, add one or more Jira triggers. Each `trigger_type` names the moment it activates on:
+
+     ```yaml
+     triggers:
+       jira-new-docs-issue:
+         trigger_type: jira_new_issue
+         match:
+           - project_key: [DOCS]
+       jira-needs-docs-label:
+         trigger_type: jira_label_added
+         match:
+           - new_label: [needs-docs]
+       jira-ready-for-docs:
+         trigger_type: jira_status_change
+         match:
+           - is_done: true
+           - new_status: ["In Review", "Pull Request"]
+     ```
+
+  3. Select **Save**.
+</Steps>
+
+The trigger map keys, such as `jira-new-docs-issue`, are yours to name. The `trigger_type` values, such as `jira_new_issue`, are fixed type identifiers. See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for the full schema.
+
+### How a configured trigger activates
+
+Each trigger type names the edge an issue crosses: the issue being created, a label being added, or the status changing. A trigger activates once per crossing. A later update about an issue that still matches doesn't activate it again. For example, editing the description of a `DOCS` issue doesn't re-activate a new-issue trigger. Commenting on an issue that already carries `needs-docs` doesn't re-activate a label trigger.
+
+Creating an issue crosses every edge at once, because the issue arrives with its labels and its status. A new `DOCS` issue filed with `needs-docs` matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless starts one session tagged with both keys.
+
+Within one `match` clause (each `-` item), the fields are ANDed. Separate clauses are ORed. So `jira-ready-for-docs` above activates when an issue reaches any done status, and separately when it reaches `In Review` or `Pull Request`. All Jira fields match case-insensitively.
+
+Multi-value matches compare each value on its own. A second listed label activates the trigger even when the issue already holds the first, and a move between two listed statuses activates it again.
 
 ### Scoping to projects
 
-`project_key` is required on `jira_new_issue`, which would otherwise activate on every issue created anywhere in the site. It is optional on the other two types, and worth setting unless you mean the whole site. As written, `jira-needs-docs-label` above matches a `needs-docs` label in any project. A `jira_status_change` clause may hold `project_key` alone, which matches any status movement within those projects.
+`project_key` is required on `jira_new_issue`, which would otherwise activate on every issue created anywhere in the site. It's optional on the other two types. Set it unless you mean the whole site: as written, `jira-needs-docs-label` above matches a `needs-docs` label in any project. A `jira_status_change` clause can hold `project_key` alone, which matches any status change within those projects.
 
 ### Labels
 
-Labels whose first token is `promptless` are reserved for the built-in `jira_mention` path (see [How a Jira ticket starts a session](#how-a-jira-ticket-starts-a-session)). That path claims them before any configured trigger is consulted. A `new_label` listing one never matches, so name the label something else (`needs-docs`). A label that merely contains the word (`docs-promptless`, `not-promptless`) is not reserved and is free to use.
+A `new_label` that lists a label whose first token is `promptless` never matches, because the built-in label path claims those labels first. Name the label something else, such as `needs-docs`. A label that only contains the word, such as `docs-promptless` or `not-promptless`, isn't reserved.
 
 ### Matching done statuses
 
-`new_status` names statuses one by one, which is brittle. Status names are per-project, anyone can rename them, and a done-like status added later is silently uncovered. `is_done: true` matches Jira's done category instead, which is stable across projects and renames. One clause covers every done status a site has, whatever it is called.
+`new_status` names statuses one by one. Status names differ by project, anyone can rename them, and a done status added later isn't covered. `is_done: true` matches Jira's done status category, which stays stable across projects and renames, so one clause covers every done status your site has.
 
-`is_done` accepts only `true`. There is no way to say "moved to something not done." That would match ordinary in-progress churn, and the statuses worth acting on are better named with `new_status`.
+`is_done` accepts only `true`. To act on statuses outside the done category, name them with `new_status`.
 
 <Aside type="note">
-  An issue moved between two done statuses (`Shipped` to `Closed`) activates an `is_done: true` trigger a second time. This is expected, not a bug. The move is a second status change into a done status, so it is a second crossing of the edge the trigger names.
+  An issue moved between two done statuses, such as `Shipped` to `Closed`, activates an `is_done: true` trigger again. The move is a second status change into a done status, so it crosses the trigger's edge a second time.
 </Aside>
 
 ### Instructions and output
 
-`instructions` is optional on all three types (it is required on schedule triggers) and carries the same meaning: standing work handed to Promptless on each run. It is how a label carries a standing job: apply the label and Promptless runs those instructions against the issue. Omit it to work from the issue alone; a present-but-blank value is invalid.
+`instructions` is optional on all three Jira trigger types. It holds standing work that Promptless runs each time the trigger activates. Use it to give a label a standing job: apply the label, and Promptless runs those instructions against the issue. Omit `instructions` to work from the issue alone. A blank value is invalid.
 
 ```yaml
 triggers:
-  jira-docs-plan:
+  jira-api-docs:
     trigger_type: jira_label_added
-    instructions: Scope the docs impact, do not publish.
+    instructions: Update the API reference for the change described in the issue.
     match:
-      - new_label: [docs-plan]
+      - new_label: [api-docs]
         project_key: [DOCS]
 ```
 
-A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it. That is a docs suggestion and PR, plus the usual Slack or Teams notification. Like the built-in `jira_mention` trigger, Promptless comments on the ticket and flags it for follow-up if it goes unanswered (see [Reply on the ticket](#reply-on-the-ticket)). A blocker or escalation from the run also comments on the ticket and notifies any configured `escalation` channel.
-
-See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for the full schema.
+A Jira trigger's output goes wherever the run's `escalation` and publishing settings send it. That's a docs suggestion and PR, plus the usual Slack or Teams notification. Promptless also comments on the ticket when the run produces a suggestion or hits a blocker you can act on. A run with no documentation change posts nothing on the ticket. See [Reply on the ticket](#reply-on-the-ticket).
 
 ## Attach a service account for mentions and assignments
 
-The mention path and the assignment path require an attached Atlassian service account. Without one, @mentioning or assigning the connecting account simply does nothing. The delivery is dropped and no session starts. Promptless does not reply on the ticket and does not notify you in Slack or Teams. Check the Atlassian integration card to confirm whether a service account is attached. Only the built-in label path and configured triggers start sessions, and they read the ticket as, and comment as, the connecting account.
+Attach a dedicated Atlassian service account to give Promptless its own identity in Jira. Promptless then reads and writes Jira as that account, and the mention and assignment paths start sessions.
 
-Attaching a dedicated Atlassian service account gives Promptless its own bot identity: it posts as that bot, and the mention and assignment paths are active. Either way, Promptless ignores its own activity. Self-echo suppression keys on the connecting account when no service account is attached, and on the service account when one is.
+Without a service account, the account Promptless acts as is the real person who connected Atlassian. Promptless can't tell ordinary ticket traffic for that colleague from a request for Promptless, so mentions and assignments do nothing. Promptless drops the update, doesn't reply on the ticket, and doesn't notify you in Slack or Teams. Only the label path and configured triggers start sessions. They read the ticket as the connecting account and write to Jira only with permission. See [Which account Promptless uses in Jira](#which-account-promptless-uses-in-jira).
 
-Gating the mention and assignment paths behind a service account is deliberate. Without a bot identity, the account Promptless acts as is a real person (the connecting account). Ordinary ticket traffic addressed to that colleague cannot be told apart from a request to summon Promptless. Requiring a service account keeps anyone from making Promptless act as the connecting account without the team opting in.
+Before you attach one, an Atlassian admin creates the service account's credentials with the scopes it needs. See [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account).
 
-Attach the service account from the Atlassian integration card by entering its **Client ID** and **Client secret**, then clicking **Attach**. See the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide for the full setup.
+<Steps>
+  1. On the [Integrations page](https://app.gopromptless.ai/integrations), go to the Atlassian card.
 
-<Aside type="note">
-  Reading Jira for context is a separate, read-only capability. See the [Jira context source](/docs/for-docs/connect/context-sources/jira) page.
-</Aside>
+  2. Enter the service account's **Client ID** and **Client secret**.
+
+  3. Select **Attach**.
+</Steps>
+
+The card then lists the attached account's details. A **Not working** or **Unconfirmed** badge on the service account section flags a problem to fix.
+
+Promptless ignores its own activity in Jira. It recognizes its own updates by the service account when one is attached, and by the connecting account otherwise.
 
 ## Example
 
-A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected. It then comments on the ticket with that scope, the same way the built-in paths comment on the ticket. Because this run is do-not-publish, there's no PR to link.
+A team with an attached service account adds the `jira-api-docs` trigger above. A writer adds the `api-docs` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Following the standing instructions, Promptless updates the API reference and opens a suggestion and documentation PR. It then comments on the ticket with links to both and posts the usual Slack notification.
 
-Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once. It matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless dispatches once, tagged with both keys.
+Later, the team moves `DOCS-204` into `In Review`. That status change activates `jira-ready-for-docs`, which watches for the `In Review` and `Pull Request` statuses. When someone files a new `DOCS` issue that already carries `needs-docs`, the issue crosses the new-issue edge and the label edge at once. It matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless starts one session tagged with both keys.
 
-Separately, because the team has attached a service account, an engineer @mentions the account Promptless acts as on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
+Separately, an engineer @mentions the service account on `DOCS-204` to ask for a related update. Promptless acknowledges the request on the ticket and answers there when the work is done. It attaches the documentation PR as a remote link.
 
-## Setup instructions
+## See also
 
-To connect Atlassian and attach a service account, see the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) guide. The Atlassian integration card then shows the attached account's details. A **Not working** or **Unconfirmed** badge on the service-account section flags a problem to fix.
+- [Trigger Promptless from Jira Automation](/docs/for-docs/connect/triggers/jira-automation), to start Promptless on a Jira condition these triggers don't cover
+- [Atlassian integration](/docs/for-docs/reference/integrations/atlassian), for OAuth scopes and the service account
+- [Jira context source](/docs/for-docs/connect/context-sources/jira), to let Promptless read tickets for background
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger and policy field

@@ -1,46 +1,93 @@
 ---
 title: Linear
 description: Connect Linear as a read-only context source so Promptless reads the issues behind your code changes for the intent a diff alone does not show.
+id: for-docs-connect-context-sources-linear
 slug: docs/for-docs/connect/context-sources/linear
-type: reference
+type: how-to
 tags:
   - connect
   - context-sources
   - reference
+keywords:
+  - Linear context source
+  - Linear issues
+  - team_keys
+  - read-only Linear
+  - issue context
+language: en
+audiences:
+  - aud-engineer-owned-docs
+  - aud-scaleup-docs-team
+intent: connect Linear as a read-only context source so Promptless reads linked issues for the intent behind code changes
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:linear
+concepts:
+  - context source
+  - linear
+next-steps:
+  - for-docs-reference-integrations-linear
+related-pages:
+  - for-docs-get-the-most-out-ask-promptless-to-update-config
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How does Promptless use Linear issues when drafting docs?
+  - How do I limit Promptless to specific Linear teams?
+  - Does Promptless store or modify my Linear data?
 sidebar:
   hidden: false
   order: 17
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+import LinearConnect from '@partials/integrations/linear-connect.mdx';
 
 <Aside type="tip">
   You can connect and scope this context source by hand as this page describes. You can also ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add Linear as a context source scoped to my engineering and product teams." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Linear integration provides **read-only** access to your project management data for documentation automation. When Linear is configured as a context source, Promptless can search for related issues to understand the business context behind code changes. It never modifies your Linear issues.
+## Overview
 
-## How it works as a context source
+Connect Linear as a context source so Promptless documents the intent behind a code change, which usually lives on the Linear issue for that work. Promptless reads Linear in two ways:
 
-When Linear is enabled as a context source:
+- When a GitHub PR mentions a Linear issue, Promptless reads that issue.
+- Promptless searches Linear for related issues and projects to understand a feature's requirements.
 
-- **Automatic Issue Lookup**: When a GitHub PR mentions a Linear issue, Promptless automatically retrieves that issue for additional context
-- **Proactive Searches**: Promptless can search Linear for related issues and projects to understand feature requirements
-- **Business Context**: Linear issues provide the "why" behind code changes, not just the "what"
+Linear access is read-only. Promptless queries Linear in real time when a documentation task needs it, and doesn't store your Linear data. It never creates, updates, or deletes issues.
 
-## Example
+### Example
 
-Linear positions itself as the product development system, the place where teams plan and track work from idea to launch. A Linear issue therefore usually holds the intent behind a change, not just a task title.
+A developer merges a GitHub PR that links to `ENG-238`, the Linear issue for a new scheduled-reports feature. The issue records what the diff doesn't show. Reports run daily or weekly and post to a Slack channel. Only workspaces on the Business plan can use them.
 
-A developer merges a GitHub PR that links to `ENG-238`, the Linear issue behind a new scheduled-reports feature. The issue captures the intent the diff doesn't. Reports can be scheduled daily or weekly, and they're delivered to a Slack channel rather than email. The feature is gated to workspaces on the Business plan.
+When Promptless picks up the merged PR, it reads `ENG-238` and searches Linear for related issues in the same project. Its suggestion covers the scheduling options, the Slack delivery, and the plan requirement, so the docs explain what users can do and who has access.
 
-When Promptless picks up the merged PR, it retrieves `ENG-238` and searches Linear for related issues in the same project. It reads the issue and carries that context into the documentation suggestion: the scheduling cadences, the Slack delivery, and the plan gating. The docs then explain what users can do and who has access, not just the code that shipped.
+## Before you start
 
-## Configuration
+- An admin role in your Promptless organization, to connect Linear and edit the [Configuration page](https://app.gopromptless.ai/configuration).
 
-To scope Linear in the dashboard, open the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration) and select **Add a context source**, then **Linear**. Pick the teams under **Which Linear teams should Promptless read?**, then select **Add context source**.
+## Connect Linear
 
-In YAML mode, set the scope in the `context_sources` section of `promptless.yaml`:
+Skip this section if Linear is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<LinearConnect />
+
+## Limit Promptless to specific teams
+
+Promptless can read every team in the connected Linear workspace. To keep it to the teams that hold relevant work, scope the Linear context source:
+
+<Steps>
+  1. On the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the Linear source. If it isn't listed, select **Add a context source**, and then select **Linear**.
+
+  2. In **Which Linear teams should Promptless read?**, add the key of each team.
+
+  3. Select **Save changes**. For a new source, select **Add context source**.
+</Steps>
+
+In YAML, the scope is the `team_keys` list on a `linear` entry:
 
 ```yaml
 context_sources:
@@ -51,16 +98,10 @@ context_sources:
       - product
 ```
 
-An empty entry (or no entry) gives Promptless access to all teams. Add `team_keys` only when you need to restrict which teams Promptless can search.
+An entry with no team keys, or no entry, gives Promptless the whole workspace. For every context source field, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#context-sources).
 
-<Aside type="note">
-  Promptless inherits the permissions of the Linear account used during OAuth connection and only searches teams you configure.
-</Aside>
+## See also
 
-## Data privacy
-
-Promptless queries Linear data in real-time and does not store any of your Linear data. All searches are performed on-demand when documentation updates are needed. Promptless only reads from Linear. It never creates, updates, or deletes issues.
-
-## Setup instructions
-
-To connect Linear to Promptless, see the [Linear Integration](/docs/for-docs/reference/integrations/linear) setup guide.
+- [Linear integration](/docs/for-docs/reference/integrations/linear), for the authentication model and how to reconnect Linear
+- [Jira](/docs/for-docs/connect/context-sources/jira), to read issues when your team tracks work in Jira
+- [Context sources](/docs/for-docs/connect/context-sources), to compare every context source Promptless supports

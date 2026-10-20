@@ -1,47 +1,96 @@
 ---
 title: Confluence
 description: Connect Confluence as a read-only context source so Promptless reuses your team's existing conventions, terminology, and architectural decisions in documentation suggestions.
+id: for-docs-connect-context-sources-confluence
 slug: docs/for-docs/connect/context-sources/confluence
-type: reference
+type: how-to
 tags:
   - connect
   - context-sources
   - reference
+keywords:
+  - Confluence context source
+  - Confluence spaces
+  - space_keys
+  - Atlassian
+  - read-only Confluence
+language: en
+audiences:
+  - aud-enterprise-docs-team
+  - aud-scaleup-docs-team
+intent: connect Confluence as a read-only context source and scope it to specific spaces
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:confluence
+concepts:
+  - context source
+  - confluence
+next-steps:
+  - for-docs-reference-integrations-atlassian
+related-pages:
+  - for-docs-get-the-most-out-ask-promptless-to-update-config
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How does Promptless use Confluence as a context source?
+  - How do I restrict Promptless to certain Confluence spaces?
+  - Does Promptless modify or store my Confluence pages?
 sidebar:
   hidden: false
   order: 18
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+import AtlassianConnect from '@partials/integrations/atlassian-connect.mdx';
 
 <Aside type="tip">
   You can connect and scope this context source by hand as this page describes. You can also ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless scope the Confluence context source to my Engineering space." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Confluence integration provides **read-only** access to your documentation spaces for documentation automation. When Confluence is configured as a context source, Promptless can search your Confluence spaces for relevant documentation when creating suggestions. It never modifies your Confluence pages.
+## Overview
 
-## How it works as a context source
+Connect Confluence as a context source so Promptless writes new documentation with the conventions, terminology, and decisions your team already recorded there. While Promptless drafts a suggestion, it searches your Confluence spaces and reads the pages that match, such as:
 
-When Confluence is enabled as a context source:
+- Documentation standards for style, terminology, and page structure
+- Technical specifications, design decisions, and architecture notes
+- Internal processes and guidelines
 
-- **Automatic Space Searching**: Promptless searches your Confluence spaces for relevant documentation when creating suggestions
-- **Documentation Patterns**: Confluence pages provide context about existing documentation styles, terminology standards, and content structures
-- **Architectural Context**: Technical specifications, design decisions, and system architecture documented in Confluence inform new documentation
-- **Team Knowledge**: Internal processes, guidelines, and best practices from your team's Confluence spaces
+Confluence access is read-only. Promptless queries Confluence in real time when a documentation task needs it, and doesn't store your Confluence content. It never creates, updates, or deletes pages.
 
-## Example
+### Example
 
-Confluence is where teams keep their shared knowledge, meaning the conventions, design decisions, and standards that outlive any single feature. When new code touches an area those pages govern, that space is the source of truth for how the work should be described.
+A developer merges a GitHub PR that adds a `/v2/exports` endpoint to your public API. Your team keeps its API conventions on an "API Guidelines" page in Confluence. That page mandates cursor-based pagination, the `limit` and `starting_after` parameter names, and a standard error-envelope format.
 
-A developer merges a GitHub PR that adds a new `/v2/exports` endpoint to your public API. Your team keeps its API conventions in a Confluence space, on an "API Guidelines" page. That page mandates cursor-based pagination, the `limit` and `starting_after` parameter names, and a standard error-envelope format.
+When Promptless picks up the merged PR, it searches your Confluence spaces and reads the API Guidelines page. Its suggestion documents the endpoint's pagination and errors the way every other endpoint in your API reference does. It uses the same parameter names, envelope shape, and structure.
 
-When Promptless picks up the merged PR, it searches your Confluence spaces and reads the API Guidelines page. Rather than documenting the endpoint in isolation, it describes pagination and errors using the conventions your team already agreed on. It uses the same parameter names, the same envelope shape, and the same structure every other endpoint follows. The result is a docs PR that reads like the rest of your API reference instead of a one-off.
+## Before you start
 
-## Configuration
+- An admin role in your Promptless organization, to connect Atlassian and edit the [Configuration page](https://app.gopromptless.ai/configuration).
 
-To scope Confluence in the dashboard, open the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration) and select **Add a context source**, then **Confluence**. Pick the spaces under **Which Confluence spaces should Promptless read?**, then select **Add context source**.
+## Connect Confluence
 
-In YAML mode, set the scope in the `context_sources` section of `promptless.yaml`:
+Promptless connects to Confluence through Atlassian. Skip this section if Atlassian is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<AtlassianConnect />
+
+If Confluence searches later fail with a `401 Unauthorized` scope error, the connection is missing the Confluence search scopes. Reconnect Atlassian to grant them. See [Permissions required](/docs/for-docs/reference/integrations/atlassian#permissions-required).
+
+## Limit Promptless to specific spaces
+
+Promptless can search every space the connected Atlassian account can see. To keep it to the spaces that hold relevant material, scope the Confluence context source:
+
+<Steps>
+  1. On the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the Confluence source. If it isn't listed, select **Add a context source**, and then select **Confluence**.
+
+  2. In **Which Confluence spaces should Promptless read?**, add the key of each space.
+
+  3. Select **Save changes**. For a new source, select **Add context source**.
+</Steps>
+
+In YAML, the scope is the `space_keys` list on a `confluence` entry:
 
 ```yaml
 context_sources:
@@ -52,16 +101,10 @@ context_sources:
       - PRODUCT
 ```
 
-An empty entry (or no entry) gives Promptless access to all spaces. Add `space_keys` only when you need to restrict which spaces Promptless can search.
+An entry with no space keys, or no entry, gives Promptless every space the account can see. For every context source field, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#context-sources).
 
-<Aside type="note">
-  Promptless inherits the permissions of the Atlassian account used during OAuth connection and only searches spaces you configure.
-</Aside>
+## See also
 
-## Data privacy
-
-Promptless queries Confluence data in real-time and does not store any of your Confluence data. All searches are performed on-demand when documentation updates are needed. Promptless only reads from Confluence. It never creates, updates, or deletes pages.
-
-## Setup instructions
-
-To connect Confluence to Promptless, see the [Atlassian Integration](/docs/for-docs/reference/integrations/atlassian) setup guide.
+- [Atlassian integration](/docs/for-docs/reference/integrations/atlassian), for the OAuth scopes Promptless requests and how to connect a dedicated Atlassian account
+- [Jira](/docs/for-docs/connect/context-sources/jira), to read the issues behind a change through the same Atlassian connection
+- [Context sources](/docs/for-docs/connect/context-sources), to compare every context source Promptless supports

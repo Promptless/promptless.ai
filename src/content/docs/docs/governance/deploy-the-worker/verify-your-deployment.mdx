@@ -1,19 +1,59 @@
 ---
 title: Verify your deployment
 description: Confirm host enrollment, durable trace objects, successful analysis, and visible dashboard status for one real session.
+id: governance-deploy-the-worker-verify-your-deployment
 slug: docs/governance/deploy-the-worker/verify-your-deployment
-type: guide
+type: how-to
 tags:
   - agent-instructions
   - governance
   - deployment
+keywords:
+  - end-to-end verification
+  - Acceptance condition
+  - pilot session
+  - trace object status
+  - Traces page
+  - analysis run
+language: en
+audiences:
+  - aud-agent-governance
+intent: verify one real agent session end to end through PIG host enrollment, durable trace storage, succeeded analysis, and Promptless Dashboard acknowledgement
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - analyzer worker
+  - trace
+  - host enrollment
+  - agent session
+related-pages:
+  - governance-deploy-the-worker-deploy-the-analyzer-worker
+  - governance-deploy-the-worker-manual-helm
+  - governance-get-started-enroll-your-hosts
+  - governance-deploy-the-worker-observability
+  - governance-agent-setup-guide
+risks:
+  - read-only
+sample-questions:
+  - How do I confirm my PIG deployment analyzed a real session?
+  - When does a PIGDeployment report Acceptance=True?
+  - Is an analysis with zero findings a successful PIG verification?
+  - Which SQL queries check that a PIG trace was stored and analyzed?
 ---
 
 import PigFlow from '../../../../../components/docs/PigFlow.astro';
 
 import { Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Verify one session from collection through completed analysis before expanding your rollout. Keep its session ID and deployment ID so you can correlate every check. An analysis with zero findings is a successful result.
+## Overview
+
+Verify one real agent session from collection through completed analysis before you expand your rollout. A ready pod or a passing health check shows that the workloads started. This end-to-end check shows that the analyzer stored the session, analyzed it, and reported the result to Promptless. An analysis with zero findings is a successful result.
+
+Run it after a new installation, and again after a storage migration, recovery, or material identity change. Keep the session ID and analyzer installation name so you can correlate every check.
 
 <PigFlow variant="verification" />
 
@@ -29,25 +69,31 @@ into your report.
 Inputs (discover these before you ask me):
 - Kubernetes context, namespace, and deployment name: [for example, pig and acme]
 - Analyzer hostname: [for example, traces.acme.example]
-- Session: [agent source (claude, codex, or claude-desktop) and session ID,
+- Session: [agent source (claude, claude-desktop, codex, or cursor) and session ID,
   or "tell me when to run a test session"]
 
-Report each check (enrollment, stored and readable trace, succeeded analysis,
-Dashboard visibility) as passed, failed, or not run, with its evidence. For
+Report each check (enrolled host, stored and readable trace, succeeded
+analysis of the current revision, Dashboard acknowledgement, and the
+Acceptance condition) as passed, failed, or not run, with its evidence. For
 a failure, name the first failing stage and the next action for me.
 ```
 
 ## 1. Check the deployment and endpoint
 
-For the automatic installation:
+For a supervisor-managed installation, check the deployment conditions, the analyzer logs, and the HTTPS endpoint:
 
 ```bash
-kubectl describe pigdeployment acme --namespace pig
+kubectl get pigdeployment acme --namespace pig \
+  -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason}{"\n"}{end}'
 kubectl logs deployment/acme-analyzer --namespace pig --tail=100
-curl --fail https://traces.acme.example/healthz
+curl --fail --silent --show-error https://traces.acme.example/healthz
 ```
 
-Run the HTTPS check from the network your enrolled hosts use. Confirm the certificate, hostname, and routing. `Ready=True` means deployment checks passed; it does not prove a host can upload and complete analysis. Deployment verification also confirms selected-source readiness: an organization administrator selects instruction repositories in [PIG Settings](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#5-select-instruction-repositories) and enables analysis before the analyzer runs it.
+Run the HTTPS check from the network your enrolled hosts use. Confirm the certificate, hostname, and routing, as in [Point DNS at the Ingress](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#6-point-dns-at-the-ingress-and-check-https). `Ready=True` means the workloads and dependency checks passed. It passes while analysis is off, so also confirm that instruction repositories are selected and [trace analysis is enabled](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#8-enable-trace-analysis).
+
+Deployment verification and acceptance require a healthy analyzer whose last check-in reached Promptless less than 15 minutes ago. A running pod can still appear stale if its check-ins stop reaching Promptless.
+
+The `Acceptance` condition reports `AwaitingCanonicalAcceptance` until the checks below pass for a real session. The supervisor then sets `Acceptance=True` with reason `CanonicalSuccess` for the installed release and configuration. Use this condition together with the per-session checks; neither replaces the other.
 
 For the manual worker chart, use `deployment/pig-trace-analyzer` in log commands and `helm status pig-trace-analyzer --namespace pig` for release status.
 
@@ -56,27 +102,29 @@ These names assume the release replacement is complete. For an existing installa
 ## 2. Enroll a host and create a session
 
 <Steps>
-  1. Follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device. Confirm its endpoint and deployment identity match this installation.
-  2. Start a new agent session after the configured analysis activation time. Use an installed Instruction Hub skill and complete the session normally.
-  3. Confirm the host checks in and its collector uploads the session. Record the agent source and exact session ID.
+  1. Follow [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts) on one supported test device. Confirm that its analyzer address is `https://traces.acme.example`.
+  2. Start a new agent session after the configured analysis activation time. Use an installed Instruction Hub skill in a selected instruction repository and complete the session normally.
+  3. Confirm the collector uploaded the session with the runtime's `collect` command, as in [Verify collection](/docs/governance/get-started/enroll-your-hosts). Record the agent source and exact session ID.
 </Steps>
 
-Use `claude`, `codex`, or `claude-desktop` as the source in the queries below. Replace `REPLACE_SESSION_ID` with the recorded ID.
+Use `claude`, `claude-desktop`, `codex`, or `cursor` as the source in the queries below. Replace `REPLACE_SESSION_ID` with the recorded ID.
 
-## 3. Verify durable storage
+## 3. Verify the enrolled host and durable storage
 
 Connect to the dedicated PIG database with a read-only session. Query only the pilot session:
 
 ```sql
 BEGIN READ ONLY;
-SELECT id, source, session_id, trace_object_status, trace_object_uri,
-       last_ingested_at, trace_object_last_error
-FROM agent_traces
-WHERE source = 'codex' AND session_id = 'REPLACE_SESSION_ID';
+SELECT t.id AS trace_record_id, t.source, t.session_id, h.host_label,
+       h.last_seen_at, t.trace_object_status, t.trace_object_uri,
+       t.trace_object_last_error, t.last_ingested_at
+FROM agent_traces AS t
+JOIN agent_hosts AS h ON h.id = t.host_id
+WHERE t.source = 'codex' AND t.session_id = 'REPLACE_SESSION_ID';
 COMMIT;
 ```
 
-Confirm `trace_object_status = 'written'` and an ingestion timestamp matching your pilot. `trace_object_uri` records the canonical object location for every supported storage backend.
+Confirm that `host_label` names the enrolled test device, `trace_object_status = 'written'`, and the ingestion timestamp matches your pilot. `trace_object_uri` records the canonical object location for every supported storage backend.
 
 Use the recorded canonical object location to inspect that exact object with your cloud's storage tools. Do not infer its name from the session ID or select a nearby object by timestamp. Inspect the raw-object references too if upload reconstruction is under investigation.
 
@@ -94,18 +142,20 @@ Use the recorded canonical object location to inspect that exact object with you
   </TabItem>
 </Tabs>
 
-The object must be readable through the analyzer's configured identity. An administrator's successful read alone does not verify the workload's access. Do not copy session content into tickets or installation logs.
+The object must be readable through the analyzer's workload identity. An administrator's successful read alone does not verify the workload's access. The supervisor's acceptance check reads the object with that identity and compares it with the recorded revision. Do not copy session content into tickets or installation logs.
 
 ## 4. Confirm completed analysis
 
 Allow the configured quiet window to pass after session activity stops. In analyzer logs, find `Trace analysis run succeeded` for the pilot's `trace_record_id`. Keep its `analysis_run_id` and `repository_sha`.
 
-You can also check the database:
+Then check that the run analyzed the current revision of the trace and that Promptless acknowledged it:
 
 ```sql
 BEGIN READ ONLY;
 SELECT r.id, r.status, r.error_category, r.repository_sha,
-       r.successful_finding_write_count, r.completed_at
+       r.successful_finding_write_count, r.completed_at,
+       r.source_fingerprint = t.analysis_source_sha256 AS current_revision,
+       t.projection_published_revision >= t.projection_revision AS hosted_acknowledged
 FROM agent_analysis_runs AS r
 JOIN agent_traces AS t ON t.id = r.agent_trace_id
 WHERE t.source = 'codex' AND t.session_id = 'REPLACE_SESSION_ID'
@@ -114,16 +164,23 @@ LIMIT 5;
 COMMIT;
 ```
 
-At least one run for the pilot's completed session must have `status = 'succeeded'`. Zero in `successful_finding_write_count` is valid. A queued or failed run has not passed this check.
+At least one run must have `status = 'succeeded'` and `current_revision = true`, and `hosted_acknowledged` must be `true`. Zero in `successful_finding_write_count` is valid. A queued or failed run, or a succeeded run for an earlier revision, has not passed this check.
 
 ## 5. Check the Promptless Dashboard
 
-Confirm the deployment and pilot session appear with current analyzer status. If the run produced findings, open their evidence and check the host and installed instruction attribution. Confirm the connected hub's issue workflow receives the finding where configured.
+Open the [Traces page](https://app.gopromptless.ai/pig/traces) and search for the pilot's session ID. Confirm that its card shows the enrolled host, your analyzer under **Worker**, and **Succeeded** for analysis. A run with no findings shows **No linked findings** and **Analysis completed with 0 successful finding writes.** If the run produced findings, open their evidence and check the host and installed instruction attribution. Confirm the connected hub's issue workflow receives the finding where configured.
 
-A local success with stale dashboard status indicates a synchronization problem. Follow [observability and troubleshooting](/docs/governance/deploy-the-worker/observability) from the first failing stage.
+On the [Workers settings page](https://app.gopromptless.ai/pig/settings/workers), confirm the analyzer shows **Healthy** with a recent **Last checked in** time.
+
+A local success with stale Dashboard status indicates a synchronization problem. Follow [observability and troubleshooting](/docs/governance/deploy-the-worker/observability) from the first failing stage.
 
 ## Record acceptance
 
-Keep the deployment ID, release, agent source, session ID, trace record ID, analysis run ID, and verification time in your deployment runbook. Record the outcome of all four checks: enrollment, readable durable storage, succeeded analysis, and dashboard visibility.
+Keep the analyzer installation name, release, agent source, session ID, trace record ID, analysis run ID, and verification time in your deployment runbook. Record the outcome of all four checks for the same session: enrolled host, readable durable storage, succeeded analysis of the current revision, and Dashboard acknowledgement. Also record when the `Acceptance` condition became `True`.
 
-Repeat these checks after a storage migration, recovery, or material identity change.
+## See also
+
+- [Observability](/docs/governance/deploy-the-worker/observability), to troubleshoot from the first failing stage and monitor the deployment
+- [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for pause and pin controls, backups, and recovery
+- [Understand findings](/docs/governance/findings-and-remediation/understand-findings), to review what the analysis produced
+- [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts), to expand collection beyond the pilot host

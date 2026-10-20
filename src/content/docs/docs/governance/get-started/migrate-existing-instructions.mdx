@@ -1,12 +1,50 @@
 ---
 title: Migrate existing instructions
 description: Consolidate scattered skills and agent instructions into a shared hub without losing repository-specific guidance.
+id: governance-get-started-migrate-existing-instructions
 slug: docs/governance/get-started/migrate-existing-instructions
-type: guide
+type: how-to
 tags:
   - agent-instructions
   - governance
   - guide
+keywords:
+  - migrate agent instructions
+  - pig scan
+  - consolidate skills
+  - AGENTS.md
+  - CLAUDE.md
+  - hub.repo-context.json
+  - MCP configuration import
+language: en
+audiences:
+  - aud-agent-governance
+intent: migrate scattered skills, MCP configs, and AGENTS.md or CLAUDE.md guidance into an Instruction Hub with pig scan and pilot the published plugins
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+concepts:
+  - instruction hub
+  - skill
+  - pig cli
+  - plugin
+prerequisites:
+  - governance-get-started-set-up-your-instruction-hub
+next-steps:
+  - governance-get-started-publish-and-install-plugins
+related-pages:
+  - governance-agent-setup-guide
+  - governance-reference-supported-agents
+  - governance-deploy-the-worker-plan-your-deployment
+  - governance-get-started-enroll-your-hosts
+risks:
+  - destructive
+sample-questions:
+  - What does pig scan import from an existing repository?
+  - Should I move every AGENTS.md or CLAUDE.md file into the Instruction Hub?
+  - Why can scanning several repositories at once overwrite earlier imports?
+  - How do I migrate rules, commands, and hooks that pig scan does not import?
 sidebar:
   hidden: false
   order: 2
@@ -14,9 +52,11 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Move instructions into a hub when several people or repositories need the same guidance. A useful first migration gives one team a small, reviewed set of shared procedures while preserving the local context each project needs.
+## Overview
 
-This guide covers adopting your first hub from scattered instructions. Begin with the scaffold from [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub), and work on a migration branch. Keep the original instructions available until you have tested the published plugins.
+Move instructions into a hub when several people or repositories need the same guidance. A useful first migration gives one team a small, reviewed set of shared procedures and keeps the local context each project needs in that project.
+
+This guide builds your first hub from scattered instructions. You take an inventory, import one source at a time, and migrate what the scanner skips. Then you pilot the result and retire the duplicates.
 
 To hand the inventory and import to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
 
@@ -39,6 +79,16 @@ Flag conflicting instructions and possible secrets. Report what you imported,
 what needs manual migration, and what you left in place.
 ```
 
+## Before you start
+
+You need:
+
+- A hub scaffold from [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub), checked out locally with the `pig` toolchain installed.
+- Read access to each repository or directory that holds your current instructions.
+- The owners of those instructions, to decide what to share and to reconcile conflicts.
+
+Keep the original instructions in place until you have tested the published plugins.
+
 ## Inventory what you already use
 
 List the source, owner, audience, and intended destination of each instruction. Include repository files, personal skills that teammates share, MCP configurations, and instructions copied into team documents.
@@ -52,11 +102,11 @@ List the source, owner, audience, and intended destination of each instruction. 
 | A developer's private API token in an MCP config     | Replace with host-provided authentication | Reviewed config in `assets/mcps/`                 |
 | Two conflicting versions of the same procedure       | Reconcile with their owners               | One canonical skill                               |
 
-Do not move an entire repository instruction file into a shared plugin just because some paragraphs apply broadly. Extract the reusable task and keep paths, build commands, and local conventions with the project.
+When only some paragraphs of a repository instruction file apply broadly, extract the reusable task into the hub. Keep paths, build commands, and local conventions in the project.
 
 ## Import one source at a time
 
-From your hub checkout:
+From your hub checkout, create a migration branch, scan one source, and review what changed:
 
 ```bash
 git switch -c migrate-instructions
@@ -65,7 +115,7 @@ git status --short
 git diff
 ```
 
-`pig scan` leaves the source repository unchanged. Its imports are deliberately limited:
+`pig scan` leaves the source repository unchanged. It handles each kind of source file as follows:
 
 | Source                                                                                     | What happens                                                                                 |
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
@@ -75,7 +125,7 @@ git diff
 | Root `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`                                             | Records an inventory in `hub.repo-context.json`; does not copy or convert their instructions |
 | Other skill locations, rules, commands, agents, and hooks                                  | Requires manual migration                                                                    |
 
-Imported references are added to `plugins/pig.yaml`. Move those references into `plugins/docs.yaml` or `plugins/dev.yaml` when the instructions belong to that audience. Leave shared assets in `pig`, or include the same asset in several plugins when needed.
+`pig scan` adds each imported asset to `plugins/pig.yaml`. Move a reference into `plugins/docs.yaml` or `plugins/dev.yaml` when the instructions belong to that audience. Leave shared assets in `pig`, or include the same asset in several plugins.
 
 <Aside type="caution">
   Scan replaces an existing skill with the same generated ID, and MCP imports use fixed IDs such as `repo-mcp`. It also replaces the repository-context inventory with the latest scan. Review and commit each source separately; scanning several repositories at once can overwrite earlier imports.
@@ -83,13 +133,13 @@ Imported references are added to `plugins/pig.yaml`. Move those references into 
 
 Before scanning another repository, give conflicting assets distinct IDs and update their plugin references. Skill IDs come from their directory names, normalized to lowercase letters, digits, and hyphens. To compare same-named skills, scan the second repository into a separate temporary hub. Copy only the reviewed result into the main migration branch.
 
-Use `git status` to find new files as well as `git diff` to see changes to tracked files. Inspect new skill directories and MCP configurations directly. Record source repository names in your migration notes: `hub.repo-context.json` is an inventory of the most recent scan, not a migration ledger for all repositories.
+Use `git status` to find new files and `git diff` to see changes to tracked files. Inspect new skill directories and MCP configurations directly. Record the source repository names in your migration notes, because `hub.repo-context.json` holds only the most recent scan's inventory.
 
 ## Migrate instructions the scanner does not import
 
 For a skill stored under a different host directory, copy its complete directory into `assets/skills/<id>/`, keeping `SKILL.md` and any relative references together. Replace machine-specific paths and commands with instructions that the intended audience can use. Add `skill:<id>` to the appropriate plugin.
 
-For a shared passage in `AGENTS.md` or `CLAUDE.md`, write a focused skill with a description explaining when it applies. Keep the original repository file's local instructions. The [setup guide](/docs/governance/get-started/set-up-your-instruction-hub) provides a starting format in its skill-authoring step.
+For a shared passage in `AGENTS.md` or `CLAUDE.md`, write a focused skill with a description that says when it applies. Keep the local instructions in the original repository file. The [setup guide](/docs/governance/get-started/set-up-your-instruction-hub) shows a starting format in its skill-authoring step.
 
 Rules, commands, agents, and hooks need explicit target support metadata. For example, a Cursor rule in `assets/rules/docs-style.mdc` can use this adjacent `docs-style.asset.yaml` file:
 
@@ -99,11 +149,13 @@ support:
     mode: native
 ```
 
-Add `rule:docs-style` to its plugin. This declaration distributes the native rule to Cursor; it does not make it a Claude or Codex rule. For guidance that must apply across agents, consider a portable skill. Review [support modes](/docs/governance/reference/supported-agents#asset-support) before translating host-specific behavior.
+Add `rule:docs-style` to its plugin. This declaration distributes the native rule to Cursor only. For guidance that must apply across agents, use a portable skill. Review [support modes](/docs/governance/reference/supported-agents#asset-support) before translating host-specific behavior.
 
 Review scripts before sharing them and replace embedded credentials with the host's supported authentication mechanism. Check that supporting files contain no private material outside the intended audience. The toolchain rejects symlinks; copy the actual reviewed files instead.
 
 ## Validate and pilot the migration
+
+Check the migrated hub:
 
 ```bash
 pig validate --hub .
@@ -115,17 +167,24 @@ Review the changes with the instruction owners, then [publish the hub and instal
 <Steps>
   1. Confirm the intended plugin is installed and its skill is available.
   2. Invoke the skill against a real draft or code change.
-  3. Check its reference files and helper scripts work from the installed location.
+  3. Check that its reference files and helper scripts work from the installed location.
   4. Confirm the agent still reads the project's local instructions.
   5. Check for duplicate skills or conflicting rules from old installations.
 </Steps>
 
-Treat compilation and host installation as separate checks. A portable source file can compile correctly while an instruction still assumes a tool or permission the receiving agent lacks.
+Treat compilation and host installation as separate checks. A portable source file can compile correctly and still assume a tool or permission that the receiving agent lacks.
 
 ## Retire the duplicate sources
 
 After the pilot succeeds, tell teammates which plugins to install and which earlier copies they replace. Remove only the shared instructions now delivered by those plugins. Retain project-specific files and any guidance the hub does not yet cover.
 
-Keep the migration commit and original source history so you can restore the prior files if the pilot exposes a gap. Make subsequent changes in the hub and use normal pull-request review; avoid maintaining another copy by hand in each project.
+Keep the migration commit and the original source history so you can restore the earlier files if the pilot exposes a gap. Make later changes in the hub through normal pull-request review, and keep no hand-maintained copies in projects.
 
-The migration is complete when teammates can install the published release, complete the intended tasks, and identify where to propose the next instruction change. Trace collection is optional; add it later by [planning an analyzer deployment](/docs/governance/deploy-the-worker/plan-your-deployment) and [enrolling your hosts](/docs/governance/get-started/enroll-your-hosts).
+The migration is complete when teammates can install the published release, complete the intended tasks, and know where to propose the next instruction change.
+
+## See also
+
+- [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins), to release the migrated hub
+- [Supported agents](/docs/governance/reference/supported-agents#asset-support), for the support modes of rules, commands, agents, and hooks
+- [The pig CLI reference](/docs/governance/reference/pig-cli-reference), for every option of `pig scan`
+- [Deploy trace analysis](/docs/governance/deploy-the-worker/plan-your-deployment) and [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts), to add optional trace collection later
