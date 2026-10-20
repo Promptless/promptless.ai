@@ -1,0 +1,105 @@
+---
+/**
+ * Diagnostics, then one collapsible row per category. Rows show pass/warn/fail
+ * counts and the category score ("Not scored" when afdocs returns null because
+ * the sample was too small); open rows list every check, with the result,
+ * fix, and affected pages for anything that did not pass.
+ */
+import { ChevronRight } from '@lucide/astro';
+import StatusIcon from './StatusIcon.astro';
+import CategoryIcon from './CategoryIcon.astro';
+import MiniRing from './MiniRing.astro';
+import PageList from './PageList.astro';
+import { categoryName, checkName } from '@lib/agent-score/meta';
+import { checkIssues, diagnosticIssues } from '@lib/agent-score/issues';
+import { pluralize } from '@lib/agent-score/report';
+import type { ScanResult } from '@lib/agent-score/types';
+
+interface Props {
+  latest: ScanResult;
+}
+
+const { latest } = Astro.props;
+const host = new URL(latest.scanUrl).host;
+const diagnostics = diagnosticIssues(latest);
+const issues = checkIssues(latest);
+const counts = [
+  ['pass', 'passed', 'passed'],
+  ['warn', 'warning', 'warnings'],
+  ['fail', 'failed', 'failed'],
+  ['error', 'errored', 'errored'],
+] as const;
+---
+
+<section class="pl-as-rows" aria-label="Check results">
+  {
+    diagnostics.map((issue) => (
+      <details class="pl-as-row">
+        <summary>
+          <StatusIcon status={issue.status} />
+          <span class="pl-as-row-name">{issue.title}</span>
+          <span class="pl-as-row-counts">{issue.pageTotal > 0 && pluralize(issue.pageTotal, 'page')}</span>
+          <ChevronRight class="pl-as-chevron" size={16} aria-hidden="true" />
+        </summary>
+        <div class="pl-as-row-body">
+          <div class="pl-as-check-detail">
+            <p>{issue.summary}</p>
+            <p class="pl-as-fix">{issue.fix}</p>
+            <PageList pages={issue.pages} total={issue.pageTotal} host={host} />
+          </div>
+        </div>
+      </details>
+    ))
+  }
+  {
+    latest.categories.map((category) => (
+      <details class="pl-as-row" id={`category-${category.id}`}>
+        <summary>
+          <CategoryIcon id={category.id} />
+          <span class="pl-as-row-name">{categoryName(category.id, category.name)}</span>
+          <span class="pl-as-row-counts">
+            {counts.map(([status, one, many]) =>
+              category.counts[status] > 0 ? (
+                <span>
+                  <StatusIcon status={status} size={10} /> {category.counts[status]} {category.counts[status] === 1 ? one : many}
+                </span>
+              ) : null,
+            )}
+          </span>
+          {category.score !== null ? (
+            <span class="pl-as-row-score">
+              <span>{category.score}</span>
+              <MiniRing score={category.score} grade={category.grade} />
+            </span>
+          ) : (
+            <span class="pl-as-row-score" title="Too few pages were sampled to score this category.">
+              Not scored
+            </span>
+          )}
+          <ChevronRight class="pl-as-chevron" size={16} aria-hidden="true" />
+        </summary>
+        <ul class="pl-as-row-body pl-as-checks">
+          {category.checks.map((check) => {
+            const issue = issues.get(check.id);
+            return (
+              <li id={`check-${check.id}`} data-status={check.status}>
+                <StatusIcon status={check.status} />
+                <div>
+                  <span class="pl-as-check-name">{checkName(check.id, check.name)}</span>
+                  {check.status === 'skip' && <p class="pl-as-muted">{check.message}</p>}
+                  {issue && (
+                    <div class="pl-as-check-detail">
+                      <p>{issue.summary}</p>
+                      {issue.fix && <p class="pl-as-fix">{issue.fix}</p>}
+                      <PageList pages={issue.pages} total={issue.pageTotal} host={host} />
+                    </div>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
+    ))
+  }
+</section>
