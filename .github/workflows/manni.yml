@@ -1,4 +1,4 @@
-# Two manni jobs, both configured in manni.config.yaml:
+# Three manni jobs, all configured in manni.config.yaml:
 #
 # - validate: frontmatter validation. Blocks merge when a docs page's metadata
 #   violates any schema in manni.config.yaml (Starlight contract, the six manni
@@ -8,6 +8,11 @@
 # - structure: document-structure lint by page `type:` (`manni lint
 #   structure`). Advisory for now: most existing pages predate the templates,
 #   so findings are reported as annotations but don't fail the check.
+# - terms: the termbase in terms/ (`manni term`). Blocks merge when a page's
+#   `concepts:` names no term, the set is inconsistent, a definition breaks the
+#   house Vale styles, or a generated file (the Terms Vale style, the glossary
+#   partials) has fallen behind the term pages. See terms/README.md and
+#   adrs/0008-adopt-manni-term.md.
 #
 # Lives in its own workflow (not check.yml) because manni requires Node >= 24
 # while the rest of the toolchain runs Node 22.
@@ -20,6 +25,11 @@ on:
       - "src/content/docs/**/*.mdx"
       - "manni.config.yaml"
       - "docs.metadata.yaml"
+      - "terms/**"
+      - "src/partials/glossary/**"
+      - ".vale.ini"
+      - ".vale/styles/Terms/**"
+      - "vale/**"
       - ".github/CODEOWNERS"
       - "package.json"
       - "package-lock.json"
@@ -102,3 +112,51 @@ jobs:
         if: github.event_name != 'pull_request'
         continue-on-error: true
         run: npx manni lint structure
+
+  terms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VALE_VERSION: "3.20.0"
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # `term lint` and `term write -f vale` run Vale as a process. Same
+      # version as vale.yml; `vale sync` installs the house package beside the
+      # committed Terms style.
+      - name: Install Vale
+        run: |
+          curl -sSfL -o vale.tar.gz \
+            "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          mkdir "$RUNNER_TEMP/vale-bin"
+          tar -xzf vale.tar.gz -C "$RUNNER_TEMP/vale-bin" vale
+          echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+
+      - run: vale sync
+
+      # Every `concepts:` value names a term, and the set is consistent
+      # (unique ids and labels, definitions present, references resolve).
+      - name: Check terms
+        if: ${{ !cancelled() }}
+        run: npx manni term check --format github
+
+      # The definitions meet the house Vale styles (.vale.ini, definitions section).
+      - name: Lint definitions
+        if: ${{ !cancelled() }}
+        run: npx manni term lint --format github
+
+      # The committed generated files (the Terms Vale style and the glossary
+      # partials) match the term pages. On failure, run `npm run terms:write`
+      # and commit the result.
+      - name: Check generated term files are current
+        if: ${{ !cancelled() }}
+        run: npm run terms:check
