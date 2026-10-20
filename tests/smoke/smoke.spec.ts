@@ -981,6 +981,16 @@ test('adapter build renders Agent Score reports on demand', (t) => {
   assert.ok(hasFonts, 'Expected the Inter fonts to be bundled into the render function.');
 });
 
+test('docs markdown links are portable outside their source page', async () => {
+  const response = await fetch(`${preview.baseUrl}/docs/for-docs/connect/triggers.md`);
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  assert.match(body, /\[llms\.txt\]\(https:\/\/promptless\.ai\/llms\.txt\)/);
+  assert.match(body, /\[GitHub PRs\]\(https:\/\/promptless\.ai\/docs\/for-docs\/connect\/triggers\/github-prs\)/);
+  assert.match(body, /https:\/\/promptless\.ai\/docs\/for-docs\/reference\/configuration-reference#provider-connection-and-trigger-availability/);
+  assert.doesNotMatch(body, /\]\(\//);
+});
+
 test('website markdown endpoints are available for agent-friendly content', async () => {
   const routes = [
     '/index.md',

@@ -1,12 +1,47 @@
 ---
 title: The pig CLI reference
-description: Public pig commands for creating, importing, validating, compiling, versioning, and inspecting an Instruction Hub.
+description: Public pig commands for creating, importing, validating, compiling, versioning, and inspecting an Instruction Hub, and for packaging cloud trace capture.
+id: governance-reference-pig-cli-reference
 slug: docs/governance/reference/pig-cli-reference
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
+keywords:
+  - pig CLI
+  - pig scan
+  - pig validate
+  - pig verify
+  - pig build
+  - pig set-version
+  - pig status
+  - promptless-instruction-hub
+language: en
+audiences:
+  - aud-agent-governance
+intent: look up pig CLI commands and options for initializing, scanning, validating, building, versioning, and inspecting an Instruction Hub
+lifecycle: published
+last-updated: 2026-10-19
+applies-to:
+  - promptless-for-agent-instructions
+concepts:
+  - pig cli
+  - instruction hub
+  - plugin
+prerequisites:
+  - governance-get-started-set-up-your-instruction-hub
+next-steps:
+  - governance-get-started-publish-and-install-plugins
+related-pages:
+  - governance-get-started-migrate-existing-instructions
+risks:
+  - read-only
+sample-questions:
+  - Which pig commands change files in the hub?
+  - Is there a pig publish command?
+  - When should I use pig build --check instead of pig verify?
+  - What options does pig init accept?
 sidebar:
   hidden: false
   order: 1
@@ -15,23 +50,24 @@ sidebar:
 
 The `pig` CLI manages the source and generated plugins in an Instruction Hub. Install the toolchain with Python 3.11 or later using the [setup guide](/docs/governance/get-started/set-up-your-instruction-hub). The package exposes equivalent `pig` and `promptless-instruction-hub` commands.
 
-Run `pig --help` or `pig <command> --help` to inspect your installed version's options. Commands that work on hub source accept `--hub`, which defaults to the current directory. `pig status` takes a manifest path instead.
+Run `pig --help` or `pig <command> --help` to see the options your installed version accepts. Every command on this page except `pig status` and `pig cloud-bundle` takes `--hub PATH`, the hub's root directory, which defaults to the current directory.
 
-| Command       | Changes files?             | Result                                                      |
-| ------------- | -------------------------- | ----------------------------------------------------------- |
-| `init`        | Yes                        | Creates missing hub configuration and directories           |
-| `scan`        | Yes                        | Imports supported assets and replaces the context inventory |
-| `validate`    | No                         | Checks source configuration and asset references            |
-| `verify`      | No changes to the hub      | Validates and compiles a temporary release                  |
-| `build`       | Yes, except with `--check` | Writes distribution files and manifests                     |
-| `set-version` | Yes                        | Updates the shared version in `hub.yaml`                    |
-| `status`      | No                         | Reads local release metadata                                |
+| Command        | Changes files?             | Result                                                      |
+| -------------- | -------------------------- | ----------------------------------------------------------- |
+| `init`         | Yes                        | Creates missing hub configuration and directories           |
+| `scan`         | Yes                        | Imports supported assets and replaces the context inventory |
+| `validate`     | No                         | Checks source configuration and asset references            |
+| `verify`       | No changes to the hub      | Validates and compiles a temporary release                  |
+| `build`        | Yes, except with `--check` | Writes distribution files and manifests                     |
+| `set-version`  | Yes                        | Updates the shared version in `hub.yaml`                    |
+| `status`       | No                         | Reads local release metadata                                |
+| `cloud-bundle` | Yes, writes one new ZIP    | Packages a cloud trace capture plugin for Claude Code       |
 
 These commands do not install plugins into agents, enroll hosts, or deploy the analyzer. Publishing runs through [GitHub or GitLab CI](/docs/governance/get-started/publish-and-install-plugins); there is no public `pig publish` command.
 
 ## `pig init`
 
-Create a hub with the mandatory `plugins/pig.yaml`, asset directories, and output directories. Existing files are preserved. The initial configuration includes all four targets and disables trace ingestion.
+Create a hub with the mandatory `plugins/pig.yaml`, asset directories, and output directories. Existing files are preserved. The initial configuration includes all four targets and turns trace ingestion off.
 
 ```bash
 pig init --hub ./acme-instruction-hub \
@@ -41,13 +77,13 @@ pig init --hub ./acme-instruction-hub \
   --version 0.1.0
 ```
 
-| Option                    | Default                                         | Meaning                       |
-| ------------------------- | ----------------------------------------------- | ----------------------------- |
-| `--hub PATH`              | Current directory                               | Hub to initialize             |
-| `--org NAME`              | `Promptless`                                    | Organization display name     |
-| `--marketplace-id ID`     | Derived from the organization name              | Stable marketplace identifier |
-| `--marketplace-name NAME` | Organization name followed by `Instruction Hub` | Marketplace display name      |
-| `--version VERSION`       | `0.1.0`                                         | Initial shared plugin version |
+| Option                    | Default                                                             | Meaning                                    |
+| ------------------------- | ------------------------------------------------------------------- | ------------------------------------------ |
+| `--hub PATH`              | Current directory                                                   | Hub to initialize                          |
+| `--org NAME`              | Required                                                            | Name of the organization that owns the hub |
+| `--marketplace-id ID`     | The organization name in kebab-case, followed by `-instruction-hub` | Stable marketplace identifier              |
+| `--marketplace-name NAME` | The organization name followed by `Instruction Hub`                 | Marketplace display name                   |
+| `--version VERSION`       | `0.1.0`                                                             | Initial shared plugin version              |
 
 Use `marketplace.id` and `marketplace.name` in `hub.yaml` for marketplace identity. Each `plugins/*.yaml` file has its own literal `id` and display `name`; no organization prefix is added automatically. `version` applies to the whole hub, and `stable_plugins` selects which plugins to release.
 
@@ -59,11 +95,22 @@ Import reusable assets from one source directory into a hub:
 pig scan --hub ./acme-instruction-hub --source ./acme-docs
 ```
 
-Both `--hub` and `--source` default to the current directory. Use explicit paths when the source repository and hub are different directories.
+| Option          | Default           | Meaning                          |
+| --------------- | ----------------- | -------------------------------- |
+| `--hub PATH`    | Current directory | Hub to import into               |
+| `--source PATH` | Current directory | Repository to import assets from |
 
-The scanner imports skills found immediately under `.agents/skills/`, `.claude/skills/`, and `.cursor/skills/`, including their supporting files. It imports a root MCP configuration from the first matching `.mcp.json`, `mcp.json`, `mcp.yaml`, or `mcp.yml`, and a distinct `.cursor/mcp.json` configuration when it is not already covered by the root configuration. Imported assets are added to the `pig` plugin's `includes` list.
+Pass both paths when the source repository and the hub are different directories. The scanner handles each kind of source file as follows:
 
-Root `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are recorded in `hub.repo-context.json` with content identity and size. They are not converted into shared instructions. Other skill locations, rules, commands, hooks, and subagent definitions require manual migration.
+| In the source repository                                                         | What `scan` does                                                                                                         |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Skills directly under `.agents/skills/`, `.claude/skills/`, or `.cursor/skills/` | Imports each skill with its supporting files                                                                             |
+| A root `.mcp.json`, `mcp.json`, `mcp.yaml`, or `mcp.yml`                         | Imports the first match as the MCP configuration                                                                         |
+| `.cursor/mcp.json`                                                               | Imports it when the root MCP configuration doesn't already cover it                                                      |
+| Root `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`                                   | Records each file's content identity and size in `hub.repo-context.json`, without converting it into shared instructions |
+| Other skill locations, rules, commands, hooks, and subagent definitions          | Nothing. Migrate them by hand.                                                                                           |
+
+Imported assets are added to the `pig` plugin's `includes` list.
 
 **Scan writes to the hub.** Reusing a skill ID replaces that destination skill directory; recognized MCP destinations and the context inventory can also be replaced. The command does not merge conflicting instructions or edit the source repository. Review each source's import before scanning another. Follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions) for a safe sequence.
 
@@ -75,6 +122,10 @@ Check source configuration, plugin definitions, referenced assets, target suppor
 pig validate --hub ./acme-instruction-hub
 ```
 
+| Option       | Default           | Meaning         |
+| ------------ | ----------------- | --------------- |
+| `--hub PATH` | Current directory | Hub to validate |
+
 A successful result reports the number of stable assets. It does not compile the plugins or prove that the instructions behave correctly in an agent. Checks reject disallowed symlinks and recognized literal-secret patterns; they are not a comprehensive secret scanner. Review imported credentials separately.
 
 ## `pig verify`
@@ -84,6 +135,10 @@ Validate the hub, compile all selected targets in a temporary directory, and rep
 ```bash
 pig verify --hub ./acme-instruction-hub
 ```
+
+| Option       | Default           | Meaning       |
+| ------------ | ----------------- | ------------- |
+| `--hub PATH` | Current directory | Hub to verify |
 
 Use this before committing or reviewing instruction changes. It leaves the hub's working files unchanged. A successful compile verifies generated structure, not marketplace authentication, desktop installation, or the quality of the agent's work.
 
@@ -95,15 +150,20 @@ Compile each plugin in `stable_plugins` for every target in `targets`:
 pig build --hub ./acme-instruction-hub
 ```
 
-The output includes `dist/<target>/<plugin-id>/`, target marketplace manifests where supported, and release metadata. Keep authored changes in `assets/`, `plugins/`, and `hub.yaml`; a later build can replace generated files.
+| Option       | Default           | Meaning                                                                              |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------ |
+| `--hub PATH` | Current directory | Hub to build                                                                         |
+| `--check`    | Off               | Compare the existing generated output with a fresh compilation, without rewriting it |
 
-Use `--check` to compare existing generated output with a fresh compilation without rewriting it:
+The output includes `dist/<target>/<plugin-id>/`, target marketplace manifests where supported, and release metadata. Keep authored changes in `assets/`, `plugins/`, and `hub.yaml`, because a later build can replace generated files.
+
+With `--check`, a stale or missing generated file fails the command:
 
 ```bash
 pig build --hub ./acme-instruction-hub --check
 ```
 
-A stale or missing generated file causes a failure. This is useful when a workflow deliberately checks generated artifacts. For an authoring branch that leaves generated output to CI, use `pig verify` instead.
+Use `--check` in a workflow that deliberately checks generated artifacts. For an authoring branch that leaves generated output to CI, use `pig verify`.
 
 ## `pig set-version`
 
@@ -114,7 +174,12 @@ pig set-version --hub ./acme-instruction-hub --version 0.2.0
 pig verify --hub ./acme-instruction-hub
 ```
 
-`--version` is required. Commit the change through the normal review process. The command does not build or publish; publishing resolves the next release against the previous stable version and synchronizes generated versions.
+| Option              | Default           | Meaning                   |
+| ------------------- | ----------------- | ------------------------- |
+| `--hub PATH`        | Current directory | Hub to update             |
+| `--version VERSION` | Required          | New shared plugin version |
+
+Commit the change through the normal review process. The command does not build or publish; publishing resolves the next release against the previous stable version and synchronizes generated versions.
 
 ## `pig status`
 
@@ -124,10 +189,44 @@ Print release metadata as JSON from a local manifest:
 pig status --manifest ./acme-instruction-hub/hub.release.json
 ```
 
-`--manifest` defaults to `hub.release.json` in the current directory. This command has no `--hub` option. Run a build or use a release checkout before reading its manifest. `pig status` does not query installed agents, host enrollment, or the analyzer.
+| Option            | Default                                     | Meaning                  |
+| ----------------- | ------------------------------------------- | ------------------------ |
+| `--manifest PATH` | `hub.release.json` in the current directory | Release manifest to read |
+
+This command has no `--hub` option. Run a build or use a release checkout before reading its manifest. `pig status` does not query installed agents, host enrollment, or the analyzer.
+
+## `pig cloud-bundle`
+
+Package a Claude Code plugin that captures traces from cloud agent executions under a cloud integration grant:
+
+```bash
+pig cloud-bundle \
+  --worker-url https://traces.acme.example \
+  --provider claude_tag \
+  --integration-id YOUR_INTEGRATION_ID \
+  --transport proxy \
+  --output pig-cloud-capture.zip
+```
+
+| Option                | Default  | Meaning                                                                                      |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `--worker-url URL`    | Required | The analyzer's HTTPS origin, with no path, query, or credentials                             |
+| `--provider ID`       | Required | The grant's provider, such as `claude_tag`                                                   |
+| `--integration-id ID` | Required | The grant's Integration ID from **Settings → Cloud integrations**                            |
+| `--transport MODE`    | `secret` | `proxy` when the provider's connection adds the token, `secret` when the sandbox supplies it |
+| `--output PATH`       | Required | A new file ending in `.zip`; the command fails if the file exists                            |
+
+The ZIP holds public configuration, the collector, and its hooks. It contains no credentials. The command doesn't need a hub, and it doesn't create a grant or check that the analyzer is reachable. See [Capture traces from cloud agents](/docs/governance/get-started/capture-cloud-agent-traces).
 
 ## Diagnose a failed command
 
-Read the error's file path and asset reference first. Common causes are a missing `skill:<id>` reference, a duplicate plugin ID, an unsupported asset conversion, or stale generated output with `build --check`.
+A failed command prints an `error:` message. Read the file path and asset reference in it first. These are the common causes:
 
-Correct source files and rerun `pig validate` and `pig verify`. Once they pass, continue to [publishing and installation](/docs/governance/get-started/publish-and-install-plugins) and test one installed skill in a real task.
+| Cause                                       | What to check                                                                                                      |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| A missing `skill:<id>` reference            | The plugin's `includes` list and the skill directories under `assets/skills/`                                      |
+| A duplicate plugin ID                       | The `id` in each `plugins/*.yaml` file. Every plugin needs its own.                                                |
+| An unsupported asset conversion             | The asset and target the message names                                                                             |
+| Stale generated output with `build --check` | Run `pig build` and commit the generated files, or use `pig verify` on a branch that leaves generated output to CI |
+
+Correct the source files and rerun `pig validate` and `pig verify`. Once they pass, continue to [publishing and installation](/docs/governance/get-started/publish-and-install-plugins) and test one installed skill in a real task.
