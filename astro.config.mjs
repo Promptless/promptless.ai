@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightOpenAPI, { openAPISidebarGroups } from 'starlight-openapi';
@@ -8,6 +9,7 @@ import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import vercel from '@astrojs/vercel';
 import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import { inlineMdxPartials } from './src/lib/mdx-partials.ts';
 import starlightSearch, { searchIncludeFiles } from './packages/starlight-search/src/index.ts';
 import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 import { DOCS_PRODUCTS } from './src/lib/docs-products.ts';
@@ -97,6 +99,18 @@ export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
   adapter: vercel({ includeFiles: [...searchIncludeFiles, ...agentScoreIncludeFiles] }),
   redirects,
+  // The site is English-only with no locale prefix. Left to itself, Starlight
+  // generates an Astro i18n config whose default locale path is `en`, and
+  // Astro's i18n router then answers any on-demand page URL with an `en`
+  // segment with an empty 404, e.g. /agent-score/docs.oracle.com/en/cloud.
+  // Giving the one locale a path that can never be a literal URL segment (it
+  // contains a space, which URLs always percent-encode) turns that check off.
+  // Starlight derives its own locale (monolingual, `en`) from this config.
+  i18n: {
+    defaultLocale: 'en root',
+    locales: [{ path: 'en root', codes: ['en'] }],
+    routing: { prefixDefaultLocale: false, redirectToDefaultLocale: false },
+  },
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
   markdown: {
@@ -242,14 +256,11 @@ export default defineConfig({
                   label: 'Reference',
                   collapsed: true,
                   items: [
-                    {
-                      label: 'Integrations',
-                      collapsed: true,
-                      items: [
-                        { label: 'Integrations', slug: 'docs/for-docs/reference/integrations' },
-                        { autogenerate: { directory: 'docs/for-docs/reference/integrations', collapsed: true } },
-                      ],
-                    },
+                    // The integration pages (docs/for-docs/reference/integrations/**)
+                    // are intentionally left out of the nav. Their connection
+                    // procedures live in src/partials/integrations/ and are embedded
+                    // in the trigger, context-source, and doc-location pages that
+                    // need them. The pages stay published, searchable, and linkable.
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
@@ -360,6 +371,9 @@ export default defineConfig({
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
                 '/docs/for-docs/security/self-hosting/**/*',
+                // Out of the nav (ADR adrs/0007) but still in the Promptless for Docs topic.
+                '/docs/for-docs/reference/integrations',
+                '/docs/for-docs/reference/integrations/**/*',
               ],
             },
             // The non-docs surface (marketing homepage, pricing, blog, changelog,
@@ -394,7 +408,12 @@ export default defineConfig({
         // Read-only MCP server at /mcp (see packages/starlight-mcp): `search` +
         // `get_page` tools and an llms.txt resource over Streamable HTTP. Omitted
         // when MCP_ENABLED=false so the build needs no SSR adapter.
-        ...(MCP_ENABLED ? [starlightMcp({ serverName: 'Promptless Documentation' })] : []),
+        ...(MCP_ENABLED ? [starlightMcp({
+          serverName: 'Promptless Documentation',
+          // Inline embedded src/partials/ procedures so get_page returns them.
+          transformContent: (content, file) =>
+            inlineMdxPartials(content, { fromFile: file, root: fileURLToPath(new URL('.', import.meta.url)) }),
+        })] : []),
       ],
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
@@ -409,6 +428,8 @@ export default defineConfig({
         ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
+      // Drops the duplicate "Overview" from "On this page"; see src/starlightRouteData.ts.
+      routeMiddleware: './src/starlightRouteData.ts',
       titleDelimiter: '|',
       markdown: {
         processedDirs: ['./src/content/blog', './src/content/changelog', './src/content/website'],
@@ -461,6 +482,7 @@ export default defineConfig({
       alias: {
         '@components': '/src/components',
         '@lib': '/src/lib',
+        '@partials': '/src/partials',
       },
     },
   },

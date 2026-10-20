@@ -229,6 +229,19 @@ Fires when a visitor clicks Rescan on a report page.
 
 **Source**: ReportClient.astro
 
+### `agent_score_scan_cancelled`
+
+Fires when a visitor clicks Cancel in a scan progress panel. The page stops
+polling; the scan itself still finishes on the backend.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug being scanned |
+| `location` | string | `agent_score_hero`, `agent_score_not_found`, or `agent_score_report` |
+| `elapsed_seconds` | number | Seconds since the scan was requested or the page began following it |
+
+**Source**: ScanForm.astro, ReportClient.astro
+
 ### `agent_score_fix_prompt_copied`
 
 Fires after the "Copy fix prompt" button copies the generated agent prompt.
