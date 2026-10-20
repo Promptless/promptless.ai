@@ -32,11 +32,24 @@ const hiddenSitemapPaths = new Set([
 // MCP server (packages/starlight-mcp, ported from the Starport template). The
 // /mcp route is rendered on demand, so enabling it requires the @astrojs/vercel
 // SSR adapter — the rest of the site stays static (output: 'static' +
-// prerender: false on the MCP route only). Set MCP_ENABLED=false for a fully
-// static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
+// prerender: false on the on-demand routes only). MCP_ENABLED=false drops the
+// /mcp route. It no longer produces an adapter-less build: the Agent Score
+// report pages (src/pages/agent-score/[...site]*) also render on demand, so the
+// adapter is always on.
 // ---------------------------------------------------------------------------
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
+
+// The Agent Score pages (src/pages/agent-score/[...site]*) render on demand
+// too. Their OG image route reads the Inter fonts
+// and logo from disk at request time (src/lib/agent-score/og.ts), so ship
+// them inside the serverless function.
+const agentScoreIncludeFiles = [
+  'scripts/marketing-image/fonts/Inter-Regular.ttf',
+  'scripts/marketing-image/fonts/Inter-SemiBold.ttf',
+  'scripts/marketing-image/fonts/Inter-Bold.ttf',
+  'public/assets/logo_darkbg.svg',
+];
 
 // Each redirect source here and in redirects.json also matches with one
 // trailing slash, because scripts/normalize-vercel-redirects.ts relaxes the
@@ -82,8 +95,20 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
-  adapter: MCP_ENABLED || ASSISTANT_ENABLED ? vercel({ includeFiles: searchIncludeFiles }) : undefined,
+  adapter: vercel({ includeFiles: [...searchIncludeFiles, ...agentScoreIncludeFiles] }),
   redirects,
+  // The site is English-only with no locale prefix. Left to itself, Starlight
+  // generates an Astro i18n config whose default locale path is `en`, and
+  // Astro's i18n router then answers any on-demand page URL with an `en`
+  // segment with an empty 404, e.g. /agent-score/docs.oracle.com/en/cloud.
+  // Giving the one locale a path that can never be a literal URL segment (it
+  // contains a space, which URLs always percent-encode) turns that check off.
+  // Starlight derives its own locale (monolingual, `en`) from this config.
+  i18n: {
+    defaultLocale: 'en root',
+    locales: [{ path: 'en root', codes: ['en'] }],
+    routing: { prefixDefaultLocale: false, redirectToDefaultLocale: false },
+  },
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
   markdown: {
@@ -363,6 +388,8 @@ export default defineConfig({
               '/demo',
               '/free-tools',
               '/free-tools/**/*',
+              '/agent-score',
+              '/agent-score/**/*',
               '/docs/internal/**/*',
               '/docs/marketing-images',
               '/docs/media-kit',
