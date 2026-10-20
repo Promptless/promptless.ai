@@ -53,7 +53,7 @@ and adds structure findings to pull requests without blocking them.
   are `reference` sections with no table (the TGDP reference template asks
   every entry section after the first for one) and `concept` pages with no
   `Use cases` section. After the edits and retyping in the same pull
-  request, 120 pages fail, with 250 findings.
+  request, 115 pages fail, with 220 findings.
 - Tradeoff: `npx manni check` now includes the structure job, so it exits 1
   on any page with structure findings even when frontmatter is clean.
 - Follow-up: fix pages as they're edited. When the backlog is small, remove
