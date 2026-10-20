@@ -1,19 +1,68 @@
 ---
 title: Install with Helm
 description: Verify a published PIG release, bootstrap the supervisor and collector Ingress with Helm, create the PIGDeployment, and enable analysis on Kubernetes.
+id: governance-deploy-the-worker-deploy-the-analyzer-worker
 slug: docs/governance/deploy-the-worker/deploy-the-analyzer-worker
-type: guide
+type: installation-guide
 tags:
   - agent-instructions
   - governance
   - deployment
+keywords:
+  - install trace analyzer
+  - pig-supervisor
+  - Helm bootstrap
+  - PIGDeployment
+  - release checksum
+  - collector ingress
+  - instruction repositories
+language: en
+audiences:
+  - aud-agent-governance
+intent: install the PIG trace analyzer on Kubernetes by verifying a release, bootstrapping pig-supervisor with Helm, creating a PIGDeployment, and enabling analysis
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - analyzer worker
+  - helm
+  - kubernetes
+  - self-hosting
+  - github app
+prerequisites:
+  - governance-deploy-the-worker-plan-your-deployment
+next-steps:
+  - governance-get-started-enroll-your-hosts
+  - governance-deploy-the-worker-verify-your-deployment
+related-pages:
+  - governance-deploy-the-worker-deploy-on-aws
+  - governance-deploy-the-worker-gitops-ownership
+  - governance-deploy-the-worker-configuration-reference
+  - governance-deploy-the-worker-manage-updates-and-recovery
+  - governance-deploy-the-worker-observability
+risks:
+  - cost-incurring
+  - privileged
+  - open-world
+sample-questions:
+  - How do I install the PIG trace analyzer with Helm?
+  - How do I verify the checksums of a PIG release before installing it?
+  - Which Secrets and ConfigMaps does the PIG analyzer need before I create the PIGDeployment?
+  - Why does my PIGDeployment show Ready=True but no analysis runs?
 ---
 
 import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
-Install the PIG trace analyzer on an existing Kubernetes cluster. A one-time Helm bootstrap installs the supervisor and the HTTPS collector Ingress. A `PIGDeployment` resource then connects the analyzer to your database, trace bucket, and model, and the supervisor installs and updates the analyzer from published releases.
+## Overview
 
-The current stable release, PIG 0.3.6, targets AWS/EKS. Azure/AKS and GCP/GKE are experimental. Every command and example on this page is for 0.3.6; the [installation overview](/docs/governance/deploy-the-worker/plan-your-deployment#follow-the-installation-path) shows where this guide fits.
+This guide installs the PIG trace analyzer on an existing Kubernetes cluster. It is the default installation, and every cloud guide finishes with it. A one-time Helm bootstrap installs the supervisor and the HTTPS collector Ingress. A `PIGDeployment` resource then connects the analyzer to your database, trace bucket, and model. The supervisor installs the analyzer and keeps it updated from published releases.
+
+Use it once your database, trace storage, workload identity, and hostname are ready. If your operations team must apply every upgrade itself, use [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) instead. The [installation path](/docs/governance/deploy-the-worker/plan-your-deployment#follow-the-installation-path) shows where this guide fits.
+
+The current stable release, PIG 0.3.6, targets AWS with EKS. Azure with AKS and Google Cloud with GKE are experimental. Every command and example on this page is for 0.3.6.
 
 ## Before you begin
 
@@ -52,7 +101,25 @@ anything still blocked.
 
 ## Who owns each resource
 
-Terraform owns cloud infrastructure. Your Kubernetes configuration owns the namespaces, ServiceAccount, Secrets, CA ConfigMap, certificates, and `PIGDeployment` spec. The `pig-supervisor` Helm release owns the supervisor and the collector Ingress. The supervisor owns the analyzer workloads it generates and its own updates. Keep one owner per resource: a second controller that reapplies the bootstrap chart or reconciles generated workloads undoes the supervisor's updates. [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership#resource-ownership) lists each resource and how to keep Flux and other controllers within these boundaries.
+Each resource has one owner:
+
+- Terraform owns cloud infrastructure.
+- Your Kubernetes configuration owns the namespaces, ServiceAccount, Secrets, CA ConfigMap, certificates, and `PIGDeployment` spec.
+- The `pig-supervisor` Helm release owns the supervisor and the collector Ingress.
+- The supervisor owns the analyzer workloads it generates and its own updates.
+
+A second controller that reapplies the bootstrap chart or reconciles generated workloads undoes the supervisor's updates. [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership#resource-ownership) lists each resource and how to keep Flux and other controllers within these boundaries.
+
+## Security posture
+
+The supervisor generates the analyzer Deployment and its maintenance Jobs, such as the migration Job, with a restricted security context. The `PIGDeployment` resource has no fields that change it. Each pod:
+
+- Runs as a non-root user, with the user ID, group ID, and filesystem group all set to `10001`.
+- Uses a read-only root filesystem, drops all Linux capabilities, and blocks privilege escalation.
+- Runs under the `RuntimeDefault` seccomp profile.
+- Mounts a writable `/tmp` backed by an ephemeral `emptyDir`, which gives the container scratch space without a persistent volume.
+
+The [manual chart](/docs/governance/deploy-the-worker/manual-helm) applies the same settings to its analyzer and migration Job, and its `values.yaml` has no keys that change them.
 
 ## 1. Select and verify a release
 
@@ -275,7 +342,7 @@ spec:
         key: model-api-key
 ```
 
-Use a deployment name of at most 54 lowercase letters, digits, or hyphens that starts with a letter. It must match `ingress.serviceName` without the `-analyzer` suffix.
+Use a deployment name of at most 54 lowercase letters, digits, or hyphens that starts with a letter and ends with a letter or digit. It must match `ingress.serviceName` without the `-analyzer` suffix.
 
 The release policy controls every later update:
 
@@ -321,7 +388,7 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 
 The health check returns `"status": "ok"` and the `deployment_instance_id` of this installation. The unauthenticated policy request returns `401` from the analyzer, which shows the route reaches it. A `404` means a proxy does not route that path, and a certificate error means the hostname and certificate do not match. Fix these before you enroll a host.
 
-Serve HTTPS directly at this hostname. Hosts use the address without a path, and cloud agents reject redirects. Cloud agents also need a public HTTPS endpoint; see [cloud agents](/docs/governance/deploy-the-worker/networking-and-identity#reach-the-analyzer-from-cloud-agents).
+Serve HTTPS directly at this hostname. Hosts use the address without a path, and cloud agents reject redirects. Cloud runners need to reach this address from their sandbox, and Claude Tag needs a public HTTPS endpoint; see [cloud agents](/docs/governance/deploy-the-worker/networking-and-identity#reach-the-analyzer-from-cloud-agents).
 
 ## 7. Select instruction repositories
 
@@ -337,7 +404,7 @@ Each repository needs a `main` branch, and the GitHub App needs Contents read ac
 
 ## 8. Enable trace analysis
 
-On the **Analyzers** card of the same page, find your analyzer's **Trace analyzer** switch. New analyzers start with it **On**; an organization administrator confirms it, or sets it to **On** to let this analyzer run analyses. **Off** stops analyses while uploads continue. The change applies at the analyzer's next check-in.
+On the **Analyzers** card of the same page, confirm that your analyzer's **Trace analyzer** switch is **On**. New analyzers start with it on. An organization administrator can set it to **Off** to stop analyses while uploads continue, and back to **On** to resume. Each change applies at the analyzer's next check-in.
 
 Analysis runs only when all of these are true:
 
@@ -356,4 +423,10 @@ Deployment checks pass while analysis is off or no repository is selected, so `R
   3. [Verify that session end to end](/docs/governance/deploy-the-worker/verify-your-deployment). Check the enrolled host, the stored and readable trace object, a succeeded analysis, and its Dashboard acknowledgement. Zero findings is a valid result.
 </Steps>
 
-Use [updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery) for pause and pin controls, backups, and recovery, and [observability](/docs/governance/deploy-the-worker/observability) for ongoing monitoring.
+## See also
+
+- [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment), for every check in the end-to-end verification
+- [Configuration reference](/docs/governance/deploy-the-worker/configuration-reference), for every `PIGDeployment` and bootstrap chart field
+- [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for pause and pin controls, backups, and recovery
+- [Observability](/docs/governance/deploy-the-worker/observability), for ongoing monitoring and troubleshooting
+- [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership), to manage the `PIGDeployment` and later Ingress changes through Flux or another controller
