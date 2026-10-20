@@ -4,21 +4,18 @@ language: en
 ---
 
 agent-ready docs
-:   Documentation that AI agents can read, search, and cite on their own. Every Starport site ships llms.txt files, a read-only docs MCP server, page actions, and agent-readiness scoring.
+:   Documentation that AI agents can read, search, and cite on their own. This may include llms.txt files, a read-only docs MCP server, page actions, agent-readiness scoring, and more.
 
 assignment and routing
 :   How Promptless gets each suggestion and its docs PR to the right people. By default it notifies the requester and assigns them the docs PR, and you change these defaults in your Knowledge Base.
 
-brand assets
-:   The official Promptless logos, brand colors, and product screenshots for press, partner, and integration use. The media kit publishes them with usage guidelines, such as using the logo unmodified.
-
 changelog
 changelogs
-:   A file or page that records a product's changes. When a change ships, Promptless drafts changelog entries as suggestions that follow your existing format and the conventions you teach it.
+:   A file or page that records a product's changes.
 
 context source
 context sources
-:   A read-only integration, such as an issue tracker, a wiki, or a shared drive, that gives Promptless the product knowledge behind a change. Promptless reads it while drafting a suggestion, and the connection is one-way.
+:   A read-only integration, such as an issue tracker, a wiki, or a shared drive, that provides the product knowledge behind a change.
 
 custom task
 custom tasks
@@ -37,13 +34,13 @@ docs as code
 
 docs as tests
 docs-as-tests
-:   An approach that runs the procedures in your docs against the product as tests. A page that no longer matches the product fails, the way broken code fails a test. When testing is on for a doc collection, Promptless creates and updates these tests as your product changes.
+:   An approach that runs the procedures in your docs against the product as tests. A page that no longer matches the product fails, the way broken code fails a test.
 
 docs debt
-:   The backlog of stale steps, off-style prose, duplicate pages, and outdated structure that builds up in a large docs set. Promptless treats it as documentation work, using Deep Analysis to audit, rewrite, and restructure pages.
+:   The backlog of stale steps, off-style prose, duplicate pages, and outdated structure that builds up in a large docs set.
 
 docs migration
-:   A one-time project that moves documentation off a hosted platform and onto a Git-backed docs-as-code platform, with redirects from old URLs. Promptless runs the migration for you when you move to Starport.
+:   A one-time project that moves documentation off a hosted platform and onto a Git-backed docs-as-code platform, with redirects from old URLs.
 
 docs PR
 docs PRs
