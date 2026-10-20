@@ -166,7 +166,10 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   templates`), with `installation-guide` and `quickstart` routed to how-to
   and `glossary` and `contact-support` to reference. For example, a how-to
   needs an `Overview` H2 first and a `See also` H2 last, and every reference
-  H2 after the first needs a table. Advisory: on a PR, CI annotates the pages
+  H2 after the first needs a table. Run `npx manni lint templates show
+  tgdp:how-to:1.6` (or another template) to see each section a template asks
+  for and what it's for; each finding names the template section it breaks
+  and repeats that purpose. Advisory: on a PR, CI annotates the pages
   you changed but doesn't fail. Fix the findings on pages you edit; run
   `npm run lint:structure -- <page>` locally, and add `--explain` to see
   which template a page routed to. See [ADR 0006](adrs/0006-adopt-manni-lint-structure.md).
