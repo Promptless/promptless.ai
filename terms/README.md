@@ -24,10 +24,16 @@ Don't edit the generated files by hand. Edit the term pages, then run
 | --- | --- | --- |
 | `for-docs/` | Promptless for Docs terms | the Promptless for Docs glossary |
 | `governance/` | Promptless Instruction Governance (PIG) terms | the PIG glossary |
-| `topics/` | Subject areas and vendors that pages tag in `concepts:`, such as `security` or `Slack` | no glossary; still checked, linted, and used by the Vale style |
+| `topics/` | Subject areas, vendors, and third-party tools that pages tag in `concepts:`, such as `security`, `Slack`, or `Vale` | no glossary; still checked, linted, and used by the Vale style |
 
 A term used by both products goes in the directory of the product that uses
 it most. Its definition must be accurate for both.
+
+The glossaries hold Promptless's own terms, plus general terms that some
+readers may not know, such as `docs-as-code` for engineers or `GitOps` for
+writers. Keep vendor and third-party product names out of them. Put those
+terms in `topics/`. In `for-docs/` and `governance/` definitions, name a
+vendor only when the term can't be defined without one.
 
 `term.template.yaml` is the empty structure template that `manni lint
 structure` routes term pages to, since they have no body.
@@ -69,5 +75,8 @@ The `terms` job in `.github/workflows/manni.yml` fails a pull request when a
 Vale, or a generated file is stale. The `vale` workflow runs the Terms style
 over the docs pages. There its casing rules are warnings, not errors, because
 Vale also lints frontmatter values such as `id` and `slug`, where lowercase
-identifiers like `for-docs-connect-triggers-jira` are correct. See
+identifiers like `for-docs-connect-triggers-jira` are correct. The workflow's
+error filter reads each rule's own level, which the generated files set to
+`error`, so it excludes the `Terms.` rules by name. Run Vale locally to see
+their warnings. See
 [ADR 0009](../adrs/0009-adopt-manni-term.md).

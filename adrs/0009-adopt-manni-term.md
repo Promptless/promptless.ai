@@ -35,8 +35,10 @@ Chosen option: **term pages in `terms/`, rendered into glossary partials**.
 - `terms/` holds one page per term (`type: term`), in `for-docs/`,
   `governance/`, and `topics/`. `manni term fill` created the first 86 from
   the `concepts:` values the pages already used, with model-drafted
-  definitions that were then rewritten against the docs. `terms/README.md`
-  covers the layout and tasks.
+  definitions that were then rewritten against the docs. A review pass then
+  moved vendor and third-party tool terms to `topics/`. It added Promptless
+  terms the pages use, such as policy, New Task, and the PIG hub and trace
+  terms. `terms/README.md` covers the layout and tasks.
 - `manni.config.yaml` declares a `terms` collection, judged by
   `manni:terminology:1.2.0` and its strict overlay, and points
   `tools.vale.config` at `.vale.ini`.
@@ -45,8 +47,9 @@ Chosen option: **term pages in `terms/`, rendered into glossary partials**.
   Two glossary pages, one per product (ADR 0002), embed them. `manni term
   write` replaces the whole target file, and a written list is read back as
   terms, so it can't target a Starlight page directly. `remark-definition-list`
-  renders the lists as `<dl>`. `topics/` (subject areas and vendors) isn't
-  rendered.
+  renders the lists as `<dl>`. `topics/` (subject areas, vendors, and
+  third-party tools) isn't rendered. The glossaries carry only Promptless
+  terms and general terms that some readers may not know.
 - `manni term write -f vale` generates the `Terms` Vale style, committed in
   `.vale/styles/Terms/` (excepted from the `.gitignore` rule that covers
   synced styles). `.vale.ini` adds `Terms` to the docs pages and adds a
@@ -65,8 +68,10 @@ Chosen option: **term pages in `terms/`, rendered into glossary partials**.
   errors. Vale also lints frontmatter values such as `id` and `slug`, domains
   such as `gitlab.com`, and link targets inside MDX components, so correct
   lowercase identifiers matched the vendor-name rules (about 120 of the 125
-  findings at adoption). The `vale` workflow blocks only on errors, so these
-  rules don't gate merge. Follow-up: make them errors once the generated
+  findings at adoption). The `vale` workflow blocks only on errors. Its
+  `--filter` reads each rule's own level, which the generated files set to
+  `error`. So the filter excludes the `Terms.` rules by name, and they don't
+  gate merge. Follow-up: make them errors once the generated
   rules can skip those scopes, or the identifiers are excluded.
 - Tradeoff: the `keyword-candidate` notice lists 61 `keywords:` values that
   name no term. They're notices and don't fail CI.
@@ -85,7 +90,7 @@ Chosen option: **term pages in `terms/`, rendered into glossary partials**.
 ### Term pages under `src/content/docs`, one published page per term
 
 - Good: no rendering step.
-- Bad: 86 thin pages in the sitemap and search, each needing the full docs
+- Bad: about 100 thin pages in the sitemap and search, each needing the full docs
   frontmatter contract.
 
 ### A single manifest file

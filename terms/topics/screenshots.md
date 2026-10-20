@@ -6,7 +6,9 @@ language: en
 label: screenshots
 alt-labels:
   - screenshot
-definition: Images of your product's interface in your docs. Promptless Capture keeps them in sync with your interface, capturing new ones from a test account when a change affects a documented screen.
+definition: >-
+  Images of a product's interface in documentation. Promptless Capture keeps the ones in your docs
+  in sync with your interface.
 meta-provenance:
   - generated-by: promptless
     fields:
