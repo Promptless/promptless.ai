@@ -70,4 +70,4 @@ Vale, or a generated file is stale. The `vale` workflow runs the Terms style
 over the docs pages. There its casing rules are warnings, not errors, because
 Vale also lints frontmatter values such as `id` and `slug`, where lowercase
 identifiers like `for-docs-connect-triggers-jira` are correct. See
-[ADR 0008](../adrs/0008-adopt-manni-term.md).
+[ADR 0009](../adrs/0009-adopt-manni-term.md).
