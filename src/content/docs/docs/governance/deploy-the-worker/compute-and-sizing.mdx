@@ -1,31 +1,81 @@
 ---
 title: Compute and sizing
 description: Size the trace analyzer from representative sessions, database load, object growth, and model throughput.
+id: governance-deploy-the-worker-compute-and-sizing
 slug: docs/governance/deploy-the-worker/compute-and-sizing
-type: reference
+type: how-to
 tags:
   - agent-instructions
   - governance
   - deployment
+keywords:
+  - trace analyzer sizing
+  - analyzer resource requests
+  - capacity planning
+  - model throttling
+  - kubectl top
+  - pilot sizing
+language: en
+audiences:
+  - aud-agent-governance
+intent: size the PIG trace analyzer's compute, PostgreSQL, trace bucket, and model throughput from measured pilot sessions
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - analyzer worker
+  - kubernetes
+  - postgresql
+  - object storage
+  - model provider
+related-pages:
+  - governance-deploy-the-worker-manage-updates-and-recovery
+  - governance-deploy-the-worker-verify-your-deployment
+risks:
+  - read-only
+sample-questions:
+  - How much CPU and memory does the PIG trace analyzer request by default?
+  - Will adding analyzer pods fix an analysis backlog caused by model throttling?
+  - Which metrics should I measure before scaling PIG trace analysis?
 ---
 
-The trace analyzer needs compute for receiving uploads, preparing traces, and running analysis. PostgreSQL stores ingestion and analysis state; the trace bucket stores session objects. Repository mirrors are disposable local storage.
+import { Steps } from '@astrojs/starlight/components';
 
-## Start with a measured pilot
+## Overview
 
-There is no single capacity target for a number of developers. Session size, agent activity, analysis duration, and model rate limits determine the load. Start with one analyzer replica, then measure representative sessions before increasing concurrency or replicas.
+Use this guide to size the trace analyzer for production from a measured pilot, and to find the constraint to change when analysis falls behind. The analyzer uses compute to receive uploads, prepare traces, and run analysis. PostgreSQL stores ingestion and analysis state, the trace bucket stores session objects, and the repository mirror is disposable local storage.
 
-As an initial allocation, the manual Helm example requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. These values are a pilot starting point, not a throughput guarantee. The automatic installation uses its release's workload defaults; review the generated pod requests and limits before admitting production traffic.
+Load depends on session size, agent activity, analysis duration, and model rate limits, so a developer count alone doesn't give you a capacity target. Measure representative sessions on one analyzer replica before you change capacity.
 
-```bash
-kubectl get deployment acme-analyzer --namespace pig \
-  -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
-kubectl top pods --namespace pig
-```
+## Measure a pilot
 
-`kubectl top` requires your cluster's metrics service. Use your existing monitoring system for measurements over time.
+In PIG 0.3.6, the supervisor runs one analyzer replica. It requests 500 millicores and 1 GiB of memory, with a 2 GiB memory limit. The manual Helm example uses the same values. Treat them as a pilot starting point. They don't guarantee throughput.
+
+<Steps>
+  1. Review the requests and limits on the generated analyzer Deployment:
+
+     ```bash
+     kubectl get deployment acme-analyzer --namespace pig \
+       -o jsonpath='{.spec.template.spec.containers[*].resources}{"\n"}'
+     ```
+
+  2. Run representative sessions from pilot hosts, and check current pod usage:
+
+     ```bash
+     kubectl top pods --namespace pig
+     ```
+
+     `kubectl top` requires your cluster's metrics service.
+
+  3. In your existing monitoring system, record the measurements listed in [Measure each constraint](#measure-each-constraint) over the pilot.
+</Steps>
 
 ## Measure each constraint
+
+Each constraint has its own measurements and its own place to adjust:
 
 | Constraint          | Measure                                                          | Adjust                                                                         |
 | ------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -35,12 +85,21 @@ kubectl top pods --namespace pig
 | Trace bucket        | Uploaded bytes, object counts, request rates, retrieval errors.  | Storage policy and network capacity; keep required objects available.          |
 | Repository mirror   | Checkout size, temporary disk usage, refresh failures.           | Node ephemeral storage and repository access.                                  |
 
-A backlog caused by model throttling does not improve by adding pods. Account for database connection growth and model quotas before scaling analysis.
+Adding pods doesn't clear a backlog caused by model throttling. Before you scale analysis, account for model quota and for the database connections each new replica opens.
 
-## Availability and upgrades
+## Plan capacity for availability and upgrades
 
-Use managed database availability and backups appropriate to your recovery objectives. Budget cluster capacity for migration Jobs and rolling releases in addition to steady-state pods. Distribute workloads according to the release's supported scheduling settings.
+Use managed database availability and backups that meet your recovery objectives. Budget cluster capacity for migration Jobs and rolling releases on top of steady-state pods. Distribute workloads according to the release's supported scheduling settings.
 
-PIG reports infrastructure requirements that block an update. Apply the required cloud change through Terraform and let PIG retry its live checks. For capacity PIG cannot inspect, such as managed database disk headroom, [confirm the target release's requirements](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-capacity-that-pig-cannot-inspect) using current provider metrics. PIG does not mirror Terraform capacity. Avoid editing generated Deployments: the supervisor reconciles those resources.
+When an update needs more infrastructure, PIG blocks the update and reports the requirement. Apply the cloud change through Terraform, and PIG retries its live checks. For capacity PIG can't inspect, such as managed database disk headroom, [confirm the target release's requirements](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-capacity-that-pig-cannot-inspect) from current provider metrics.
 
-Validate any capacity change with the same [complete-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) used at installation.
+Don't edit generated Deployments to change their resources. The supervisor reconciles those resources back to its configured values.
+
+After any capacity change, repeat the [complete-session checks](/docs/governance/deploy-the-worker/verify-your-deployment) you ran at installation.
+
+## See also
+
+- [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for blocked updates and release capacity confirmations
+- [Model providers](/docs/governance/deploy-the-worker/model-providers), for reserving model quota for analysis
+- [PostgreSQL](/docs/governance/deploy-the-worker/postgresql#plan-migrations-and-connection-capacity), for the connections each analyzer replica opens
+- [Observability](/docs/governance/deploy-the-worker/observability), for finding the stage where analysis stops making progress
