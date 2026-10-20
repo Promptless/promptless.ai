@@ -15,7 +15,7 @@ keywords:
   - MCP tools
   - OAuth editor connection
   - direct edits
-  - suggestion-triage
+  - triage-suggestions
 language: en
 audiences:
   - aud-devrel-devex
@@ -356,7 +356,7 @@ Searches your existing suggestions by keyword and status. Use it to check whethe
 | `labels` | No       | A list of label strings. Returns only suggestions carrying at least one of the given labels. This is an any-of match. Omit it or pass an empty list to apply no label filter, so results come back across all labels. Matches exactly, including case, so a label in the wrong case returns nothing; call `search_suggestions` without `labels` first to see the exact stored label strings. |
 | `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100.                                                                                                                                                                                                                                                                                                                          |
 
-When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the suggestion-triage workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
+When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the triage-suggestions workflow below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
 
 ## Read and edit documentation directly
 
@@ -456,9 +456,9 @@ Your editor follows the accepted answer via its `next_call`, which points at the
 
 If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several of these tools together. A skill guides your editor through the [tools above](#available-tools) and adds no tools of its own. The editor decides when to load a skill, and you ask for what you want as usual.
 
-Two skills ship today. `suggestion-triage` is available at both server URLs. `edit-documentation` is available only at the direct-edit URL.
+Two skills ship today. `triage-suggestions` is available at both server URLs. `edit-documentation` is available only at the direct-edit URL.
 
-`suggestion-triage` is a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. Following that sequence keeps the editor from treating a truncated result set as your whole backlog. It also gives each suggestion exactly one outcome without you prompting each step.
+`triage-suggestions` is a workflow for working through a backlog of suggestions. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. Following that sequence keeps the editor from treating a truncated result set as your whole backlog. It also gives each suggestion exactly one outcome without you prompting each step.
 
 `edit-documentation` walks your client through one direct edit. It finds the pages, picks or starts a suggestion, edits each page, checks the diff, and opens the pull request.
 
@@ -492,7 +492,7 @@ To close a suggestion you won't ship, ask for that: "Close Promptless suggestion
 
 If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
 
-To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `suggestion-triage` steps; if not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
+To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `triage-suggestions` steps; if not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
 
 On the direct-edit URL, name the change and the suggestion to put it on: "Find the pages that say webhook retries default to 3. Change them to 5 on the open webhook retries suggestion, show me the diff, and open the PR." Each edit asks before it commits.
 
