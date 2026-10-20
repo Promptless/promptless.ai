@@ -21,7 +21,7 @@ audiences:
   - aud-agent-governance
 intent: create an Instruction Hub with pig init, write first skills, group them into plugins, and validate the hub before publishing
 lifecycle: published
-last-updated: 2026-10-02
+last-updated: 2026-10-20
 applies-to:
   - promptless-for-agent-instructions
 concepts:
@@ -50,26 +50,13 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-An Instruction Hub is a Git repository containing your team's shared instructions and the plugins that distribute them. Authors edit ordinary Markdown and configuration files, review changes in pull requests, and publish a version that colleagues can install in their agents.
+## Overview
 
-This guide creates an Acme hub with a documentation review skill and a bug investigation skill. You can use the hub without deploying trace analysis. If you already have instructions to consolidate, create the scaffold here, then follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
+An Instruction Hub is a Git repository that holds your team's shared instructions and the plugins that distribute them. Authors edit ordinary Markdown and configuration files, review changes in pull requests, and publish a version that colleagues install in their agents.
 
-## Before you begin
+This guide creates an Acme hub with a documentation review skill and a bug investigation skill, then validates it as a first release. The hub works without trace analysis. If you already have instructions to consolidate, create the scaffold here, then follow [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions).
 
-You need Git, Python 3.11 or later, and permission to create a repository on GitHub or GitLab. Choose someone to maintain the hub and a reviewer for each instruction area. The examples use `Acme`, marketplace ID `acme-instruction-hub`, and plugin IDs `pig`, `docs`, and `dev`; replace the organization and repository URL with yours.
-
-Install the toolchain from its public Git repository in a dedicated virtual environment:
-
-```bash
-python3 -m venv ~/.venvs/pig
-source ~/.venvs/pig/bin/activate
-python -m pip install "git+https://github.com/Promptless/pig-toolchain.git@main"
-pig --help
-```
-
-These are macOS/Linux shell commands. On Windows, activate the environment with its `Scripts/Activate.ps1` script. Activate this environment again when you return to authoring. Your teammates only need the toolchain if they edit or validate hub source; installing a published plugin does not require it.
-
-To hand this phase to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
+To hand this guide to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
 
 ```text title="Ask your agent: create or adopt an Instruction Hub"
 Create or adopt our Instruction Hub. Follow
@@ -89,6 +76,45 @@ Ask me before you create a remote repository or push. Report the verified
 release ID, the files you changed, and anything left for me to do.
 ```
 
+## Before you start
+
+You need:
+
+- Git and Python 3.11 or later.
+- Permission to create a repository on GitHub or GitLab.
+- A person to maintain the hub, and a reviewer for each instruction area.
+
+The examples use the organization `Acme`, the marketplace ID `acme-instruction-hub`, and the plugin IDs `pig`, `docs`, and `dev`. Replace the organization and repository URL with yours.
+
+## Install the toolchain
+
+Only people who edit or validate hub source need the `pig` toolchain. Installing a published plugin doesn't need it. These are macOS and Linux shell commands.
+
+<Steps>
+  1. Create a dedicated virtual environment and activate it. On Windows, activate it with its `Scripts/Activate.ps1` script.
+
+     ```bash
+     python3 -m venv ~/.venvs/pig
+     source ~/.venvs/pig/bin/activate
+     ```
+
+  2. Install the toolchain from its public Git repository.
+
+     ```bash
+     python -m pip install "git+https://github.com/Promptless/pig-toolchain.git@main"
+     ```
+
+  3. Confirm the installation. The command prints the list of `pig` commands.
+
+     ```bash
+     pig --help
+     ```
+</Steps>
+
+Activate this environment again each time you return to authoring.
+
+## Create the hub
+
 <Steps>
   1. **Create the repository**
 
@@ -102,7 +128,7 @@ release ID, the files you changed, and anything left for me to do.
        --version 0.1.0
      ```
 
-     The command writes `hub.yaml`, creates `plugins/pig.yaml`, and prepares the asset directories. Keep the `pig` plugin: the toolchain requires that literal ID and adds the hub's update skill to its Claude and Codex versions.
+     `--org` is required. Without `--marketplace-id` and `--marketplace-name`, `pig init` derives both from the organization name. The command writes `hub.yaml`, creates `plugins/pig.yaml`, and prepares the asset directories. Keep the `pig` plugin. The toolchain requires that literal ID and adds the hub's update skill to its Claude and Codex versions.
 
   2. **Write your first skills**
 
@@ -252,11 +278,13 @@ release ID, the files you changed, and anything left for me to do.
        enabled: false
      ```
 
-     `marketplace.id` identifies the catalog, while each plugin has its own literal ID. The compiler does not add an organization prefix. Choose stable names; renaming an installed plugin creates a different identity. If your team installs multiple hubs, use explicit IDs such as `acme-docs` for customer plugins to avoid confusing namespaces. The required `pig` ID stays unchanged.
+     `marketplace.id` identifies the catalog, and each plugin has its own literal ID. The compiler adds no organization prefix. Choose stable names, because renaming an installed plugin creates a different identity. If your team installs plugins from several hubs, give your own plugins explicit IDs such as `acme-docs` so the names stay distinct. The required `pig` ID stays as it is.
 
-     `version` is shared by the generated plugins. Publishing advances it when the output changes; you do not need to bump it for each edit. See [Publishing and updates](/docs/governance/get-started/publish-and-install-plugins).
+     All generated plugins share `version`. Publishing advances it when the output changes, so you don't need to change it for each edit. See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins#verify-the-published-release).
 
-  4. **Understand the layout**
+  4. **Check the layout**
+
+     Compare your hub with this layout:
 
      ```text
      hub.yaml                          # Marketplace, version, plugins, and targets
@@ -274,7 +302,7 @@ release ID, the files you changed, and anything left for me to do.
        mcps/                           # MCP server configuration
      ```
 
-     Skills are the simplest starting point. The toolchain also supports rules, agents, commands, hooks, and MCP configurations. These capabilities differ by host; see [Supported agents](/docs/governance/reference/supported-agents) before adding an instruction that depends on a particular agent feature.
+     Skills are the simplest starting point. The toolchain also supports rules, agents, commands, hooks, and MCP configurations. Support for these differs by agent. Check [Supported agents](/docs/governance/reference/supported-agents) before you add an instruction that depends on a particular agent feature.
 
   5. **Validate and save your work**
 
@@ -291,7 +319,12 @@ release ID, the files you changed, and anything left for me to do.
        Validation catches several unsafe configuration patterns, including literal secrets in MCP settings and symlinks in assets. It is not a general secret scan. Review imported files, scripts, and examples before committing them.
      </Aside>
 
-     If validation reports a missing asset, check both the directory name and the plugin's `includes` entry. If a capability is unsupported, either adapt its instructions to a portable skill or declare its target support explicitly. Do not treat a successful build as proof that an agent followed the procedure; test that after installation.
+     If validation reports a missing asset, check both the directory name and the plugin's `includes` entry. If a target doesn't support an asset, adapt its instructions to a portable skill or declare its target support explicitly. A successful build doesn't prove that an agent follows the procedure. Test that after installation.
 </Steps>
 
-You now have a versioned source hub ready for review. Continue to [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins). When you want feedback from real agent sessions, [deploy trace analysis](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) and then [enable collection and enroll hosts](/docs/governance/get-started/enroll-your-hosts).
+## See also
+
+- [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins), to release the hub and install its plugins in your team's agents
+- [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions), to bring existing skills and agent configuration into the hub
+- [The pig CLI reference](/docs/governance/reference/pig-cli-reference), for every `pig` command and option
+- [Deploy trace analysis](/docs/governance/deploy-the-worker/plan-your-deployment) and [Enroll your hosts](/docs/governance/get-started/enroll-your-hosts), when you want feedback from real agent sessions
