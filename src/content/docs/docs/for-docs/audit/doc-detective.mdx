@@ -1,64 +1,99 @@
 ---
 title: Doc Detective integration
 description: Test documentation workflows against your actual product with Promptless and Doc Detective
+id: for-docs-audit-doc-detective
 slug: docs/for-docs/audit/doc-detective
-type: guide
+type: how-to
 tags:
   - audit
   - guide
+keywords:
+  - Doc Detective
+  - docs as tests
+  - documentation testing
+  - executable doc tests
+  - CI failure handling
+  - test documented workflows
+language: en
+audiences:
+  - aud-devrel-devex
+  - aud-brownfield-docs-team
+  - aud-scaleup-docs-team
+intent: enable Doc Detective on a doc collection so Promptless creates and updates executable tests for documented workflows
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+concepts:
+  - doc detective
+  - doc collection
+  - docs pr
+related-pages:
+  - for-docs-audit-keep-docs-healthy
+risks:
+  - privileged
+sample-questions:
+  - How do I enable Doc Detective for a Promptless doc collection?
+  - Can Promptless write and update Doc Detective tests when the product changes?
+  - What does Promptless do when a Doc Detective check fails on its docs PR?
 sidebar:
   hidden: false
   order: 35
   label: Doc Detective
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## Overview
 
 Docs describe how your product works. Every setup guide, UI walkthrough, CLI example, and API tutorial contains product assertions: this button exists, this command succeeds, this page appears, this link works.
 
-Promptless uses [Doc Detective](https://docs.doc-detective.com/) to make each of those assertions executable. Doc Detective is an open-source implementation of the [Docs as Tests](https://www.docsastests.com/docs-as-tests/concept/2024/01/09/intro-docs-as-tests.html) framework. Under that framework, documentation should be tested against the real product experience, not just proofread for style or checked for broken links.
+Promptless uses [Doc Detective](https://docs.doc-detective.com/) to make each of those assertions executable. Doc Detective is an open-source implementation of the [Docs as Tests](https://www.docsastests.com/docs-as-tests/concept/2024/01/09/intro-docs-as-tests.html) framework. That framework tests documentation against the real product experience, beyond proofreading it for style and checking it for broken links.
+
+Enable Doc Detective on a doc collection when you want Promptless to keep tests current along with the prose. When a new feature changes the product, Promptless can document the change and add the tests that prove the documented workflow still works. With Doc Detective enabled, Promptless:
+
+- Creates Doc Detective tests when new documented workflows, UI paths, commands, or setup procedures are added
+- Updates existing Doc Detective tests when product changes make the old workflow stale
+- Reuses your existing Doc Detective config and test layout
+- Runs your Doc Detective tests when you ask and reports the results
+- Responds to CI failures on its documentation PRs, and updates the suggestion branch when the docs change caused the failure
+
+Executable tests are one of the tools behind [Audit and keep your docs healthy](/docs/for-docs/audit/keep-docs-healthy). They keep remediated procedures accurate as the product changes, so a workflow you just fixed doesn't quietly go stale again.
 
 <Aside type="note">
-  Doc Detective is an open source documentation testing framework. You can view the core project at [doc-detective/doc-detective](https://github.com/doc-detective/doc-detective). The agent tooling Promptless uses is at [doc-detective/agent-tools](https://github.com/doc-detective/agent-tools).
+  Doc Detective is an open-source documentation testing framework. You can view the core project at [doc-detective/doc-detective](https://github.com/doc-detective/doc-detective). The agent tooling Promptless uses is at [doc-detective/agent-tools](https://github.com/doc-detective/agent-tools).
 </Aside>
 
-<Aside type="note">
-  Executable tests are one of the tools behind [Audit and keep your docs healthy](/docs/for-docs/audit/keep-docs-healthy). They keep remediated procedures true as the product changes, so a workflow you just fixed doesn't quietly go stale again.
-</Aside>
+## Before you start
 
-## What Promptless does
+- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration).
+- Optional. A Doc Detective config file in your docs repository, such as `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml`.
 
-When Doc Detective is enabled on a doc collection, Promptless treats tests as part of keeping your docs current.
+## Enable Doc Detective on a doc collection
 
-Promptless can:
+To enable Doc Detective with a config file:
 
-- Create Doc Detective tests when new documented workflows, UI paths, commands, or setup procedures are added
-- Update existing Doc Detective tests when product changes make the old workflow stale
-- Reuse your existing Doc Detective config and test layout
-- Run your Doc Detective tests when you ask and report the results
-- React to CI failures on Promptless documentation PRs and inspect the failing checks. It updates the suggestion branch when the failure is caused by the docs change
+<Steps>
+  1. On the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the doc collection.
 
-This means Promptless can update both the prose and the executable test coverage for a feature. If a new feature changes the product, Promptless can document the change and add the checks that prove the documented workflow still works.
+  2. Select **More filters (optional)**.
 
-## Setup
+  3. In **Doc Detective config path**, enter the repo-relative path to your Doc Detective config file, such as `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml`.
 
-Turn on Doc Detective for a doc collection by entering the path to its Doc Detective config file.
-
-1. Open the **Doc collections** tab on the [Configuration page](https://app.gopromptless.ai/configuration).
-2. Select your doc collection.
-3. Expand **More filters (optional)**.
-4. In **Doc Detective config path**, enter the repo-relative path to your config file, such as `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml`.
-5. Select **Save changes**.
+  4. Select **Save changes**.
+</Steps>
 
 Leave **Doc Detective config path** blank to keep Doc Detective off. Clearing the field and saving turns Doc Detective off for the collection.
 
-To turn on Doc Detective without naming a config file, add an empty `doc_detective` entry to the collection in `promptless.yaml`. Doc Detective then looks for `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml` at the repository root, in that order, and uses its defaults when it finds none. See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#doc-collections) for the full doc collection schema.
+To enable Doc Detective without a config file, switch the Configuration page to **YAML** mode and add an empty `doc_detective` key to the doc collection:
 
 ```yaml
 doc_collections:
   acme/docs:
     doc_detective: {}
 ```
+
+Without a config path, Doc Detective looks for `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml` at the repository root, in that order, and uses its defaults when it finds none. Promptless also inspects the repository for existing Doc Detective specs before it adds coverage. To set the path in YAML, add it under the same key, as `doc_detective.config_path`. See the [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for the full doc collection schema.
 
 ## Default behavior
 
@@ -82,8 +117,13 @@ When a GitHub check suite fails on an open Promptless docs PR, Promptless:
 1. Resolves the failing PR back to the Promptless suggestion that created it.
 2. Fetches the failing check runs and a preview of the logs.
 3. Starts a follow-on investigation with the PR, failing check names, conclusions, and log preview.
-4. Determines whether the failure was caused by the suggestion.
+4. Determines whether the suggestion caused the failure.
 
-If the failure is caused by the suggestion, Promptless updates the suggestion branch with the fix. If the failure is pre-existing or unrelated, Promptless leaves the suggestion scoped to its original work. If it finds a separate docs issue outside the suggestion's scope, it can create separate work for that issue. It does not expand the original PR.
+If the suggestion caused the failure, Promptless updates the suggestion branch with the fix. If the failure is pre-existing or unrelated, Promptless keeps the suggestion scoped to its original work. If it finds a separate docs issue outside the suggestion's scope, it can create separate work for that issue without expanding the original PR.
 
-This lets Doc Detective failures become actionable maintenance signals instead of another queue for your team to triage manually.
+## See also
+
+- [GitHub repos (docs as code)](/docs/for-docs/connect/doc-locations/github-repos#configuration), for every doc collection setting
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections), for the `doc_collections` schema
+- [Vale integration](/docs/for-docs/audit/standards-enforcement), to enforce prose style in the same suggestions
+- [Doc Detective documentation](https://docs.doc-detective.com/), for writing tests and running them in CI

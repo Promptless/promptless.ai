@@ -3,7 +3,9 @@ import { readFile } from 'node:fs/promises';
 import type { APIRoute, GetStaticPaths } from 'astro';
 import matter from 'gray-matter';
 import { routeEntries } from '@lib/content-order';
+import { inlineMdxPartials } from '@lib/mdx-partials';
 import type { RouteManifestEntry } from '@lib/route-manifest';
+import { resolveMarkdownLinks } from '@lib/markdown-links';
 
 function stripMdxImports(body: string): string {
   return body
@@ -49,11 +51,52 @@ function normalizeInlineMarkup(fragment: string): string {
   );
 }
 
-function normalizeMdxForMarkdown(body: string): string {
-  const withoutImports = stripMdxImports(body);
+// Code is copied verbatim, so placeholders such as `dist/<target>/` or a
+// prompt's `<value>` must survive the tag stripping below. Fenced blocks and
+// inline code spans are swapped for tokens first and restored afterward.
+function protectCode(body: string): { text: string; restore: (value: string) => string } {
+  const saved: string[] = [];
+  const token = (code: string) => `\u0000${saved.push(code) - 1}\u0000`;
+  const lines = body.split('\n');
+  const out: string[] = [];
+  let fence: { marker: string; lines: string[] } | null = null;
+  for (const line of lines) {
+    const match = line.match(/^\s*(`{3,}|~{3,})/);
+    if (fence) {
+      fence.lines.push(line);
+      if (match && match[1][0] === fence.marker[0] && match[1].length >= fence.marker.length && line.trim() === match[1]) {
+        out.push(token(fence.lines.join('\n')));
+        fence = null;
+      }
+    } else if (match) {
+      fence = { marker: match[1], lines: [line] };
+    } else {
+      out.push(line.replace(/`[^`\n]+`/g, (code) => token(code)));
+    }
+  }
+  if (fence) out.push(...fence.lines);
+  return {
+    text: out.join('\n'),
+    restore: (value) => value.replace(/\u0000(\d+)\u0000/g, (_match, index) => saved[Number(index)]),
+  };
+}
 
-  const normalized = withoutImports
+function normalizeMdxForMarkdown(body: string): string {
+  const { text: withoutCode, restore } = protectCode(stripMdxImports(body));
+
+  const normalized = withoutCode
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/<LinkCard\b([^>]*)\/>/g, (_match, attrs) => {
+      const title = getAttribute(attrs, 'title');
+      const href = getAttribute(attrs, 'href');
+      if (!title || !href) return '\n';
+      const description = getAttribute(attrs, 'description');
+      return `\n- [${decodeHtmlEntities(title)}](${href})${description ? `: ${decodeHtmlEntities(description)}` : ''}`;
+    })
+    .replace(/<TabItem\b([^>]*)>/g, (_match, attrs) => {
+      const label = getAttribute(attrs, 'label');
+      return label ? `\n**${decodeHtmlEntities(label)}**\n` : '\n';
+    })
     .replace(/<BlogNewsletterCTA\s*\/>/g, '\n\n*We regularly share actionable insights grounded in research, experiments, and real-world product learnings. [Subscribe to get future posts in your inbox](/blog).*\n\n')
     .replace(/<BlogRequestDemo\s*\/>/g, '\n\n[Book a demo](https://promptless.ai/meet#book)\n\n')
     .replace(/<Card\b([^>]*)>/g, (_match, attrs) => {
@@ -100,19 +143,7 @@ function normalizeMdxForMarkdown(body: string): string {
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n');
 
-  return decodeHtmlEntities(normalized).trim();
-}
-
-function resolveRelativeLinks(body: string, routePath: string): string {
-  const base = `https://x${routePath.endsWith('/') ? routePath : `${routePath}/`}`;
-  return body.replace(/\[([^\]]*)\]\((\.[^)]*)\)/g, (_match, label, href) => {
-    try {
-      const resolved = new URL(href, base).pathname;
-      return `[${label}](${resolved})`;
-    } catch {
-      return _match;
-    }
-  });
+  return restore(decodeHtmlEntities(normalized)).trim();
 }
 
 function contentPathFromRoute(route: RouteManifestEntry): string {
@@ -152,13 +183,16 @@ export const getStaticPaths: GetStaticPaths = () => {
     }));
 };
 
-export const GET: APIRoute = async ({ props }) => {
+export const GET: APIRoute = async ({ props, site }) => {
+  if (!site) throw new Error('Markdown links require the Astro site URL.');
   const entry = props.entry as RouteManifestEntry;
   const filePath = contentPathFromRoute(entry);
+  const pageUrl = new URL(`${entry.routePath.replace(/\/$/, '')}/`, site);
 
   try {
     const raw = await readFile(filePath, 'utf8');
-    const body = resolveRelativeLinks(normalizeMdxForMarkdown(matter(raw).content), entry.routePath);
+    const content = inlineMdxPartials(matter(raw).content, { fromFile: filePath, root: process.cwd() });
+    const body = normalizeMdxForMarkdown(content);
 
     const lines: string[] = [`# ${entry.title}`];
     lines.push('', '> For the complete documentation index, see [llms.txt](/llms.txt).');
@@ -193,7 +227,7 @@ export const GET: APIRoute = async ({ props }) => {
       }
     }
 
-    return new Response(lines.join('\n'), {
+    return new Response(resolveMarkdownLinks(lines.join('\n'), pageUrl), {
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
   } catch {
@@ -211,7 +245,7 @@ export const GET: APIRoute = async ({ props }) => {
       '- [Full content index](/llms.txt)',
       '- [Full content with text](/llms-full.txt)',
     ].join('\n');
-    return new Response(body, {
+    return new Response(resolveMarkdownLinks(body, pageUrl), {
       status: 404,
       headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
     });
