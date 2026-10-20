@@ -1,13 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightOpenAPI, { openAPISidebarGroups } from 'starlight-openapi';
 import starlightSidebarTopics from 'starlight-sidebar-topics';
-import starlightLlmsTxt from 'starlight-llms-txt';
+import starlightLlmsCorpora from './src/lib/starlight-llms-corpora.ts';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import partytown from '@astrojs/partytown';
 import vercel from '@astrojs/vercel';
 import starlightMcp from './packages/starlight-mcp/src/index.ts';
+import { inlineMdxPartials } from './src/lib/mdx-partials.ts';
 import starlightSearch, { searchIncludeFiles } from './packages/starlight-search/src/index.ts';
 import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
 import { DOCS_PRODUCTS } from './src/lib/docs-products.ts';
@@ -32,11 +34,24 @@ const hiddenSitemapPaths = new Set([
 // MCP server (packages/starlight-mcp, ported from the Starport template). The
 // /mcp route is rendered on demand, so enabling it requires the @astrojs/vercel
 // SSR adapter — the rest of the site stays static (output: 'static' +
-// prerender: false on the MCP route only). Set MCP_ENABLED=false for a fully
-// static, adapter-less build (e.g. if the adapter ever misbehaves in a deploy).
+// prerender: false on the on-demand routes only). MCP_ENABLED=false drops the
+// /mcp route. It no longer produces an adapter-less build: the Agent Score
+// report pages (src/pages/agent-score/[...site]*) also render on demand, so the
+// adapter is always on.
 // ---------------------------------------------------------------------------
 const MCP_ENABLED = process.env.MCP_ENABLED !== 'false';
 const ASSISTANT_ENABLED = Boolean(process.env.ANTHROPIC_API_KEY);
+
+// The Agent Score pages (src/pages/agent-score/[...site]*) render on demand
+// too. Their OG image route reads the Inter fonts
+// and logo from disk at request time (src/lib/agent-score/og.ts), so ship
+// them inside the serverless function.
+const agentScoreIncludeFiles = [
+  'scripts/marketing-image/fonts/Inter-Regular.ttf',
+  'scripts/marketing-image/fonts/Inter-SemiBold.ttf',
+  'scripts/marketing-image/fonts/Inter-Bold.ttf',
+  'public/assets/logo_darkbg.svg',
+];
 
 // Each redirect source here and in redirects.json also matches with one
 // trailing slash, because scripts/normalize-vercel-redirects.ts relaxes the
@@ -46,6 +61,12 @@ const redirects = {
   '/docs': '/docs/for-docs/start-here/welcome',
   '/page': '/',
   '/lavacon/book': '/lavacon#book',
+  '/campaign/lavacon-2026': '/lavacon',
+  // The DoGBench field guide's QR codes encode these short links, so the codes stay small enough to scan in print.
+  // The book prints each full destination beside its code.
+  '/dogbench/code': 'https://github.com/Promptless/dogbench',
+  '/dogbench/data': 'https://huggingface.co/datasets/promptless-research/dogbench-dev',
+  '/dogbench/submit': 'https://github.com/Promptless/dogbench/blob/main/docs/leaderboard-submission.md',
   '/wtd': '/',
   '/wtd-portland-2026': '/',
   '/wtd-portland-2026.ics': '/',
@@ -66,6 +87,9 @@ const redirects = {
   '/oss': '/docs/for-docs/start-here/open-source-quickstart',
   '/media-kit': '/docs/media-kit',
   '/brand': '/docs/media-kit',
+  '/referrals': '/docs/for-docs/referral-program',
+  '/referral-program': '/docs/for-docs/referral-program',
+  '/docs/referral-program': '/docs/for-docs/referral-program',
   '/blog/all': '/blog',
   '/changelog/all': '/changelog',
   ...Object.fromEntries(redirectEntries),
@@ -73,8 +97,20 @@ const redirects = {
 
 export default defineConfig({
   site: process.env.SITE_URL || 'https://promptless.ai',
-  adapter: MCP_ENABLED || ASSISTANT_ENABLED ? vercel({ includeFiles: searchIncludeFiles }) : undefined,
+  adapter: vercel({ includeFiles: [...searchIncludeFiles, ...agentScoreIncludeFiles] }),
   redirects,
+  // The site is English-only with no locale prefix. Left to itself, Starlight
+  // generates an Astro i18n config whose default locale path is `en`, and
+  // Astro's i18n router then answers any on-demand page URL with an `en`
+  // segment with an empty 404, e.g. /agent-score/docs.oracle.com/en/cloud.
+  // Giving the one locale a path that can never be a literal URL segment (it
+  // contains a space, which URLs always percent-encode) turns that check off.
+  // Starlight derives its own locale (monolingual, `en`) from this config.
+  i18n: {
+    defaultLocale: 'en root',
+    locales: [{ path: 'en root', codes: ['en'] }],
+    routing: { prefixDefaultLocale: false, redirectToDefaultLocale: false },
+  },
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
   markdown: {
@@ -127,30 +163,15 @@ export default defineConfig({
             sidebar: { label: 'API Reference', collapsed: true },
           },
         ]),
-        // Agent-friendly llms.txt (Starport Phase 6, ADR 0004 §4). Adopts
-        // `starlight-llms-txt`, retiring the hand-rolled src/pages/llms.txt.ts and
-        // llms-full.txt.ts route endpoints (Manny, 2026-07-10: "use the plugin, not
-        // my hand-rolled llms.txt"). The plugin generates /llms.txt, /llms-full.txt,
-        // and a new /llms-small.txt from the Starlight docs tree at build time — no
-        // SSR adapter needed, so the site stays fully static (MCP/SSR is deferred to
-        // a later phase). The plugin is docs-scoped, so the non-docs surface the old
-        // hand-rolled index also listed (marketing pages, blog, changelog) is
-        // reconciled here via `optionalLinks` rather than a hand-rolled route. The
+        // /llms-full.txt and /llms-small.txt are generated from the Starlight docs
+        // tree at build time by `starlight-llms-txt` (Starport Phase 6, ADR 0004
+        // §4), so the site stays fully static. The /llms.txt entrypoint is the
+        // curated project route in src/pages/llms.txt.ts; the wrapper drops the
+        // plugin's own fixed-format /llms.txt route so the two don't collide. The
         // per-page `.md` endpoints ([...slug].md.ts, index.md.ts, pricing.md.ts,
-        // free-tools.md.ts) are unrelated to the /llms*.txt routes and are kept.
-        starlightLlmsTxt({
+        // free-tools.md.ts) are unrelated to the /llms*.txt routes.
+        starlightLlmsCorpora({
           projectName: 'Promptless',
-          description:
-            'Promptless continuously improves customer-facing documentation and agent instructions.',
-          details:
-            'For AI client integration (Claude Code, Cursor, etc.), connect to the MCP server at https://api.gopromptless.ai/mcp. Setup for other editors: https://promptless.ai/docs/for-docs/connect/triggers/mcp',
-          optionalLinks: [
-            { label: 'Blog', url: 'https://promptless.ai/blog', description: 'Product updates, technical writing, and customer stories' },
-            { label: 'Changelog', url: 'https://promptless.ai/changelog', description: 'Monthly summaries of user-visible changes' },
-            { label: 'Homepage (Markdown)', url: 'https://promptless.ai/index.md', description: 'Marketing overview of Promptless' },
-            { label: 'Pricing (Markdown)', url: 'https://promptless.ai/pricing.md', description: 'Plans and pricing' },
-            { label: 'Free tools (Markdown)', url: 'https://promptless.ai/free-tools.md', description: 'Free documentation tools' },
-          ],
         }),
         // Product-specific, folder-autogenerated docs nav (ADR 0002). The two
         // product topics wrap Starlight's native `autogenerate`, with each
@@ -235,14 +256,11 @@ export default defineConfig({
                   label: 'Reference',
                   collapsed: true,
                   items: [
-                    {
-                      label: 'Integrations',
-                      collapsed: true,
-                      items: [
-                        { label: 'Integrations', slug: 'docs/for-docs/reference/integrations' },
-                        { autogenerate: { directory: 'docs/for-docs/reference/integrations', collapsed: true } },
-                      ],
-                    },
+                    // The integration pages (docs/for-docs/reference/integrations/**)
+                    // are intentionally left out of the nav. Their connection
+                    // procedures live in src/partials/integrations/ and are embedded
+                    // in the trigger, context-source, and doc-location pages that
+                    // need them. The pages stay published, searchable, and linkable.
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
@@ -278,7 +296,15 @@ export default defineConfig({
                     { autogenerate: { directory: 'docs/governance/start-here', collapsed: true } },
                   ],
                 },
-                { label: 'Set up an instruction hub', collapsed: true, items: [{ autogenerate: { directory: 'docs/governance/get-started', collapsed: true } }] },
+                {
+                  label: 'Set up an instruction hub',
+                  collapsed: true,
+                  items: [
+                    { autogenerate: { directory: 'docs/governance/get-started', collapsed: true } },
+                    // Agent-facing companion to the setup guides, listed after them so it stays secondary.
+                    { label: 'Set up with a coding agent', slug: 'docs/governance/agent-setup-guide' },
+                  ],
+                },
                 {
                   label: 'Deploy trace analysis',
                   collapsed: true,
@@ -335,12 +361,18 @@ export default defineConfig({
           {
             // Generated OpenAPI pages and hidden self-hosting pages belong to
             // Promptless for Docs even though autogenerate cannot discover them.
+            // The referral program page stays out of the nav (sidebar.hidden)
+            // but renders with the Promptless for Docs sidebar.
             topics: {
               for_docs: [
+                '/docs/for-docs/referral-program',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
                 '/docs/for-docs/security/self-hosting/**/*',
+                // Out of the nav (ADR adrs/0007) but still in the Promptless for Docs topic.
+                '/docs/for-docs/reference/integrations',
+                '/docs/for-docs/reference/integrations/**/*',
               ],
             },
             // The non-docs surface (marketing homepage, pricing, blog, changelog,
@@ -358,6 +390,8 @@ export default defineConfig({
               '/demo',
               '/free-tools',
               '/free-tools/**/*',
+              '/agent-score',
+              '/agent-score/**/*',
               '/docs/internal/**/*',
               '/docs/marketing-images',
               '/docs/media-kit',
@@ -373,7 +407,12 @@ export default defineConfig({
         // Read-only MCP server at /mcp (see packages/starlight-mcp): `search` +
         // `get_page` tools and an llms.txt resource over Streamable HTTP. Omitted
         // when MCP_ENABLED=false so the build needs no SSR adapter.
-        ...(MCP_ENABLED ? [starlightMcp({ serverName: 'Promptless Documentation' })] : []),
+        ...(MCP_ENABLED ? [starlightMcp({
+          serverName: 'Promptless Documentation',
+          // Inline embedded src/partials/ procedures so get_page returns them.
+          transformContent: (content, file) =>
+            inlineMdxPartials(content, { fromFile: file, root: fileURLToPath(new URL('.', import.meta.url)) }),
+        })] : []),
       ],
       components: {
         Sidebar: './src/components/starlight/Sidebar.astro',
@@ -388,6 +427,8 @@ export default defineConfig({
         ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
+      // Drops the duplicate "Overview" from "On this page"; see src/starlightRouteData.ts.
+      routeMiddleware: './src/starlightRouteData.ts',
       titleDelimiter: '|',
       markdown: {
         processedDirs: ['./src/content/blog', './src/content/changelog', './src/content/website'],
@@ -440,6 +481,7 @@ export default defineConfig({
       alias: {
         '@components': '/src/components',
         '@lib': '/src/lib',
+        '@partials': '/src/partials',
       },
     },
   },
