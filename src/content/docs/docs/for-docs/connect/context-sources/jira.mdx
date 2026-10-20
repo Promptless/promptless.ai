@@ -1,58 +1,108 @@
 ---
 title: Jira
 description: Connect Jira as a read-only context source so Promptless reads the issues behind a change for requirements and business context.
+id: for-docs-connect-context-sources-jira
 slug: docs/for-docs/connect/context-sources/jira
-type: reference
+type: how-to
 tags:
   - connect
   - context-sources
   - reference
+keywords:
+  - Jira context source
+  - JQL search
+  - project_keys
+  - Jira issues
+  - read-only Jira
+language: en
+audiences:
+  - aud-enterprise-docs-team
+  - aud-scaleup-docs-team
+  - aud-engineer-owned-docs
+intent: connect Jira as a read-only context source so Promptless reads referenced issues and related tickets for requirements
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:jira
+concepts:
+  - context source
+  - jira
+next-steps:
+  - for-docs-reference-integrations-atlassian
+related-pages:
+  - for-docs-connect-triggers-jira
+  - for-docs-get-the-most-out-ask-promptless-to-update-config
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - What does Promptless read from a Jira issue referenced in a PR?
+  - How do I restrict which Jira projects Promptless searches?
+  - Does using Jira as a context source write anything to Jira?
 sidebar:
   hidden: false
   order: 16
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+import AtlassianConnect from '@partials/integrations/atlassian-connect.mdx';
 
 <Aside type="tip">
   You can connect and scope this context source by hand as this page describes. You can also ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add Jira as a context source limited to my DOCS and ENG projects." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Jira integration provides **read-only** access to your project management and issue tracking data for documentation automation. When Jira is configured as a context source, Promptless can search for related issues to understand requirements and business context. It never modifies your Jira issues.
+## Overview
+
+Connect Jira as a context source so Promptless documents what a feature is meant to do. Your team records those requirements and acceptance criteria on its Jira issues. Promptless reads Jira in two ways:
+
+- When a GitHub PR or another trigger references a Jira issue, such as `PROJ-123`, Promptless reads that issue. This starts as soon as Jira is connected.
+- Promptless runs JQL (Jira Query Language) searches for related issues, epics, and dependencies.
+
+From each issue, Promptless reads:
+
+- Summary and description
+- Status, type, priority, and resolution
+- Labels, components, and affected and fix versions
+- Parent, subtasks, and linked issues
+- Comments
+- Organization-defined custom fields, such as a `Documentation` field
+
+Promptless reads only what the connected Jira account can see. It queries Jira in real time when a documentation task needs it, and doesn't store your Jira data. Reading context never creates, updates, or deletes an issue.
 
 <Aside type="note">
-  This page covers Jira as a read-only context source. Promptless can also use Jira as a trigger source, comment on the issue that starts a session, and create Jira issues. See [Jira trigger](/docs/for-docs/connect/triggers/jira). Issue creation is covered under [Create a Jira issue on request](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request).
+  Jira is also a trigger source. Through the [Jira trigger](/docs/for-docs/connect/triggers/jira), Promptless starts work from an issue and replies on it. On request, Promptless also creates Jira issues. See [Create a Jira issue on request](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request). Both are write capabilities, separate from the read-only context source.
 </Aside>
 
-## How it works as a context source
+### Example
 
-When Jira is enabled as a context source:
+A developer merges a GitHub PR whose description references `PROJ-412`, the Jira issue for a new bulk-import feature. The issue records the business requirements: the supported file formats and a 10,000-row import cap. It also records that imports run asynchronously and send an email notification on completion.
 
-- **Automatic Issue Retrieval**: When a GitHub PR or other trigger references a Jira issue (like `PROJ-123`), Promptless reads that issue for context. This happens as soon as Jira is connected. It never modifies issues, and reads only what the connected Jira account can see within the projects you configure under `project_keys` (all projects by default). Each retrieval covers:
-  - summary and description
-  - status, type, priority, and resolution
-  - labels, components, and affected and fix versions
-  - parent, subtasks, and linked issues
-  - comments
-  - organization-defined custom fields, such as a `Documentation` field
-- **Proactive JQL Searches**: Promptless can proactively search Jira using JQL queries to find related issues, epics, and project data
-- **Business Context**: Jira issues provide requirements, business logic, and feature context that enhance documentation accuracy
+When Promptless picks up the merged PR, it reads `PROJ-412` and runs a JQL search for related issues in the same epic. Its suggestion carries the acceptance criteria into the docs: the supported formats, the row limit, and the asynchronous import with its email notification. The docs then describe what the feature is meant to do, beyond what the diff shows.
 
-## Example
+## Before you start
 
-Jira tracks work from idea to launch, and each issue records the requirements and acceptance criteria a team agreed on before any code was written. That makes a referenced issue a reliable source for what a feature is supposed to do.
+- An admin role in your Promptless organization, to connect Atlassian and edit the [Configuration page](https://app.gopromptless.ai/configuration).
 
-A developer merges a GitHub PR whose description references `PROJ-412`, the Jira issue tracking a new bulk-import feature. The issue spells out the business requirements: which file formats are supported and the 10,000-row import cap. It also records the rule that imports run asynchronously with an email notification on completion.
+## Connect Jira
 
-When Promptless picks up the merged PR, it retrieves `PROJ-412` and runs a JQL search for related issues in the same epic. It reads the acceptance criteria (the supported formats, the row limit, and the async-with-email behavior) and carries them into the documentation suggestion. The docs then reflect what the feature is meant to do, not just what the diff happens to show.
+Promptless connects to Jira through Atlassian. Skip this section if Atlassian is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
 
-## JQL search capabilities
+<AtlassianConnect />
 
-Promptless uses Jira's powerful JQL (Jira Query Language) search functionality to find relevant context. This allows intelligent searching across your Jira projects to find related issues, epics, and dependencies.
+## Limit Promptless to specific projects
 
-## Configuration
+Promptless can read every project the connected Jira account can see. To keep it to the projects that hold relevant work, scope the Jira context source:
 
-Configure Jira scope in your [Configuration page](https://app.gopromptless.ai/configuration) using the `context_sources` section:
+<Steps>
+  1. On the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the Jira source. If it isn't listed, select **Add a context source**, and then select **Jira**.
+
+  2. In **Which Jira projects should Promptless read?**, add the key of each project.
+
+  3. Select **Save changes**. For a new source, select **Add context source**.
+</Steps>
+
+In YAML, the scope is the `project_keys` list on a `jira` entry:
 
 ```yaml
 context_sources:
@@ -64,16 +114,10 @@ context_sources:
       - ENG
 ```
 
-An empty entry (or no entry) gives Promptless access to all projects. Add `project_keys` only when you need to restrict which projects Promptless can search.
+An entry with no project keys, or no entry, gives Promptless every project the account can see. For every context source field, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#context-sources).
 
-<Aside type="note">
-  Promptless inherits the permissions of the Jira account used during OAuth connection and only searches projects you explicitly configure.
-</Aside>
+## See also
 
-## Data privacy
-
-Promptless queries Jira data in real-time and does not store any of your Jira data. All searches are performed on-demand when documentation updates are needed. As a context source, Promptless only reads from Jira. Retrieving context never creates, updates, or deletes an issue. Creating a Jira issue on request and replying on issues are separate write capabilities. Issue creation is covered under [Create a Jira issue on request](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request); replying is covered on the [Jira trigger](/docs/for-docs/connect/triggers/jira) page.
-
-## Setup instructions
-
-To connect Jira to Promptless, see the [Atlassian Integration](/docs/for-docs/reference/integrations/atlassian) setup guide.
+- [Jira trigger](/docs/for-docs/connect/triggers/jira), to start documentation work from Jira issues
+- [Atlassian integration](/docs/for-docs/reference/integrations/atlassian), for the OAuth scopes Promptless requests and how to connect a dedicated Atlassian account
+- [Confluence](/docs/for-docs/connect/context-sources/confluence), to search your team's Confluence spaces through the same Atlassian connection

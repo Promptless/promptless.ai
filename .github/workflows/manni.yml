@@ -1,0 +1,104 @@
+# Two manni jobs, both configured in manni.config.yaml:
+#
+# - validate: frontmatter validation. Blocks merge when a docs page's metadata
+#   violates any schema in manni.config.yaml (Starlight contract, the six manni
+#   vocabularies with their strict overlays, TGDP page types), or when a
+#   stewardship stamp (created, last-updated, owner) disagrees with git or
+#   CODEOWNERS. See adrs/0005-adopt-manni-vocabularies.md.
+# - structure: document-structure lint by page `type:` (`manni lint
+#   structure`). Advisory for now: most existing pages predate the templates,
+#   so findings are reported as annotations but don't fail the check.
+#
+# Lives in its own workflow (not check.yml) because manni requires Node >= 24
+# while the rest of the toolchain runs Node 22.
+name: manni
+
+on:
+  pull_request:
+    paths:
+      - "src/content/docs/**/*.md"
+      - "src/content/docs/**/*.mdx"
+      - "manni.config.yaml"
+      - "docs.metadata.yaml"
+      - ".github/CODEOWNERS"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/manni.yml"
+  push:
+    branches:
+      - main
+
+# Read-only validation; no autofix or push. Actions are pinned to commit SHAs
+# to match the repo's workflow hardening convention (see remark-lint.yml).
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history, and the PR head rather than GitHub's synthetic merge
+      # commit: manni derives `created` and `last-updated` from the commits
+      # that touched each page.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # Collections, schemas, and derive settings come from manni.config.yaml.
+      # `--format github` emits workflow commands that GitHub renders as inline
+      # PR annotations on the offending frontmatter lines; exit code 1 fails
+      # the job.
+      - name: Validate frontmatter
+        run: npx manni meta validate --format github
+
+  structure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history so a pull request can be diffed against its base branch.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # On a pull request, lint only the docs pages it adds or changes, so the
+      # inline annotations land on pages the author is editing. GitHub shows
+      # at most 10 error annotations per step, so a full-site run would
+      # bury them. `continue-on-error` keeps the check advisory until the
+      # existing pages pass; remove it to make structure findings block merge.
+      - name: Lint structure of changed pages
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mapfile -t pages < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA"...HEAD -- \
+            'src/content/docs/**/*.md' 'src/content/docs/**/*.mdx')
+          if [ "${#pages[@]}" -eq 0 ]; then
+            echo "No docs pages changed."
+            exit 0
+          fi
+          npx manni lint structure --format github -- "${pages[@]}"
+
+      # On main, lint every page in the `site` collection and print the full
+      # report, which tracks the remaining structure backlog.
+      - name: Lint structure of all pages
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        run: npx manni lint structure
