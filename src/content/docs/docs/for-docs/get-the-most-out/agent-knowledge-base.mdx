@@ -110,6 +110,52 @@ During analysis, Promptless also proposes Vale rules from your style guidance. I
   If you point a collection at a different repository, Promptless analyzes the new repository from scratch. It replaces all six files, including any edits you've made. Copy anything you want to keep first.
 </Aside>
 
+## Collection setup scripts
+
+Some documentation repositories need setup before Promptless can work in them. Common examples are installing dependencies or starting a local docs server for a browser-based check like [Doc Detective](/docs/for-docs/audit/doc-detective) to run against. You can automate that setup with a script that Promptless runs each time it opens the collection.
+
+Add a file named `on-mount.sh` to the collection's analysis folder:
+
+```text
+collection_analyses/<collection>/on-mount.sh
+```
+
+Create it the way you create any other Knowledge Base file: through the editor (enter the full name, `on-mount.sh`), through Git, or by [asking Promptless](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config). The file's presence is what enables setup; delete it to turn setup off again. Use a regular file, not a symbolic link.
+
+### What the script can do
+
+Promptless runs the file with Bash from the root of the mounted docs repository, with `errexit` and `pipefail` set. The script has the agent's permissions and your configured environment variables, including any with the `PROMPTLESS_` prefix. It also gets two paths: `DOCS_REPO` for the docs repository and `KB_REPO` for the Knowledge Base. Runtime service credentials are not exposed.
+
+Install project or user-local dependencies. Installing system packages that require root is not available. The file doesn't need to be executable, and any variables it exports don't change the agent's own environment.
+
+Promptless runs the script on every successful mount, including credential-refresh and replay mounts. Write it so it's safe to run again when a previous run already installed dependencies or a server is already up.
+
+### Start a docs server
+
+Your script owns starting a server, checking that it's ready, and choosing its port. Start the server in the background and exit successfully only once it responds:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+npm ci
+if ! curl --fail --silent http://localhost:3000/ >/dev/null; then
+  npm run dev -- --port 3000 &
+fi
+for attempt in {1..60}; do
+  if curl --fail --silent http://localhost:3000/ >/dev/null; then
+    exit 0
+  fi
+  sleep 1
+done
+echo "Docs server did not become ready on port 3000" >&2
+exit 1
+```
+
+Adapt the install command, server command, and readiness check to your repository. Keep background servers in the script's process group: don't detach them with `setsid` or run them as daemons. Promptless stops the setup process group when the task ends, so servers don't outlive the work. There's no separate script timeout; the task's own lifetime limits it.
+
+If setup fails, the repository stays mounted, so Promptless can still do work that doesn't depend on it. Promptless doesn't retry the script automatically.
+
 ## Track what Promptless changed
 
 Promptless can update these files when you give feedback on suggestions through PR comments, the Promptless dashboard, or Slack. It applies what it learned to future tasks. The **Recent updates by Promptless** list shows its latest changes. Each entry shows:
@@ -139,7 +185,7 @@ Promptless commits your changes directly to the Knowledge Base repository.
 <Steps>
   1. Select the **+** button next to a folder to create a file in it. To create a top-level file, select the new-file icon at the root.
 
-  2. In the **New file** dialog, enter a file name without the `.md` extension. Promptless adds the extension. To create the file in new folders, enter a path such as `nested/path/filename`, and Promptless creates the folders.
+  2. In the **New file** dialog, enter a file name. If you leave off an extension, Promptless saves the file as Markdown (`.md`). To create another kind of file, include its extension: for example, `on-mount.sh` for a [collection setup script](#collection-setup-scripts). Promptless opens `.sh` files with shell syntax highlighting. To create the file in new folders, enter a path such as `nested/path/filename`, and Promptless creates the folders.
 
   3. Select **Create**.
 </Steps>
