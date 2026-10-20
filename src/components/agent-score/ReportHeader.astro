@@ -1,7 +1,9 @@
 ---
-import { Bot, Braces, Copy, ExternalLink, Link, RefreshCw } from '@lucide/astro';
+/** Score page header: ring, site, pass count, and the copy-prompt, rescan, and share actions. */
+import { Copy, ExternalLink, RefreshCw } from '@lucide/astro';
 import ScoreRing from './ScoreRing.astro';
-import { GRADE_LABEL, gradeTone } from '@lib/agent-score/meta';
+import ShareMenu from './ShareMenu.astro';
+import { checkName } from '@lib/agent-score/meta';
 import { formatDate } from '@lib/agent-score/report';
 import type { SiteResponse } from '@lib/agent-score/types';
 
@@ -9,49 +11,57 @@ interface Props {
   site: SiteResponse;
   pageUrl: string;
   jsonUrl: string;
-  badgeUrl: string;
-  badgeEmbed: string;
   mdPath: string;
   apiBase: string;
   shareText: string;
+  fixPrompt: string;
+  /** Whether there is anything for the fix prompt to fix. */
+  hasIssues: boolean;
 }
 
-const { site, pageUrl, jsonUrl, badgeUrl, badgeEmbed, mdPath, apiBase, shareText } = Astro.props;
+const { site, pageUrl, jsonUrl, mdPath, apiBase, shareText, fixPrompt, hasIssues } = Astro.props;
 const { latest } = site;
-const tone = gradeTone(latest.grade);
-const xUrl = `https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(pageUrl)}`;
-const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(pageUrl)}`;
 ---
 
-<nav class="pl-as-crumbs" aria-label="Breadcrumb">
-  <a href="/agent-score">Agent Score</a><span aria-hidden="true">/</span><span>{site.slug}</span>
-</nav>
-
-<header class="pl-as-panel pl-as-report-head" data-tone={tone}>
-  <div class="pl-as-report-ring">
-    <ScoreRing score={latest.overall} grade={latest.grade} size={156} stroke={12} />
-    <div class="pl-as-report-ring-caption">
-      <span class="pl-as-grade pl-as-grade-lg" data-tone={tone}>Grade {latest.grade}</span>
-      <span class="pl-as-mono-label">{GRADE_LABEL[tone]}</span>
-    </div>
-  </div>
-
-  <div style="min-width:0">
-    <h1 class="pl-as-report-title">{site.displayName}</h1>
-    <a class="pl-as-report-url" href={latest.scanUrl} target="_blank" rel="noopener nofollow">
-      {latest.scanUrl}<ExternalLink size={13} aria-hidden="true" />
-    </a>
-    <p class="pl-as-report-meta">
-      <span>Last scanned <time datetime={latest.scannedAt}>{formatDate(latest.scannedAt)}</time></span>
-      <span>afdocs v{latest.engine.version}</span>
-      <span>spec {latest.engine.specVersion}</span>
-      <span>{site.scanCount} {site.scanCount === 1 ? 'scan' : 'scans'}</span>
-    </p>
+<header class="pl-as-report-head">
+  <ScoreRing score={latest.overall} grade={latest.grade} size={156} stroke={10} showOutOf={false} />
+  <div class="pl-as-report-main">
+    <h1>
+      {site.displayName}
+      <a href={latest.scanUrl} target="_blank" rel="noopener nofollow" aria-label={`Open ${site.displayName}`}>
+        <ExternalLink size={18} aria-hidden="true" />
+      </a>
+    </h1>
+    <p>{latest.summary.pass} of {latest.summary.total} checks passed</p>
+    <p class="pl-as-muted">Scanned <time datetime={latest.scannedAt}>{formatDate(latest.scannedAt)}</time></p>
+    {
+      latest.cap && (
+        <p class="pl-as-report-cap">
+          Capped at {latest.cap.cap} by {checkName(latest.cap.checkId)}. {latest.cap.reason}
+        </p>
+      )
+    }
 
     <div class="pl-as-report-actions">
+      {
+        hasIssues && (
+          <button
+            type="button"
+            class="pl-as-report-btn"
+            data-variant="primary"
+            data-as-copy
+            data-as-copy-target="#pl-as-fix-prompt"
+            data-as-event="agent_score_fix_prompt_copied"
+            data-as-slug={site.slug}
+            data-as-location="agent_score_report"
+          >
+            <Copy size={15} aria-hidden="true" /><span data-as-copy-label>Copy prompt to fix</span>
+          </button>
+        )
+      }
       <button
-        class="pl-as-btn pl-as-btn-primary"
         type="button"
+        class="pl-as-report-btn"
         data-as-rescan
         data-api-base={apiBase}
         data-scan-url={latest.scanUrl}
@@ -59,51 +69,23 @@ const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encod
         data-latest-scan={latest.scanId}
         data-active-scan={site.activeScan?.scanId ?? ''}
       >
-        <RefreshCw size={14} aria-hidden="true" /><span data-rescan-label>Rescan</span>
+        <RefreshCw size={15} aria-hidden="true" /><span data-rescan-label>Rescan</span>
       </button>
-      <span class="pl-as-sep" aria-hidden="true"></span>
-      <button class="pl-as-btn" type="button" data-as-copy data-as-copy-text={pageUrl} aria-label="Copy link to this report">
-        <Link size={14} aria-hidden="true" /><span data-as-copy-label>Copy link</span>
-      </button>
-      <a class="pl-as-btn" href={xUrl} target="_blank" rel="noopener" aria-label="Share on X" data-track-action="share_agent_score" data-track-funnel="evaluation" data-track-location="agent_score_report" data-track-campaign="x">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 1.2h3.7l-8 9.2 9.4 12.4h-7.4l-5.8-7.6-6.6 7.6H.5l8.6-9.8L0 1.2h7.6l5.2 6.9 6.1-6.9Zm-1.3 19.4h2L6.5 3.3H4.3l13.3 17.3Z"/></svg>
-        <span>Post</span>
-      </a>
-      <a class="pl-as-btn" href={linkedInUrl} target="_blank" rel="noopener" aria-label="Share on LinkedIn" data-track-action="share_agent_score" data-track-funnel="evaluation" data-track-location="agent_score_report" data-track-campaign="linkedin">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.8 0 0 .77 0 1.73v20.54C0 23.23.8 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"/></svg>
-        <span>Share</span>
-      </a>
-      <details class="pl-as-popover">
-        <summary class="pl-as-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="2"/><path d="M11 7v10"/></svg>
-          <span>Badge</span>
-        </summary>
-        <div class="pl-as-popover-panel">
-          <p>Show your score in a README or on your docs site. The badge updates after every scan.</p>
-          <img src={badgeUrl} alt={`Agent Score ${latest.overall} · ${latest.grade}`} width="110" height="20" loading="lazy" />
-          <label class="sr-only" for="pl-as-badge-snippet">Badge markdown</label>
-          <textarea id="pl-as-badge-snippet" class="pl-as-snippet" readonly rows="5">{badgeEmbed}</textarea>
-          <button class="pl-as-btn" type="button" data-as-copy data-as-copy-target="#pl-as-badge-snippet" data-as-event="agent_score_badge_copied" data-as-slug={site.slug} data-as-location="agent_score_report">
-            <Copy size={14} aria-hidden="true" /><span data-as-copy-label>Copy markdown</span>
-          </button>
-        </div>
-      </details>
-      <a class="pl-as-btn" href={jsonUrl} target="_blank" rel="noopener" data-track-action="view_agent_score_json" data-track-funnel="evaluation" data-track-location="agent_score_report">
-        <Braces size={14} aria-hidden="true" /><span>JSON</span>
-      </a>
-      <a class="pl-as-btn" href={mdPath} data-track-action="view_agent_score_markdown" data-track-funnel="evaluation" data-track-location="agent_score_report" title="Markdown version of this report, for agents">
-        <Bot size={14} aria-hidden="true" /><span>Agent mode</span>
-      </a>
+      <ShareMenu pageUrl={pageUrl} shareText={shareText} jsonUrl={jsonUrl} mdPath={mdPath} />
     </div>
+  </div>
+  {hasIssues && <textarea id="pl-as-fix-prompt" hidden readonly>{fixPrompt}</textarea>}
 
-    <p class="pl-as-form-status" data-rescan-status aria-live="polite"></p>
-    <div class="pl-as-progress pl-as-rescan-progress" data-rescan-progress hidden aria-live="polite">
-      <div class="pl-as-progress-head">
-        <span class="pl-as-progress-title" data-progress="title">Starting scan</span>
-        <span class="pl-as-progress-count" data-progress="count"></span>
-      </div>
-      <div class="pl-as-progress-track"><span class="pl-as-progress-bar" data-progress="bar"></span></div>
+  <p class="pl-as-form-status" data-rescan-status aria-live="polite"></p>
+  <div class="pl-as-progress" data-rescan-progress hidden aria-live="polite">
+    <div class="pl-as-progress-head">
+      <span class="pl-as-progress-title" data-progress="title">Starting scan</span>
+      <span class="pl-as-progress-count" data-progress="count"></span>
+    </div>
+    <div class="pl-as-progress-track"><span class="pl-as-progress-bar" data-progress="bar"></span></div>
+    <div class="pl-as-progress-foot">
       <p class="pl-as-progress-detail" data-progress="detail"></p>
+      <button type="button" class="pl-as-progress-cancel" data-progress-cancel>Cancel</button>
     </div>
   </div>
 </header>

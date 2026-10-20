@@ -1,18 +1,50 @@
 ---
 title: Trace object and sources
 description: Native trace discovery, reliable uploads, and the session records your analyzer stores for investigation and analysis.
+id: governance-reference-trace-object-and-sources
 slug: docs/governance/reference/trace-object-and-sources
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
+keywords:
+  - canonical trace
+  - trace sources
+  - host-runtime-ledger.json
+  - trace upload retries
+  - session event kinds
+  - Claude Desktop audit.jsonl
+language: en
+audiences:
+  - aud-agent-governance
+intent: look up where the PIG collector discovers native session files, how uploads retry, and which fields a canonical trace object contains
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+concepts:
+  - trace
+  - agent session
+  - host enrollment
+related-pages:
+  - governance-reference-supported-agents
+  - governance-start-here-trust-and-data-model
+  - governance-deploy-the-worker-observability
+  - governance-get-started-enroll-your-hosts
+risks:
+  - read-only
+sample-questions:
+  - Where does the PIG collector look for Claude Code, Codex, and Claude Desktop session files?
+  - How does the host runtime retry failed trace uploads?
+  - What fields does a canonical trace object contain?
+  - Can enrolling a host upload sessions that happened before enrollment?
 sidebar:
   hidden: false
   order: 2
 ---
 
-PIG reads native session files on an enrolled host and sends their contents to your analyzer. The analyzer stores the raw records and builds a canonical trace, a common representation of one agent session. This lets analysis work across different native formats while retaining the original evidence.
+PIG reads native session files on an enrolled host and sends their contents to your analyzer. The analyzer stores the raw records and builds a canonical trace, a common representation of one agent session. The canonical trace lets analysis work across different native formats while the raw records keep the original evidence.
 
 ## Native sources
 
@@ -49,13 +81,19 @@ Claude Code's generated hooks also attempt local Claude Desktop collection. Code
 
 ## Upload progress and retries
 
-The local ledger at `~/.promptless/instruction-hub/host-runtime-ledger.json` records progress for each source. The collector reads new ranges, compresses their contents with gzip, and base64-encodes them for transport. It sends authenticated batches to the analyzer's `POST /v0/traces/batches?target=<host>` endpoint, where `<host>` is a value from the table above.
+The collector records each source's progress in a local ledger at `~/.promptless/instruction-hub/host-runtime-ledger.json`. Each upload moves through these stages:
 
-The worker validates the source and target, stores the native data, and returns acknowledged ranges. Only a matching acknowledgment advances the host's recorded progress. A retry can therefore resend a range whose response was lost. If the worker already accepted part of that range, the runtime checks the worker's content proof before reconciling its offset.
+| Stage            | Behavior                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Read             | The collector reads new byte ranges, compresses their contents with gzip, and base64-encodes them for transport.                                                                     |
+| Send             | The collector sends authenticated batches to the analyzer's `POST /v0/traces/batches?target=<host>` endpoint, where `<host>` is a host value from [Native sources](#native-sources). |
+| Store            | The worker validates the source and target, stores the native data, and returns acknowledged ranges.                                                                                 |
+| Advance progress | Only a matching acknowledgment advances the host's recorded progress.                                                                                                                |
+| Retry            | A retry can resend a range whose response was lost. If the worker already accepted part of that range, the runtime checks the worker's content proof before reconciling its offset.  |
 
-Do not edit the ledger to force an upload or treat an HTTP success alone as evidence of completed analysis. Preserve native files while an outage is being resolved. File truncation, replaced content, malformed records, and oversized records require accounting beyond simply advancing a byte counter.
+When the collector first discovers a file, collection can begin at the file's start, so first enrollment can upload existing history. Catch-up skips very recent files while they're inside the collector's idle grace period. A hook's explicit transcript path takes priority.
 
-When a file is first discovered, collection can begin at its start. Existing history can therefore be uploaded after first enrollment. Catch-up skips very recent files while they are inside the collector's idle grace period; a hook's explicit transcript path receives priority.
+Don't edit the ledger to force an upload, and don't treat an HTTP success alone as evidence that analysis completed. Keep native files intact while you resolve an outage. File truncation, replaced content, malformed records, and oversized records each need accounting beyond advancing a byte counter.
 
 ## Stored trace records
 
@@ -94,6 +132,13 @@ Sequence numbers are contiguous in document order. Native events carry a `src` r
 
 ## Use the records to investigate
 
-For an Acme pilot session, first check that the expected source and session ID appear in the analyzer. Then confirm the raw artifacts are stored, review ingestion or parse gaps, and check the analysis run's status. A stored trace can still be waiting for the quiet period, repository resolution, or model access.
+To trace an Acme pilot session through the analyzer, run these checks in order:
 
-Use [observability](/docs/governance/deploy-the-worker/observability) to investigate those stages. If the session never reaches the analyzer, start with the host's [enrollment and collection checks](/docs/governance/get-started/enroll-your-hosts#troubleshooting).
+| Check                    | What it shows                                                                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source and session ID    | The session reached the analyzer. If it never arrives, start with the host's [enrollment and collection checks](/docs/governance/get-started/enroll-your-hosts#troubleshooting). |
+| Raw artifacts            | The native data is stored in your trace bucket.                                                                                                                                  |
+| Ingestion and parse gaps | Which content the analyzer skipped, truncated, or couldn't decode or model.                                                                                                      |
+| Analysis run status      | Whether analysis completed. A stored trace can still be waiting for the quiet period, repository resolution, or model access.                                                    |
+
+To investigate each stage, see [Observability](/docs/governance/deploy-the-worker/observability).
