@@ -56,7 +56,11 @@ sample-questions:
 
 import { Steps } from '@astrojs/starlight/components';
 
-Use Terraform to prepare Amazon RDS for PostgreSQL, Amazon S3, and a workload identity for PIG on your existing EKS cluster. Then bootstrap PIG with Helm. Terraform continues to own cloud infrastructure; PIG maintains its application releases.
+## Overview
+
+Use this guide to run PIG on an existing Amazon EKS cluster and have Terraform create its dedicated infrastructure. The Terraform example creates an Amazon RDS for PostgreSQL database, an Amazon S3 trace bucket, and an IAM role for the analyzer's workload identity. You then continue with the common [Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). If you already have these resources, go directly to that guide.
+
+The guide reuses your cluster and network. It creates no cluster and installs no ingress controller, and it works with your existing secret-delivery and certificate-management systems. After installation, Terraform keeps ownership of the cloud infrastructure, and PIG maintains its own application releases.
 
 ## Before you begin
 
@@ -65,8 +69,6 @@ Use Terraform to prepare Amazon RDS for PostgreSQL, Amazon S3, and a workload id
 - Prepare an existing EKS cluster running Kubernetes 1.30 or later and its IAM OIDC provider. In its VPC, prepare two private database subnets in different availability zones and the security group used by analyzer pods. The analyzer reaches S3 through a gateway endpoint or approved egress.
 - Have permission to provision the dedicated database, trace storage, and workload identity in that network.
 - Choose database capacity, availability, backup retention, trace retention, and encryption settings for your recovery requirements.
-
-This guide reuses your cluster and network. It does not create a new cluster or install an ingress controller. Use your existing secret-delivery and certificate-management systems.
 
 To hand the infrastructure work to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
 
@@ -99,7 +101,9 @@ tar -xzf "pig-deploy-${PIG_VERSION}.tar.gz"
 cd "pig-deploy-${PIG_VERSION}/examples/aws"
 ```
 
-The example references the AWS module in the same archive, so the module and the release stay in step. It commits its provider lock file; keep `-lockfile=readonly` below so Terraform uses those reviewed provider checksums. To call the module from your own Terraform root instead, use `git::https://github.com/Promptless/pig-deploy.git//modules/aws?ref=db79db5a2c8a0e882bc888a870d6b407e5d5e76e`, the 0.3.6 source commit, and commit your own lock file.
+The example references the AWS module in the same archive, so the module matches the release. The example also includes its provider lock file. Keep `-lockfile=readonly` in the commands below so Terraform uses those reviewed provider checksums.
+
+To call the module from your own Terraform root instead, use `git::https://github.com/Promptless/pig-deploy.git//modules/aws?ref=db79db5a2c8a0e882bc888a870d6b407e5d5e76e`, the 0.3.6 source commit, and commit your own lock file.
 
 ## 2. Configure and apply infrastructure
 
@@ -127,7 +131,7 @@ The example references the AWS module in the same archive, so the module and the
 
      Set `name`, `region`, `eks_cluster_name`, `oidc_provider_arn`, `vpc_id`, two private `database_subnet_ids` in different availability zones, the analyzer's `workload_security_group_id`, and a globally unique `trace_bucket_name`. Keep `namespace = "pig"` and `service_account_name = "pig-analyzer"`, which the module binds to the analyzer role, and set a dedicated `trace_prefix` such as `acme/traces`.
 
-     The defaults create private PostgreSQL 16 on `db.t4g.medium` with Multi-AZ and deletion protection. Storage starts at 100 GiB and can grow to 200 GiB, with 14 days of backups. The bucket is versioned with 90 days of noncurrent-object recovery. Review them in `variables.tf` against your workload and recovery requirements. Keep real `.tfvars` files out of Git.
+     The defaults create private PostgreSQL 16 on `db.t4g.medium` with Multi-AZ and deletion protection. Storage starts at 100 GiB and can grow to 200 GiB, with 14 days of backups. The bucket is versioned with 90 days of noncurrent-object recovery. Review these defaults in `variables.tf` against your workload and recovery requirements. Keep real `.tfvars` files out of Git.
 
   4. **Supply the database password** from your secret manager, without writing it to a file:
 
@@ -152,12 +156,12 @@ The example references the AWS module in the same archive, so the module and the
      terraform output -json deployment_configuration > "$PIG_RELEASE_DIR/deployment-configuration.json"
      ```
 
-     This saves the output next to the verified release files. The output contains database connection metadata, the S3 storage block, the ServiceAccount annotation, and pod labels. It contains no credential values.
+     The output file sits next to the verified release files. It contains database connection metadata, the S3 storage block, the ServiceAccount annotation, and pod labels. It contains no credential values.
 </Steps>
 
 ## 3. Connect the infrastructure to PIG
 
-Return to the release directory. Use `deployment-configuration.json` there as the source of truth for the Kubernetes configuration in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker):
+Return to the release directory. The `deployment-configuration.json` file there is the source of truth for the Kubernetes configuration in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). Each output goes to one destination:
 
 | Output                        | Destination                                                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------- |
@@ -180,9 +184,9 @@ Build the connection string in your secret manager from those values and the dat
 postgresql://USERNAME:URL_ENCODED_PASSWORD@HOST:5432/pig?sslmode=verify-full
 ```
 
-Download the [RDS CA bundle for your database's region](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) and deliver it as ConfigMap `pig-postgres-ca` with key `ca.pem`. The analyzer uses it to verify the RDS certificate and hostname; `sslmode=require` does not meet the analyzer's TLS requirement. To give the serving analyzer a role without schema ownership, see [Separate the migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential).
+Download the [RDS CA bundle for your database's region](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html) and deliver it as ConfigMap `pig-postgres-ca` with key `ca.pem`. The analyzer uses it to verify the RDS certificate and hostname. It rejects a connection string whose `sslmode` is anything other than `verify-full`, including `require`. To give the serving analyzer a role without schema ownership, see [Separate the migration credential](/docs/governance/deploy-the-worker/postgresql#separate-the-migration-credential).
 
-The model is a separate choice. Select a supported endpoint from [model providers](/docs/governance/deploy-the-worker/model-providers); the Terraform module does not grant model access. To use Bedrock with `aws_sigv4`, grant the analyzer role access to the model through your own IAM change.
+Choose the model separately. Select a supported endpoint from [model providers](/docs/governance/deploy-the-worker/model-providers). The Terraform module grants no model access, so to use Bedrock with `aws_sigv4`, grant the analyzer role access to the model through your own IAM change.
 
 ## 4. Prepare HTTPS ingress
 
@@ -210,16 +214,22 @@ After the analyzer starts and the ALB's targets are healthy, point the hostname'
 
 ## 5. Bootstrap and verify
 
-Continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from step 2, in `$PIG_RELEASE_DIR`, where the verified chart and `deployment-configuration.json` are. Apply the ServiceAccount annotation, Secrets, CA ConfigMap, and S3 storage block from this guide before you create the `PIGDeployment`.
+In `$PIG_RELEASE_DIR`, where the verified chart and `deployment-configuration.json` are, continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from [step 2](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#2-create-the-namespaces-and-analyzer-serviceaccount). Apply the ServiceAccount annotation, Secrets, CA ConfigMap, and S3 storage block from this guide before you create the `PIGDeployment`.
 
-Keep the Helm bootstrap outside Terraform reconciliation. Do not add a `helm_release` resource for the self-updating supervisor or import its generated workloads into Terraform.
+Keep the Helm bootstrap outside Terraform reconciliation. Terraform must not manage the self-updating supervisor through a `helm_release` resource or import its generated workloads.
 
 Finish with [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment) for one real session.
 
 ## Maintain the infrastructure
 
-Use Terraform for database resizing, IAM changes, networking, backup policy, and object retention. Review infrastructure module upgrades as separate plans; PIG's stable application channel does not upgrade your Terraform modules.
+Use Terraform for database resizing, IAM changes, networking, backup policy, and object retention. PIG's stable application channel updates only the application, so review each Terraform module upgrade as its own plan.
 
 If PIG reports a blocked release that requires an infrastructure change, apply that change through Terraform. PIG resumes once its live checks and any required [release-specific confirmations](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites) pass. Keep backups and trace retention coordinated, and follow [recovery guidance](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before replacing storage.
 
-For cloud-specific identity setup, see [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+## See also
+
+- [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), the common installation this guide continues into
+- [PostgreSQL](/docs/governance/deploy-the-worker/postgresql), to separate the migration credential and plan database recovery
+- [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership), for which controller owns each resource after bootstrap
+- [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for blocked updates and storage recovery
+- [IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html), the AWS guide to the workload identity this module configures

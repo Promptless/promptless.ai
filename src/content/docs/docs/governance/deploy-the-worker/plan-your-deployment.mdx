@@ -1,9 +1,9 @@
 ---
 title: Deploy trace analysis
-description: Choose an installation path and prepare the cluster, storage, identities, and network access for PIG trace analysis.
+description: Check the requirements for PIG trace analysis, choose an installation path, and register an analyzer to get the credential you install it with.
 id: governance-deploy-the-worker-plan-your-deployment
 slug: docs/governance/deploy-the-worker/plan-your-deployment
-type: concept
+type: how-to
 tags:
   - agent-instructions
   - governance
@@ -52,13 +52,17 @@ sample-questions:
 
 import { CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 
-Deploy the trace analyzer in your infrastructure to analyze agent sessions using your model provider. Session data lives in your PostgreSQL database and trace bucket. The Promptless Dashboard shows findings, remediations, analyzer status, and agent instruction health.
+## Overview
 
-Register your analyzer in the Dashboard, prepare your cloud infrastructure, then bootstrap PIG with Helm. The analyzer and its update controller, the supervisor, follow stable releases automatically. You can pause updates or pin a release.
+The PIG trace analyzer runs in your infrastructure and analyzes agent sessions with your model provider. Session data stays in your PostgreSQL database and trace bucket. The Promptless Dashboard shows findings, remediations, analyzer status, and agent instruction health.
+
+Start here before you install anything. This page covers the requirements, the installation paths, and analyzer registration, which gives you the credential every installation path needs. After installation, the analyzer and its update controller, the supervisor, follow stable releases automatically. You can pause updates or pin a release.
 
 ## Check platform support
 
-The current stable release, PIG 0.3.6, is published for AWS: an existing Amazon EKS cluster with Amazon RDS for PostgreSQL and Amazon S3. Its release record does not include live end-to-end acceptance on AWS, so complete [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment) before you rely on an installation. Azure/AKS and Google Cloud/GKE are experimental and suited to evaluation.
+The current stable release, PIG 0.3.6, is published for AWS: an existing Amazon EKS cluster with Amazon RDS for PostgreSQL and Amazon S3. Its release record does not include live end-to-end acceptance on AWS, so complete [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment) before you rely on an installation. Azure with AKS and Google Cloud with GKE are experimental. Use them for evaluation.
+
+The 0.3.6 release requires:
 
 | Requirement     | PIG 0.3.6                                                                   |
 | --------------- | --------------------------------------------------------------------------- |
@@ -90,9 +94,11 @@ The current stable release, PIG 0.3.6, is published for AWS: an existing Amazon 
   <LinkCard title="Google Cloud with Terraform (experimental)" description="Prepare Cloud SQL, Cloud Storage, and workload identity for an existing GKE cluster." href="/docs/governance/deploy-the-worker/deploy-on-gcp" />
 </CardGrid>
 
-The cloud guides create dedicated PIG infrastructure in your existing network. They finish with the same Helm installation. Use [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) if your team needs to apply every application upgrade itself.
+Each cloud guide creates dedicated PIG infrastructure in your existing network, then continues with the same Helm installation. Choose [manual Helm management](/docs/governance/deploy-the-worker/manual-helm) instead when your team must schedule and apply every application upgrade itself.
 
 ## Before you begin
+
+Every installation path needs these:
 
 | Requirement              | What to prepare                                                                                                                                                                                 |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -126,29 +132,30 @@ with evidence. Recommend a supported path, say if it is experimental, and
 list the steps that need me or another admin.
 ```
 
-Select infrastructure regions to meet your data residency requirements. The model provider can be in a different cloud; choose it independently from your trace bucket. See [model providers](/docs/governance/deploy-the-worker/model-providers) for supported endpoints.
+Choose infrastructure regions that meet your data residency requirements. The model provider can run in a different cloud from your trace bucket. [Model providers](/docs/governance/deploy-the-worker/model-providers) lists the supported endpoints.
 
 ## Register an analyzer
 
-Register the analyzer before you install it, so you have its credential ready for the Kubernetes Secret. Open the [Workers settings page](https://app.gopromptless.ai/pig/settings/workers) as an organization admin and select the organization that will own the analyzer.
+Register the analyzer before you install it, so its credential is ready for the Kubernetes Secret. Registration creates the analyzer installation in Promptless. Workloads start in your cluster only when you install PIG.
 
 <Steps>
-  1. On the **Add analyzer** card, enter an **Analyzer name**, such as `production-us-east-2`, and select **Add analyzer**.
-  2. In **Save analyzer credential**, select **Copy credential** and store the value in your secret manager. The credential is shown only once.
-  3. Select **Done**.
+  1. As an organization admin, open the [Workers settings page](https://app.gopromptless.ai/pig/settings/workers) and select the organization that owns the analyzer.
+  2. On the **Add analyzer** card, enter an **Analyzer name**, such as `production-us-east-2`, and select **Add analyzer**.
+  3. In **Save analyzer credential**, select **Copy credential** and store the value in your secret manager. The credential is shown only once.
+  4. Select **Done**.
 </Steps>
 
-You deliver the credential as key `install-token` of Secret `pig-credentials` during [installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#3-deliver-secrets-and-the-database-ca).
+The analyzer appears on the **Analyzers** card as **Awaiting connection** until it first checks in. During [installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#3-deliver-secrets-and-the-database-ca), you deliver the credential as key `install-token` of Secret `pig-credentials`. The analyzer uses the credential to discover its installation identity, and it connects to the Promptless hosted endpoint by default.
 
-The analyzer appears on the **Analyzers** card as **Awaiting connection** until it checks in. The analyzer uses the credential to discover its installation identity and connects to Promptless's hosted endpoint by default. You do not need to copy a deployment ID or configure a Runtime URL. Creating an installation does not start workloads in your cluster.
+After the analyzer checks in, an organization admin chooses the repositories it reads on the same Workers settings page, as described in [Select instruction repositories](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories).
 
-After the analyzer checks in, an organization administrator chooses which repositories it reads in [Select instruction repositories](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories). Instruction repositories are selected on the PIG **Workers** settings page, not configured in Helm.
+### Protect and rotate the credential
 
-Keep the credential out of Git and chat. It grants access only to this analyzer installation; prepare your database and model credentials separately. All replicas of this installation use the same credential.
+Keep the credential out of Git and chat. It grants access only to this analyzer installation, and all replicas of the installation share it. Prepare your database and model credentials separately.
 
-If you lose the credential, select **Rotate credential** on the same analyzer. Rotation immediately revokes the previous credential, so hosted access is interrupted until you update your Secret and the analyzer restarts. The installation, its history, and enrolled hosts keep their identities. You can rotate again if the replacement is lost. **Revoke credential** disables the credential without deleting the installation or its history.
+If you lose the credential, select **Rotate credential** on the same analyzer. Rotation revokes the previous credential immediately, so hosted access stops until you update your Secret and the analyzer restarts. The installation, its history, and enrolled hosts keep their identities, and you can rotate again if you lose the replacement. **Revoke credential** disables the credential and keeps the installation and its history.
 
-Use `spec.hosted.runtimeURL` only when connecting to another Promptless environment, such as a dedicated deployment. The default is `https://api.gopromptless.ai`. This endpoint is separate from the analyzer's customer-managed HTTPS hostname.
+Set `spec.hosted.runtimeURL` only to connect to another Promptless environment, such as a dedicated deployment. The default is `https://api.gopromptless.ai`. This hosted endpoint is separate from the analyzer's own HTTPS hostname, which you manage.
 
 ## Assign ownership
 
@@ -167,3 +174,10 @@ A release that needs more infrastructure capacity or access reports a blocked up
 Before expanding beyond a pilot, measure [compute and capacity](/docs/governance/deploy-the-worker/compute-and-sizing), configure coordinated [database](/docs/governance/deploy-the-worker/postgresql) and [object-storage](/docs/governance/deploy-the-worker/object-storage) recovery, and confirm [network access](/docs/governance/deploy-the-worker/networking-and-identity).
 
 Finish installation by [verifying a complete session](/docs/governance/deploy-the-worker/verify-your-deployment). A ready pod or successful health check alone does not verify trace analysis.
+
+## See also
+
+- [Trust and data model](/docs/governance/start-here/trust-and-data-model), for what stays in your infrastructure and what reaches Promptless
+- [Set up PIG with a coding agent](/docs/governance/agent-setup-guide), to hand the whole setup to an agent in phases
+- [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub), if you have not created the hub the analyzer reads
+- [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for pause and pin controls after installation

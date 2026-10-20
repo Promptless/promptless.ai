@@ -10,7 +10,7 @@ tags:
 keywords:
   - custom task
   - custom workflow
-  - doc_workflows
+  - doc_workflow
   - If, then hook
   - PROMPTLESS.md
   - Agent Skills
@@ -42,7 +42,7 @@ risks:
   - privileged
 sample-questions:
   - How do I teach Promptless a new workflow beyond its default PR review?
-  - "Where should a custom workflow live: doc_workflows/ or an Agent Skill in my docs repo?"
+  - "Where should a custom workflow live: doc_workflow/ or an Agent Skill in my docs repo?"
   - Why doesn't my custom workflow fire consistently without a hook in PROMPTLESS.md?
   - Can a custom task audit my existing pages retroactively?
 sidebar:
@@ -53,79 +53,69 @@ sidebar:
 
 import { Aside, LinkCard } from '@astrojs/starlight/components';
 
+## Overview
+
+Promptless ships with default behaviors, such as reviewing code PRs for documentation impact. Teach it a custom task when you want it to do something new on a regular basis. For example, it can review contributor PRs in your docs repository or turn weekly analytics into doc-gap suggestions.
+
+A custom task has two parts:
+
+| Part               | What it decides                   | Where it lives                                                                              |
+| ------------------ | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| A trigger          | When Promptless runs              | The **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration) |
+| A written workflow | What Promptless does when it runs | A file under `doc_workflow/` in your Knowledge Base, or an Agent Skill in a doc collection  |
+
+An "If, then" hook in `PROMPTLESS.md` connects the two, so Promptless follows the workflow when the trigger activates. You can pair a workflow with [any supported trigger type](/docs/for-docs/reference/configuration-reference#trigger-types). Your instructions can add to Promptless's default behavior or change it.
+
+Custom tasks act on new events, such as a PR opening. They don't scan or audit the pages you already have. For one-time work across your whole docs set, such as an audit, a retrofit, or writing from scratch, use [Deep Analysis](/docs/for-docs/get-the-most-out/pay-down-docs-debt).
+
 <Aside type="tip">
-  You can set this up by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless I have a new workflow I'd like you to support. Can you help me set it up?" See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+  You can also ask Promptless in Slack or Microsoft Teams to set up a custom task. For example, "@Promptless I have a new workflow I'd like you to support. Can you help me set it up?" See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Promptless ships with default behaviors, like reviewing code PRs for documentation impact. You can teach it new or customized tasks on top of those defaults. A custom task pairs two ingredients: a **trigger** that decides when Promptless runs, and a **workflow written as instructions** that describes what it does. This page covers the general process, including prerequisites, the workflow, the trigger, and how a run unfolds.
+## Before you start
 
-## The two ingredients of a custom task
-
-Every custom task combines two pieces:
-
-- **A trigger** determines when Promptless runs. You configure it in the **Triggers** section of the [Configuration page](https://app.gopromptless.ai/configuration).
-- **A written workflow** is the set of instructions the agent follows when that trigger activates. It lives as a file under `doc_workflows/` in your Knowledge Base or as an Agent Skill in a doc collection. A hook in `PROMPTLESS.md` points to it (see [Write the workflow](#write-the-workflow)).
-
-Promptless follows written instructions well, so the guidance you provide can redirect or augment its built-in default behavior.
-
-This trigger-plus-instructions pattern is general: you pair written instructions with [any supported trigger type](/docs/for-docs/reference/configuration-reference#trigger-types) so the same mechanism drives many different custom tasks. Examples at the end of this page illustrate the pattern.
-
-<Aside type="note">
-  This page builds on [How Promptless learns your docs](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs). That page covers where Promptless reads custom guidance. Those places are `AGENTS.md`/`CLAUDE.md` in your docs repo and `PROMPTLESS.md`. They also include Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`.
-</Aside>
-
-## Prerequisites
-
-Before you build a custom task, make sure you have:
-
-- **The relevant integration or trigger source connected.** For example, the GitHub integration for a GitHub PR task.
-- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
+- The integration that the trigger depends on, connected to Promptless. For example, the GitHub integration for a task that starts from a GitHub PR.
+- An admin role in your Promptless organization, to edit the Knowledge Base and Configuration page. Alternatively, ask Promptless in Slack or Microsoft Teams to make the edits for you.
 
 ## Write the workflow
 
-The workflow is the *what*: the concrete instructions the agent follows once a trigger activates. Give the workflow a home and pair it with an "If, then" hook in `PROMPTLESS.md`. The workflow can live in one of two places:
+The workflow holds the instructions Promptless follows once the trigger activates. Make it concrete. Say what to check, what to prioritize, and what output to produce, so Promptless knows what a successful run looks like.
 
-- **As a markdown file under `doc_workflows/` in your Knowledge Base.** Write the instructions as their own file (for example, `doc_workflows/review-inbound-doc-prs.md`).
-- **As an Agent Skill in a doc collection** (your docs repo, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`).
-
-Add the hook in `PROMPTLESS.md`, and if the skill lives in a doc collection, the hook should name *which* doc collection. For example, "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
-
-<Aside type="caution">
-  For a custom workflow to activate reliably, have an explicit "If, then" hook in `PROMPTLESS.md`, of the form "If \[condition], then \[do this]." `PROMPTLESS.md` is loaded into the agent's instructions on every run, so a hook there is always visible to the agent. Workflows and Agent Skills are only loaded on demand. A workflow that lives only in a separate workflow or Skill may not fire consistently unless a hook in `PROMPTLESS.md` points to it. See [How Promptless learns your docs](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs) for how these files are loaded.
-</Aside>
-
-There are two ways to add or update these instructions:
-
-- An organization admin edits `PROMPTLESS.md` in the Agent Knowledge Base (in the left sidebar, open **Settings** and select **Agent Knowledge Base**).
-- You can ask Promptless to make these changes for you, for example by requesting the update the next time you're working with Promptless. It edits `PROMPTLESS.md` (or the custom skill) and commits the change.
-
-Good workflow instructions are concrete. Spell out what to check, what to prioritize, and what output to produce, so the agent knows exactly what a successful run looks like.
-
-## Configure the trigger
-
-The trigger is the *when*. You manage triggers in the dashboard: in the left sidebar, open **Settings** and select **Configuration**, open the **Triggers** tab, and choose **Add a trigger**. You might set up a GitHub PR trigger that activates when a PR is opened. Or you might set up a Slack trigger that listens for messages in a channel and acts when it finds particular criteria you specify.
+1. Write the workflow in one of these places:
+   - A Markdown file under `doc_workflow/` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), such as `doc_workflow/review-inbound-doc-prs.md`.
+   - An Agent Skill in a doc collection, under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/` in your docs repository.
+2. In `PROMPTLESS.md`, add an "If, then" hook that points to the workflow, in the form "If \[condition], then \[do this]." When the workflow is an Agent Skill, name the doc collection it lives in. For example: "When a contributor PR is opened in `acme/docs`, use the `contributor-workflow` skill from the Acme doc collection."
+3. Save your changes. An organization admin can edit the files in the [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base). You can also ask Promptless to make the edits, and it commits them for you.
 
 <Aside type="caution">
-  The GitHub PR trigger dashboard toggles cover *Opened*, *First approval*, and *Merged* events. For a review on every new push, set `trigger_on: [updated]` in `promptless.yaml`. See [Trigger modes](/docs/for-docs/connect/triggers/github-prs#choose-trigger-modes) for the full behavior. You can also request a one-off review outside your configured triggers via an `@promptless` mention in a PR comment.
+  Add the "If, then" hook even when the workflow is complete on its own. Promptless loads `PROMPTLESS.md` into every run, so a hook there is always in front of it. It loads workflow files and Agent Skills only when it needs them, so a workflow with no hook may not run consistently. Promptless also reads guidance from `AGENTS.md` and `CLAUDE.md` in your docs repository. See [How Promptless learns your docs](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs).
 </Aside>
 
-Custom tasks built this way are event-driven. A trigger activates on new events (like a PR opening) and does not retroactively scan or audit your existing pages. For one-time, corpus-wide work such as audits, retrofits, or writing from scratch, use [Pay down docs debt with Deep Analysis](/docs/for-docs/get-the-most-out/pay-down-docs-debt).
+## Add the trigger
 
-## How a run unfolds
+The trigger decides when your workflow runs. For example, a GitHub PR trigger can activate when a PR is opened. A Slack channel trigger can act on messages that meet criteria you describe.
 
-Once the workflow and trigger are in place, a custom task runs the same way every time:
+1. On the [Configuration page](https://app.gopromptless.ai/configuration), open the **Triggers** tab.
+2. Select **Add an automatic or scheduled trigger**, then select the trigger type.
+3. Fill in the trigger's settings, such as the repositories or channels to watch.
+4. Select **Add trigger**.
 
-1. The trigger activates on a qualifying event (like a pull request being opened).
-2. Promptless reads the relevant context for that event.
-3. It follows your written workflow step by step.
-4. It produces the output your instructions define.
+<Aside type="note">
+  In the dashboard, a GitHub PR trigger can run when a PR is opened, first approved, or merged. To run on every new push to a PR, set `trigger_on: [updated]` in `promptless.yaml`. See [Trigger modes](/docs/for-docs/connect/triggers/github-prs#choose-trigger-modes). For a one-off review outside your triggers, mention `@promptless` in a PR comment.
+</Aside>
 
-The specifics (what context is read and what output lands) depend entirely on the workflow you define.
+When the trigger activates on a qualifying event, Promptless reads the context for that event, follows your workflow, and produces the output your instructions define. The context it reads and the output it produces depend on the workflow you write.
 
-The **review inbound documentation PRs** example demonstrates the full process end to end as a written review workflow paired with a GitHub PR trigger. It shows the concrete prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` updates for one real task.
+## Follow an end-to-end example
 
-<LinkCard title="Example: review inbound documentation PRs" href="/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="An end-to-end GitHub PR custom workflow." />
+Each example walks through the prerequisites, workflow instructions, trigger YAML, and `PROMPTLESS.md` hook for one task.
 
-The **turn docs analytics into doc-gap suggestions** example demonstrates the same process on a different trigger type. Instead of a triggering event, it runs on a schedule. Once a week, it turns your documentation-site analytics into prioritized doc-gap suggestions.
+<LinkCard title="Example: review inbound documentation PRs" href="/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs" description="Pair a written review workflow with a GitHub PR trigger." />
 
-<LinkCard title="Example: turn docs analytics into doc-gap suggestions" href="/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps" description="An end-to-end schedule-trigger custom workflow." />
+<LinkCard title="Example: turn docs analytics into doc-gap suggestions" href="/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps" description="Pair an analytics workflow with a weekly schedule trigger." />
+
+## See also
+
+- [How Promptless learns your docs](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs), for where Promptless reads custom guidance and Agent Skills
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger type and field
+- [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config), to set up triggers from Slack or Teams

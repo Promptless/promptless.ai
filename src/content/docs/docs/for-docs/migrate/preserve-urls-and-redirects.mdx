@@ -43,51 +43,57 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-A migration usually changes your page URLs. The new platform lays out paths differently, and section names shift as you restructure. Left unhandled, every inbound link, bookmark, and search result that points at an old URL breaks. Redirects are the difference between a migration your readers never notice and one that scatters 404s across your traffic.
+## Overview
+
+A migration usually changes your page URLs. The new platform lays out paths differently, and section names shift as you restructure. Every inbound link, bookmark, and search result that points at an old URL then returns a 404 error. Redirects send readers and search engines from each old URL to its new page, so the move stays invisible to your readers.
+
+This guide covers building an old-to-new URL map, adding permanent redirects, and verifying them around cut-over. The same steps apply when you restructure an existing docs set on the same platform.
+
+Your documentation platform and host serve redirects. Promptless proposes content changes through pull requests and doesn't manage your hosting-level redirects.
 
 <Aside type="caution">
-  Don't skip redirects because "the content is all still there." Search engines and every external link still point at the old paths. Without redirects, that accumulated link equity and those bookmarks land on 404 pages the day you cut over.
+  Add redirects even when all your content moved to the new site. Search engines and external links still point at the old paths. Without redirects, the links and bookmarks your old URLs have collected land on 404 pages the day you cut over.
 </Aside>
+
+## Before you start
+
+- A list of your published URLs. If your source platform can export one, start from that export so you don't miss a page. Crawling your live site also lists every URL that needs a destination.
+- Access to your target platform's site configuration or your host's redirect rules.
 
 ## Build a URL map
 
-Before you flip the switch, record where every old URL lands in the new structure. A simple two-column mapping (old path to new path) is enough:
+Record where every old URL lands in the new structure. Capture the mapping while you move content, when the correspondence is freshest. A two-column mapping from old path to new path is enough:
 
-| Old path                  | New path                               |
-| ------------------------- | -------------------------------------- |
-| `/kb/getting-started`     | `/docs/for-docs/start-here/quickstart` |
-| `/reference/api-overview` | `/docs/for-docs/reference/api`         |
+| Old path                  | New path                       |
+| ------------------------- | ------------------------------ |
+| `/kb/getting-started`     | `/docs/get-started/quickstart` |
+| `/reference/api-overview` | `/docs/reference/api`          |
 
-Capture this while you're moving content, when the correspondence is freshest. Every page whose URL changes needs an entry; pages whose URL is unchanged don't.
-
-<Aside type="note">
-  If your source platform can export a list of published URLs, start from that export so you don't miss a page. Crawling your live site is another way to enumerate every URL that needs a destination.
-</Aside>
+Every page whose URL changes needs an entry. Pages that keep their URL don't.
 
 ## Add the redirects
 
-How you apply the map depends on the target platform, but the mechanism is always the same. You add a permanent (HTTP 301) redirect from each old path to its new one.
+Add a permanent (HTTP 301) redirect from each old path to its new one. A permanent redirect tells search engines to transfer ranking to the new URL. Where you add the rules depends on your target platform and host:
 
 <Steps>
-  1. **Find your platform's redirect mechanism.** Most static site generators and hosts support redirects through a config file or a hosting-level rules file. Examples include a redirects map in your site config, or a `redirects`/rewrites file for your host. Check your target platform's and host's documentation for the supported format.
+  1. Check your platform's and host's documentation for how they read redirects. Most read them from a redirects map in your site config, or from a hosting-level redirects or rewrites file.
 
-  2. **Add an entry for every changed URL.** Translate each row of your URL map into a redirect rule from the old path to the new path. Mark it permanent (301) so search engines transfer ranking to the new URL.
+  2. For each row of your URL map, add a permanent (301) redirect rule from the old path to the new path.
 
-  3. **Handle whole-section moves.** When an entire section moves under a new prefix, a single wildcard or pattern redirect often covers all its pages. That saves you one rule per page. This requires a platform that supports pattern-based rules.
+  3. Optional. When a whole section moves under a new prefix, replace that section's per-page rules with one wildcard or pattern redirect. This step requires a platform that supports pattern-based rules.
 </Steps>
 
 ## Verify before and after cut-over
 
 Confirm the redirects resolve before you point your domain at the new site, and again once it's live:
 
-- **Spot-check high-traffic URLs** from your analytics. Your most-visited old paths should land on the right new pages.
-- **Crawl for broken links** with a link checker so no internal link or redirect points at a dead path.
-- **Watch for 404s after cut-over** in your host or analytics logs, and backfill any redirect you missed.
+- Spot-check your most-visited old paths from your analytics, and confirm each one lands on the right new page.
+- Crawl the new site with a link checker to find any internal link or redirect that points at a dead path.
+- After cut-over, watch your host or analytics logs for 404 errors, and add any redirect you missed.
 
-## Redirects and Promptless
+## See also
 
-Redirect handling belongs to your documentation platform and host, not to Promptless. Promptless proposes content changes through pull requests and doesn't manage your hosting-level redirects. That said, once your migrated docs are connected as a [doc collection](/docs/for-docs/connect/doc-locations/github-repos), Promptless keeps the *content* current from that point forward. The migration is the one-time cost, and staying current is automatic afterward.
-
-The same URL-mapping and redirect steps apply when you restructure an existing docs set rather than move platforms. See [Audit and keep your docs healthy](/docs/for-docs/audit/keep-docs-healthy) for how a restructure fits with the rest of the audit-and-health jobs.
-
-Planning a migration and want help getting the redirect strategy right? Contact [help@gopromptless.ai](mailto\:help@gopromptless.ai).
+- [Migrate to a new docs platform](/docs/for-docs/migrate/migrate-to-a-new-platform), for the full migration that this URL work is part of
+- [GitHub repos](/docs/for-docs/connect/doc-locations/github-repos), to connect your migrated docs as a doc collection so Promptless keeps their content current
+- [Audit and keep your docs healthy](/docs/for-docs/audit/keep-docs-healthy), for how a restructure fits with the other audit and health jobs
+- [help@gopromptless.ai](mailto\:help@gopromptless.ai), for help planning a redirect strategy

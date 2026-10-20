@@ -134,16 +134,17 @@ These suffixes use the `PIG_` prefix. `traceObjectPrefix` defaults to `trace-obj
 
 The pre-install migration hook runs before Helm creates ordinary resources. Create its ServiceAccount, credential Secret, and CA ConfigMap in the release namespace before you install the chart. The analyzer and the migration Job both use the ServiceAccount named in `serviceAccount.name`.
 
-| Helm key                      | Default                                 | Meaning                                                                                                                                            |
-| ----------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `serviceAccount.create`       | `false`                                 | Keep `false` while `migrationJob.enabled` is `true`. The chart fails to render when both are `true`.                                               |
-| `serviceAccount.name`         | `pig-analyzer`                          | Existing workload identity ServiceAccount for the analyzer and the migration Job.                                                                  |
-| `migrationJob.enabled`        | `true`                                  | Runs schema migrations in a pre-install and pre-upgrade hook Job.                                                                                  |
-| `podLabels`                   | `{}`                                    | Labels for the analyzer and migration Job pods, such as the Azure workload identity label.                                                         |
-| `pig.postgresCaConfigMapName` | Empty                                   | ConfigMap with the trusted database CA bundle. When set, both workloads mount it at `/etc/pig/postgres-ca/ca.pem` and set `PGSSLROOTCERT`.         |
-| `pig.postgresCaConfigMapKey`  | `ca.pem`                                | Key in that ConfigMap that holds the CA bundle.                                                                                                    |
-| `image.repository`            | `ghcr.io/promptless/pig-trace-analyzer` | Worker image repository.                                                                                                                           |
-| `image.digest`                | Set by the published chart              | Verified worker image digest, in the form `sha256:<64 lowercase hex characters>`. A source checkout requires the digest from the matching release. |
+| Helm key                      | Default                                 | Meaning                                                                                                                                                                  |
+| ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `serviceAccount.create`       | `false`                                 | Keep `false` while `migrationJob.enabled` is `true`. The chart fails to render when both are `true`.                                                                     |
+| `serviceAccount.name`         | `pig-analyzer`                          | Existing workload identity ServiceAccount for the analyzer and the migration Job.                                                                                        |
+| `migrationJob.enabled`        | `true`                                  | Runs schema migrations in a pre-install and pre-upgrade hook Job.                                                                                                        |
+| `podLabels`                   | `{}`                                    | Labels for the analyzer and migration Job pods, such as the Azure workload identity label.                                                                               |
+| `nodeSelector`                | `{}`                                    | Node labels for the analyzer and migration Job pods. On GKE Standard with workload identity, set `iam.gke.io/gke-metadata-server-enabled: "true"`; omit it on Autopilot. |
+| `pig.postgresCaConfigMapName` | Empty                                   | ConfigMap with the trusted database CA bundle. When set, both workloads mount it at `/etc/pig/postgres-ca/ca.pem` and set `PGSSLROOTCERT`.                               |
+| `pig.postgresCaConfigMapKey`  | `ca.pem`                                | Key in that ConfigMap that holds the CA bundle.                                                                                                                          |
+| `image.repository`            | `ghcr.io/promptless/pig-trace-analyzer` | Worker image repository.                                                                                                                                                 |
+| `image.digest`                | Set by the published chart              | Verified worker image digest, in the form `sha256:<64 lowercase hex characters>`. A source checkout requires the digest from the matching release.                       |
 
 For example, to use an existing `pig-analyzer` ServiceAccount and a `postgres-ca` ConfigMap:
 

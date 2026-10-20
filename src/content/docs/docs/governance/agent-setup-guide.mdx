@@ -50,9 +50,13 @@ sidebar:
   label: Set up with a coding agent
 ---
 
-A coding agent such as Claude Code or Codex can set up Promptless Instruction Governance (PIG) for you by following the setup guides. It reuses what already exists and asks you before a change that costs money, grants access, or publishes to your team. Hand it the whole setup with the prompt below, or one phase at a time with the **Ask your agent** prompt in each setup guide.
+## Overview
 
-## Before you hand off setup
+A coding agent such as Claude Code or Codex can set up Promptless Instruction Governance (PIG) for you by following the setup guides. It reuses what already exists and asks you before a change that costs money, grants access, or publishes to your team. Use this page when you want an agent to do the setup work. To do it yourself, start with [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub).
+
+Hand the agent the whole setup with the prompt on this page. To hand it one phase at a time, use the **Ask your agent** prompt in each setup guide. Either way, you finish with a published Instruction Hub, its plugins installed in your agent, and a hub skill that works in a real task. With trace analysis, the agent also deploys the analyzer, enrolls a host, and verifies one analyzed session.
+
+## Before you start
 
 - Decide whether you want trace analysis. A hub and its plugins work without it. Trace analysis adds a self-hosted analyzer, a PostgreSQL database, object storage, and a model provider.
 - Start the agent in a terminal that can reach your Git provider and, for trace analysis, your cloud account and Kubernetes cluster.
@@ -61,31 +65,39 @@ A coding agent such as Claude Code or Codex can set up Promptless Instruction Go
 
 ## Ask your agent to set up PIG
 
-Copy this prompt into your agent and fill in the values you know.
+1. Copy this prompt and replace each bracketed value you know. The agent discovers the rest.
 
-```text title="Ask your agent: set up PIG end to end"
-Set up Promptless Instruction Governance (PIG) for my team. Follow
-https://promptless.ai/docs/governance/agent-setup-guide.md
+   ```text title="Ask your agent: set up PIG end to end"
+   Set up Promptless Instruction Governance (PIG) for my team. Follow
+   https://promptless.ai/docs/governance/agent-setup-guide.md
 
-Outcome: a published Instruction Hub, its plugins installed in my agent, and a
-hub skill working in a real task. Trace analysis: [yes or no]. If yes, also
-deploy the analyzer, enroll this host, and verify one real session in the
-Promptless Dashboard.
+   Outcome: a published Instruction Hub, its plugins installed in my agent, and a
+   hub skill working in a real task. Trace analysis: [yes or no]. If yes, also
+   deploy the analyzer, enroll this host, and verify one real session in the
+   Promptless Dashboard.
 
-Known inputs (discover the rest before you ask me):
-- Hub repository: [existing hub URL, or the GitHub or GitLab group for a new one]
-- My agent: [Claude Code, Codex, Cursor, or Gemini CLI]
-- Cloud: [AWS, Azure, Google Cloud, or another Kubernetes platform]
-- Cluster: [kubectl context and namespace, if known]
+   Known inputs (discover the rest before you ask me):
+   - Hub repository: [existing hub URL, or the GitHub or GitLab group for a new one]
+   - My agent: [Claude Code, Codex, Cursor, or Gemini CLI]
+   - Cloud: [AWS, Azure, Google Cloud, or another Kubernetes platform]
+   - Cluster: [kubectl context and namespace, if known]
 
-Ask me before paid, access, publishing, or destructive changes, and never ask
-me to paste a credential. Report what you verified, what is blocked, and my
-next step.
-```
+   Ask me before paid, access, publishing, or destructive changes, and never ask
+   me to paste a credential. Report what you verified, what is blocked, and my
+   next step.
+   ```
+
+2. Paste the prompt into the agent you started in the terminal from [Before you start](#before-you-start).
+
+3. Answer the agent's questions, and approve or decline each plan it shows you.
+
+4. When the agent pauses for a step only you can do, complete the step and tell the agent.
+
+When it finishes, the agent reports each phase as verified, skipped, or blocked, with your next step.
 
 ## Instructions for coding agents
 
-The rest of this page is for you, the agent. Read all of it before you run a command. The linked guides are the source of truth for commands and configuration; if this page differs from one, follow the guide and report the difference. Append `.md` to a guide's URL to read it as Markdown. The [documentation index](/llms.txt) lists every page.
+The rest of this page, up to **See also**, is for you, the agent. Read all of it before you run a command. The linked guides are the source of truth for commands and configuration. If this page differs from a guide, follow the guide and report the difference. Append `.md` to a guide's URL to read it as Markdown. The [documentation index](/llms.txt) lists every page.
 
 ### Act within scope, ask before consequential changes
 
@@ -103,7 +115,7 @@ Before each phase that writes, report the exact target: Git remote and branch, c
 
 When a step fails, stop and report it. Do not invent commands, flags, or keys, or switch deployment paths without agreement. Never weaken security to get past an error, such as by disabling TLS verification, making storage public, or broadening IAM.
 
-Preserve what others own. Keep the user's uncommitted changes and work on a branch. Keep existing Terraform state, backends, and module pins, and do not import resources another workflow owns. Keep the Helm bootstrap out of Terraform `helm_release` resources and continuous GitOps reconciliation; after bootstrap, PIG owns its releases, as [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) describes.
+Preserve what others own. Keep the user's uncommitted changes and work on a branch. Keep existing Terraform state, backends, and module pins, and do not import resources another workflow owns. Keep the Helm bootstrap out of Terraform `helm_release` resources and out of continuous GitOps reconciliation. After bootstrap, PIG owns its releases, as [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership) describes.
 
 ### Keep credentials out of the conversation
 
@@ -161,9 +173,10 @@ Do not report an outcome you did not check.
 Follow [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub) and [Migrate existing instructions](/docs/governance/get-started/migrate-existing-instructions). You need the organization name, marketplace ID, repository location, and first skills or instructions to include.
 
 1. Install the toolchain in a dedicated virtual environment, or reuse one where `pig --help` works.
-2. To adopt a hub, clone it and work on a branch; do not run `pig init` over it. To create one, run `pig init` in a new directory and keep the `pig` plugin, whose ID the toolchain requires.
-3. Add skills and group them into plugins. To import instructions, run `pig scan` on one source at a time and review each import, because it replaces a destination skill with the same ID.
-4. Run `pig validate --hub .`, then `pig verify --hub .`, and commit to a local branch.
+2. To adopt a hub, clone it and work on a branch. Do not run `pig init` over it.
+3. To create a hub, run `pig init --hub . --org <organization>` in a new directory. `--org` is required. Add `--marketplace-id <marketplace-id>` when the user chose a marketplace ID. Keep the generated `pig` plugin, because the toolchain requires its ID.
+4. Add skills and group them into plugins. To import instructions, run `pig scan` on one source at a time and review each import, because it replaces a destination skill with the same ID.
+5. Run `pig validate --hub .`, then `pig verify --hub .`, and commit to a local branch.
 
 Ask for approval before you create the remote repository or push to it.
 
@@ -186,7 +199,7 @@ Ask for approval before you push the workflow to the source branch, which starts
 Follow [Install the plugins](/docs/governance/get-started/publish-and-install-plugins#install-the-plugins).
 
 1. Confirm the user can read the hub repository and `release/stable`.
-2. Install `pig` and the needed plugins from the agent's tab in the guide. Run Codex and Gemini CLI terminal commands yourself; ask the user to run Claude Code slash commands and app or dashboard steps.
+2. Install `pig` and the needed plugins from the agent's tab in the guide. Run Codex and Gemini CLI terminal commands yourself. Ask the user to run Claude Code slash commands and app or dashboard steps.
 3. Reload or restart the agent as the guide describes.
 
 **Done when** the plugin is listed at the published version. A hub skill must also run in a real task in a new session and read its supporting files.
@@ -201,7 +214,7 @@ Skip this phase without trace analysis and report the hub as ready. Otherwise, f
 - The secret names for the analyzer credential, database connection string, and model key.
 
 1. Check [Before you begin](/docs/governance/deploy-the-worker/plan-your-deployment#before-you-begin) and list missing items before you start.
-2. Ask a Promptless organization admin to [register the analyzer](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). The credential is shown once; the admin stores it in the secret manager.
+2. Ask a Promptless organization admin to [register the analyzer](/docs/governance/deploy-the-worker/plan-your-deployment#register-an-analyzer). Promptless shows the credential once, and the admin stores it in the secret manager.
 3. Select the release from the [stable catalog](https://github.com/Promptless/pig-deploy/blob/main/catalog/stable.json), download its files, and check every digest as in [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). Stop if a digest differs. Never use an unreleased branch or candidate tag.
 4. For a cloud guide, extract the example from the verified release archive. Fill the example inputs with confirmed values and configure the user's remote state backend. Run `terraform init -backend-config=backend.tfbackend -lockfile=readonly`, `terraform validate`, and `terraform plan -out=pig.tfplan`.
 5. Show the plan summary. Stop if it replaces the cluster, broadens shared permissions, or destroys retained storage. After approval, apply the saved plan and save the `deployment_configuration` output, which contains no credentials.
@@ -211,7 +224,7 @@ Skip this phase without trace analysis and report the hub as ready. Otherwise, f
 9. Wait for the `PIGDeployment` to report `Ready=True`. Ask the user to point DNS at the Ingress address, then check `/healthz` and the unauthenticated policy route over HTTPS from the hosts' network.
 10. Ask a Promptless organization admin to [select instruction repositories](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#7-select-instruction-repositories) and confirm that [trace analysis is enabled](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#8-enable-trace-analysis).
 
-**Done when** the `PIGDeployment` reports `Ready=True` and the HTTPS checks pass from the hosts' network. In **Settings → Workers**, the analyzer must show **Healthy** with a recent **Last checked in** time, selected repositories, and **Trace analyzer** set to **On**. This proves the deployment runs; phase 7 proves analysis works.
+**Done when** the `PIGDeployment` reports `Ready=True` and the HTTPS checks pass from the hosts' network. In **Settings → Workers**, the analyzer must show **Healthy** with a recent **Last checked in** time, selected repositories, and **Trace analyzer** set to **On**. This proves the deployment runs. Phase 7 proves analysis works.
 
 To resume, read the status of an existing `PIGDeployment`, Helm release, or Terraform state and continue from the first failing check. Do not reinstall the bootstrap over a supervisor that has updated itself. For a blocked update, follow [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
@@ -246,3 +259,10 @@ Follow [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-d
 - The `PIGDeployment` reports `Acceptance=True`.
 
 A ready pod, published release, listed plugin, or upload acknowledgment alone does not pass. When a check fails, find the first failing stage with [observability and troubleshooting](/docs/governance/deploy-the-worker/observability) and report it.
+
+## See also
+
+- [Set up your Instruction Hub](/docs/governance/get-started/set-up-your-instruction-hub), to create the hub yourself
+- [Deploy trace analysis](/docs/governance/deploy-the-worker/plan-your-deployment), to plan the infrastructure before the agent deploys it
+- [Trust and data model](/docs/governance/start-here/trust-and-data-model), to review what collection uploads before you approve it
+- [Observability and troubleshooting](/docs/governance/deploy-the-worker/observability), to diagnose a phase that the agent reports as blocked

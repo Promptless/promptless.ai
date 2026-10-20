@@ -53,13 +53,17 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Cloud agents run in short-lived sandboxes where no one can approve host enrollment in a browser. To analyze their sessions, an organization admin creates a cloud integration grant. Each execution then uses the grant to enroll itself and upload its native Claude Code or Codex traces to your analyzer. You can use this setup for Claude Tag or for any cloud runner that can supply a secret to its sandbox.
+## Overview
+
+Cloud agents run in short-lived sandboxes where no one can approve host enrollment in a browser. To analyze their sessions, an organization admin creates a cloud integration grant. Each execution then uses the grant to enroll itself and upload its native Claude Code or Codex traces to your analyzer. Use this setup for Claude Tag or for any cloud runner that can supply a secret to its sandbox.
 
 Traces from cloud executions appear in the trace feed with the integration that captured them. Trace bytes go only to your analyzer and your storage. Promptless holds the grant and execution metadata.
 
 For agents on people's own machines, use [host enrollment](/docs/governance/get-started/enroll-your-hosts).
 
 ## Before you start
+
+You need:
 
 - An analyzer that runs PIG 0.3.5 or later and is registered on the **Workers** settings page. To update a 0.3.4 installation, see [Upgrade a 0.3.4 installation to 0.3.5 or later](/docs/governance/deploy-the-worker/manage-updates-and-recovery#upgrade-a-034-installation-to-035-or-later).
 - An HTTPS address for the analyzer that the runner's sandbox can reach, with no redirects. The bootstrap chart's Ingress already routes the collector paths. If another gateway or proxy sits in front of it, [route the same paths](/docs/governance/deploy-the-worker/networking-and-identity#route-collector-requests). A cloud execution calls these three:
@@ -99,7 +103,7 @@ For agents on people's own machines, use [host enrollment](/docs/governance/get-
 
   2. **Save the token**
 
-     The dialog shows the grant's token, which starts with `plicg_`, once. Select **Copy token** and store it in your provider's secret store before you select **Done**. Promptless keeps only a hash of the token and can't show it again.
+     The dialog shows the grant's token once. The token starts with `plicg_`. Select **Copy token** and store it in your provider's secret store before you select **Done**. Promptless keeps only a hash of the token and can't show it again.
 
      Keep the token out of Git, the capture plugin, command-line arguments, and chat. If you lose it, revoke the grant and create a replacement.
 
@@ -194,3 +198,10 @@ Revoking a grant is permanent. To restore capture, create a new grant and rebuil
 | Enrollment returns `403`                                                 | The grant is expired, revoked, or used up, or it belongs to another installation or native source. Create a new grant. The host enrollment policy can also block the native source. Enable it there.                          |
 | Enrollment returns `409`                                                 | The execution's local state changed, was copied from another execution, or the execution was revoked. Restore that execution's own `~/.promptless/cloud/` state, or start a new execution.                                    |
 | `status.json` reports `blocked` with reason `bootstrap_upgrade_required` | The host enrollment policy requires a newer collector than the bundle contains, so the collector uploads nothing. Update the `pig` CLI from the toolchain setup, rebuild the bundle, and reinstall it in the runner.          |
+
+## See also
+
+- [Networking and identity](/docs/governance/deploy-the-worker/networking-and-identity#reach-the-analyzer-from-cloud-agents), to expose the collector paths to cloud runners
+- [The pig CLI reference](/docs/governance/reference/pig-cli-reference#pig-cloud-bundle), for every `pig cloud-bundle` option
+- [Trust and data model](/docs/governance/start-here/trust-and-data-model), for what cloud capture uploads and where it goes
+- [Understand findings](/docs/governance/findings-and-remediation/understand-findings), to act on the analysis of captured sessions

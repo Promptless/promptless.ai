@@ -51,35 +51,51 @@ import { Aside } from '@astrojs/starlight/components';
   You can connect and scope this context source by hand as this page describes. You can also ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless scope the Google Drive context source to my Product shared drive." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
 
-Google Drive integration provides **read-only** access to your team's documents for documentation automation. When Google Drive is configured as a context source, Promptless searches your Drive and reads file content while creating suggestions. It never modifies your Drive content.
+## Overview
 
-## How it works as a context source
+Connect Google Drive as a context source so Promptless reuses the specs, numbers, and rationale your team keeps in Google Docs, Sheets, and Slides. While Promptless drafts a suggestion, it can:
 
-When Google Drive is enabled as a context source:
+- Search files by name and full text across My Drive and shared drives.
+- Read a file's content: Google Docs as Markdown, Sheets as CSV, and Slides as plain text.
+- Resolve Google Drive and Google Docs URLs that a trigger references. When a linked file isn't accessible to the connected account but is publicly shared, Promptless reads it as a public web page.
 
-- **Drive Search**: Promptless searches files by name and full text across My Drive and shared drives when creating documentation suggestions
-- **File Reading**: Promptless reads file content on demand (Google Docs as Markdown, Sheets as CSV, and Slides as plain text). It pulls product specs, internal notes, and reference material into new documentation
-- **URL Resolution**: When triggers reference Google Drive or Google Docs URLs, Promptless fetches the linked file using your authenticated connection. If a file isn't accessible to your integration but is publicly shared, Promptless falls back to fetching it as a public web page.
+Promptless reads only the files the connected Google account can read, and you can narrow that further. See [Connect Google Drive](#connect-google-drive) and [Limit Promptless to specific shared drives or folders](#limit-promptless-to-specific-shared-drives-or-folders).
 
-<Aside type="note">
-  Promptless inherits the permissions of the Google account used during OAuth connection and only accesses files that account can read.
-</Aside>
+Google Drive access is read-only. Promptless connects with read-only Drive scopes and never creates, updates, or deletes files. It queries Drive in real time when a documentation task needs it, and doesn't store your Drive content. It caches results briefly during a documentation session, then discards them.
 
-## Example
+### Example
 
-A developer merges a GitHub PR that lowers the default API rate limit from 1,000 to 600 requests per minute. A code comment in the PR links to the "Rate Limiting v2" design doc in Google Docs. Promptless resolves that linked Doc and reads the rollout thresholds and the reasoning behind the new ceiling. It then reuses the exact numbers and rationale when it updates the rate-limit reference page.
+A developer merges a GitHub PR that lowers the default API rate limit from 1,000 to 600 requests per minute. A code comment in the PR links to the "Rate Limiting v2" design doc in Google Docs. Promptless resolves the linked doc and reads the rollout thresholds and the reasoning behind the new limit. Its update to the rate-limit reference page reuses those exact numbers and that rationale.
 
-## Scope access
+## Before you start
 
-Because Promptless connects through OAuth, its Drive access is limited to whatever the authorizing Google account can read. Whoever authorizes the connection sets the scope of what Promptless sees. You can narrow access further in your configuration, and you can control it at the account level.
+- An admin role in your Promptless organization, to connect Google Drive and edit the [Configuration page](https://app.gopromptless.ai/configuration).
 
-### Scope with `drive_ids` and `folder_ids`
+## Connect Google Drive
 
-By default, Promptless reads everything the connected account can access. To narrow that, add `drive_ids` or `folder_ids` to the `google_drive` context source entry in your `promptless.yaml`. This points Promptless at a specific shared drive (say, the one your product team owns) or at a folder holding your current-quarter specs. It does not expose unrelated files the account happens to reach.
+The Google account that authorizes the connection decides what Promptless can read. For least-privilege access, connect through a dedicated Google account that acts as a service account for Promptless. Promptless then reads only what you share with that account.
+
+1. Optional. Create a dedicated Google account for Promptless.
+2. Optional. Share with the dedicated account only the shared drives and folders you want Promptless to read.
+3. On the [Integrations page](https://app.gopromptless.ai/integrations), select **Connect Google Drive**.
+4. In Google, authorize read-only access with the account you want Promptless to use.
+5. On the Google Drive card, check that the header names the account you intended, with its email address under its name. If the header shows no account, select **Check access** on the card, or reconnect the integration.
+6. Check that the card lists only the shared drives and folders you expect Promptless to read.
+
+## Limit Promptless to specific shared drives or folders
+
+Promptless can read everything the connected account can access. To point Promptless at specific shared drives or folders, scope the Google Drive context source. For example, scope it to your product team's shared drive or a folder of current-quarter specs:
+
+1. On the **Context sources** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the Google Drive source. If it isn't listed, select **Add a context source**, and then select **Google Drive**.
+2. In **Which Google Drive shared drives should Promptless read?**, add each shared drive.
+3. Optional. In **Specific folders (optional)**, add individual folders.
+4. Select **Save changes**. For a new source, select **Add context source**.
+
+In YAML, the scope is the `drive_ids` and `folder_ids` lists on an entry with `source_type: google_drive`. An entry's key uses hyphens, such as `google-drive`:
 
 ```yaml
 context_sources:
-  google_drive:
+  google-drive:
     source_type: google_drive
     drive_ids:
       - 0AExampleDriveIdUk9PVA
@@ -87,24 +103,10 @@ context_sources:
       - 1BExampleFolderIdXyZ
 ```
 
-Leave both fields empty (or omit them) to give Promptless access to everything the connected account can read. For the full schema, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#context-sources).
+An entry with no drive or folder IDs, or no entry, gives Promptless everything the connected account can read. For every context source field, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#context-sources).
 
-### Scope with a dedicated account
+## See also
 
-To be prescriptive about what Promptless can access, create a dedicated Google account to act as a service account for Promptless. Then share with that account only the specific shared drives and folders you want Promptless to read. Connecting through that account, rather than a broadly privileged individual's account, limits Promptless's Drive access to exactly what you share. This gives you least-privilege control.
-
-After you connect, the header of the Google Drive integration card names the account that authorized the connection. The account's email address appears under its name. The card also lists the shared drives and folders that account can see. Check both to confirm that Promptless connected through the dedicated account you intended and sees only what you shared with it. If the header shows no account, click **Check access** on the card or reconnect the integration.
-
-## Data privacy
-
-Promptless queries Google Drive in real time and stores none of your Drive content. Searches and file reads happen on demand when documentation updates are needed. Promptless caches results briefly to improve performance during a single documentation session, then discards them.
-
-Promptless connects with read-only Drive scopes and only reads from Google Drive. It never creates, updates, or deletes files.
-
-## Setup instructions
-
-To connect Google Drive to Promptless:
-
-1. Go to the [Integrations page](https://app.gopromptless.ai/integrations) in your Promptless dashboard.
-2. Click **Connect Google Drive** on the Google Drive integration card.
-3. Authorize Promptless to access your Google Drive with read-only permissions.
+- [Notion](/docs/for-docs/connect/context-sources/notion), to read specs your team keeps in Notion pages and databases
+- [Connection health](/docs/for-docs/connect/connection-health), to check and restore a context source that lost access
+- [Context sources](/docs/for-docs/connect/context-sources), to compare every context source Promptless supports

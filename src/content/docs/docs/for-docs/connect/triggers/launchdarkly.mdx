@@ -48,17 +48,53 @@ sidebar:
 import { Aside } from '@astrojs/starlight/components';
 import LaunchDarklyConnect from '@partials/integrations/launchdarkly-connect.mdx';
 
-A LaunchDarkly flag trigger starts Promptless documentation work when a matching feature flag changes. It needs LaunchDarkly connected to Promptless first. Connecting LaunchDarkly sets up flag-change delivery, and a configured LaunchDarkly flag trigger is what starts documentation work.
+## Overview
+
+A LaunchDarkly flag trigger starts Promptless documentation work when a matching feature flag changes, such as a flag turned on in production. Use it when your team releases features by changing flags, so documentation work starts at rollout.
+
+Connecting LaunchDarkly sets up flag-change delivery to Promptless. A LaunchDarkly flag trigger then chooses which flag changes start documentation work.
 
 <Aside type="note">
   The LaunchDarkly integration and this trigger are in beta. For how Promptless verifies webhook deliveries and what disconnecting removes, see the [LaunchDarkly integration](/docs/for-docs/reference/integrations/launchdarkly) page.
 </Aside>
+
+## Before you start
+
+- LaunchDarkly connected to Promptless. If it isn't connected yet, [connect it](#connect-launchdarkly) first.
+- An [organization admin](/docs/for-docs/reference/configuration-reference#permissions-and-conflict-detection) role, to add triggers.
 
 ## Connect LaunchDarkly
 
 Skip this section if LaunchDarkly is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
 
 <LaunchDarklyConnect />
+
+## Add a LaunchDarkly flag trigger
+
+1. On the [Configuration page](https://app.gopromptless.ai/configuration), switch to **YAML** mode.
+
+2. In the `triggers` section, add a `launchdarkly_flag` trigger with one or more match clauses:
+
+   ```yaml
+   triggers:
+     launchdarkly-checkout-flags:
+       trigger_type: launchdarkly_flag
+       match:
+         - project_key: [checkout]
+           environment_key: [production]
+           flag_key: [express-checkout]
+         - project_key: [billing]
+   ```
+
+3. Select **Save**.
+
+The first clause sets all three fields, so it matches only a change to the `express-checkout` flag in the `checkout` project's `production` environment. The second clause sets `project_key` alone, so it matches any flag change in the `billing` project. A change that matches either clause starts documentation work.
+
+The trigger map key, such as `launchdarkly-checkout-flags`, is yours to name. The `trigger_type` value `launchdarkly_flag` is a fixed type identifier.
+
+You can also add this trigger on the **Triggers** tab, from the **A LaunchDarkly flag** entry under **Product & releases**. Each clause there has three fields, **Projects**, **Environments**, and **Feature flags**, which set `project_key`, `environment_key`, and `flag_key`.
+
+[Backfill](/docs/for-docs/connect/triggers#backfill-suggestions) isn't available for LaunchDarkly flag triggers, so a flag change from before you added the trigger starts no documentation work.
 
 ## Match a flag change
 
@@ -70,43 +106,30 @@ A LaunchDarkly flag trigger matches on three optional list fields:
 | `environment_key` | The environments.          |
 | `flag_key`        | The individual flags.      |
 
-Each clause under `match` sets at least one of these fields; an empty clause is rejected. Within a clause, the fields you populate are ANDed against a single changed flag. The clause matches a change that satisfies every populated field. Multiple clauses are ORed. An empty field matches every value in that dimension, so a clause with only `project_key` matches any flag change in those projects.
+Each clause under `match` must set at least one of these fields, and Promptless rejects an empty clause. Within a clause, a flag change matches when it satisfies every field you set. Separate clauses are ORed. A field you leave empty matches every value, so a clause with only `project_key` matches any flag change in those projects.
 
-## Configuration
-
-Configure LaunchDarkly flag triggers on your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section. Each trigger uses the `launchdarkly_flag` type:
-
-```yaml
-triggers:
-  launchdarkly-checkout-flags:
-    trigger_type: launchdarkly_flag
-    match:
-      - project_key: [checkout]
-        environment_key: [production]
-        flag_key: [express-checkout]
-      - project_key: [billing]
-```
-
-The trigger map keys (`launchdarkly-checkout-flags`) are yours to name; the `trigger_type` values (`launchdarkly_flag`) are the fixed type identifiers.
-
-The first clause populates all three fields, so it matches only a change to the `express-checkout` flag in the `checkout` project's `production` environment. The second clause sets `project_key` alone, so it matches any flag change in the `billing` project. A change matching either clause starts documentation work.
-
-In the dashboard, add this trigger on the **Triggers** tab under the **Product & releases** group, from the **A LaunchDarkly flag** entry. Each clause takes three selector fields, **Projects**, **Environments**, and **Feature flags**, matching `project_key`, `environment_key`, and `flag_key`.
-
-These selector fields take free-text entries that Promptless matches exactly as you enter them, without checking them against your connected LaunchDarkly account. A misspelled project, environment, or flag key remains valid configuration and silently never matches a real flag change.
-
-[Backfill suggestions](/docs/for-docs/connect/triggers#backfill-suggestions) aren't available for LaunchDarkly flag triggers. A flag that rolled out before you added the trigger stays outside its reach.
+Promptless matches each key exactly as you enter it and doesn't check it against your LaunchDarkly account. A misspelled project, environment, or flag key saves as valid configuration but never matches a real flag change, so copy keys from LaunchDarkly.
 
 ## What Promptless receives
 
-When a matching flag changes, Promptless receives the flag key, project key, and environment key. It also receives the action taken, the event title, and the email of the member who made the change. Promptless takes this context from the flag-change webhook LaunchDarkly delivers, and makes no live API call to fetch more flag detail. The change's before and after flag values and its targeting-rule detail are not part of what Promptless receives.
+When a matching flag changes, Promptless receives this context from the flag-change webhook LaunchDarkly delivers:
+
+- The flag key, project key, and environment key.
+- The action taken and the event title.
+- The email of the member who made the change.
+
+The webhook carries no before and after flag values or targeting-rule details, and Promptless makes no LaunchDarkly API call to fetch more.
 
 ## Example
 
 A team runs a `checkout` project in LaunchDarkly and gates its new express-checkout flow behind the `express-checkout` flag. They add a LaunchDarkly flag trigger scoped to `project_key: [checkout]`, `environment_key: [production]`, and `flag_key: [express-checkout]`.
 
-When an engineer turns `express-checkout` on in production, LaunchDarkly delivers the change to Promptless. The trigger matches, and Promptless starts a documentation run for the change. Following the run's publishing policy, Promptless drafts the express-checkout documentation. It opens a documentation PR or leaves a draft suggestion, then sends the usual Slack or Microsoft Teams notification.
+When an engineer turns `express-checkout` on in production, LaunchDarkly delivers the change to Promptless. The trigger matches, and Promptless starts a documentation run for the change. Following the run's publishing policy, Promptless drafts the express-checkout documentation and opens a documentation PR or leaves a draft suggestion. It then sends the usual Slack or Microsoft Teams notification.
 
 To confirm afterward that a flag rollout started a run, check the events Promptless lists in the docs PR description. See [Trigger events in documentation PRs](/docs/for-docs/connect/triggers#trigger-events-in-documentation-prs).
 
-See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for the full schema.
+## See also
+
+- [LaunchDarkly integration](/docs/for-docs/reference/integrations/launchdarkly), for webhook verification and what disconnecting removes
+- [Triggers](/docs/for-docs/connect/triggers), for how triggers work and how to follow what one did
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger field

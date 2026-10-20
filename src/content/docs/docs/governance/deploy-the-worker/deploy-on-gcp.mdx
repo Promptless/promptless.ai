@@ -53,7 +53,11 @@ sample-questions:
 
 import { Steps } from '@astrojs/starlight/components';
 
-Use Terraform to prepare **Cloud SQL for PostgreSQL**, **Google Cloud Storage**, and a workload identity for PIG on your existing GKE cluster. Then bootstrap PIG with Helm. Terraform continues to own cloud infrastructure; PIG maintains its application releases.
+## Overview
+
+Use this guide to evaluate PIG on an existing GKE cluster and have Terraform create its dedicated infrastructure. The example creates a Cloud SQL for PostgreSQL instance, a Cloud Storage trace bucket, and a Google service account for the analyzer's workload identity. You then continue with the common [Helm installation](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). If you already have these resources, go directly to that guide.
+
+The guide reuses your cluster and network. It creates no cluster and installs no ingress controller, and it works with your existing secret-delivery and certificate-management systems. After installation, Terraform keeps ownership of the cloud infrastructure, and PIG maintains its own application releases.
 
 :::caution[Experimental cloud support]
 This cloud is experimental. The current stable release, PIG 0.3.6, targets AWS only. Use this guide for evaluation; it does not establish equivalent acceptance on this cloud.
@@ -62,12 +66,11 @@ This cloud is experimental. The current stable release, PIG 0.3.6, targets AWS o
 ## Before you begin
 
 - Complete [deployment planning](/docs/governance/deploy-the-worker/plan-your-deployment), including your Promptless registration, Instruction Hub, and model access.
-- Have Terraform, Git, the gcloud CLI, Helm, and `kubectl` available. Use the tool versions required by the selected infrastructure release.
-- Prepare an existing project and VPC with private services access for Cloud SQL. Enable Workload Identity Federation for GKE and the required SQL, Storage, and IAM APIs. Use node pools that support the workload identity configuration.
+- Have Terraform 1.11 or later, the gcloud CLI, Helm, and `kubectl`. The 0.3.6 example requires Terraform `>= 1.11.0, < 2.0.0`.
+- Prepare an existing project with the Cloud SQL, IAM, and Cloud Storage APIs enabled. Its VPC needs private services access with an allocated IP range for Cloud SQL.
+- Enable Workload Identity Federation for GKE on the cluster. On GKE Standard, enable the GKE metadata server on the node pool that runs the analyzer.
 - Have permission to provision the dedicated database, trace storage, and workload identity in that network.
 - Choose database capacity, availability, backup retention, trace retention, and encryption settings for your recovery requirements.
-
-This guide reuses your cluster and network. It does not create a new cluster or install an ingress controller. Use your existing secret-delivery and certificate-management systems.
 
 To hand the infrastructure work to a coding agent, copy this prompt. [Set up PIG with a coding agent](/docs/governance/agent-setup-guide) covers the whole setup.
 
@@ -101,7 +104,7 @@ tar -xzf "pig-deploy-${PIG_VERSION}.tar.gz"
 cd "pig-deploy-${PIG_VERSION}/examples/gcp"
 ```
 
-The example references the Google Cloud module in the same archive and commits its provider lock file. Keep `-lockfile=readonly` below so Terraform uses those reviewed provider checksums. Infrastructure module versions and PIG application versions are independent.
+The example references the Google Cloud module in the same archive, so the module matches the release. The example also includes its provider lock file. Keep `-lockfile=readonly` in the commands below so Terraform uses those reviewed provider checksums.
 
 ## 2. Configure and apply infrastructure
 
@@ -119,9 +122,11 @@ The example references the Google Cloud module in the same archive and commits i
      cp terraform.tfvars.example terraform.tfvars
      ```
 
-     Set the project and region, GKE cluster and workload identity pool, existing VPC ID and private services access configuration. Use namespace `pig`, ServiceAccount `pig-analyzer`, database `pig`, and a dedicated trace prefix such as `acme/traces`.
+     Set `project_id`, `region`, the cluster's `workload_identity_pool`, the existing `network_id` and its private services access `allocated_ip_range`, and a globally unique `trace_bucket_name`. Keep `namespace = "pig"` and `service_account_name = "pig-analyzer"`, which the module binds to the Google service account, and set a dedicated `trace_prefix` such as `acme/traces`.
 
-     Review database sizing, availability, backup retention, storage recovery, and deletion protection explicitly. Use private database access and private trace storage. Supply the database password as `TF_VAR_postgres_password` from your secret manager, and keep secret values out of committed `.tfvars` files. Terraform stores the password in its encrypted remote state.
+     The defaults create regional high-availability PostgreSQL 16 on `db-custom-2-7680`, with 2 vCPUs and 7.5 GiB of memory. Storage is 100 GiB of SSD, with 14 daily backups and 7 days of point-in-time recovery. The trace bucket uses versioning and 90 days of soft delete.
+
+     Review these defaults and deletion protection in `variables.tf` against your workload and recovery requirements. Keep private database access and private trace storage. Supply the database password as `TF_VAR_postgres_password` from your secret manager, and keep real `.tfvars` files out of Git. Terraform stores the password in its encrypted remote state.
 
   3. **Initialize and review the plan.** Copy `backend.tfbackend.example` to `backend.tfbackend` and set your existing encrypted, private state backend with locking. Limit its access to infrastructure operators.
 
@@ -141,23 +146,38 @@ The example references the Google Cloud module in the same archive and commits i
      terraform output -json deployment_configuration > "$PIG_RELEASE_DIR/deployment-configuration.json"
      ```
 
-     Keep this output for the Helm configuration. It contains database connection metadata, the native storage block, ServiceAccount annotations, and any required pod labels. It contains no credential values. Deliver the database DSN through your secret manager and install the provider's CA bundle separately.
+     The output file sits next to the verified release files. It contains database connection metadata, the Cloud Storage block, the ServiceAccount annotation, and pod labels. It contains no credential values.
 </Steps>
 
 ## 3. Connect the infrastructure to PIG
 
-Use the module's `deployment_configuration` output as the source of truth. It maps into the common installation as follows:
+The `deployment-configuration.json` file in `$PIG_RELEASE_DIR` is the source of truth for the Kubernetes configuration in [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker). Each output goes to one destination:
 
 | Output                         | Destination                                                                            |
 | ------------------------------ | -------------------------------------------------------------------------------------- |
-| `postgres` connection metadata | The DSN in `pig-credentials/postgres-dsn`, with provider-appropriate TLS verification. |
-| `storage`                      | The single native object-storage block under `PIGDeployment.spec.storage`.             |
+| `postgres` connection metadata | The application connection string in `pig-credentials/postgres-dsn`.                   |
+| `storage`                      | The `gcs` block under `PIGDeployment.spec.storage`.                                    |
 | `service_account_annotations`  | Annotations on ServiceAccount `pig/pig-analyzer`.                                      |
-| `pod_labels`                   | `PIGDeployment.spec.podLabels`.                                                        |
+| `pod_labels`                   | `PIGDeployment.spec.podLabels`. It is empty on Google Cloud.                           |
 
-For Google Cloud, the ServiceAccount annotation is `iam.gke.io/gcp-service-account`. Its value resembles `pig-analyzer@REPLACE_PROJECT_ID.iam.gserviceaccount.com`. Use the output's actual identity; do not copy the illustrative value.
+For Google Cloud, the ServiceAccount annotation is `iam.gke.io/gcp-service-account`. Its value resembles `pig-analyzer@REPLACE_PROJECT_ID.iam.gserviceaccount.com`. Copy the identity from your output, not this illustrative value.
 
-The module binds the Kubernetes ServiceAccount to a Google service account with trace-bucket data access. Database authentication uses the PostgreSQL credential; it does not assume automatic IAM database-token refresh. This recipe uses private Cloud SQL connectivity, without requiring a database proxy in the analyzer pod.
+The module binds the Kubernetes ServiceAccount to a Google service account with object access limited to the trace prefix. The analyzer authenticates to Cloud SQL with the database password in its connection string. It connects over the instance's private IP, so the analyzer pod needs no database proxy.
+
+Build the connection string in your secret manager from the `postgres` output and the database password. Include both `host`, the name on the server certificate, and `hostaddr`, the private IP address, with `sslmode=verify-full`:
+
+```text
+postgresql://USERNAME:URL_ENCODED_PASSWORD@HOST:5432/pig?hostaddr=HOSTADDR&sslmode=verify-full
+```
+
+Deliver the regional Cloud SQL CA bundle for your instance as ConfigMap `pig-postgres-ca` with key `ca.pem`.
+
+On GKE Standard, add this node selector under `spec` in the `PIGDeployment`, so the analyzer and its maintenance Jobs run on nodes with the GKE metadata server. Omit it on GKE Autopilot, which rejects it.
+
+```yaml
+nodeSelector:
+  iam.gke.io/gke-metadata-server-enabled: "true"
+```
 
 Replace the S3 block in the common Helm example with this block, using the provisioned location:
 
@@ -167,20 +187,26 @@ gcs:
   prefix: acme/traces
 ```
 
-The model is a separate choice. Select a supported endpoint from [model providers](/docs/governance/deploy-the-worker/model-providers); the storage backend does not select or provision it.
+Choose the model separately. Select a supported endpoint from [model providers](/docs/governance/deploy-the-worker/model-providers). The Terraform module grants no model access.
 
 ## 4. Bootstrap and verify
 
-Continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from step 2, in `$PIG_RELEASE_DIR`, where the verified chart and `deployment-configuration.json` are. Apply the ServiceAccount annotations, pod labels, native storage block, database Secret, and CA ConfigMap from this guide before creating the `PIGDeployment`. For the collector Ingress, use the **Ingress with a TLS Secret** values with your cluster's ingress controller and certificate.
+In `$PIG_RELEASE_DIR`, where the verified chart and `deployment-configuration.json` are, continue with [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker) from [step 2](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#2-create-the-namespaces-and-analyzer-serviceaccount). Apply the ServiceAccount annotation, Secrets, CA ConfigMap, Cloud Storage block, and any node selector from this guide before you create the `PIGDeployment`. For the collector Ingress, use the **Ingress with a TLS Secret** values with your cluster's ingress controller and certificate.
 
-Keep the Helm bootstrap outside Terraform reconciliation. Do not add a `helm_release` resource for the self-updating supervisor or import its generated workloads into Terraform.
+Keep the Helm bootstrap outside Terraform reconciliation. Terraform must not manage the self-updating supervisor through a `helm_release` resource or import its generated workloads.
 
 Finish with [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment). Confirm native storage writes and reads, a successful analysis, and visible Promptless Dashboard status for one exact session.
 
 ## Maintain the infrastructure
 
-Use Terraform for database resizing, IAM changes, networking, backup policy, and object retention. Review infrastructure module upgrades as separate plans; PIG's stable application channel does not upgrade your Terraform modules.
+Use Terraform for database resizing, IAM changes, networking, backup policy, and object retention. PIG's stable application channel updates only the application, so review each Terraform module upgrade as its own plan.
 
 If PIG reports a blocked release that requires an infrastructure change, apply that change through Terraform. PIG resumes once its live checks and any required [release-specific confirmations](/docs/governance/deploy-the-worker/manage-updates-and-recovery#confirm-release-prerequisites) pass. Keep backups and trace retention coordinated, and follow [recovery guidance](/docs/governance/deploy-the-worker/manage-updates-and-recovery) before replacing storage.
 
-For cloud-specific identity setup, see [Workload Identity Federation for GKE](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity).
+## See also
+
+- [Install with Helm](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker), the common installation this guide continues into
+- [Object storage](/docs/governance/deploy-the-worker/object-storage), for trace retention and recovery on each storage backend
+- [GitOps ownership](/docs/governance/deploy-the-worker/gitops-ownership), for which controller owns each resource after bootstrap
+- [Updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery), for blocked updates and storage recovery
+- [Workload Identity Federation for GKE](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity), the Google Cloud guide to the workload identity this module configures
