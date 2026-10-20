@@ -53,12 +53,12 @@ and adds structure findings to pull requests without blocking them.
   are `reference` sections with no table (the TGDP reference template asks
   every entry section after the first for one) and `concept` pages with no
   `Use cases` section. After the edits and retyping in the same pull
-  request, 115 pages fail, with 220 findings.
+  request, every page passes: 132 of 132, with 0 findings.
 - Tradeoff: `npx manni check` now includes the structure job, so it exits 1
   on any page with structure findings even when frontmatter is clean.
-- Follow-up: fix pages as they're edited. When the backlog is small, remove
-  `continue-on-error` from the pull-request step to make structure findings
-  block merge. If a TGDP template proves a poor fit for how this site writes
+- Follow-up: keep pages passing as they're edited. With no backlog left,
+  removing `continue-on-error` from the pull-request step would make
+  structure findings block merge. If a TGDP template proves a poor fit for how this site writes
   a type, override it with a template file under `lint.templates`, and record
   that in a new ADR.
 
