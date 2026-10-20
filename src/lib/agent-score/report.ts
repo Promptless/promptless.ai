@@ -6,18 +6,11 @@ import { AFDOCS_REPO_URL, SKIP_CHECKS_FLAG, SPEC_URL, categoryName, checkName } 
 import type { CheckResult, ScanResult, SiteResponse } from './types';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-const SHORT_DATE_FORMAT = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '';
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? '' : DATE_FORMAT.format(date);
-}
-
-export function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? '' : SHORT_DATE_FORMAT.format(date);
 }
 
 export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
@@ -56,7 +49,7 @@ function scoredMaxTotal(latest: ScanResult): number {
  * Overall points a check would add if it passed, before any score cap. Uses the
  * same arithmetic as afdocs: overall = Σ earned / Σ max × 100.
  */
-export function potentialGain(check: CheckResult, latest: ScanResult): number {
+function potentialGain(check: CheckResult, latest: ScanResult): number {
   const denominator = scoredMaxTotal(latest);
   if (!denominator || typeof check.max !== 'number') return 0;
   const missing = check.max - (check.earned ?? 0);

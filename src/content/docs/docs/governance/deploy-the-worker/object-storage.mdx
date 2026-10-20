@@ -1,17 +1,55 @@
 ---
 title: Object storage
 description: Configure native S3, Azure Blob Storage, or Google Cloud Storage for private trace objects and recoverable retention.
+id: governance-deploy-the-worker-object-storage
 slug: docs/governance/deploy-the-worker/object-storage
-type: reference
+type: how-to
 tags:
   - agent-instructions
   - governance
   - deployment
+keywords:
+  - trace bucket
+  - Amazon S3
+  - Azure Blob Storage
+  - Google Cloud Storage
+  - canonical trace objects
+  - object retention
+language: en
+audiences:
+  - aud-agent-governance
+intent: configure S3, Azure Blob Storage, or Google Cloud Storage as private PIG trace storage with scoped access and recoverable retention
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+concepts:
+  - object storage
+  - analyzer worker
+  - trace
+  - data handling
+related-pages:
+  - governance-deploy-the-worker-verify-your-deployment
+risks:
+  - read-only
+sample-questions:
+  - Which object storage backends can PIG use for trace objects?
+  - What permissions does the PIG analyzer need on the trace bucket?
+  - Does changing the PIG trace bucket or prefix migrate existing objects?
 ---
 
-The trace bucket holds raw uploads and canonical trace objects in your cloud account. PostgreSQL stores their references and processing state. Configure exactly one object-storage backend for each deployment.
+import { Steps } from '@astrojs/starlight/components';
+
+## Overview
+
+The trace bucket holds raw uploads and canonical trace objects in your cloud account, and PostgreSQL stores their references and processing state. Use this guide before you deploy the analyzer to prepare private trace storage and scope the analyzer's access to it. It also covers retention that keeps traces recoverable. Return to it before you change the storage location of an active deployment.
+
+Configure exactly one object-storage backend for each deployment.
 
 ## Choose a native backend
+
+Each platform's native storage authenticates the analyzer through workload identity:
 
 | Platform     | Storage                                              | Workload authentication                                             |
 | ------------ | ---------------------------------------------------- | ------------------------------------------------------------------- |
@@ -19,54 +57,64 @@ The trace bucket holds raw uploads and canonical trace objects in your cloud acc
 | Azure        | Blob Storage account, private container, and prefix. | Microsoft Entra Workload ID bound to the analyzer's ServiceAccount. |
 | Google Cloud | Cloud Storage bucket and prefix.                     | Workload Identity Federation for GKE.                               |
 
-The Terraform guides configure native storage in the same cloud as the cluster. Your analysis model is a separate choice.
+The Terraform guides configure native storage in the same cloud as the cluster. Your analysis model is a separate choice; see [Model providers](/docs/governance/deploy-the-worker/model-providers).
 
 ## Configure the location
 
-Choose one block under `spec.storage`, alongside `postgres`:
+<Steps>
+  1. Create private storage with public access disabled, encryption at rest, and HTTPS in transit.
 
-```yaml title="Amazon S3"
-s3:
-  region: us-west-2
-  bucket: acme-pig-traces
-  prefix: acme/traces
-```
+  2. Bind the storage data-access identity to the analyzer's ServiceAccount, `pig-analyzer` in namespace `pig`. Keep storage credentials out of distributed host plugins.
 
-```yaml title="Azure Blob Storage"
-azureBlob:
-  accountURL: https://acmepig.blob.core.windows.net
-  container: traces
-  prefix: acme/traces
-```
+  3. Add one storage block under `spec.storage`, alongside `postgres`:
 
-```yaml title="Google Cloud Storage"
-gcs:
-  bucket: acme-pig-traces
-  prefix: acme/traces
-```
+     ```yaml title="Amazon S3"
+     s3:
+       region: us-west-2
+       bucket: acme-pig-traces
+       prefix: acme/traces
+     ```
 
-Use private storage with public access disabled, encryption at rest, and HTTPS in transit. Bind the data-access identity to `pig/pig-analyzer`. Keep storage credentials out of distributed host plugins.
+     ```yaml title="Azure Blob Storage"
+     azureBlob:
+       accountURL: https://acmepig.blob.core.windows.net
+       container: traces
+       prefix: acme/traces
+     ```
+
+     ```yaml title="Google Cloud Storage"
+     gcs:
+       bucket: acme-pig-traces
+       prefix: acme/traces
+     ```
+</Steps>
 
 ## Scope data access
 
-The analyzer must write trace objects and read them back. Scope permissions to the deployment's bucket or container and prefix where the provider supports it. Include required bucket metadata or listing permissions and encryption-key access for your selected configuration.
+The analyzer writes trace objects and reads them back. Scope its permissions to the deployment's bucket or container and prefix where the provider supports it. Include the bucket metadata or listing permissions and the encryption-key access that your configuration requires.
 
-The cloud modules define the provider-specific grants. Review those grants with the Terraform plan. Azure's built-in Storage Blob Data Contributor role includes deletion; use a custom role if your policy requires narrower access. See [Azure's Blob data roles](https://learn.microsoft.com/en-us/azure/storage/blobs/assign-azure-role-data-access).
+The cloud modules define the provider-specific grants; review them with the Terraform plan. Azure's built-in Storage Blob Data Contributor role includes deletion. If your policy requires narrower access, use a custom role. See [Azure's Blob data roles](https://learn.microsoft.com/en-us/azure/storage/blobs/assign-azure-role-data-access).
 
-Workload identities should refresh credentials without copying temporary tokens into Kubernetes Secrets. Application data access does not require permission to create buckets, resize databases, or change IAM.
+Let the workload identity refresh its credentials, and don't copy temporary tokens into Kubernetes Secrets. Application data access needs no permission to create buckets, resize databases, or change IAM.
 
-## Canonical object writes
+## Set retention and recovery
 
-The analyzer writes each canonical trace object to a content-addressed key derived from the object's contents, under the configured prefix. Because newer content gets a new key, a delayed upload never overwrites a newer canonical version. The analyzer records an uploaded object as the trace's location only when it still matches the trace's current content. Objects written by earlier releases stay readable at their original keys.
+Set object retention, version recovery, and backup policies together with your PostgreSQL recovery policy. Retain an object while live rows, retained database backups, or a pending background write still reference it. An archive tier that requires restoration can prevent analysis from reading a trace.
+
+Changing the configured bucket, container, or prefix leaves existing objects where they are. Before you change it for an active deployment, plan a storage migration with Promptless. Preserve the raw and canonical objects that recovery and analysis need.
+
+During [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment), check one session's recorded object location and confirm the object is readable. A successful upload request doesn't prove durable storage.
+
+## How the analyzer writes canonical objects
+
+The analyzer writes each canonical trace object under the configured prefix, at a content-addressed key derived from the object's contents. Newer content gets a new key, so a delayed upload never overwrites a newer canonical version. The analyzer records an uploaded object as the trace's location only while it still matches the trace's current content. Objects written by earlier releases stay readable at their original keys.
+
+The analyzer retries an interrupted or failed canonical write in the background, with a persisted backoff between attempts. A trace that stays pending or failed doesn't hold back writes for other traces. Because keys depend on content, read the recorded object location during verification. Don't derive a key from the session ID.
 
 To check storage access, the analyzer writes one small diagnostic object under `checks/` in the configured prefix at startup. Each later readiness check reads that object back.
 
-The analyzer retries an interrupted or failed canonical write in the background, with a persisted backoff between attempts. A single trace that stays pending or failed does not hold back writes for other traces. Confirm the exact recorded object location during verification rather than inferring a key from the session ID.
+## See also
 
-## Retention and recovery
-
-Set object retention, version recovery, and backup policies alongside your PostgreSQL recovery policy. Retain objects while live rows, retained database backups, or a pending background write still reference them. Archive tiers that require restoration can prevent analysis from reading a trace.
-
-Changing the configured bucket, container, or prefix does not migrate existing objects. Plan a storage migration with Promptless before changing it for an active deployment. Preserve both raw and canonical objects needed for recovery and analysis.
-
-During [deployment verification](/docs/governance/deploy-the-worker/verify-your-deployment), check an exact session's recorded object location and confirm it is readable. A successful upload request does not prove durable storage.
+- [Deployment configuration](/docs/governance/deploy-the-worker/configuration-reference#storage), for every `spec.storage` field
+- [PostgreSQL](/docs/governance/deploy-the-worker/postgresql#back-up-and-restore), for coordinating database backups with object retention
+- [Observability](/docs/governance/deploy-the-worker/observability#symptom-a-host-checks-in-but-its-traces-arent-stored), for traces that don't reach storage
