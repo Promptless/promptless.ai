@@ -1,4 +1,4 @@
-# Two manni jobs, both configured in manni.config.yaml:
+# Three manni jobs, all configured in manni.config.yaml:
 #
 # - validate: frontmatter validation. Blocks merge when a docs page's metadata
 #   violates any schema in manni.config.yaml (Starlight contract, the six manni
@@ -8,6 +8,9 @@
 # - structure: document-structure lint by page `type:` (`manni lint
 #   structure`). Advisory for now: most existing pages predate the templates,
 #   so findings are reported as annotations but don't fail the check.
+# - a11y: accessibility check (`manni a11y check`). Builds and serves the
+#   site, crawls every page, and runs axe-core on each. Blocks merge on any
+#   serious or critical finding. See adrs/0008-adopt-manni-a11y.md.
 #
 # Lives in its own workflow (not check.yml) because manni requires Node >= 24
 # while the rest of the toolchain runs Node 22.
@@ -24,6 +27,12 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/manni.yml"
+      # The a11y job checks rendered pages, so anything that changes the
+      # built site's markup or styles can change its result.
+      - "src/**"
+      - "packages/**"
+      - "public/**"
+      - "astro.config.mjs"
   push:
     branches:
       - main
@@ -102,3 +111,43 @@ jobs:
         if: github.event_name != 'pull_request'
         continue-on-error: true
         run: npx manni lint structure
+
+  a11y:
+    runs-on: ubuntu-latest
+    # The build takes about 2 minutes and the crawl about 10.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build site
+        run: npm run build
+
+      # `manni site preview` would run `astro preview`, which the Vercel
+      # adapter doesn't support. `npm run preview` serves the build output
+      # with its redirects on http://127.0.0.1:4321, the seed URL in
+      # manni.config.yaml.
+      - name: Serve build
+        run: |
+          nohup npm run preview > preview.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4321/; then exit 0; fi
+            sleep 2
+          done
+          cat preview.log
+          exit 1
+
+      # Seed URL, severity floor, and excluded pages come from the `a11y:`
+      # section of manni.config.yaml. GitHub-hosted runners include Chrome,
+      # which manni uses, so no browser download is needed. `--format github`
+      # emits one annotation per rule per page; exit code 1 fails the job.
+      - name: Check accessibility
+        run: npx manni a11y check --format github --progress

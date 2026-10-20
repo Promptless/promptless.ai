@@ -106,6 +106,7 @@ npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
 npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
 npm run lint:structure   # manni: page structure by `type:` (advisory in CI)
+npm run lint:a11y        # manni: axe-core accessibility crawl (needs `npm run build && npm run preview` running)
 npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
 npx manni check          # run every manni check set up here (or pass pages); never restamps
 ```
@@ -173,6 +174,19 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   you changed but doesn't fail. Fix the findings on pages you edit; run
   `npm run lint:structure -- <page>` locally, and add `--explain` to see
   which template a page routed to. See [ADR 0006](adrs/0006-adopt-manni-lint-structure.md).
+- **manni a11y** (`a11y:` in `manni.config.yaml`, `a11y` job in
+  `manni.yml`) — accessibility of the *rendered* site, not only
+  `src/content/docs`. CI builds and serves the site, crawls every page from
+  `http://127.0.0.1:4321/`, and runs axe-core on each. Any serious or
+  critical finding fails CI, so a component, stylesheet, or page change can
+  fail it. Common causes are text below 4.5:1 contrast and an `aria-label`
+  that leaves out the control's visible text. Others are a skipped heading
+  level and an ARIA role without its required children. To reproduce, run
+  `npm run build`, then `npm run preview` in one terminal and
+  `npm run lint:a11y` in another. Each finding names the page, the axe rule,
+  and the element. `/meet` and `/docs/for-docs/start-here/how-promptless-works`
+  are excluded because their findings are inside third-party embeds. See
+  [ADR 0008](adrs/0008-adopt-manni-a11y.md).
 
 ## Diagrams
 
