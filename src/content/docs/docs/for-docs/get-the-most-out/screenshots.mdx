@@ -3,11 +3,44 @@ title: Keep screenshots current with Promptless Capture
 description: >-
   Use Promptless Capture to keep product screenshots in sync with your UI,
   regenerating them from your current interface when code changes
+id: for-docs-get-the-most-out-screenshots
 slug: docs/for-docs/get-the-most-out/screenshots
-type: guide
+type: how-to
 tags:
   - get-the-most-out
   - guide
+keywords:
+  - Promptless Capture
+  - screenshots
+  - screenshot test account
+  - Agent Env Vars
+  - Screenshot Editor
+  - Screenshot Updates tab
+  - TEST_ACCOUNT_PASS
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-enterprise-docs-team
+  - aud-brownfield-docs-team
+intent: set up test-account credentials so Promptless Capture regenerates product screenshots, then edit and review them in the Screenshot Editor and Screenshot Updates tab
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+concepts:
+  - screenshots
+  - environment variables
+related-pages:
+  - for-docs-scale-environment-variables
+  - for-docs-work-the-queue-reviewing-prs
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I give Promptless Capture login credentials for my application?
+  - Why do my Promptless screenshots show a login page?
+  - When does Promptless regenerate screenshots automatically?
+  - Where can I review all regenerated screenshots on open suggestions?
 sidebar:
   hidden: false
   order: 29
@@ -16,121 +49,138 @@ sidebar:
 
 import { Aside, Steps } from '@astrojs/starlight/components';
 
-Promptless Capture keeps product screenshots in sync with your UI. When code changes affect a documented feature, Promptless Capture identifies which screenshots need updating and regenerates them from your current interface.
+## Overview
 
-<Aside type="note">
-  Promptless Capture generates screenshots and keeps them current. Use the [Screenshot Updates](/docs/for-docs/work-the-queue/web-interface#screenshot-updates) tab to review screenshots already attached to your open suggestions.
-</Aside>
+Promptless Capture keeps the product screenshots in your docs in sync with your UI. When a code change affects a documented feature, Promptless identifies which screenshots need updating and captures new ones from your current interface. To reach screens behind a login, Promptless needs credentials for a test account in your application.
+
+Promptless updates screenshots when:
+
+- A GitHub PR modifies UI components referenced in documentation.
+- A commit changes routes, layouts, or visual styling.
+- You ask for a screenshot update in Slack or the Promptless dashboard.
+- Promptless edits a page for any reason and finds a screenshot on it that no longer matches your interface.
+
+Promptless captures new screenshots only when it detects changes that likely affect documented UI. Code changes that don't affect the interface leave screenshots alone.
+
+## Before you start
+
+- A dedicated test account for screenshot capture, not a personal or production account. A test account keeps sensitive data out of screenshots and gives a consistent UI state.
+- Access for that account to every feature you want to document, including any features that need specific permissions or plan tiers.
 
 ## Set up credentials
 
-Promptless Capture needs credentials to authenticate with your application. Store them as [environment variables](/docs/scale/environment-variables) under **Agent Env Vars** in **Settings**.
+Store the test account's credentials as [environment variables](/docs/for-docs/scale/environment-variables) that Promptless can read when it captures screenshots.
 
 <Steps>
-  1. **Open Settings.** Navigate to the [Settings page](https://app.gopromptless.ai/settings) in your Promptless dashboard and select **Agent Env Vars**.
+  1. Go to the [Agent Env Vars](https://app.gopromptless.ai/settings/env-vars) page in **Settings**.
 
-  2. **Add Credential Variables.** Add variables for your application's login credentials. In the **Add Variable** form, type each variable's **Key Name** and **Value**. Then turn on the **Secret** toggle for any variable marked **Yes** in the table's Secret column below. For example:
+  2. In the **Add Variable** form, enter a **Key Name** and **Value** for one credential.
 
-     | Key Name            | Description                            | Secret |
-     | ------------------- | -------------------------------------- | ------ |
-     | `TEST_ACCOUNT_URL`  | The login URL for your application     | No     |
-     | `TEST_ACCOUNT_USER` | Username or email for the test account | No     |
-     | `TEST_ACCOUNT_PASS` | Password for the test account          | Yes    |
+  3. For a password or other secret, turn on **Secret**. Promptless hides secret values after you save them.
 
-     You might use names like `STAGING_LOGIN_URL`, `QA_USER`, or any descriptive names that fit your organization's conventions.
+  4. Select **Add Variable**.
 
-  3. **Submit Each Variable.** Click **Add Variable** to submit the credential you just entered, then repeat the form for the next one. Promptless adds variables one at a time. Promptless hides values marked secret after you save them.
+  5. Repeat steps 2 through 4 for each credential.
 </Steps>
 
-<Aside type="caution">
-  Use a dedicated test account for screenshot capture rather than a personal or production account. This ensures screenshots don't contain sensitive data and provides a consistent UI state.
-</Aside>
+For example, add these variables:
 
-<Aside type="tip">
-  Create a test account with access to all features you want to document. If certain features require specific permissions or plan tiers, ensure your test account has the appropriate access level.
-</Aside>
+| Key Name            | Holds                                  | Secret |
+| ------------------- | -------------------------------------- | ------ |
+| `TEST_ACCOUNT_URL`  | The login URL for your application     | No     |
+| `TEST_ACCOUNT_USER` | Username or email for the test account | No     |
+| `TEST_ACCOUNT_PASS` | Password for the test account          | Yes    |
+
+You can use other names, such as `STAGING_LOGIN_URL` or `QA_USER`, to fit your organization's conventions.
 
 ## Test your setup
 
-After adding your credentials, verify that Promptless can capture screenshots correctly.
-
 <Steps>
-  1. **Start a Manual Task.** Go to the [New Task page](https://app.gopromptless.ai/new-task) and request a documentation update that involves screenshots.
+  1. On the [New Task page](https://app.gopromptless.ai/new-task), request a documentation update that involves screenshots.
 
-  2. **Review the Results.** Check the suggestion to see if screenshots were captured correctly. Look for:
-     - Successful authentication (no login screens in screenshots)
-     - Correct page navigation (screenshots show the intended feature)
-     - Appropriate cropping (relevant UI elements are visible)
+  2. When the suggestion is ready, check its screenshots for:
 
-  3. **Iterate on Configuration.** If screenshots aren't captured correctly, adjust your environment variables or provide additional context in your Long-Term Context files.
+     - Successful authentication, with no login screens
+
+     - The intended feature, which shows Promptless reached the right page
+
+     - Cropping that keeps the relevant UI elements visible
+
+  3. If the screenshots aren't right, adjust your environment variables, or add navigation guidance to `PROMPTLESS.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base). See [Troubleshoot screenshot capture](#troubleshoot-screenshot-capture).
 </Steps>
 
-## Troubleshooting
+## Edit a screenshot
+
+Refine a captured screenshot in the Screenshot Editor before you publish the suggestion.
+
+<Steps>
+  1. In the suggestion, select one of the images it added to open the Screenshot Editor.
+
+  2. Edit the image with the editor's tools:
+
+     | Tool                                  | Use it to                                                                                                                         |
+     | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+     | **Crop**                              | Focus on specific UI elements. Select **Apply Crop** to keep the crop, or **Cancel Crop** to leave crop mode without applying it. |
+     | **Highlight**                         | Draw attention to an area of the screenshot.                                                                                      |
+     | **Outlined Box**, **Outlined Circle** | Outline a control or region.                                                                                                      |
+     | **Shaded Box**, **Shaded Circle**     | Shade a region to call it out.                                                                                                    |
+     | **Undo**, **Redo**                    | Step back or forward through your edits.                                                                                          |
+
+  3. Select **Save edits**. To discard unsaved changes and return to the last saved version, select **Reset edits**.
+</Steps>
+
+Saved edits appear in your documentation suggestion right away.
+
+## Review screenshot changes
+
+The **Screenshot Updates** tab in the dashboard sidebar collects every screenshot on your open suggestions in one gallery. Use it to check regenerated screenshots without opening each suggestion. Its badge shows how many screenshots are waiting. The gallery includes the images Promptless uploads and the screenshots a suggestion commits to your docs repository.
+
+<img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/screenshot-updates-tab-50d4a99f.png" alt="Screenshot Updates selected in the dashboard sidebar with a count badge, between Suggestions and Triggers, beside a gallery grouped by doc collection with a collection header, count chip, and screenshot thumbnail cards" />
+
+<Steps>
+  1. In the sidebar, select **Screenshot Updates**.
+
+  2. Select a card to open that screenshot in its suggestion.
+
+  3. Compare the screenshot with its previous version, then reject it, or publish the suggestion to accept it.
+</Steps>
+
+For more on reviewing a suggestion's changes, see [Check how changes render](/docs/for-docs/work-the-queue/reviewing-prs#check-how-changes-render).
+
+## Troubleshoot screenshot capture
 
 <details>
-  <summary>Promptless can't log into my application</summary>
+  <summary>Promptless can't log in to my application</summary>
 
-  Verify that your `TEST_ACCOUNT_URL`, `TEST_ACCOUNT_USER`, and `TEST_ACCOUNT_PASS` variables match what you use to manually log in. If your screenshots show the login page, the credentials may be incorrect or the login flow may require additional steps. For applications that use multi-factor authentication, consider creating a test account that bypasses MFA. You can also contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) for guidance on handling MFA flows.
+  Check that your `TEST_ACCOUNT_URL`, `TEST_ACCOUNT_USER`, and `TEST_ACCOUNT_PASS` variables match what you use to log in by hand. If your screenshots show the login page, the credentials may be wrong, or the login flow may need more steps. If your application uses multi-factor authentication (MFA), create a test account that skips MFA. For guidance on MFA flows, email [help@gopromptless.ai](mailto\:help@gopromptless.ai).
 </details>
 
 <details>
   <summary>Screenshots capture the wrong page</summary>
 
-  Promptless may need additional navigation guidance. You can add instructions in your Long-Term Context to describe how to navigate to specific features. Include details about menu paths, URL patterns, or button sequences needed to reach documented screens.
+  Promptless may need navigation guidance. In `PROMPTLESS.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), describe how to reach specific features, such as menu paths, URL patterns, or the buttons to select.
 </details>
 
 <details>
   <summary>Screenshots show features that should be hidden</summary>
 
-  Check your feature flag configuration. The test account may have access to features that typical users don't see. Consider creating a test account with permissions that match your target documentation audience.
+  The test account may have access to features that typical users don't see. Check your feature flag configuration, and consider a test account with permissions that match your documentation's audience.
 </details>
 
 <details>
   <summary>Cropping cuts off important elements</summary>
 
-  The automatic cropping may need refinement. You can use the Screenshot Editor in the Promptless dashboard to manually adjust crops, or provide feedback that Promptless will learn from for future captures.
+  Adjust the crop in the [Screenshot Editor](#edit-a-screenshot), or give feedback on the suggestion so Promptless crops future captures better.
 </details>
 
 <details>
   <summary>Screenshots show loading states or spinners</summary>
 
-  The page may not have fully loaded before capture. Contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) if you consistently see loading states in your screenshots.
+  The page may not have finished loading before capture. Email [help@gopromptless.ai](mailto\:help@gopromptless.ai) if you see loading states in your screenshots consistently.
 </details>
 
-## Screenshot Editor
+## See also
 
-After Promptless captures screenshots, you can refine them in the built-in Screenshot Editor. Click any image in the Created Assets section to open the editor.
-
-### Editing tools
-
-The editor includes tools to refine your screenshots:
-
-- **Crop** to focus on specific UI elements
-- **Annotate** with arrows, boxes, and highlights
-- **Add text** to call out features
-- **Adjust** image dimensions
-
-### Manage edits
-
-The toolbar provides controls for your editing session:
-
-- **Save edits** commits changes to the screenshot
-- **Reset edits** discards unsaved changes and reverts to the last saved version, which is useful for starting over without closing the editor
-- **Cancel Crop** exits crop mode without applying the crop, letting you adjust the selection or switch tools
-
-Saved changes are immediately reflected in your documentation suggestions.
-
-## When screenshots update automatically
-
-Promptless Capture monitors your triggers and automatically updates screenshots when:
-
-- A GitHub PR modifies UI components referenced in documentation
-- A commit changes routes, layouts, or visual styling
-- You explicitly request a screenshot update via Slack or the web interface
-- Promptless edits a page and finds a screenshot on it that has fallen out of date with your current interface, whatever triggered that edit
-
-<Aside type="note">
-  Screenshots are only regenerated when Promptless detects changes that likely affect documented UI. Minor code changes that don't impact the visual interface won't trigger unnecessary screenshot updates. Review the regenerated screenshots on the [Screenshot Updates](/docs/for-docs/work-the-queue/web-interface#screenshot-updates) tab.
-</Aside>
-
-Need help setting up Promptless Capture? Contact us at [help@gopromptless.ai](mailto\:help@gopromptless.ai).
+- [Manage environment variables](/docs/for-docs/scale/environment-variables), for how Promptless stores and uses the variables you add
+- [Review and edit Promptless PRs](/docs/for-docs/work-the-queue/reviewing-prs), to review and publish the suggestions that carry new screenshots
+- [Get support](/docs/for-docs/reference/getting-help), for help setting up Promptless Capture
