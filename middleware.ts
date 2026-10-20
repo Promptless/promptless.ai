@@ -7,14 +7,28 @@ export default function middleware(request: Request) {
   const url = new URL(request.url);
   const pathname = url.pathname.replace(/\/$/, '') || '/';
 
-  // Already has a file extension — pass through
-  if (/\.[a-z0-9]+$/i.test(pathname)) return next();
+  // Already has a file extension — pass through. Agent Score report paths end
+  // in a hostname (/agent-score/docs.stripe.com), so there only `.md` and
+  // `/og.png` count as extensions.
+  const isAgentScoreReport = pathname.startsWith('/agent-score/');
+  if (isAgentScoreReport ? /(\.md|\/og\.png)$/i.test(pathname) : /\.[a-z0-9]+$/i.test(pathname)) return next();
 
-  // Rewrite to the pre-built .md variant
+  // Rewrite to the pre-built (or, for Agent Score reports, on-demand) .md variant
   url.pathname = pathname === '/' ? '/index.md' : `${pathname}.md`;
   return rewrite(url);
 }
 
 export const config = {
-  matcher: ['/', '/demo', '/pricing', '/docs/:path*', '/blog/:path*', '/changelog/:path*'],
+  matcher: [
+    '/',
+    '/demo',
+    '/pricing',
+    '/free-tools',
+    '/free-tools/:path*',
+    '/agent-score',
+    '/agent-score/:path*',
+    '/docs/:path*',
+    '/blog/:path*',
+    '/changelog/:path*',
+  ],
 };

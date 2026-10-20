@@ -1,118 +1,145 @@
 ---
 title: GitLab merge requests
-description: Trigger documentation suggestions from merge requests in your GitLab projects when they open or update.
+description: Trigger documentation suggestions from merge requests in your GitLab projects when they open or merge.
+id: for-docs-connect-triggers-gitlab-merge-requests
 slug: docs/for-docs/connect/triggers/gitlab-merge-requests
-type: reference
+type: how-to
 tags:
   - connect
   - triggers
-  - reference
+  - guide
+keywords:
+  - GitLab merge request trigger
+  - gitlab_mr
+  - webhook delivery status
+  - "@promptless MR comment"
+  - trigger_directories
+language: en
+audiences:
+  - aud-enterprise-docs-team
+  - aud-engineer-owned-docs
+intent: configure a GitLab merge request trigger so opened or merged merge requests start documentation suggestions
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:gitlab
+concepts:
+  - trigger
+  - gitlab
+prerequisites:
+  - for-docs-reference-integrations-gitlab
+related-pages:
+  - for-docs-connect-triggers
+  - for-docs-reference-configuration-reference
+  - for-docs-connect-triggers-github-prs
+  - for-docs-work-the-queue-reviewing-prs
+  - for-docs-get-the-most-out-ask-promptless-to-update-config
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I trigger Promptless from GitLab merge requests?
+  - How can I tell whether GitLab webhooks are reaching Promptless?
+  - How do I request documentation from a GitLab merge request comment?
 sidebar:
   hidden: false
   order: 10
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
+import GitLabConnect from '@partials/integrations/gitlab-connect.mdx';
 
-<Aside type="tip">
-  You can set up this trigger by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add a GitLab merge request trigger for my acme/backend project." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
-</Aside>
+## Overview
 
-Promptless monitors your GitLab projects for merge requests. When a merge request is opened or updated, Promptless analyzes the changes and creates documentation suggestions if needed.
+A GitLab merge request trigger starts documentation work from merge requests in the GitLab projects you monitor. When a merge request in a monitored project opens or merges, Promptless reads its code diff, title, and description. If the changes need a documentation update, Promptless creates documentation suggestions.
 
-## How it works
-
-When a merge request event occurs in your monitored GitLab projects:
-
-1. **Automatic Detection**: Promptless receives notification of the new or updated merge request.
-2. **Analysis**: The system processes the code diff, MR title, and MR description to understand the context.
-3. **Relevance Assessment**: Promptless determines if the changes require documentation updates.
-4. **Suggestion Creation**: If relevant, Promptless creates documentation suggestions.
+Promptless skips a merge request whose changes are all in dot-directories, such as `.gitlab/` and `.gitlab-ci/`, or in root-level dot-files, such as `.gitignore` and `.gitlab-ci.yml`. These files typically hold CI and tooling configuration. A merge request that changes regular source files along with dot-files gets the normal analysis.
 
 <Aside type="note">
-  Information from merge requests is processed in real-time and not stored by Promptless. The analysis happens only when the configured trigger event occurs.
+  Promptless processes merge request information in real time and doesn't store it. Analysis runs only when a configured trigger event occurs.
 </Aside>
-
-## Configuration
-
-Configure GitLab merge request triggers in your [Configuration page](https://app.gopromptless.ai/configuration) using the `triggers` section:
-
-```yaml
-triggers:
-  gitlab-mrs:
-    trigger_type: gitlab_mr
-    match:
-      - repos:
-          - acme/backend
-          - acme/api
-        trigger_on:
-          - opened
-          - merge
-        trigger_directories:
-          - src/
-```
-
-See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for all available options.
-
-## Replay recent merge requests
-
-When setting up a new GitLab MR trigger, you can enable "Replay recent MRs" to process merge requests from the last 30 days. This generates an initial batch of suggestions, which helps you:
-
-- Calibrate Promptless with your documentation style before going live
-- Catch up on documentation that may have been missed
-- Evaluate how Promptless handles your typical MR content
-
-After enabling this option, your Project card shows the replay progress:
-
-- **Processing last 30 days of MRs** with a spinner while replay is running
-- **Processed recent MRs** with a checkmark once replay completes
-
-<Aside type="note">
-  Replay runs in the background and doesn't block normal trigger processing. New MRs opened while replay is running are still processed immediately.
-</Aside>
-
-## Directory-specific triggers
-
-Use the `trigger_directories` field to only trigger when changes are made to specific directories. When specified, Promptless considers only merge requests that contain changes to those directories.
-
-## Automatic PR creation
-
-When automatic PR creation is enabled in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies), Promptless automatically creates a new PR in your documentation repository with suggested changes.
-
-## Source MR comments
-
-Promptless posts a summary comment on source merge requests linking to any documentation changes. This keeps documentation updates visible alongside the code changes that triggered them.
-
-The comment links directly to the documentation suggestions, so reviewers can see proposed updates while reviewing the code.
 
 <Aside type="tip">
-  Slack notifications are separate from source MR comments and are always sent according to your project's notification settings.
+  You can also ask Promptless in Slack or Microsoft Teams to set up the trigger for you. For example, "@Promptless add a GitLab merge request trigger for my acme/backend project." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 </Aside>
+
+## Before you start
+
+- An admin role in your Promptless organization, to connect GitLab and edit the [Configuration page](https://app.gopromptless.ai/configuration).
+- The GitLab group that holds the projects you want to monitor, connected to Promptless. Promptless can't save a GitLab merge request trigger until it is. If the group isn't connected yet, [connect it](#connect-a-gitlab-group) first.
+
+## Connect a GitLab group
+
+Skip this section if the group already has a card on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<GitLabConnect />
+
+## Add a merge request trigger
+
+<Steps>
+  1. On the [Configuration page](https://app.gopromptless.ai/configuration), switch to **YAML** mode.
+
+  2. In the `triggers` section, add a `gitlab_mr` trigger with a match clause for the projects you want to monitor:
+
+     ```yaml
+     triggers:
+       gitlab-mrs:
+         trigger_type: gitlab_mr
+         match:
+           - repos:
+               - acme/backend
+               - acme/api
+             trigger_on:
+               - opened
+               - merge
+             trigger_directories:
+               - src/
+     ```
+
+  3. Save the configuration.
+</Steps>
+
+Each match clause takes these fields:
+
+| Field                 | Required | Description                                                                                         |
+| --------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `repos`               | Yes      | The GitLab projects to monitor, or the literal `all`.                                               |
+| `trigger_on`          | Yes      | The merge request events that start an analysis: `opened`, `merge`, or both.                        |
+| `trigger_directories` | No       | Only merge requests that change files in these directories trigger documentation updates.           |
+| `branches`            | No       | Only merge requests that target these branches trigger documentation updates. Omit it to match any. |
+
+For every field, including project exclusions, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers).
+
+To catch up on merge requests that opened or merged before you configured the trigger, run a [backfill](/docs/for-docs/connect/triggers#backfill-suggestions) from the saved trigger. Review the first batch of suggestions to calibrate Promptless with your documentation style before you go live.
+
+## Check webhook delivery status
+
+Each saved GitLab merge request trigger on your [Configuration page](https://app.gopromptless.ai/configuration) shows when Promptless last received a merge request webhook from the trigger's projects. Its color shows how long ago:
+
+| Color  | Last webhook received     |
+| ------ | ------------------------- |
+| Green  | Within the last 4 days    |
+| Yellow | Between 4 and 14 days ago |
+| Red    | 14 or more days ago       |
+
+A red status, or "No webhook recorded yet" on a trigger whose projects have recent merge requests, means webhooks probably aren't reaching Promptless. Check [Token scope considerations](/docs/for-docs/reference/integrations/gitlab#token-scope-considerations) and [Fix common connection problems](/docs/for-docs/reference/integrations/gitlab#fix-common-connection-problems).
+
+## Set how Promptless publishes suggestions
+
+Set where Promptless reports suggestions from this trigger, and how far it automates publishing, in your [policies](/docs/for-docs/reference/configuration-reference#policies):
+
+| Option                | Policy setting                           | Effect                                                                                                                                                  |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source MR comments    | `publishing.suppress_source_pr_comments` | Posts a summary comment on the source merge request that links to its documentation suggestions. On by default; set the field to `true` to turn it off. |
+| Slack notifications   | `notification.slack_channel`             | Posts suggestion notifications to a Slack channel. Turning off source MR comments doesn't affect them.                                                  |
+| Automatic PR creation | `publishing.auto_create_pr`              | Opens a documentation PR for each suggestion.                                                                                                           |
+
+With source MR comments on, reviewers see proposed documentation updates while they review the code changes.
 
 ## Request documentation via merge-request comments
 
 To ask for documentation work on a specific merge request, tag Promptless in a comment on it. A comment mention is an explicit request. Promptless reviews that merge request even when its project isn't in any of your [triggers' repo lists](/docs/for-docs/reference/configuration-reference#triggers). Your GitLab connection only needs access to the project. GitHub supports the same request through [PR comments](/docs/for-docs/connect/triggers/github-prs#request-documentation-via-pr-comments).
-
-### How to use
-
-Post a comment that tags `@promptless` anywhere in its text. Matching is case-insensitive. OSS projects use `@promptless-for-oss`.
-
-```
-@promptless please update the docs for this API change
-```
-
-GitLab also recognizes `/promptless` at the start of a comment line, but `@promptless` is more reliable. If `/promptless` doesn't get a response, use `@promptless` instead.
-
-Promptless reads mentions in new comments only. To make a request, post a new comment. Mentions in a comment edit or in the merge request's title or description don't start documentation work.
-
-### What happens
-
-- On a merge request Promptless opened for your documentation, the comment revises that documentation suggestion.
-- On any other merge request, the comment starts a new documentation review of that merge request.
-
-Promptless responds to a mention whether the merge request is open, merged, or closed. A mention from an automated account, such as a CI job's service account, counts the same as one from a teammate.
-
-### When to use
 
 Comment mentions are useful when:
 
@@ -121,20 +148,39 @@ Comment mentions are useful when:
 - The automatic trigger didn't activate.
 - You want to give specific instructions about what to document.
 
-## Comment mention acknowledgment
+What Promptless does depends on the merge request you comment on:
 
-When you @mention `@promptless` in a comment on a merge request, Promptless adds a 👀 reaction to your comment so you know it saw the request. This works for comments on both a source merge request and a merge request Promptless opened for your documentation.
+| Merge request                                | What Promptless does                                     |
+| -------------------------------------------- | -------------------------------------------------------- |
+| One Promptless opened for your documentation | Revises that documentation suggestion.                   |
+| Any other merge request                      | Starts a new documentation review of that merge request. |
 
-<Aside type="note">
-  The reaction shows up even when Promptless decides no documentation change is needed, so a missing suggestion doesn't mean your mention was ignored.
-</Aside>
+Promptless responds to a mention whether the merge request is open, merged, or closed. A mention from an automated account, such as a CI job's service account, counts the same as one from a teammate.
 
-## Configuration files and dot-directories
+### Mention Promptless in a comment
 
-Promptless automatically skips merge requests that only contain changes to dot-directories (like `.gitlab/`, `.gitlab-ci/`) or root-level dot-files (like `.gitignore`, `.gitlab-ci.yml`). These are typically CI and tooling configuration rather than product changes that need documentation updates.
+Post a new comment that tags `@promptless` anywhere in its text. Matching is case-insensitive. In OSS projects, tag `@promptless-for-oss`.
 
-If an MR contains both dot-files and regular source files, Promptless processes it normally. It only skips when the entire MR is dot-file changes.
+```txt
+@promptless please update the docs for this API change
+```
 
-## Setup instructions
+GitLab also recognizes `/promptless` at the start of a comment line, but `@promptless` is more reliable. If `/promptless` doesn't get a response, tag `@promptless`.
 
-To connect GitLab to Promptless, see the [GitLab Integration](/docs/for-docs/reference/integrations/gitlab) setup guide.
+Promptless reads mentions in new comments only. Mentions in a comment edit or in the merge request's title or description don't start documentation work.
+
+### Confirm Promptless saw your mention
+
+When you tag `@promptless` in a comment on a merge request, Promptless adds a 👀 reaction to your comment. The reaction appears on both source merge requests and merge requests Promptless opened for your documentation. It shows up even when Promptless decides no documentation change is needed, so a missing suggestion doesn't mean Promptless ignored your mention.
+
+### Respond to comments on documentation merge requests
+
+On a merge request Promptless opened for your documentation, your organization's [comment trigger mode](/docs/for-docs/work-the-queue/reviewing-prs#comment-trigger-modes) decides which comments Promptless acts on. The modes are **Listen to all comments** and **Require a mention**. On other merge requests, Promptless acts only on comments that mention it.
+
+In either mode, tag `@promptless` or start a line with `/promptless` to make sure Promptless acts on a comment. Mentions work in [comments from automated accounts](/docs/for-docs/work-the-queue/reviewing-prs#mentions-from-automated-accounts) too.
+
+## See also
+
+- [GitLab integration](/docs/for-docs/reference/integrations/gitlab), for token scope, webhooks, and connection problems
+- [GitHub PRs](/docs/for-docs/connect/triggers/github-prs), for the equivalent GitHub trigger
+- [Review and edit Promptless PRs](/docs/for-docs/work-the-queue/reviewing-prs), to give Promptless feedback on the merge requests it opens
