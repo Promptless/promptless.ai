@@ -29,6 +29,9 @@ Don't edit the generated files by hand. Edit the term pages, then run
 A term used by both products goes in the directory of the product that uses
 it most. Its definition must be accurate for both.
 
+`term.template.yaml` is the empty structure template that `manni lint
+structure` routes term pages to, since they have no body.
+
 ## Fields
 
 - `label`: the preferred name, in the casing the docs use. The Vale style
