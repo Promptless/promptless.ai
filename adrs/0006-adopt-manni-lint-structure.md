@@ -53,7 +53,13 @@ and adds structure findings to pull requests without blocking them.
   are `reference` sections with no table (the TGDP reference template asks
   every entry section after the first for one) and `concept` pages with no
   `Use cases` section. After the edits and retyping in the same pull
-  request, every page passes: 132 of 132, with 0 findings.
+  request, every page passes: 131 of 131 (one retired page was deleted), with
+  0 findings.
+- Tradeoff: the how-to template's required `## Overview` heading repeats the
+  "Overview" entry that Starlight adds to the top of every page's "On this
+  page" list. A Starlight route middleware (`src/starlightRouteData.ts`) drops
+  the heading's entry when it repeats the top entry, so the list shows
+  "Overview" once.
 - Tradeoff: `npx manni check` now includes the structure job, so it exits 1
   on any page with structure findings even when frontmatter is clean.
 - Follow-up: keep pages passing as they're edited. With no backlog left,

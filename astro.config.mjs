@@ -427,6 +427,8 @@ export default defineConfig({
         ThemeProvider: './src/components/starlight/ThemeProviderDarkOnly.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
       },
+      // Drops the duplicate "Overview" from "On this page"; see src/starlightRouteData.ts.
+      routeMiddleware: './src/starlightRouteData.ts',
       titleDelimiter: '|',
       markdown: {
         processedDirs: ['./src/content/blog', './src/content/changelog', './src/content/website'],
