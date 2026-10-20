@@ -21,7 +21,7 @@ audiences:
   - aud-scaleup-docs-team
 intent: start Promptless sessions from Jira tickets by label, mention, assignment, or configured issue triggers, and get replies on the ticket
 lifecycle: published
-last-updated: 2026-10-13
+last-updated: 2026-10-19
 applies-to:
   - promptless-for-docs
   - integration:jira
@@ -48,7 +48,7 @@ sidebar:
 
 import { Aside } from '@astrojs/starlight/components';
 
-A Jira ticket can start a Promptless session, and Promptless replies on the ticket when the work is done. This is separate from using [Jira as a read-only context source](/docs/for-docs/connect/context-sources/jira). That capability lets Promptless read tickets for background but never acts on them or writes back. Creating a Jira issue on request is a separate capability, documented on the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request) page.
+A Jira ticket can start a Promptless session, and Promptless reports back on the ticket. This is separate from using [Jira as a read-only context source](/docs/for-docs/connect/context-sources/jira). That capability lets Promptless read tickets for background but never acts on them or writes back. Creating a Jira issue on request is a separate capability, documented on the [Atlassian integration](/docs/for-docs/reference/integrations/atlassian#create-a-jira-issue-on-request) page.
 
 ## How a Jira ticket starts a session
 
@@ -61,7 +61,7 @@ Four paths start a session from a ticket. Three are built in and need no YAML to
 
 The built-in label path needs no [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account): it starts a session whenever Atlassian is connected. The mention path and the assignment path require an attached service account. Without one, a mention or assignment delivery is dropped and no session starts.
 
-On any built-in path, Promptless comments on the ticket and flags it for follow-up if it goes unanswered. This is the same way it tracks an unanswered Slack thread. (The label, mention, and assignment paths are subtypes of one built-in `jira_mention` trigger and route through a single `jira_mention` key. A policy rule therefore targets `jira_mention` rather than a per-path key.)
+What Promptless posts on the ticket depends on the path. See [Reply on the ticket](#reply-on-the-ticket). (The label, mention, and assignment paths are subtypes of one built-in `jira_mention` trigger and route through a single `jira_mention` key. A policy rule therefore targets `jira_mention` rather than a per-path key.)
 
 A single delivery can carry more than one built-in path. Three rules resolve that:
 
@@ -71,7 +71,26 @@ A single delivery can carry more than one built-in path. Three rules resolve tha
 
 ## Reply on the ticket
 
-Promptless answers on the ticket and attaches the documentation PR as a remote link (a linked reference on the Jira issue). The link is deduplicated by a stable identifier, so re-posting never adds a duplicate link.
+What Promptless posts on the ticket depends on how the session started:
+
+| How the session started                      | What Promptless posts on the ticket                                                                                                                                                                |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mentioning or assigning Promptless           | An acknowledgement, progress updates when there's something useful to share, and an answer, even when no documentation change is needed. A ticket left without an answer is flagged for follow-up. |
+| A `promptless` label or a configured trigger | A comment with the result when the work produces a suggestion, or a blocker you can act on. Promptless posts no progress updates, and no comment when there's no documentation change.             |
+
+A result comment links the suggestion and the documentation PR. Promptless also attaches the documentation PR as a remote link (a linked reference on the Jira issue). The link is deduplicated by a stable identifier, so re-posting never adds a duplicate link. Your configured Slack or Teams notification and `escalation` channels receive their usual messages as well.
+
+### Which account Promptless uses in Jira
+
+With an [Atlassian service account](#attach-a-service-account-for-mentions-and-assignments) attached, Promptless reads tickets, comments, adds remote links, and creates issues as the service account. If Atlassian refuses the service account, Promptless reports the failure and does not fall back to the person who connected Atlassian.
+
+Without a service account, Promptless reads Jira as the person who connected Atlassian. Its comments, remote links, and new issues would appear under that person's name. Promptless makes each of those writes only when your [Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) or the current request explicitly permits that action:
+
+- Permission covers only the action and scope it names. A Knowledge Base note that says Promptless may comment on `DOCS` tickets permits comments there, not remote links or new issues.
+- Permission given in one request applies to that request only.
+- A configured trigger, a notification setting, or a request for documentation work does not grant permission.
+
+Without permission for these extra actions, Promptless still does the documentation work. It skips writing to Jira, records why, and delivers the result through your other notification channels.
 
 ## How a configured trigger activates
 
@@ -136,23 +155,23 @@ Labels whose first token is `promptless` are reserved for the built-in `jira_men
 
 ```yaml
 triggers:
-  jira-docs-plan:
+  jira-api-docs:
     trigger_type: jira_label_added
-    instructions: Scope the docs impact, do not publish.
+    instructions: Update the API reference for the change described in the issue.
     match:
-      - new_label: [docs-plan]
+      - new_label: [api-docs]
         project_key: [DOCS]
 ```
 
-A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it. That is a docs suggestion and PR, plus the usual Slack or Teams notification. Like the built-in `jira_mention` trigger, Promptless comments on the ticket and flags it for follow-up if it goes unanswered (see [Reply on the ticket](#reply-on-the-ticket)). A blocker or escalation from the run also comments on the ticket and notifies any configured `escalation` channel.
+A Jira trigger's output lands wherever the run's `escalation` and publishing settings send it. That is a docs suggestion and PR, plus the usual Slack or Teams notification. Promptless also comments on the ticket when the run produces a suggestion or hits a blocker you can act on. A run with no documentation change posts nothing on the ticket (see [Reply on the ticket](#reply-on-the-ticket)).
 
 See the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers) for the full schema.
 
 ## Attach a service account for mentions and assignments
 
-The mention path and the assignment path require an attached Atlassian service account. Without one, @mentioning or assigning the connecting account simply does nothing. The delivery is dropped and no session starts. Promptless does not reply on the ticket and does not notify you in Slack or Teams. Check the Atlassian integration card to confirm whether a service account is attached. Only the built-in label path and configured triggers start sessions, and they read the ticket as, and comment as, the connecting account.
+The mention path and the assignment path require an attached Atlassian service account. Without one, @mentioning or assigning the connecting account simply does nothing. The delivery is dropped and no session starts. Promptless does not reply on the ticket and does not notify you in Slack or Teams. Check the Atlassian integration card to confirm whether a service account is attached. Only the built-in label path and configured triggers start sessions. They read the ticket as the connecting account, and write to Jira only with permission (see [Which account Promptless uses in Jira](#which-account-promptless-uses-in-jira)).
 
-Attaching a dedicated Atlassian service account gives Promptless its own bot identity: it posts as that bot, and the mention and assignment paths are active. Either way, Promptless ignores its own activity. Self-echo suppression keys on the connecting account when no service account is attached, and on the service account when one is.
+Attaching a dedicated Atlassian service account gives Promptless its own bot identity. Promptless reads and writes Jira as that bot, and the mention and assignment paths are active. Either way, Promptless ignores its own activity. Self-echo suppression keys on the connecting account when no service account is attached, and on the service account when one is.
 
 Gating the mention and assignment paths behind a service account is deliberate. Without a bot identity, the account Promptless acts as is a real person (the connecting account). Ordinary ticket traffic addressed to that colleague cannot be told apart from a request to summon Promptless. Requiring a service account keeps anyone from making Promptless act as the connecting account without the team opting in.
 
@@ -164,11 +183,11 @@ Attach the service account from the Atlassian integration card by entering its *
 
 ## Example
 
-A team adds the `jira-docs-plan` trigger above. A writer adds the `docs-plan` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Following the standing instructions (Scope the docs impact, do not publish), Promptless analyzes the linked change and scopes what documentation is affected. It then comments on the ticket with that scope, the same way the built-in paths comment on the ticket. Because this run is do-not-publish, there's no PR to link.
+A team with an attached service account adds the `jira-api-docs` trigger above. A writer adds the `api-docs` label to ticket `DOCS-204` in the `DOCS` project. Applying that label activates the trigger. Following the standing instructions, Promptless updates the API reference and opens a suggestion and documentation PR. It then comments on the ticket with links to both and posts the usual Slack notification.
 
 Later, the same team moves `DOCS-204` into `In Review`. That status crossing activates the `jira-ready-for-docs` trigger, which watches for the `In Review` and `Pull Request` statuses. And when someone files a brand-new `DOCS` issue that already carries `needs-docs`, it crosses both the new-issue edge and the label edge at once. It matches both `jira-new-docs-issue` and `jira-needs-docs-label`, and Promptless dispatches once, tagged with both keys.
 
-Separately, because the team has attached a service account, an engineer @mentions the account Promptless acts as on `DOCS-204` to ask for the update. Promptless replies on the ticket and attaches the documentation PR as a remote link.
+Separately, an engineer @mentions the service account on `DOCS-204` to ask for a related update. Promptless acknowledges the request on the ticket and answers there when the work is done. It attaches the documentation PR as a remote link.
 
 ## Setup instructions
 
