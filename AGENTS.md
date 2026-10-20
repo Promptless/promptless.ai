@@ -39,6 +39,7 @@ src/
 |   +-- changelog/      # Changelog entries (MDX)
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
++-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
@@ -104,6 +105,7 @@ npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
 npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
+npm run lint:structure   # manni: page structure by `type:` (advisory in CI)
 npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
 npx manni check          # run every manni check set up here (or pass pages); never restamps
 ```
@@ -155,7 +157,22 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   every manni check this repo has set up, including the `meta validate` CI
   runs, and reports a stale stamp, but it doesn't restamp, so `derive` is
   always the fix.
+  `manni check` also runs the structure lint below, so read which check
+  failed: only `meta validate` blocks CI.
   Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
+- **manni lint** (`lint:` in `manni.config.yaml`, `structure` job in
+  `manni.yml`) — page *structure* against the template for the page's
+  `type:`: the built-in Good Docs Project templates (`npx manni lint
+  templates`), with `installation-guide` and `quickstart` routed to how-to
+  and `glossary` and `contact-support` to reference. For example, a how-to
+  needs an `Overview` H2 first and a `See also` H2 last, and every reference
+  H2 after the first needs a table. Run `npx manni lint templates show
+  tgdp:how-to:1.6` (or another template) to see each section a template asks
+  for and what it's for. Each finding names the template section it breaks
+  and repeats that purpose. Advisory: on a PR, CI annotates the pages
+  you changed but doesn't fail. Fix the findings on pages you edit; run
+  `npm run lint:structure -- <page>` locally, and add `--explain` to see
+  which template a page routed to. See [ADR 0006](adrs/0006-adopt-manni-lint-structure.md).
 
 ## Diagrams
 

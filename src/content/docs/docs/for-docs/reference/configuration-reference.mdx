@@ -22,7 +22,7 @@ audiences:
   - aud-enterprise-docs-team
 intent: look up the promptless.yaml fields for doc collections, context sources, triggers, and policies and edit them in the Configuration page
 lifecycle: published
-last-updated: 2026-10-19
+last-updated: 2026-10-20
 applies-to:
   - promptless-for-docs
 concepts:
@@ -55,17 +55,17 @@ All Promptless configuration lives in a single `promptless.yaml` file in your or
 
 ## Configuration editor
 
-View and edit your configuration in the dashboard at [app.gopromptless.ai/configuration](https://app.gopromptless.ai/configuration). The page opens in **Form** mode, a structured editor that groups your configuration into four tabs: **Doc collections**, **Triggers**, **Context sources**, and **Policies**. You can manage everything there without hand-editing YAML. Each tab shows how many items it holds and surfaces the fields for that section directly.
+View and edit your configuration in the dashboard at [app.gopromptless.ai/configuration](https://app.gopromptless.ai/configuration). The page opens in **Form** mode, a structured editor that groups your configuration into four tabs: **Doc collections**, **Triggers**, **Context sources**, and **Policies**. Each tab shows how many items it holds and the fields for that section, so you can manage everything without editing YAML.
 
 You can also ask Promptless to make these changes for you, in Slack, Microsoft Teams, or on New Task. Select **Ask Promptless** on the Configuration page to open New Task in a new tab. See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 
-Form mode saves one item at a time. When you add or change a doc collection, trigger, or context source, you save that item on its own. Promptless commits the change to your Agent Knowledge Base right away. Policies save as a single section. There's no separate review-and-commit step. Each save is its own commit.
+Form mode saves one item at a time. When you add or change a doc collection, trigger, or context source, you save that item on its own. Promptless commits the change to your Agent Knowledge Base right away. Policies save as a single section. Each save is its own commit.
 
 When you need precise control over the file format, switch to **YAML** mode using the toggle at the top of the page. YAML mode is the raw editor with syntax highlighting, schema-driven completions, and inline validation. Use it when you want to copy configurations between environments or edit the file directly.
 
 In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) is not a field you set. It comes from the integration that reaches the repository. The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
-Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too. You never end up with a rule pointing at something that no longer exists.
+Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so every rule points at something that exists.
 
 ### Provider connection and trigger availability
 
@@ -155,6 +155,17 @@ Onboarding seeds pull request triggers only; [commit triggers](/docs/for-docs/co
 
 Connecting Jira, Confluence, Linear, or Notion *after* onboarding works the same way. Promptless adds a broad, unscoped context source for that tool if you don't already have one. Existing entries and any scoping you've set are left untouched.
 
+### Migration from projects
+
+If your organization used the legacy Projects configuration, Promptless migrated it to `promptless.yaml`. The migration kept:
+
+- Trigger configurations and settings
+- Doc collection settings
+- Automatic PR creation and notification preferences
+- Context source scoping
+
+The Configuration page replaces the Projects page. Migrated triggers and doc collections keep working with no action from you.
+
 ### Add a commit trigger
 
 A commit trigger (`github_commit`) activates when commits are pushed to a branch you monitor, rather than when a pull request opens or merges. Without a `branches` filter, it watches only the repository's default branch. Add one when you want Promptless to react to commits directly:
@@ -176,20 +187,96 @@ In a typical pull request workflow, this overlaps with your PR triggers. Merging
 
 ## File structure
 
-The configuration file has four top-level sections:
+`promptless.yaml` has four top-level sections:
+
+| Section           | Defines                                                                                | Details                             |
+| ----------------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
+| `doc_collections` | Documentation repositories where Promptless publishes updates                          | [Doc collections](#doc-collections) |
+| `context_sources` | Limits on what Promptless reads from connected integrations                            | [Context sources](#context-sources) |
+| `triggers`        | Events that start documentation work                                                   | [Triggers](#triggers)               |
+| `policies`        | Where notifications and escalations go, how Promptless publishes, and when it archives | [Policies](#policies)               |
+
+Every section is optional. A key the schema doesn't define, at any level of the file, fails validation.
+
+### Example configuration
+
+This file defines one doc collection, two scoped context sources, two triggers, and a default policy with one rule:
 
 ```yaml
-doc_collections:   # Where documentation lives (keyed by repo)
-context_sources:   # Integrations for additional context
-triggers:          # Events that initiate documentation work
-policies:          # Publishing and notification rules
-```
+doc_collections:
+  acme/documentation:
+    docs_framework: docusaurus
+    docs_root_url: https://docs.acme.com
+    config_file_path: docusaurus.config.js
+    filter:
+      - docs/
 
-All sections are optional. Unknown keys are rejected with validation errors.
+context_sources:
+  jira:
+    source_type: jira
+    project_keys:
+      - DOCS
+      - ENG
+  linear:
+    source_type: linear
+    team_keys:
+      - engineering
+
+# Built-in triggers (api, github_mention, jira_mention, msteams_mention, slack_mention, web)
+# are always on for connected integrations and are not configured here;
+# their keys remain valid in policies rules.
+triggers:
+  main-repos:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/backend
+          - acme/frontend
+        trigger_on:
+          - opened
+          - first_approval
+        trigger_directories:
+          - src/
+
+  support-channel:
+    trigger_type: slack_listen
+    match:
+      - channels:
+          - customer-support
+
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+    publishing:
+      auto_create_pr: true
+      auto_merge: false
+
+  rules:
+    - if:
+        trigger: slack_mention
+      then:
+        publishing:
+          suppress_source_pr_comments: true
+```
 
 ## Doc collections
 
-Doc collections define the documentation repositories where Promptless publishes updates. GitHub collections are keyed by `owner/repo`; GitLab collections are keyed by the project's full path, including every namespace segment (for example, `acme/platform/developer-docs`).
+A doc collection is a documentation repository where Promptless publishes updates. Its key is the repository path: `owner/repo` on GitHub, or the project's full path on GitLab, including every namespace segment (for example, `acme/platform/developer-docs`). The key is also the collection's name. An organization can have one doc collection per repository.
+
+Each doc collection accepts these fields:
+
+| Field              | Description                                                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`.                                                                                                                   |
+| `host`             | Bare instance hostname, with no scheme or path. Required for `github_enterprise`. Optional for `gitlab`: omit it for gitlab.com, or set it for self-hosted GitLab. Not valid for `github` or `github_oss`. |
+| `default_branch`   | Branch that documentation PRs target. Defaults to the repository's default branch.                                                                                                                         |
+| `docs_framework`   | Documentation framework, such as `docusaurus`, `mkdocs`, or `starlight`.                                                                                                                                   |
+| `docs_root_url`    | URL of the published documentation site.                                                                                                                                                                   |
+| `config_file_path` | Path to the framework's configuration file, such as `docusaurus.config.js`.                                                                                                                                |
+| `vale_config_path` | Path to a Vale configuration file. Setting it turns on prose linting.                                                                                                                                      |
+| `doc_detective`    | Doc Detective configuration. Including the key turns on Doc Detective.                                                                                                                                     |
+| `filter`           | Directory prefixes and file paths Promptless can modify. See [Path scope (filter)](#path-scope-filter).                                                                                                    |
 
 ```yaml
 doc_collections:
@@ -201,25 +288,9 @@ doc_collections:
       - guides/
 ```
 
-### Fields
+### GitLab projects
 
-| Field              | Description                                                                                                                                                                                                      |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`                                                                                                                          |
-| `host`             | Bare instance hostname (no scheme, no path). **Required** for `github_enterprise`; **optional** for `gitlab` (blank means gitlab.com, a hostname means self-hosted GitLab); **invalid** for every other platform |
-| `default_branch`   | Branch to target for PRs (defaults to repository's default branch)                                                                                                                                               |
-| `docs_framework`   | Documentation framework (docusaurus, mkdocs, starlight, etc.)                                                                                                                                                    |
-| `docs_root_url`    | Published documentation site URL                                                                                                                                                                                 |
-| `config_file_path` | Path to framework config file (e.g., `docusaurus.config.js`)                                                                                                                                                     |
-| `vale_config_path` | Path to Vale config file to enable prose linting                                                                                                                                                                 |
-| `doc_detective`    | Doc Detective configuration (presence enables the feature)                                                                                                                                                       |
-| `filter`           | List of directory prefixes or file paths Promptless can modify                                                                                                                                                   |
-
-<Aside type="note">
-  One repository can have at most one doc collection per organization. Collection "names" are the repository names. There's no separate display name field.
-</Aside>
-
-A GitLab-backed collection sets `platform: gitlab` and is keyed by its project path. Leave `host` off for gitlab.com; set it to your instance hostname for self-hosted GitLab. Promptless opens merge requests on these projects the same way it opens pull requests on GitHub.
+A GitLab collection sets `platform: gitlab` and uses the project path as its key. Omit `host` for gitlab.com, or set it to your instance hostname for self-hosted GitLab. Promptless opens merge requests on GitLab projects the same way it opens pull requests on GitHub.
 
 ```yaml
 doc_collections:
@@ -234,11 +305,13 @@ doc_collections:
 
 ### Path scope (filter)
 
-The `filter` field controls which files Promptless can modify:
+The `filter` field limits which files Promptless can modify:
 
-- **Empty or omitted**: Promptless can modify any file in the repository.
-- **Directory paths**: Entries ending with `/` allow modifications to any file in that directory tree.
-- **File paths**: Exact file paths allow only that specific file.
+| `filter` entry     | Files Promptless can modify     |
+| ------------------ | ------------------------------- |
+| Empty or omitted   | Any file in the repository      |
+| Path ending in `/` | Any file in that directory tree |
+| File path          | Only that file                  |
 
 ```yaml
 doc_collections:
@@ -250,11 +323,20 @@ doc_collections:
 
 ## Context sources
 
-Context sources give Promptless access to your organization's tools for additional context. They're used for narrowing scope when you want to limit which projects, spaces, or databases Promptless can query. Each entry requires a `source_type` field.
+Promptless reads your connected integrations for context on documentation work. A context source entry limits what Promptless reads from one integration, such as which Jira projects or Notion databases it can query. Promptless reads the whole integration when it has no entry, or an entry with no scope fields. Add an entry only when you want to restrict scope.
 
-<Aside type="note">
-  An empty entry (or no entry) for a context source means full access to that integration. Only add entries when you need to restrict scope.
-</Aside>
+Each entry needs a `source_type`, which sets the scope fields it accepts:
+
+| `source_type`  | Scope fields               | Restricts Promptless to                                                    |
+| -------------- | -------------------------- | -------------------------------------------------------------------------- |
+| `jira`         | `project_keys`             | These Jira project keys                                                    |
+| `confluence`   | `space_keys`               | These Confluence space keys                                                |
+| `linear`       | `team_keys`                | These Linear team identifiers                                              |
+| `notion`       | `database_ids`, `page_ids` | These Notion databases or pages                                            |
+| `google_drive` | `drive_ids`, `folder_ids`  | These shared drives or folders                                             |
+| `slite`        | None                       | No restriction. Promptless reads the whole Slite workspace when connected. |
+
+An entry's key is a lowercase slug of letters, numbers, and hyphens, up to 64 characters, such as `google-drive`.
 
 ```yaml
 context_sources:
@@ -276,7 +358,7 @@ context_sources:
     source_type: notion
     database_ids:
       - abc123def456
-  google_drive:
+  google-drive:
     source_type: google_drive
     drive_ids:
       - 0AExampleDriveIdUk9PVA
@@ -286,20 +368,19 @@ context_sources:
     source_type: slite
 ```
 
-### Available sources
-
-| Source Type    | Scope Fields               | Description                                                               |
-| -------------- | -------------------------- | ------------------------------------------------------------------------- |
-| `jira`         | `project_keys`             | Restrict to specific Jira project keys                                    |
-| `confluence`   | `space_keys`               | Restrict to specific Confluence space keys                                |
-| `linear`       | `team_keys`                | Restrict to specific Linear team identifiers                              |
-| `notion`       | `database_ids`, `page_ids` | Restrict to specific Notion databases or pages                            |
-| `google_drive` | `drive_ids`, `folder_ids`  | Restrict to specific shared drives or folders (omit both for full access) |
-| `slite`        | None                       | No scope fields. The whole Slite workspace is available when connected    |
-
 ## Triggers
 
-Triggers define events that automatically initiate documentation work. Unlike built-in triggers, these require explicit configuration. Each trigger has a `trigger_type` and a `match` list. The trigger activates when any clause in the list matches, and fields within a clause are ANDed together.
+A trigger starts documentation work when an event matches it. Each trigger in the `triggers` section is one you configure. [Built-in triggers](#built-in-triggers), such as Slack mentions, are always on and don't appear in the file.
+
+Each trigger accepts these fields:
+
+| Field          | Required            | Description                                                                                                                                                                                          |
+| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trigger_type` | Yes                 | The kind of event the trigger matches. See [Trigger types](#trigger-types).                                                                                                                          |
+| `match`        | Yes                 | A list of one or more match clauses. The trigger activates when any clause matches, and every field set in that clause must match.                                                                   |
+| `instructions` | For `schedule` only | Standing instructions Promptless receives on each run. Required for `schedule` and optional for `jira_new_issue`, `jira_label_added`, and `jira_status_change`. Other trigger types don't accept it. |
+
+A trigger's key is a lowercase slug of letters, numbers, and hyphens, up to 64 characters. Policy rules refer to the trigger by this key.
 
 ```yaml
 triggers:
@@ -436,7 +517,7 @@ Provider-backed triggers require their integration to be connected. See [Provide
   | `environment_key` | Restrict to these environments          |
   | `flag_key`        | Restrict to these feature flags         |
 
-  At least one of `project_key`, `environment_key`, or `flag_key` must be set in each clause. An empty field matches every value in that dimension. Requires the [LaunchDarkly integration](/docs/for-docs/reference/integrations/launchdarkly) to be connected; the integration and this trigger are in beta. See [LaunchDarkly triggers](/docs/for-docs/connect/triggers/launchdarkly#match-a-flag-change) for the full match semantics and an example.
+  At least one of `project_key`, `environment_key`, or `flag_key` must be set in each clause. An empty field matches every value in that dimension. Requires LaunchDarkly to be connected (see [Connect LaunchDarkly](/docs/for-docs/connect/triggers/launchdarkly#connect-launchdarkly)). The integration and this trigger are in beta. See [LaunchDarkly triggers](/docs/for-docs/connect/triggers/launchdarkly#match-a-flag-change) for the full match semantics and an example.
 </details>
 
 <details>
@@ -450,7 +531,7 @@ Provider-backed triggers require their integration to be connected. See [Provide
   | ------------- | ------------------------------------------------------------------ |
   | `project_key` | Required. Non-empty list of Jira project keys (for example `DOCS`) |
 
-  An optional top-level `instructions` field (a sibling of `match`) gives the trigger standing instructions passed to Promptless on each run. A present-but-blank value is rejected. Promptless comments on the ticket when the run produces a suggestion or hits a blocker you can act on. It posts nothing when there's no documentation change. See [Reply on the ticket](/docs/for-docs/connect/triggers/jira#reply-on-the-ticket).
+  The optional `instructions` field, a sibling of `match`, gives Promptless standing instructions on each run. A blank value fails validation. Promptless comments on the ticket when the run produces a suggestion or hits a blocker you can act on. It posts nothing when there's no documentation change. See [Reply on the ticket](/docs/for-docs/connect/triggers/jira#reply-on-the-ticket).
 </details>
 
 <details>
@@ -507,21 +588,32 @@ A Jira trigger activates once per crossing and does not re-fire on later deliver
 
 ### Built-in triggers
 
-Some triggers are always active when their integration is connected and don't appear in the YAML:
+These triggers are always active when their integration is connected and don't appear in the YAML:
 
-- **slack\_mention**: @Promptless mentions in Slack channels
-- **msteams\_mention**: @Promptless mentions in Microsoft Teams
-- **github\_mention**: @Promptless mentions in GitHub issues and PR comments
-- **gitlab\_mention**: @Promptless mentions in GitLab merge-request comments
-- **jira\_mention**: Assigning a Jira issue to the Promptless account, @mentioning it in a comment, or adding a `promptless`-prefixed label
-- **web**: Requests submitted through the web dashboard
-- **api**: Requests from the HTTP API
+| Key               | Activates on                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `slack_mention`   | @Promptless mentions in Slack channels                                                                                 |
+| `msteams_mention` | @Promptless mentions in Microsoft Teams                                                                                |
+| `github_mention`  | @Promptless mentions in GitHub issues and PR comments                                                                  |
+| `gitlab_mention`  | @Promptless mentions in GitLab merge-request comments                                                                  |
+| `jira_mention`    | Assigning a Jira issue to the Promptless account, @mentioning it in a comment, or adding a `promptless`-prefixed label |
+| `web`             | Requests submitted through the web dashboard                                                                           |
+| `api`             | Requests from the HTTP API                                                                                             |
 
-Built-in triggers can't be disabled, but their keys are valid in policy rules.
+Built-in triggers can't be turned off, but you can use their keys in [policy rules](#rule-matching).
 
 ## Policies
 
-Policies control publishing behavior and notifications. They consist of a default overlay and ordered rules that apply based on trigger or doc collection.
+Policies set where Promptless sends notifications and escalations, how it publishes documentation updates, and when it archives stale suggestions. `policies.default` applies to every suggestion. Each entry in `policies.rules` applies only when its `if` block matches, and overrides the default field by field. See [Rule matching](#rule-matching).
+
+`policies.default` and each rule's `then` block accept these sections:
+
+| Section        | Controls                                                                        | Fields                          |
+| -------------- | ------------------------------------------------------------------------------- | ------------------------------- |
+| `notification` | Slack and Teams channels that announce suggestions                              | [`notification`](#notification) |
+| `escalation`   | Slack and Teams channels, and email addresses, that receive escalations         | [`escalation`](#escalation)     |
+| `publishing`   | Whether Promptless opens and merges documentation PRs, and what it posts on PRs | [`publishing`](#publishing)     |
+| `archiving`    | Whether and when Promptless archives stale suggestions                          | [`archiving`](#archiving)       |
 
 ```yaml
 policies:
@@ -555,20 +647,22 @@ policies:
 
 ### Policy fields
 
-**notification**
+#### `notification`
 
-| Field             | Description                                                                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `slack_channel`   | Slack channel name for notifications (no `#` prefix), or `null` to disable an inherited Slack channel                                 |
-| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`) for notifications, or `null` to disable an inherited Teams channel |
+| Field             | Description                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------- |
+| `slack_channel`   | Slack channel name for suggestion notifications, with no `#` prefix                               |
+| `msteams_channel` | Microsoft Teams channel conversation ID for suggestion notifications, such as `19:…@thread.tacv2` |
 
-`slack_channel` and `msteams_channel` are independent. Set either, both, or neither. The Teams conversation ID is the same value you paste into an `msteams_listen` trigger; copy it from Teams. A Teams channel must have prior Promptless bot activity before notifications can be delivered there.
+Set either field, both, or neither. Copy the Teams conversation ID from Teams. It's the same value you paste into an `msteams_listen` trigger. Promptless can deliver to a Teams channel only after its bot has activity there.
 
-- **Omitting** the field inherits the channel from `policies.default` or an earlier rule.
-- Setting it to **`null`** disables the channel for that scope, overriding any inherited channel so no notification is sent.
-- Setting it to a **channel name** (or Teams conversation ID) routes notifications there.
+Each channel field resolves by whether and how you set it. Slack and Teams resolve separately, so you can turn off one and keep the other inherited.
 
-Because resolution depends on field presence, an omitted field and an explicit `null` are not the same: `null` means disable, absent means inherit. The two channels resolve independently, so you can disable one while leaving the other inherited.
+| Value                                  | Result                                                                                   |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Field omitted                          | Inherits the channel from `policies.default` or an earlier matching rule                 |
+| `null`                                 | Turns off notifications on that platform for the scope, overriding any inherited channel |
+| Channel name, or Teams conversation ID | Sends notifications to that channel                                                      |
 
 ```yaml
 policies:
@@ -584,9 +678,23 @@ policies:
           slack_channel: null   # silence Slack for this collection
 ```
 
-**escalation**
+#### `escalation`
 
-The escalation channel is where Promptless routes operational alerts rather than suggestion announcements. An example is a [proactive notification](/docs/for-docs/reference/integrations#proactive-notifications) when a connected integration develops a problem. This is completely different from notifications about suggestions being created, updated, closed, or merged. For example, a test account is missing the feature flags to screenshot a screen. Or a PR references a Jira issue that Promptless can't read. Either the Jira integration isn't connected, or it's connected but the project isn't accessible. See [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior. It's a sibling of `notification` and, unlike `notification`, also accepts `email`.
+The escalation channel receives items that need a person. Announcements about suggestions being created, updated, closed, or merged go to the `notification` channels. Escalations include these examples:
+
+- A test account is missing the feature flags Promptless needs to take a screenshot.
+- A PR references a Jira issue that Promptless can't read, because the Jira integration isn't connected or the project isn't accessible.
+- A connected integration develops a problem, which sends a [proactive notification](/docs/for-docs/reference/integrations#proactive-notifications).
+
+See [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior.
+
+`escalation` accepts the same channel fields as `notification`, plus `email`:
+
+| Field             | Description                                                                          |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `slack_channel`   | Slack channel name for escalations, with no `#` prefix                               |
+| `msteams_channel` | Microsoft Teams channel conversation ID for escalations, such as `19:…@thread.tacv2` |
+| `email`           | List of email addresses that receive escalations                                     |
 
 ```yaml
 policies:
@@ -598,39 +706,41 @@ policies:
         - oncall@acme.com
 ```
 
-| Field             | Description                                                                                                                                  |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `slack_channel`   | Slack channel name for escalation alerts (no `#` prefix), or `null` to disable an inherited Slack channel                                    |
-| `msteams_channel` | Microsoft Teams channel conversation ID (e.g. `19:…@thread.tacv2`), or `null` to disable an inherited Teams channel                          |
-| `email`           | List of email addresses for escalation alerts (escalation only; not used for suggestion notifications), or `[]` to disable an inherited list |
+Set any combination of the three fields. They resolve the same way as `notification`: omit a field to inherit it, and set `slack_channel` or `msteams_channel` to `null`, or `email` to `[]`, to turn it off. `msteams_channel` needs the same prior bot activity as in `notification`.
 
-Set any combination of the three. The same presence semantics as `notification` apply (omit to inherit; `null` for `slack_channel`/`msteams_channel` or `[]` for `email` to disable). `msteams_channel` carries the same Teams-activity prerequisite as `notification`. Escalations reach the escalation channel(s) even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless raises escalations through your suggestion-notification routing on that platform.
+Escalations reach the escalation channels even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless sends escalations through your suggestion-notification routing on that platform.
 
-`escalation.email` routes escalations to a list of email addresses. Email is escalation-only. Suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation requires email delivery to be configured for your deployment. It's on by default on Promptless-hosted deployments. Self-hosted deployments must configure it.
+Email is for escalations only, and suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation needs email delivery configured for your deployment. Promptless-hosted deployments have it on by default, and self-hosted deployments must configure it.
 
-**publishing**
+#### `publishing`
 
-| Field                            | Description                                                                                                                                                                                                                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto_create_pr`                 | Automatically open documentation PRs for suggestions, or merge requests on GitLab. Gates only automatic PR creation (see the note below)                                                                                                                                                          |
-| `auto_merge`                     | Automatically merge auto-created documentation PRs. On GitLab the merge is immediate and squashes. A merge request that can't merge right away stays open for you to merge manually ([full detail](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation))        |
-| `suppress_source_pr_comments`    | Skip posting comments on source PRs                                                                                                                                                                                                                                                               |
-| `suppress_pr_description_extras` | Omit the generated extras from documentation PR and merge request bodies: the "Open in Promptless" link, the trigger events section, and the tip. The body then contains only the suggestion's own description. Applies to dashboard-default and agent-composed bodies alike. Defaults to `false` |
+| Field                            | Default | Description                                                                              |
+| -------------------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `auto_create_pr`                 | `false` | Open a documentation PR, or a merge request on GitLab, for each suggestion automatically |
+| `auto_merge`                     | `false` | Merge the documentation PRs that Promptless opens automatically                          |
+| `suppress_source_pr_comments`    | `false` | Skip posting comments on source PRs                                                      |
+| `suppress_pr_description_extras` | `false` | Leave the generated extras out of documentation PR and merge request bodies              |
+
+On GitLab, `auto_merge` merges immediately and squashes. A merge request that can't merge right away stays open for you to merge manually. See [Automatic merge request creation](/docs/for-docs/connect/doc-locations/gitlab-projects#automatic-merge-request-creation).
+
+The extras that `suppress_pr_description_extras` removes are the "Open in Promptless" link, the trigger events section, and the tip. With the setting on, the body contains only the suggestion's own description, whether the dashboard default or the agent wrote it.
 
 <Aside type="note">
-  `auto_create_pr` gates only *automatic* PR creation. When it's off, Promptless leaves suggestions as drafts and doesn't open a documentation PR on its own. You can still open one on demand. Ask the agent directly, click the **Create PR** button in Slack, or create it from the dashboard. `auto_merge` applies only to PRs that Promptless creates automatically.
+  `auto_create_pr` controls only automatic PR creation. When it's off, Promptless leaves suggestions as drafts and doesn't open a documentation PR on its own. You can still open one on demand: ask the agent, select **Create PR** in Slack, or create it from the dashboard. `auto_merge` applies only to PRs that Promptless creates automatically.
 </Aside>
 
-**archiving**
+#### `archiving`
 
-Promptless automatically archives suggestions that have gone stale, so your dashboard stays focused on active work. The `archiving` block controls this behavior.
+Promptless archives stale suggestions automatically, so your dashboard stays focused on active work. The `archiving` section sets when:
 
-| Field              | Description                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `enabled`          | Whether automatic archiving runs for this scope. Defaults to `true`.                              |
-| `stale_after_days` | Days of inactivity before a suggestion is archived. Defaults to `30`; must be a positive integer. |
+| Field              | Default | Description                                                                             |
+| ------------------ | ------- | --------------------------------------------------------------------------------------- |
+| `enabled`          | `true`  | Whether automatic archiving runs for this scope                                         |
+| `stale_after_days` | `30`    | Days of inactivity before Promptless archives a suggestion. Must be a positive integer. |
 
-Unlike `publishing`, archiving is **opt-out**: it runs with a 30-day window unless you disable or adjust it. Set `enabled: false` to keep a scope's suggestions open indefinitely. This is useful when a team leaves a suggestion open until a linked ticket closes. Lower `stale_after_days` to archive sooner. Staleness is measured from a suggestion's last activity rather than its creation date. Last activity is the most recent of when it was created, updated, had its diff refreshed, or was reopened. A suggestion viewed within the window is always spared.
+Set `enabled: false` to keep a scope's suggestions open indefinitely, for example when a team leaves a suggestion open until a linked ticket closes. Lower `stale_after_days` to archive sooner.
+
+Promptless measures inactivity from a suggestion's last activity: the most recent of when it was created, updated, had its diff refreshed, or was reopened. Promptless never archives a suggestion that someone viewed within the window.
 
 ```yaml
 policies:
@@ -647,119 +757,58 @@ policies:
 ```
 
 <Aside type="note">
-  Archiving resolves per doc collection, so a rule can disable it or change the window for one collection while the default covers the rest. Archiving runs on a schedule rather than in response to a trigger, so only `policies.default` and rules scoped by `doc_collection` apply to it. A rule scoped by `trigger` never affects archiving.
+  Archiving runs on a schedule, outside any trigger, so it resolves per doc collection. Only `policies.default` and rules that match on `doc_collection` apply. A rule can turn off archiving or change the window for one collection while the default covers the rest. A rule that sets `trigger` never affects archiving.
 </Aside>
 
 ### Rule matching
 
-Rules are evaluated in order. When multiple rules match, fields from later rules override earlier ones. The `if` clause supports:
+Promptless starts from `policies.default`, then applies each matching rule in order. A later rule overrides the fields an earlier one set. Each rule's `if` block takes one or both of these keys:
 
-- `trigger`: Match a specific trigger key (including built-in triggers like `slack_mention`)
-- `doc_collection`: Match a specific doc collection by repository name
+| Key              | Matches when                                                                                                                        |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `trigger`        | The event matched this trigger. Use a key from `triggers` or a [built-in trigger](#built-in-triggers) key, such as `slack_mention`. |
+| `doc_collection` | The suggestion targets this doc collection. Use the collection's key from `doc_collections`.                                        |
 
-Both conditions must match if both are specified (AND logic).
+When a rule sets both keys, both must match.
 
 <Aside type="caution">
-  Policies resolve at publish time, not when the trigger activates. If you update your configuration while a suggestion is being created, the new policy values apply when that suggestion is published.
+  Promptless resolves policies when it publishes a suggestion. If you change the configuration while Promptless is creating a suggestion, the new policy values apply when that suggestion publishes.
 </Aside>
-
-## Example configuration
-
-```yaml
-doc_collections:
-  acme/documentation:
-    docs_framework: docusaurus
-    docs_root_url: https://docs.acme.com
-    config_file_path: docusaurus.config.js
-    filter:
-      - docs/
-
-context_sources:
-  jira:
-    source_type: jira
-    project_keys:
-      - DOCS
-      - ENG
-  linear:
-    source_type: linear
-    team_keys:
-      - engineering
-
-# Built-in triggers (api, github_mention, jira_mention, msteams_mention, slack_mention, web)
-# are always on for connected integrations and are not configured here;
-# their keys remain valid in policies rules.
-triggers:
-  main-repos:
-    trigger_type: github_pr
-    match:
-      - repos:
-          - acme/backend
-          - acme/frontend
-        trigger_on:
-          - opened
-          - first_approval
-        trigger_directories:
-          - src/
-
-  support-channel:
-    trigger_type: slack_listen
-    match:
-      - channels:
-          - customer-support
-
-policies:
-  default:
-    notification:
-      slack_channel: docs-updates
-    publishing:
-      auto_create_pr: true
-      auto_merge: false
-
-  rules:
-    - if:
-        trigger: slack_mention
-      then:
-        publishing:
-          suppress_source_pr_comments: true
-```
 
 ## Validation and errors
 
-The configuration editor validates your YAML before saving. Validation errors appear as inline markers at the relevant line, with details including:
+The configuration editor validates your YAML before it saves. Each validation error appears as an inline marker with these details:
 
-- **Path**: Which field has the error
-- **Line**: Line number in the YAML
-- **Message**: Description of what's wrong
+| Detail  | Description                                                     |
+| ------- | --------------------------------------------------------------- |
+| Path    | The field that has the error                                    |
+| Line    | The line number in the YAML, when the error belongs to one line |
+| Message | What's wrong                                                    |
 
-Common validation errors:
+These are the most common validation errors:
 
-- Unknown keys (typos or unsupported fields)
-- Invalid enum values (e.g., wrong trigger type)
-- Missing required fields (e.g., `host` for `github_enterprise` platform)
-- Duplicate repository keys in `doc_collections`
-- Malformed `doc_collections` keys. A GitHub, GitHub OSS, or GitHub Enterprise key must be exactly `owner/repo`, with no extra path segments. A GitLab key is the project's full path, so nested namespace segments are valid. No key may carry surrounding whitespace.
-- A provider-backed trigger added, renamed, or modified while its integration is disconnected. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
+| Error                                                                                  | Fix                                                                                                                                                                              |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unknown key, such as a typo or an unsupported field                                    | Correct the spelling, or remove the key.                                                                                                                                         |
+| Invalid value, such as an unknown `trigger_type`                                       | Use one of the values this page lists for the field.                                                                                                                             |
+| Missing required field, such as `host` when `platform` is `github_enterprise`          | Add the field.                                                                                                                                                                   |
+| Duplicate repository key in `doc_collections`                                          | Keep one entry per repository.                                                                                                                                                   |
+| Malformed `doc_collections` key                                                        | Use exactly `owner/repo` for GitHub, GitHub OSS, and GitHub Enterprise. Use the project's full path, including nested namespaces, for GitLab. Remove any surrounding whitespace. |
+| Trigger or context source key that isn't a lowercase slug                              | Rename the key using lowercase letters, numbers, and hyphens, such as `google-drive`.                                                                                            |
+| Policy rule that references an undefined trigger or doc collection                     | Correct the key, or define the trigger or doc collection it names. Built-in trigger keys are always defined.                                                                     |
+| Provider-backed trigger added, renamed, or modified while its provider is disconnected | Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).   |
 
 <Aside type="tip">
-  If you edit the configuration file directly via git push, an invalid configuration keeps the last valid configuration active. The error is surfaced in the Configuration page editor.
+  If you push an invalid `promptless.yaml` to your Agent Knowledge Base with git, the last valid configuration stays active. The Configuration page editor shows the error.
 </Aside>
 
-## Repository renames
+## Repository and channel renames
 
-Promptless automatically updates your configuration when repositories or Slack channels are renamed:
+When you rename a GitHub repository or a Slack channel, Promptless updates your configuration to match. It commits the change to your Agent Knowledge Base:
 
-- **GitHub repository renames**: The `doc_collections` key and any references in trigger `repos`/`excluded_repos` are updated.
-- **Slack channel renames**: Channel names in `slack_listen` triggers and the `slack_channel` of `notification` and `escalation` policies are updated. Teams conversation IDs are not Slack channel names and are left unchanged.
+| Renamed           | What Promptless updates                                                                                                       |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| GitHub repository | The `doc_collections` key, the repository in trigger `repos` and `excluded_repos` lists, and `doc_collection` in policy rules |
+| Slack channel     | The channel in `slack_listen` triggers, and `slack_channel` in `notification` and `escalation` policies                       |
 
-These updates are committed directly to your Agent Knowledge Base.
-
-## Migration from projects
-
-Existing organizations are automatically migrated from the legacy Projects configuration to `promptless.yaml`. The migration preserves:
-
-- All trigger configurations and settings
-- Doc collection settings
-- Automatic PR creation and notification preferences
-- Context source scoping
-
-After migration, the Projects page is replaced by the Configuration page. Your triggers and doc collections continue working without any action required.
+A Slack channel rename leaves `msteams_channel` values unchanged.

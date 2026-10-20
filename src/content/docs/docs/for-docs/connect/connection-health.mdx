@@ -21,7 +21,7 @@ audiences:
   - aud-enterprise-docs-team
 intent: check integration connection status on the integrations page and reconnect or refresh a lapsed connection
 lifecycle: published
-last-updated: 2026-10-19
+last-updated: 2026-10-20
 applies-to:
   - promptless-for-docs
 concepts:
@@ -50,68 +50,124 @@ sidebar:
   label: Connection health
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-Every integration you connect depends on an authorization that Promptless holds on your behalf. When that authorization lapses, the integration stops working quietly. No error lands in your inbox, so the first sign is usually work that simply isn't happening. This page shows you where to check the state of your connections and how to restore one that has gone stale.
+Every integration you connect depends on an authorization that Promptless holds on your behalf. When that authorization lapses or lacks a permission, the work that depends on it stops. If your organization has an [escalation channel configured](/docs/for-docs/reference/integrations#proactive-notifications), Promptless reports the problem there. Otherwise, the first sign is usually work that isn't happening. This page lists those signs, what causes each one, and how to restore the connection.
 
-## Where to check connection health
+Whenever an integration seems to have stopped working, start on the [integrations page](https://app.gopromptless.ai/integrations) in the Promptless dashboard. Each integration's card shows a health label:
 
-Organization administrators manage every connected integration from the [integrations page](https://app.gopromptless.ai/integrations) in the Promptless dashboard. Each integration has a card that shows its connection status and authentication state, along with controls to reconnect, refresh, or disconnect it.
-
-When a connection needs attention, its card flags the problem so you can act on it. A Slack card missing a permission shows an informational **Grant additional Slack permissions** callout naming what to add. A **Needs reconnect** flag marks a connection whose authorization has genuinely lapsed or been rejected. Whenever an integration seems to have stopped working, open the integrations page first. The card tells you whether the connection itself is the cause.
+| Label               | What it means                                                                                        | What to do                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Connected**       | The latest check succeeded.                                                                          | No action needed.                                        |
+| **Problem**         | Promptless couldn't verify the integration, or the service was unreachable, during the latest check. | No action needed. Promptless checks again automatically. |
+| **Needs reconnect** | The authorization expired or was disconnected.                                                       | Reconnect the integration from its card.                 |
 
 <Aside type="note">
   The integrations page and its reconnect, refresh, and disconnect controls are available to organization administrators. If you're not an admin, flag the integration to your Promptless administrator so they can check and reconnect it.
 </Aside>
 
-## How a lost connection shows up
+## Symptom: An expected suggestion never appeared
 
-What you notice depends on what the integration does for you:
+### Cause: The trigger integration lost access
 
-- **Triggers** are how events reach Promptless. If a trigger integration loses access, Promptless stops receiving its events. No new suggestions come from that source, even when the rest of your setup looks healthy. In the configuration editor, that provider's trigger type is disabled and its saved triggers show as inactive (see [Provider connection and trigger availability](/docs/for-docs/reference/configuration-reference#provider-connection-and-trigger-availability)). Check for a lapsed connection whenever an expected suggestion never appears.
-- **Context sources** are [read-only](/docs/for-docs/connect/context-sources) and optional. If a context source loses access, Promptless still creates suggestions. It can no longer pull in the background that source provided, so those suggestions draw on less context than usual.
-- **Publishing** to GitHub needs an active connection with repository access. Without it, your repositories don't appear in the dropdown when you set up a doc collection. Promptless also has nowhere to open documentation pull requests.
+Triggers are how events reach Promptless. When a trigger integration loses access, Promptless stops receiving its events, so no new suggestions come from that source. The rest of your setup can look healthy while this happens.
+
+### Solution: Reconnect the trigger integration
+
+<Steps>
+  1. On the [integrations page](https://app.gopromptless.ai/integrations), find the card for the integration that sends the trigger.
+
+  2. If the card shows **Needs reconnect**, select its reconnect action and approve access with the provider.
+</Steps>
 
 <Aside type="tip">
-  During a pilot, a healthy stream of suggestions is a signal that Promptless is plugged into the right parts of your workflow. If that stream dries up, confirm your trigger integrations are still connected before assuming the problem is elsewhere. See [Run a pilot](/docs/for-docs/start-here/run-a-pilot) for more on reading suggestion volume.
+  During a pilot, a healthy stream of suggestions is a signal that Promptless is plugged into the right parts of your workflow. If that stream dries up, confirm your trigger integrations are still connected before looking elsewhere. See [Run a pilot](/docs/for-docs/start-here/run-a-pilot) for more on reading suggestion volume.
 </Aside>
 
-## Common symptoms and fixes
+## Symptom: A trigger type is disabled, or a saved trigger appears inactive
 
-<details>
-  <summary>An expected suggestion never appeared</summary>
+### Cause: The trigger's provider isn't connected
 
-  Check that the trigger integration for that source is still connected on the [integrations page](https://app.gopromptless.ai/integrations), and that its card isn't flagging a reconnect. A trigger that has lost access stops delivering events to Promptless, so no suggestion is generated from it.
-</details>
+In the configuration editor, a provider's trigger type is available only while that provider is connected. Its saved triggers show as inactive until then. See [Provider connection and trigger availability](/docs/for-docs/reference/configuration-reference#provider-connection-and-trigger-availability).
 
-<details>
-  <summary>No repositories appear when creating a doc collection</summary>
+### Solution: Connect the provider
 
-  If the repository dropdown shows "No options," connect GitHub first from the [integrations page](https://app.gopromptless.ai/integrations). If GitHub is already connected but repositories are missing, grant Promptless access to those specific repositories in your GitHub organization settings. See [GitHub repos (docs as code)](/docs/for-docs/connect/doc-locations/github-repos#frequently-asked-questions) for the full flow.
-</details>
+- On the [integrations page](https://app.gopromptless.ai/integrations), connect the trigger's provider. The trigger type becomes available and its saved triggers become active again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
 
-<details>
-  <summary>Slack diff files, link previews, or private channel listing stopped working</summary>
+## Symptom: No repositories appear when you add a doc collection
 
-  When a Slack feature stops working, your workspace is usually missing a permission that a newer version of Promptless needs. The Slack card shows a **Grant additional Slack permissions** callout naming what to add. Click **Update connection** to approve the added permissions. See [Slack troubleshooting](/docs/for-docs/reference/integrations/slack#troubleshooting) for the specific permissions behind attached diff files, link previews, and private channel listing.
-</details>
+When you add a doc collection, the repository picker shows "No connected repository matches that." The picker lists only repositories that your GitHub or GitLab connection can reach. Promptless needs the same access to open documentation pull requests.
 
-<details>
-  <summary>A Jira reply or comment from Promptless didn't post</summary>
+### Cause: GitHub or GitLab isn't connected
 
-  Check the Atlassian card first. A service-account health badge reading **Not working** means Atlassian is refusing the account's credential. Promptless then can't post as its bot identity. Fix it by re-attaching the service account: re-enter its Client ID and secret from the [integrations page](https://app.gopromptless.ai/integrations). Reconnecting the Atlassian OAuth connection does not fix this, because the connection and the service-account credential are separate things. See [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) for the full setup.
+The picker lists none of your repositories.
 
-  With no service account attached, Promptless comments as the person who connected Atlassian only when your Knowledge Base or the request explicitly permits it. Otherwise it skips the comment and sends the result to your other notification channels. A session started by a `promptless` label or a configured trigger posts no comment when there's no documentation change. See [Reply on the ticket](/docs/for-docs/connect/triggers/jira#reply-on-the-ticket).
-</details>
+### Solution: Connect your Git provider
 
-<details>
-  <summary>A trigger type is disabled, or a saved trigger appears inactive</summary>
+<Steps>
+  1. On the [integrations page](https://app.gopromptless.ai/integrations), connect GitHub or GitLab.
 
-  The trigger's provider integration isn't connected. Connect it on the [integrations page](https://app.gopromptless.ai/integrations) to enable the trigger type and reactivate its saved triggers. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).
-</details>
+  2. Return to the doc collection and select the repository.
+</Steps>
 
-## When to contact support
+For the full flow, see [GitHub repos (docs as code)](/docs/for-docs/connect/doc-locations/github-repos#frequently-asked-questions) or [GitLab projects](/docs/for-docs/connect/doc-locations/gitlab-projects).
 
-Contact the Promptless team at [help@gopromptless.ai](mailto\:help@gopromptless.ai) if a card doesn't show a reconnect option. Also reach out if reconnecting doesn't resolve the problem, or if you're unsure which integration is at fault. See [Getting help](/docs/for-docs/reference/getting-help) for every way to get in touch.
+### Cause: The connection can't reach that repository
 
-To retire a connection instead of fixing it, disconnect the integration from its card on the [integrations page](https://app.gopromptless.ai/integrations). This immediately revokes Promptless's access to that service. For how Promptless accesses and retains data from connected services, see [Data handling and classification](/docs/for-docs/security/data-handling-and-classification).
+Other repositories appear in the picker, but not the one you want.
+
+### Solution: Grant access to the repository
+
+- For GitHub, add the repository to the Promptless GitHub App's access in your GitHub organization settings. See [Manage repository access](/docs/for-docs/reference/integrations/github#manage-repository-access).
+- For GitLab, connect a group access token from a group that contains the project. See [Token scope considerations](/docs/for-docs/reference/integrations/gitlab#token-scope-considerations).
+
+## Symptom: Slack link previews, MCP result DMs, or private channel listing stopped working
+
+### Cause: The Slack connection is missing a newer permission
+
+Some Slack features need permissions that Promptless added after your workspace connected. When your workspace is missing one, the Slack card shows a **Grant additional Slack permissions** callout that names the permissions to add. See [Slack troubleshooting](/docs/for-docs/reference/integrations/slack#troubleshooting) for the permissions behind link previews, MCP result DMs, and private channel listing.
+
+### Solution: Grant the added permissions
+
+<Steps>
+  1. On the Slack card, in the **Grant additional Slack permissions** callout, select **Update connection**.
+
+  2. In Slack, approve the added permissions.
+</Steps>
+
+## Symptom: A Jira reply or comment from Promptless didn't post
+
+### Cause: Atlassian refuses the service account's credential
+
+When the Atlassian card's service-account health badge reads **Not working**, Atlassian is refusing the service account's credential. Promptless then can't post as its bot identity. The service-account credential is separate from the Atlassian OAuth connection, so reconnecting Atlassian leaves the credential unchanged.
+
+### Solution: Re-attach the service account
+
+- On the [integrations page](https://app.gopromptless.ai/integrations), on the Atlassian card, re-enter the service account's Client ID and secret. See [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account) for the full setup.
+
+### Cause: No service account is attached and Promptless lacks permission to comment
+
+With no service account attached, Promptless comments as the person who connected Atlassian only when your Knowledge Base or the request explicitly permits it. Otherwise it skips the comment and sends the result to your other notification channels. A session started by a `promptless` label or a configured trigger also posts no comment when there's no documentation change.
+
+### Solution: Attach a service account or permit comments
+
+- Attach an [Atlassian service account](/docs/for-docs/reference/integrations/atlassian#atlassian-service-account), or explicitly permit comments in your Knowledge Base or the request. See [Reply on the ticket](/docs/for-docs/connect/triggers/jira#reply-on-the-ticket).
+
+## Symptom: Suggestions draw on less context than usual
+
+### Cause: A context source lost access
+
+[Context sources](/docs/for-docs/connect/context-sources) are read-only and optional. When one loses access, Promptless still creates suggestions, but without the background that source provided.
+
+### Solution: Reconnect the context source
+
+<Steps>
+  1. On the [integrations page](https://app.gopromptless.ai/integrations), find the context source's card.
+
+  2. If the card shows **Needs reconnect**, select its reconnect action and approve access with the provider.
+</Steps>
+
+## For more information
+
+- Contact the Promptless team at [help@gopromptless.ai](mailto\:help@gopromptless.ai) if a card doesn't show a reconnect option or reconnecting doesn't resolve the problem. Also reach out if you're unsure which integration is at fault. See [Get support](/docs/for-docs/reference/getting-help) for every way to get in touch.
+- To retire a connection, disconnect the integration from its card on the [integrations page](https://app.gopromptless.ai/integrations). Disconnecting immediately revokes Promptless's access to that service. For how Promptless accesses and retains data from connected services, see [Data handling and classification](/docs/for-docs/security/data-handling-and-classification).
