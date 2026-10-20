@@ -16,9 +16,9 @@ export class ScanRequestError extends Error {
 }
 
 const POLL_INTERVAL_MS = 2_000;
-// The backend kills afdocs after 300 s and marks stale scans failed after 10
-// minutes; stop polling a little after that so a tab never polls forever.
-const POLL_GIVE_UP_MS = 11 * 60 * 1000;
+// The backend kills afdocs after 900 s and Kubernetes ends the scan's Job at
+// 960 s; stop polling a minute after that so a tab never polls forever.
+const POLL_GIVE_UP_MS = 17 * 60 * 1000;
 
 async function readError(response: Response): Promise<ScanRequestError> {
   const body = (await response.json().catch(() => ({}))) as { error?: string; message?: string };
@@ -29,45 +29,67 @@ async function readError(response: Response): Promise<ScanRequestError> {
   return new ScanRequestError(body.message || fallback, body.error || 'request_failed', response.status);
 }
 
-export async function startScan(apiBase: string, url: string, website = ''): Promise<CreateScanResponse> {
+export async function startScan(apiBase: string, url: string, website = '', signal?: AbortSignal): Promise<CreateScanResponse> {
   let response: Response;
   try {
     response = await fetch(`${apiBase}/scans`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url, website }),
+      signal,
     });
-  } catch {
+  } catch (error) {
+    if (signal?.aborted) throw error;
     throw new ScanRequestError('The scoring service is unreachable. Check your connection and try again.', 'network', 0);
   }
   if (!response.ok) throw await readError(response);
   return (await response.json()) as CreateScanResponse;
 }
 
-export async function getScan(apiBase: string, scanId: string): Promise<ScanStatusResponse> {
-  const response = await fetch(`${apiBase}/scans/${encodeURIComponent(scanId)}`, { cache: 'no-store' });
+export async function getScan(apiBase: string, scanId: string, signal?: AbortSignal): Promise<ScanStatusResponse> {
+  const response = await fetch(`${apiBase}/scans/${encodeURIComponent(scanId)}`, { cache: 'no-store', signal });
   if (!response.ok) throw await readError(response);
   return (await response.json()) as ScanStatusResponse;
 }
 
+/** Resolve after `ms`, or reject with the signal's reason as soon as it aborts. */
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      window.clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
 /**
  * Poll until the scan completes or fails. Transient network errors are
- * retried; `onUpdate` sees every status response.
+ * retried; `onUpdate` sees every status response. Aborting `signal` stops
+ * polling and rejects with the signal's reason. The scan itself keeps running
+ * on the backend, which has no cancel endpoint.
  */
 export async function pollScan(
   apiBase: string,
   scanId: string,
   onUpdate: (status: ScanStatusResponse) => void,
+  signal?: AbortSignal,
 ): Promise<ScanStatusResponse> {
   const startedAt = Date.now();
   let failures = 0;
   for (;;) {
     try {
-      const status = await getScan(apiBase, scanId);
+      const status = await getScan(apiBase, scanId, signal);
       failures = 0;
       onUpdate(status);
       if (status.status === 'complete' || status.status === 'failed') return status;
     } catch (error) {
+      if (signal?.aborted) throw error;
       failures += 1;
       if (error instanceof ScanRequestError && error.status === 404) throw error;
       if (failures >= 5) throw new ScanRequestError('Lost contact with the scoring service.', 'network', 0);
@@ -75,7 +97,7 @@ export async function pollScan(
     if (Date.now() - startedAt > POLL_GIVE_UP_MS) {
       throw new ScanRequestError('The scan is taking unusually long. Reload the page later to see the result.', 'timeout', 0);
     }
-    await new Promise((resolve) => window.setTimeout(resolve, POLL_INTERVAL_MS));
+    await wait(POLL_INTERVAL_MS, signal);
   }
 }
 
@@ -144,12 +166,5 @@ export function renderProgress(els: ProgressElements, status: Pick<ScanStatusRes
   els.count.textContent = `${completed}/${total} checks · ${elapsed}s`;
   els.bar.style.width = `${Math.max(4, (completed / total) * 100)}%`;
   const current = friendlyCheckName(progress?.currentCheck);
-  els.detail.replaceChildren();
-  if (current) {
-    const code = document.createElement('code');
-    code.textContent = progress?.currentCheck ?? '';
-    els.detail.append(`Checking ${current} `, code);
-  } else {
-    els.detail.textContent = 'Discovering pages from llms.txt and the sitemap…';
-  }
+  els.detail.textContent = current ? `Checking ${current}` : 'Discovering pages from llms.txt and the sitemap…';
 }
