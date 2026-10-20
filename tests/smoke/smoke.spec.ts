@@ -228,7 +228,7 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
 
   assertLink(nav, '/', 'Home');
   assertLink(nav, '/pricing', 'Pricing');
-  assert.match(nav, /<summary[^>]*aria-label="Choose a documentation product"[^>]*>/i);
+  assert.match(nav, /<summary[^>]*aria-label="Docs: choose a documentation product"[^>]*>/i);
   assertLink(nav, '/docs/for-docs/start-here/welcome', 'Promptless for Docs');
   assertLink(nav, '/docs/governance', 'Promptless for Agent Instructions');
   assert.match(nav, /class="pl-docs-product-badge">New<\/span>/i);
