@@ -1,12 +1,51 @@
 ---
 title: How it works
 description: Understand PIG's components and dependencies, from publishing instructions to collecting traces and reviewing improvements.
+id: governance-start-here-how-it-works
 slug: docs/governance/start-here/how-it-works
-type: guide
+type: concept
 tags:
   - agent-instructions
   - governance
   - architecture
+keywords:
+  - PIG architecture
+  - Instruction Hub components
+  - trace analyzer
+  - Friction Analyzer
+  - pig-trace-analyzer
+  - instruction releases
+language: en
+audiences:
+  - aud-agent-governance
+intent: understand how PIG components publish agent instructions, collect session traces, and propose reviewed instruction improvements
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+concepts:
+  - instruction governance
+  - instruction hub
+  - analyzer worker
+  - trace
+  - remediation
+next-steps:
+  - governance-get-started-set-up-your-instruction-hub
+  - governance-get-started-migrate-existing-instructions
+  - governance-start-here-trust-and-data-model
+  - governance-deploy-the-worker-plan-your-deployment
+related-pages:
+  - governance-start-here-key-concepts
+  - governance-get-started-publish-and-install-plugins
+  - governance-reference-trace-object-and-sources
+  - governance-deploy-the-worker-manage-updates-and-recovery
+risks:
+  - read-only
+sample-questions:
+  - Which PIG components run in our infrastructure and which run at Promptless?
+  - Can we publish instructions without deploying the trace analyzer?
+  - What is the difference between pig-trace-analyzer and the Friction Analyzer?
+  - How do instruction releases differ from analyzer releases?
 sidebar:
   hidden: false
   order: 1
@@ -15,9 +54,16 @@ sidebar:
 import { Steps } from '@astrojs/starlight/components';
 import PigArchitecture from '../../../../../components/docs/PigArchitecture.astro';
 
-PIG connects **publishing instructions** with **learning from sessions**. You can publish instructions independently. Adding trace analysis gives your team evidence about how those instructions perform in practice.
+PIG connects publishing instructions with learning from sessions. You can publish instructions on their own. Adding trace analysis gives your team evidence about how those instructions perform in practice.
 
 This page explains the components, where they run, and what each one depends on. For individual terms, see [Key concepts](/docs/governance/start-here/key-concepts).
+
+## Use cases
+
+- You want shared instructions now and analysis later. [Components every hub uses](#components-every-hub-uses) lists everything that publishing alone needs.
+- Your platform team asks what it must run. The component tables show which parts run in your Git provider, your cloud account, and Promptless, and what each one depends on.
+- A reviewer asks how a session becomes an instruction fix. [Learn from a session](#learn-from-a-session) follows one trace from the host to a reviewed pull request.
+- New instructions don't appear after an analyzer update. [Keep the two update paths distinct](#keep-the-two-update-paths-distinct) explains why instruction releases and analyzer releases update separately.
 
 ## The components at a glance
 
@@ -42,7 +88,7 @@ This page explains the components, where they run, and what each one depends on.
 | Promptless     | Promptless infrastructure         | Manage enrollment and deployment coordination; record findings and coordinate GitHub issues and remediation | Your organization's deployment and repository connections                                              |
 | Model provider | Your configured provider endpoint | Process session and instruction context for analysis and remediation                                        | Model access and configured credentials                                                                |
 
-The deployed trace analyzer service is named `pig-trace-analyzer`. Its analysis component is called the **Friction Analyzer**. These names refer to a service and a component inside it; you do not install two analysis services.
+The deployed trace analyzer service is named `pig-trace-analyzer`. Its analysis component is called the **Friction Analyzer**. The Friction Analyzer runs inside that service, so you deploy one analysis service.
 
 ## Publish an instruction
 
@@ -51,19 +97,19 @@ The deployed trace analyzer service is named `pig-trace-analyzer`. Its analysis 
 
      Acme keeps a `review-docs` skill in its Instruction Hub. The skill defines the review scope, accuracy and clarity checks, and the evidence each finding needs. Acme includes it in a `docs` plugin for writers and a `dev` plugin for developers.
 
-     The skill is an **asset**; the plugin is a named selection of assets. Updating the shared source changes both plugins on the next publish. Repository-specific facts, such as one project's build command, can remain in that repository rather than being generalized for every team.
+     The skill is an **asset**, and the plugin is a named selection of assets. Updating the shared source changes both plugins on the next publish. Repository-specific facts, such as one project's build command, stay in that project's repository.
 
   2. **Validate and build**
 
-     The author runs `pig validate` to check the hub and `pig verify` to compile it in a temporary directory. CI runs the same checks on the pull request. These checks catch configuration and build errors; reviewers still need to assess whether the instructions are correct and useful.
+     The author runs `pig validate` to check the hub and `pig verify` to compile it in a temporary directory. CI runs the same checks on the pull request. These checks catch configuration and build errors. Reviewers still judge whether the instructions are correct and useful.
 
-     The toolchain builds for the configured targets: Claude, Codex, Cursor, and Gemini. Different targets support different asset types and installation mechanisms. A successful build does not prove the desktop agent has installed the plugin or can execute every instruction it contains.
+     The toolchain builds for the configured targets: Claude, Codex, Cursor, and Gemini. Different targets support different asset types and installation mechanisms. A successful build doesn't prove that an agent has installed the plugin or can carry out every instruction in it.
 
   3. **Publish and install**
 
-     After review and merge, a GitHub or GitLab publishing pipeline builds the release output. It updates the release branch and marketplace pointers and records the hub version. Authors work with source on the default branch; agents install the released output.
+     After review and merge, a GitHub or GitLab publishing pipeline builds the release output. It updates the release branch and marketplace pointers and records the hub version. Authors work with source on the default branch, and agents install the released output.
 
-     Acme's writers install the `docs` plugin and its developers install `dev`. Both install the required `pig` plugin, which includes the managed hub-update skill for Claude and Codex. That skill helps refresh the marketplace and installed plugins. Each host's installation and reload behavior still applies.
+     Acme's writers install the `docs` plugin and its developers install `dev`. Both install the required `pig` plugin. For Claude and Codex, it includes a managed skill that refreshes the marketplace and installed plugins. Each agent's own installation and reload behavior still applies.
 </Steps>
 
 See [Publish and install plugins](/docs/governance/get-started/publish-and-install-plugins) for CI configuration and the installation checks.
@@ -73,15 +119,15 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
 <Steps>
   1. **Prepare the analyzer and enable collection**
 
-     Your platform team deploys the analyzer and connects its database, bucket, and model provider. It configures a deployment with Promptless and makes the analyzer reachable from the hosts that will upload traces. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings.
+     Your platform team deploys the analyzer and connects its database, bucket, and model provider. It configures a deployment with Promptless and makes the analyzer reachable from the hosts that upload traces. An organization administrator selects the instruction repositories the analyzer reads in PIG Settings.
 
-     The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude, Codex, and Cursor versions of the `pig` plugin. The setting does not create infrastructure or enroll hosts by itself.
+     The hub owner then enables `trace_ingestion.enabled`, publishes a new release, and refreshes installed plugins. This adds the managed collection runtime to the Claude, Codex, and Cursor versions of the `pig` plugin. The setting doesn't create infrastructure or enroll hosts.
 
   2. **Enroll each host**
 
      A host opens the browser enrollment flow. A signed-in organization member approves it, and Promptless issues a credential for that host and deployment. The host uses that credential to authenticate to your analyzer.
 
-     The collector reads supported native session logs: Claude Code, Claude Desktop, Codex, and Cursor. Cursor collection needs analyzer 0.3.3 or later. A Claude Desktop source must actually exist and be enrolled; installing a Claude plugin alone does not make Desktop traces available. Gemini plugin builds do not include native trace collection.
+     The collector reads supported native session logs: Claude Code, Claude Desktop, Codex, and Cursor. Cursor collection needs analyzer 0.3.3 or later. A Claude Desktop source must exist on the machine and be enrolled. Installing a Claude plugin alone doesn't make Desktop traces available. Gemini plugin builds don't include native trace collection.
 
   3. **Collect and store the trace**
 
@@ -93,7 +139,7 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
 
      The analyzer examines sessions after they finish or become quiet. It uses session evidence and instruction-hub context to investigate instruction failures. That work calls the model provider you configured.
 
-     For example, an older release of Acme's `review-docs` skill omits prerequisite checks. Agents following it repeatedly approve setup guides without checking required permissions. The analyzer can identify the missing instruction and cite the observed reviews. A completed analysis can also produce no finding; absence of a finding is not an ingestion failure.
+     For example, an older release of Acme's `review-docs` skill omits prerequisite checks. Agents following it repeatedly approve setup guides without checking required permissions. The analyzer can identify the missing instruction and cite the observed reviews. A completed analysis can also produce no finding, which doesn't mean ingestion failed.
 
   5. **Review and improve**
 
@@ -102,13 +148,13 @@ See [Publish and install plugins](/docs/governance/get-started/publish-and-insta
      Acme's reviewer checks the evidence and the proposed instructions, runs the relevant checks, and merges an accepted fix. The hub's publishing pipeline distributes a new release. Refreshing the installed plugins makes the correction available to the team's agents.
 </Steps>
 
-An organization administrator selects the instruction repositories the analyzer reads in PIG Settings. Each is a GitHub repository with a `main` branch, and the analyzer receives GitHub App tokens from Promptless to read them. GitLab hub publishing does not imply GitLab analyzer or remediation support.
+Each instruction repository the analyzer reads is a GitHub repository with a `main` branch. The analyzer receives GitHub App tokens from Promptless to read them. A GitLab-hosted hub can publish plugins, but analysis and remediation work only with GitHub repositories.
 
 ## Keep the two update paths distinct
 
-**Instruction releases** change the content your agents install. Hub owners publish them through Git, and agent users refresh their plugins.
+Instruction releases change the content your agents install. Hub owners publish them through Git, and agent users refresh their plugins.
 
-**Analyzer releases** change the service that collects and studies traces. The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
+Analyzer releases change the service that collects and studies traces. The trace analyzer updates automatically to stable releases by default. You can pause updates or pin a release. See [Manage updates and recovery](/docs/governance/deploy-the-worker/manage-updates-and-recovery).
 
 ## Next steps
 
