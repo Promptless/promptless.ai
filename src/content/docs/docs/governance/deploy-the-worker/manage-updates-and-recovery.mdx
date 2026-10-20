@@ -87,10 +87,15 @@ Run the handoff from a checkout of the [`v0.3.4` release](https://github.com/Pro
 
 <Steps>
   1. Back up the CRD, every `PIGDeployment`, the existing Ingress, and the bootstrap Helm values. Record the supervisor's running image digest and release catalog.
+
   2. Wait for `status.phase: complete` with no maintenance Job running. Suspend GitOps reconciliation of the bootstrap release and `PIGDeployment`, then scale every supervisor that shares the CRD to zero.
+
   3. Remove the whole `spec.endpoint` block from each `PIGDeployment` manifest. Copy its hostname, class, TLS Secret, and annotations into the bootstrap values as `ingress.hostname`, `ingress.ingressClassName`, `ingress.tlsSecretName`, and `ingress.annotations`, and set `ingress.serviceName` to the existing Ingress name, such as `acme-analyzer`. Set the 0.3.4 supervisor image digest. Render the chart and confirm the Ingress matches the saved object.
+
   4. Apply the 0.3.4 CRD with server-side apply, then apply the updated `PIGDeployment`. Never delete or recreate the CRD or the `PIGDeployment`.
+
   5. Generate the ownership patch with the release's `scripts/ingress-handoff.py` and apply it to the existing Ingress. The patch transfers the Ingress from the `PIGDeployment` to Helm without changing its spec.
+
   6. Run `helm upgrade` for the bootstrap release with the prepared values. Confirm the Ingress UID, hostname, certificate, and load balancer address match the backup. Then confirm HTTPS health and that the deployment returns to `Ready=True`, and resume GitOps reconciliation.
 </Steps>
 
@@ -103,7 +108,7 @@ The supervisor sets the analyzer's environment variables, so the two must use th
 Use the `pig-supervisor` chart for the highest version in the [stable catalog](https://github.com/Promptless/pig-deploy/blob/main/catalog/stable.json). An unpinned supervisor selects that release, so the bootstrap image matches the release it installs. The chart's values are unchanged from 0.3.4, so you can reuse your current bootstrap values with the new supervisor image digest.
 
 <Steps>
-  1. Set `PIG_VERSION` to that version, then download and verify its files as in [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). Save the current `PIGDeployment`, Ingress, supervisor Deployment, and bootstrap Helm values.
+  1. Set `PIG_VERSION` to that version. Download and verify its files. See [Select and verify a release](/docs/governance/deploy-the-worker/deploy-the-analyzer-worker#1-select-and-verify-a-release). Save the current `PIGDeployment`, Ingress, supervisor Deployment, and bootstrap Helm values.
 
   2. Set `spec.release.paused` to `true`. Wait for `status.phase: complete` with no migration Job running.
 
@@ -142,9 +147,13 @@ The supervisor records the current release, target release, update stage, and a 
 
 <Steps>
   1. Resolve and verify the stable release artifacts and its supported upgrade path.
+
   2. Check hosted compatibility, storage access, and model and repository requirements. Check observable capacity and require operator confirmation for release requirements that cannot be verified directly.
+
   3. Require release-specific recovery confirmation before a destructive migration, then run the release's coordinated schema migrations. Your backup workflow creates and retains the recovery points.
+
   4. Roll out the analyzer and supervisor in the release's declared order.
+
   5. Verify health, storage access, and hosted synchronization before marking the target installed.
 </Steps>
 
@@ -299,10 +308,15 @@ Removing the `PIGDeployment` cleans up its generated application resources. Post
 
 <Steps>
   1. With Promptless, disable host enrollment and collection for the deployment.
+
   2. Let accepted work finish, or record what remains queued.
+
   3. Pause updates.
+
   4. Remove the `PIGDeployment` through its owning GitOps repository or Kubernetes workflow.
+
   5. After the supervisor finishes cleanup, uninstall the bootstrap release to remove the supervisor. Uninstalling it also removes the collector Ingress.
+
   6. Revoke unused application credentials and remove the DNS records.
 </Steps>
 
