@@ -3,7 +3,7 @@ title: Heretto CCMS
 description: Keep your DITA documentation in a Heretto CCMS folder and have your writers accept or reject Promptless suggestions in Heretto's topic editor.
 id: for-docs-connect-doc-locations-heretto-ccms
 slug: docs/for-docs/connect/doc-locations/heretto-ccms
-type: reference
+type: how-to
 tags:
   - connect
   - doc-locations
@@ -36,6 +36,7 @@ risks:
   - open-world
 sample-questions:
   - How do I connect Heretto CCMS to Promptless?
+  - How do I add a Heretto folder as a doc collection?
   - How do I find the Heretto folder ID for a doc collection?
   - How do writers accept or reject Promptless suggestions in Heretto?
   - Which files can Promptless change in Heretto?
@@ -44,6 +45,8 @@ sidebar:
   order: 25
 last-updated: 2026-10-20
 ---
+
+## Overview
 
 If your team writes DITA topics and maps in Heretto CCMS, you can point Promptless at a Heretto folder. Promptless reads the folder's content and drafts suggestions against it. When you send a suggestion to Heretto, Promptless adds its changes to the topics as Heretto suggestions. Your writers then accept or reject each change in Heretto's topic editor, where they already work.
 
@@ -75,15 +78,34 @@ Promptless rechecks the credentials once a day and shows the result on the card.
 
 ## Add a Heretto doc collection
 
-After Heretto is connected, add the collection in **YAML** mode on the [Configuration page](https://app.gopromptless.ai/configuration).
+After Heretto is connected, add the collection on the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration).
 
-1. In Heretto, open the folder you want Promptless to document.
-2. In the Resource Drawer, open **API Info** and copy the folder's REST URL. The UUID at the end of the URL is the folder ID.
-3. On the Configuration page, switch to **YAML** mode.
-4. Under `doc_collections`, add an entry with `platform: heretto`, your Heretto `host`, and the folder ID as `root_folder_id`.
-5. Save the configuration.
+1. Select **Add doc collection**.
+2. Select **Browse folders on** your Heretto host, such as **Browse folders on acme.heretto.com**. To list only that entry, search for `heretto`.
+3. Open a repository, then open folders until you reach the one you want Promptless to document. Promptless documents everything inside it.
+4. Select **Use this folder**.
+5. Select **Add collection**.
 
-A Heretto collection has no repository, so you choose its key. The key is any `owner/repo`-style name, such as `acme/product-guide`. Triggers and policy rules refer to the collection by this key.
+The folder browser lists only the repositories that the connected Heretto account can read. A folder that another doc collection already covers is marked **Already a doc collection**. Each Heretto folder can belong to only one doc collection. You can open a marked folder to reach the folders inside, but you can't choose it.
+
+Promptless names the new collection after your Heretto tenant and the folder, such as `acme/product-manual` for a folder named Product Manual on `acme.heretto.com`. If that key is taken, Promptless adds a number, such as `acme/product-manual-2`. Triggers and policy rules refer to the collection by this key.
+
+To point an existing Heretto collection at a different folder, select **Change** under **Heretto folder** and choose the new folder. Choosing a folder also sets the collection's **Heretto host** to the connected Heretto host.
+
+If the folder browser can't list folders, it says why:
+
+| Condition                                               | What to do                                                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Heretto rejected the saved username or API token.       | Reconnect Heretto on the [Integrations page](https://app.gopromptless.ai/integrations) with a working token.            |
+| The connected Heretto account can't open the folder.    | Choose another folder, or ask a Heretto admin to give that account access to the folder.                                 |
+| The folder no longer exists in Heretto.                 | Choose another folder.                                                                                                   |
+| Heretto didn't respond.                                 | Wait a few minutes, then select **Retry**.                                                                               |
+
+### Configure a Heretto doc collection in YAML
+
+In **YAML** mode on the Configuration page, a Heretto collection sets `platform: heretto`, your Heretto `host`, and the folder's ID as `root_folder_id`. To find the folder ID, open the folder in Heretto, then open **API Info** in the Resource Drawer. The UUID at the end of the folder's REST URL is the folder ID.
+
+In YAML, you choose the collection's key. The key is any `owner/repo`-style name, such as `acme/product-guide`.
 
 ```yaml
 doc_collections:
@@ -93,7 +115,7 @@ doc_collections:
     root_folder_id: 8f3ed200-cbba-11e1-ac51-c82a1446d15c
 ```
 
-Each Heretto folder can belong to only one doc collection. Leave out `default_branch`, because a Heretto folder has no branches. The other fields, such as `docs_root_url`, `filter`, and `vale_config_path`, work as they do for other doc collections. After you save, the collection appears on the **Doc collections** tab in **Form** mode, where you can edit its **Heretto host** and **Root folder ID**. See the [configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for every field.
+Leave out `default_branch`, because a Heretto folder has no branches. The other fields, such as `docs_root_url`, `filter`, and `vale_config_path`, work as they do for other doc collections. See the [configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for every field.
 
 ## Send a suggestion to Heretto for review
 
@@ -133,3 +155,9 @@ Before it saves anything, Promptless checks every changed file. If any file fail
 | A change can't be written as a Heretto suggestion. For example, it changes the topic's root element, or the XML doesn't parse. | Ask Promptless to revise the suggestion so the file is well-formed XML and keeps its root element.                                      |
 
 If writing stops partway, for example because Heretto is unreachable, select **Suggest in Heretto** again. Promptless skips files that already carry the suggestion's changes.
+
+## See also
+
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections), for every doc collection field
+- [Connection health](/docs/for-docs/connect/connection-health), for the daily credential check on the Heretto card
+- [GitHub repos](/docs/for-docs/connect/doc-locations/github-repos), to compare with a docs-as-code doc collection
