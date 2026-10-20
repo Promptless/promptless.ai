@@ -25,6 +25,11 @@ export interface StarlightMcpOptions {
   corsAllowOrigin?: string;
   /** Package location relative to the project root. Override if you move it. */
   packageDir?: string;
+  /**
+   * Rewrite each page's raw body before it is indexed, for example to inline
+   * MDX partials the page embeds. Receives the body and the page's absolute path.
+   */
+  transformContent?: (content: string, file: string) => string;
 }
 
 const PLUGIN_VERSION = '0.1.0';
@@ -73,6 +78,7 @@ export default function starlightMcp(options: StarlightMcpOptions = {}): Starlig
             corsAllowOrigin: options.corsAllowOrigin,
             locales: normalizeLocales(cfg),
             packageDir: options.packageDir ?? 'packages/starlight-mcp',
+            transformContent: options.transformContent,
           }),
         );
         logger.info(`MCP server route registered at "${options.endpoint ?? '/mcp'}".`);
