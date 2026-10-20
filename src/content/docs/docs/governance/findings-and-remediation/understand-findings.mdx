@@ -1,28 +1,70 @@
 ---
 title: Understand findings
 description: Read instruction-governance findings, distinguish severity from confidence, and decide who owns the next action.
+id: governance-findings-and-remediation-understand-findings
 slug: docs/governance/findings-and-remediation/understand-findings
-type: guide
+type: concept
 tags:
   - agent-instructions
   - governance
   - guide
+keywords:
+  - PIG findings
+  - finding severity
+  - finding confidence
+  - instruction failure
+  - GitHub issue for finding
+  - instruction sources
+language: en
+audiences:
+  - aud-agent-governance
+intent: read a PIG finding's severity, confidence, and evidence, route its GitHub issue to the right repository, and decide who owns the next action
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - integration:github
+concepts:
+  - finding
+  - trace
+  - remediation
+  - instruction hub
+prerequisites:
+  - governance-deploy-the-worker-verify-your-deployment
+next-steps:
+  - governance-findings-and-remediation-remediate-findings
+related-pages:
+  - governance-start-here-trust-and-data-model
+risks:
+  - read-only
+sample-questions:
+  - What is the difference between severity and confidence on a PIG finding?
+  - Why does a finding ask me to select a repository for its GitHub issue?
+  - Why did an analysis run complete with zero findings?
+  - Does every finding need a change to the Instruction Hub?
 sidebar:
   hidden: false
   order: 1
 ---
 
+import { Steps } from '@astrojs/starlight/components';
+
 A finding describes an instruction problem supported by evidence from real agent sessions. It helps your team decide what to change, why the change matters, and who should own it.
 
 For example, Acme's documentation skill might tell an agent to verify every example but omit how to choose the correct product version. A finding can connect repeated incorrect examples to that missing guidance. A failed API request caused by an expired credential may instead belong to the team that manages the credential.
 
-## Before you begin
+Findings appear after an operator has [verified completed analysis](/docs/governance/deploy-the-worker/verify-your-deployment). To work with one, you need access to your connected Instruction Hub. You also need the finding's GitHub issue or its page in the Promptless Dashboard.
 
-You need access to your connected Instruction Hub and the finding's issue or hosted record. An operator should already have [verified completed analysis](/docs/governance/deploy-the-worker/verify-your-deployment). A successful analysis can produce zero findings.
+## Use cases
+
+- A finding is high severity but low confidence, and you must decide whether to act now. [Read the evidence before choosing a fix](#read-the-evidence-before-choosing-a-fix) explains what each field measures.
+- A finding waits for a repository before Promptless opens its GitHub issue. [Follow the finding into your repository](#follow-the-finding-into-your-repository) explains how Promptless picks a destination and when an administrator chooses one.
+- A finding points at a failure the hub doesn't own, such as an expired credential. [Decide the next action](#decide-the-next-action) helps you route it to the right owner.
+- An analysis run completes with zero findings. That is a valid result, and [Troubleshooting](#troubleshooting) lists what to confirm.
 
 ## Read the evidence before choosing a fix
 
-Start with the summary, impact, and cited occurrences. Check that the described behavior happened and that the instruction failure explains it. Severity and confidence answer different questions:
+Start with the summary, impact, and cited occurrences. Check that the described behavior happened and that the instruction failure explains it. A finding carries these fields:
 
 | Field                                         | What it tells you                                              | How to use it                                                                            |
 | --------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -32,32 +74,56 @@ Start with the summary, impact, and cited occurrences. Check that the described 
 | Evidence                                      | Cited occurrences and a summary of what happened.              | Compare the claim with the session details.                                              |
 | Notes                                         | Additional context, uncertainty, or an external owner.         | Check whether action belongs outside the hub.                                            |
 
-High severity does not automatically mean high confidence. A serious suspected failure may still need more evidence. Later analysis can add occurrences to an existing finding and promote its confidence when the evidence supports that change.
+Severity and confidence answer different questions. A high-severity finding can still have low confidence and need more evidence. Later analysis can add occurrences to an existing finding and promote its confidence when the evidence supports that change.
 
-The analyzer uses a readable session digest to cite evidence. A `digest_range` identifies a location in that digest; it is unrelated to the cryptographic hashes used to verify stored traces.
+The analyzer cites evidence from a readable session digest. A `digest_range` identifies a location in that digest. It is unrelated to the cryptographic hashes that verify stored traces.
 
 ## Follow the finding into your repository
 
 PIG analyzes every instruction repository your organization selects in PIG Settings. Each finding records the instruction source it came from: the repository and the exact commit the analyzer read. The finding lists these sources under **Instruction sources**, each linked to that commit.
 
-The worker sends finding updates to Promptless. Promptless creates or updates a GitHub issue for the finding in its destination repository. The issue carries the finding's title, impact, instruction failure, severity, confidence, and evidence. A destination repository must have **Create Repo Issues** enabled in PIG Settings.
+The analyzer sends finding updates to Promptless. Promptless creates or updates a GitHub issue for the finding in its destination repository. The issue carries the finding's title, impact, instruction failure, severity, confidence, and evidence. A destination repository must have **Create Repo Issues** enabled in PIG Settings.
 
-Promptless creates the issue automatically when the finding's recorded sources resolve to one selected repository that has Create Repo Issues enabled. Sometimes the finding needs a destination first. This happens when the sources span more than one selected repository. It also happens when the finding records no source and your organization has more than one repository selected. An organization administrator then opens the finding, selects a repository under **Instruction sources**, and chooses **Use repository**. The destination is set once per finding. Promptless then creates the issue and any proposed fix in that repository.
+Promptless creates the issue automatically when the finding's recorded sources resolve to one selected repository that has Create Repo Issues enabled. A finding needs a destination first in either of these cases:
+
+- Its sources span more than one selected repository.
+- It records no source, and your organization has more than one repository selected.
 
 Removing an instruction repository in PIG Settings stops future analysis and issue automation for that source. Findings already recorded against it keep their instruction sources, issues, and pull requests.
 
-Recurring evidence can update an existing finding and its issue as more sessions are analyzed. Use the finding identity and linked issue to follow that history. Issue projection is a separate step from local analysis: a completed run does not by itself prove that GitHub access is working.
+As the analyzer processes more sessions, recurring evidence can update an existing finding and its issue. Use the finding identity and the linked issue to follow that history. Creating the issue is a separate step from analysis, so a completed run alone doesn't prove that GitHub access works.
 
 Finding text and evidence summaries can include session details. Make sure the destination repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
 
+### Choose a destination repository
+
+An organization administrator sets the destination once per finding, while the finding is open:
+
+<Steps>
+  1. On the **Findings** page of the Promptless Dashboard, open the finding.
+
+  2. Select **Instruction sources and fix destination**.
+
+  3. Select a repository from the list. The list shows only repositories that have Create Repo Issues enabled.
+
+  4. Select **Use repository**.
+</Steps>
+
+Promptless then creates the issue, and any proposed fix, in that repository.
+
 ## Decide the next action
 
-1. **Confirm the observed problem.** Read the impact and evidence, including enough surrounding context to avoid correcting intentional behavior.
-2. **Identify the owner.** Shared hub instructions, a repository-local instruction, a tool bug, and a missing permission have different owners.
-3. **Check for an existing response.** Read the finding notes, linked pull request, and current hub instructions before proposing a duplicate fix.
-4. **Review the remediation outcome.** High-confidence findings can enter the [remediation workflow](/docs/governance/findings-and-remediation/remediate-findings). That workflow may propose a hub change, ask for a policy decision, or identify an external action.
+<Steps>
+  1. **Confirm the observed problem.** Read the impact and evidence, including enough surrounding context to avoid correcting intentional behavior.
 
-The expected outcome is a clear owner and a justified next action. Every finding does not need a new instruction or a pull request.
+  2. **Identify the owner.** Shared hub instructions, a repository-local instruction, a tool bug, and a missing permission have different owners.
+
+  3. **Check for an existing response.** Read the finding notes, linked pull request, and current hub instructions before proposing a duplicate fix.
+
+  4. **Review the remediation outcome.** High-confidence findings can enter the [remediation workflow](/docs/governance/findings-and-remediation/remediate-findings). That workflow may propose a hub change, ask for a policy decision, or identify an external action.
+</Steps>
+
+The expected outcome is a clear owner and a justified next action. Not every finding needs a new instruction or a pull request.
 
 ## Troubleshooting
 
@@ -70,4 +136,8 @@ The expected outcome is a clear owner and a justified next action. Every finding
 | No remediation pull request opened                               | Check confidence, ownership notes, pending decisions, repository access, and the remediation outcome.                                                                                                                    |
 | Similar issues appear to overlap                                 | Compare their failure mechanism and evidence before treating them as duplicates; different symptoms can have one cause, and similar symptoms can have different causes.                                                  |
 
-Next, [review and ship a remediation](/docs/governance/findings-and-remediation/remediate-findings).
+## Related resources
+
+- [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings), to review and ship a proposed fix
+- [Trust and data model](/docs/governance/start-here/trust-and-data-model), for who can see finding text and evidence
+- [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment), to confirm that analysis completed for a session

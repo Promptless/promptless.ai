@@ -1,36 +1,79 @@
 ---
 title: Marketing images
 description: How to generate Promptless marketing composites (headline + logo + product screenshot) at exact dimensions, and the current set.
+id: marketing-images
 slug: docs/marketing-images
-type: reference
+type: how-to
 tags:
   - media-kit
   - reference
+keywords:
+  - marketing composites
+  - app listing images
+  - npm run marketing:image
+  - Vercel Marketplace gallery
+  - Satori
+language: en
+audiences:
+  - promptless-marketing-team
+intent: generate Promptless marketing composite images at exact dimensions for app listings with the marketing:image script
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-website
+concepts:
+  - brand assets
+  - screenshots
+related-pages:
+  - media-kit
+risks:
+  - idempotent
+sample-questions:
+  - How do I generate a Promptless marketing image for an app listing?
+  - What size does the marketing image generator produce by default?
+  - Which images go in the Vercel Marketplace gallery?
 sidebar:
   hidden: true
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
-<Aside type="note">
-  These are Linear-style marketing composites. Each has a headline and the Promptless logo on a dark gradient, with a product screenshot floated on the right. They're generated to exact pixel dimensions for app listings (Microsoft Teams, Slack, etc.) and live in <code>public/assets/marketing/</code>. See the <a href="/docs/media-kit">Media Kit</a> for logos and brand colors.
-</Aside>
+## Overview
 
-## Generate one
+The `marketing:image` script generates the marketing composites Promptless uses in app listings, such as Microsoft Teams and Slack. Each composite has a headline and the Promptless logo on a dark gradient, with a product screenshot floated on the right. Listings require exact pixel dimensions, so the script renders each image to a set size and compresses it under a file-size cap.
 
-The generator is a small Node script, and no browser is required. From the repo root:
+Generate a new composite when a listing needs one, and regenerate the current set after an embedded screenshot changes. Composites live in `public/assets/marketing/`. For logos and brand colors, see the [Media kit](/docs/media-kit).
 
-```bash
-npm run marketing:image -- \
-  --headline "Turn conversations|into docs updates" \
-  --screenshot public/assets/integrations-page.png \
-  --out public/assets/marketing/teams-listing.png \
-  --eyebrow "Promptless for Microsoft Teams"
-```
+## Before you start
 
-`|` (or `\n`) forces a hard line break; otherwise the headline wraps to fit its column. Defaults are **1366×768** with a **1024 KB** size cap, so a minimal run only needs `--headline`, `--screenshot`, and `--out`.
+- A local clone of the `promptless.ai` repository with its npm dependencies installed. The script runs in Node and needs no browser.
+- The product screenshot to embed, such as one from `public/assets/`.
 
-### Options
+## Generate a marketing image
+
+<Steps>
+  1. From the repository root, run the script with a headline, a screenshot, and an output path:
+
+     ```bash
+     npm run marketing:image -- \
+       --headline "Turn conversations|into docs updates" \
+       --screenshot public/assets/integrations-page.png \
+       --out public/assets/marketing/teams-listing.png \
+       --eyebrow "Promptless for Microsoft Teams"
+     ```
+
+     Put `|` or `\n` in the headline to force a line break. Otherwise, the headline wraps to fit its column. The output defaults to 1366×768 pixels under a 1024 KB cap, so a minimal run needs only `--headline`, `--screenshot`, and `--out`.
+
+  2. Check the summary that the script prints. It lists the output path, the pixel dimensions, the file size, and the compression format.
+
+     If no PNG fits under the cap, the script writes a `.jpg` file instead. If the JPEG is still over the cap, the script prints a warning and exits with code 2.
+
+  3. Add the image and the command that produced it to [Regenerate the current set](#regenerate-the-current-set).
+</Steps>
+
+### Script options
+
+The script accepts these options:
 
 | Flag           | Default                         | Notes                                      |
 | -------------- | ------------------------------- | ------------------------------------------ |
@@ -38,7 +81,7 @@ npm run marketing:image -- \
 | `--screenshot` | *(required)*                    | Product screenshot to embed                |
 | `--out`        | *(required)*                    | Output path (`.jpg` if it must fall back)  |
 | `--eyebrow`    | *(none)*                        | Small accent label above the headline      |
-| `--logo`       | `public/assets/logo_darkbg.svg` | Any svg/png                                |
+| `--logo`       | `public/assets/logo_darkbg.svg` | Any SVG or PNG file                        |
 | `--width`      | `1366`                          | Exact output width                         |
 | `--height`     | `768`                           | Exact output height                        |
 | `--max-kb`     | `1024`                          | Size cap; triggers compression fallbacks   |
@@ -48,48 +91,95 @@ npm run marketing:image -- \
 | `--fg`         | `#ffffff`                       | Headline color                             |
 | `--accent`     | `#8ea2ff`                       | Eyebrow color                              |
 
-### How it works
+Paths resolve relative to the repository root.
 
-[Satori](https://github.com/vercel/satori) lays out a flexbox tree (so the headline wraps within its column automatically) and emits an SVG with text as vector paths. [`@resvg/resvg-js`](https://github.com/yisibl/resvg-js) rasterizes it, using the vendored static Inter TTFs. Then `sharp` downscales to the exact size and compresses under the cap. Full notes are in `scripts/marketing-image/README.md`.
+### How the script renders
 
-<Aside type="tip">
-  Because the screenshots are referenced from `public/assets/`, Promptless keeps them current. When the app UI changes, the embedded screenshots are updated like any other doc asset. Re-running the script then refreshes these composites.
-</Aside>
+[Satori](https://github.com/vercel/satori) lays out a flexbox tree, so the headline wraps within its column, and emits an SVG with text as vector paths. [`@resvg/resvg-js`](https://github.com/yisibl/resvg-js) rasterizes the SVG with the vendored static Inter TTFs. Then `sharp` downscales the render to the exact size and compresses it. It tries a maximum-effort PNG, then a palette-quantized PNG, then a JPEG, and keeps the first result under the cap. Full notes are in `scripts/marketing-image/README.md`.
 
-## Current set
+## Regenerate the current set
+
+The composites embed screenshots from `public/assets/`. When Promptless updates one of those screenshots, the composites that embed it don't change until you rerun their commands. The command after each image regenerates it.
 
 <figure>
   <img src="/assets/marketing/docs-in-sync.png" alt="Marketing composite: Keep your docs in sync, automatically" />
 
-  <figcaption>docs-in-sync.png — npm run marketing:image -- --headline "Keep your docs|in sync, automatically" --screenshot public/assets/promptless\_1\_listen.png --out public/assets/marketing/docs-in-sync.png</figcaption>
+  <figcaption>docs-in-sync.png</figcaption>
 </figure>
+
+```bash
+npm run marketing:image -- \
+  --headline "Keep your docs|in sync, automatically" \
+  --screenshot public/assets/promptless_1_listen.png \
+  --out public/assets/marketing/docs-in-sync.png
+```
 
 <figure>
   <img src="/assets/marketing/reviewed-before-ship.png" alt="Marketing composite: Every update, reviewed before it ships" />
 
-  <figcaption>reviewed-before-ship.png — npm run marketing:image -- --headline "Every update,|reviewed before it ships" --screenshot public/assets/promptless\_1\_review\.png --out public/assets/marketing/reviewed-before-ship.png</figcaption>
+  <figcaption>reviewed-before-ship.png</figcaption>
 </figure>
+
+```bash
+npm run marketing:image -- \
+  --headline "Every update,|reviewed before it ships" \
+  --screenshot public/assets/promptless_1_review.png \
+  --out public/assets/marketing/reviewed-before-ship.png
+```
 
 <figure>
   <img src="/assets/marketing/teams-listing.png" alt="Marketing composite: Turn conversations into docs updates" />
 
-  <figcaption>teams-listing.png — npm run marketing:image -- --eyebrow "Promptless for Microsoft Teams" --headline "Turn conversations|into docs updates" --screenshot public/assets/integrations-page.png --out public/assets/marketing/teams-listing.png</figcaption>
+  <figcaption>teams-listing.png</figcaption>
 </figure>
+
+```bash
+npm run marketing:image -- \
+  --eyebrow "Promptless for Microsoft Teams" \
+  --headline "Turn conversations|into docs updates" \
+  --screenshot public/assets/integrations-page.png \
+  --out public/assets/marketing/teams-listing.png
+```
 
 ### Vercel Marketplace gallery
 
-The Vercel Integration Console takes 1 to 8 gallery images at 16:9, 1920×1080. These two pass `--width` and `--height` rather than taking the 1366×768 default. Upload them in the order below: what starts a docs update, then what you review.
+The Vercel Integration Console takes one to eight gallery images at 16:9, 1920×1080. These two composites pass `--width` and `--height` to override the 1366×768 default. Upload them in the order below: what starts a docs update, then what you review.
 
-A third image showing the connected integrations is still missing. It needs a capture from a clean workspace, for the reasons given in [#902](https://github.com/Promptless/promptless.ai/pull/902).
+A third image, showing the connected integrations, is still missing. It needs a capture from a clean workspace, for the reasons given in [#902](https://github.com/Promptless/promptless.ai/pull/902).
 
 <figure>
   <img src="/assets/marketing/vercel-code-ships.png" alt="Marketing composite: Your docs update when your code ships" />
 
-  <figcaption>vercel-code-ships.png — npm run marketing:image -- --eyebrow "Promptless Starport" --headline "Your docs update|when your code ships" --screenshot public/assets/promptless\_1\_listen.png --out public/assets/marketing/vercel-code-ships.png --width 1920 --height 1080</figcaption>
+  <figcaption>vercel-code-ships.png</figcaption>
 </figure>
+
+```bash
+npm run marketing:image -- \
+  --eyebrow "Promptless Starport" \
+  --headline "Your docs update|when your code ships" \
+  --screenshot public/assets/promptless_1_listen.png \
+  --out public/assets/marketing/vercel-code-ships.png \
+  --width 1920 \
+  --height 1080
+```
 
 <figure>
   <img src="/assets/marketing/vercel-docs-current.png" alt="Marketing composite: Docs that keep themselves current" />
 
-  <figcaption>vercel-docs-current.png — npm run marketing:image -- --eyebrow "Promptless Starport" --headline "Docs that keep|themselves current" --screenshot public/assets/promptless\_1\_review\.png --out public/assets/marketing/vercel-docs-current.png --width 1920 --height 1080</figcaption>
+  <figcaption>vercel-docs-current.png</figcaption>
 </figure>
+
+```bash
+npm run marketing:image -- \
+  --eyebrow "Promptless Starport" \
+  --headline "Docs that keep|themselves current" \
+  --screenshot public/assets/promptless_1_review.png \
+  --out public/assets/marketing/vercel-docs-current.png \
+  --width 1920 \
+  --height 1080
+```
+
+## See also
+
+- [Media kit](/docs/media-kit), for official logos, brand colors, and the product screenshots the composites embed
+- `scripts/marketing-image/README.md` in the `promptless.ai` repository, for the rendering pipeline and the vendored fonts
