@@ -7,15 +7,19 @@
 // sessions, the booth team and what's at the booth, testimonials, the
 // open-source proof carousel, and a closing link to a virtual call.
 //
-// Booth meetings book through the Cal.com team event BOOTH_CAL_LINK: 15-minute
-// slots at Booth 10 with Prithvi and Manny as hosts, on a Charlotte-time
-// schedule that only opens October 26–28. The hero form collects name, email,
-// company, and the Manny audit opt-in, then opens the Cal.com booking
-// popup with them prefilled; the field names match the event's booking
-// question slugs. The popup carries the campaign and PostHog ids as booking
-// metadata, so the Cal.com webhook can attribute `demo_booked` to this page,
-// and the lead also goes to Formspark on submit. /lavacon/book redirects to
-// the #book anchor on the form.
+// The hero first asks how the visitor wants to meet, with two tiles: at the
+// booth, or on a follow-up video call after LavaCon. Booth meetings book
+// through the Cal.com team event BOOTH_CAL_LINK: 15-minute slots at Booth 10
+// with Prithvi and Manny as hosts, on a Charlotte-time schedule that only
+// opens October 26–28. Follow-ups book the regular discovery call,
+// FOLLOW_UP_CAL_LINK. Picking a tile swaps in the hero form, which collects
+// name, email, company, and the Manny audit opt-in, then opens that event's
+// Cal.com booking popup with them prefilled; the field names match the booth
+// event's booking question slugs. The popup carries the campaign and PostHog
+// ids as booking metadata, so the Cal.com webhook can attribute `demo_booked`
+// to this page, and the lead also goes to Formspark on submit. Without JS the
+// tiles link straight to each Cal.com booking page. /lavacon/book redirects
+// to the #book anchor on the booking panel.
 //
 // All page styles are scoped under .lc-page and the wrapper carries
 // Starlight's `.not-content` opt-out so the docs typography rules leave the
@@ -24,6 +28,7 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import LinkedInLink from '@components/site/LinkedInLink.astro';
 import {
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   CalendarDays,
@@ -44,10 +49,37 @@ const CAMPAIGN = 'lavacon-2026';
 const BOOTH_CAL_LINK = 'team/promptless/lavacon-booth';
 const BOOTH_BOOKING_URL = `https://app.cal.com/${BOOTH_CAL_LINK}`;
 const FORM_ENDPOINT = 'https://submit-form.com/roBOd2Oxb';
+const FOLLOW_UP_CAL_LINK = 'team/promptless/15m-discovery-call';
 // Prefill the discovery call's "What would you like Promptless to manage?"
 // question; this page only sells Promptless for Docs.
-const VIRTUAL_CAL_LINK = `https://app.cal.com/team/promptless/15m-discovery-call?promptless-content=${encodeURIComponent('Customer-facing documentation')}&metadata[campaign]=${CAMPAIGN}`;
+const FOLLOW_UP_CONTENT = 'Customer-facing documentation';
+const VIRTUAL_CAL_LINK = `https://app.cal.com/${FOLLOW_UP_CAL_LINK}?promptless-content=${encodeURIComponent(FOLLOW_UP_CONTENT)}&metadata[campaign]=${CAMPAIGN}`;
 const CONTACT_EMAIL = 'hello@gopromptless.ai';
+
+// The hero's two ways to meet. Picking one retitles the booking form with
+// formTitle and formSub; `href` is the no-JS fallback.
+const meetings = [
+  {
+    id: 'booth',
+    when: 'Oct 26–28',
+    title: 'At the booth',
+    body: 'Meet us in person at Booth 10 in Charlotte.',
+    cta: 'Pick a booth time',
+    href: `${BOOTH_BOOKING_URL}?metadata[campaign]=${CAMPAIGN}`,
+    formTitle: 'Book 15 minutes at Booth 10',
+    formSub: 'Tell us a little about yourself, then pick a time.',
+  },
+  {
+    id: 'follow_up',
+    when: 'From Oct 29',
+    title: 'After LavaCon',
+    body: 'A follow-up video call once you’re back home.',
+    cta: 'Pick a call time',
+    href: VIRTUAL_CAL_LINK,
+    formTitle: 'Book a follow-up after LavaCon',
+    formSub: 'A 15-minute video call with our team. Tell us a little about yourself, then pick a time.',
+  },
+];
 
 const title = 'Promptless at LavaCon 2026';
 const description =
@@ -263,35 +295,70 @@ const initials = (name: string) =>
               </p>
             </div>
 
-            <form class="lc-form" id="book" data-booth-form action={BOOTH_BOOKING_URL} method="get">
-              <h2 class="lc-form-title">Book 15 minutes at Booth 10</h2>
-              <p class="lc-form-sub">Tell us a little about yourself, then pick a time.</p>
-              <p class="lc-offer">
-                <Gift size={20} aria-hidden="true" />
-                <span>
-                  <strong>LavaCon attendees get three months of Promptless free.</strong>
-                  Book a conversation by November 30, 2026.
-                </span>
-              </p>
-              <label class="sr-only" for="book-name">Your name</label>
-              <input id="book-name" name="name" placeholder="Your Name*" autocomplete="name" required />
-              <label class="sr-only" for="book-email">Email address</label>
-              <input id="book-email" name="email" type="email" placeholder="Email Address*" autocomplete="email" required />
-              <label class="sr-only" for="book-company">Company</label>
-              <input id="book-company" name="company" placeholder="Company*" autocomplete="organization" required />
-              <label class="lc-check lc-check-feature">
-                <input type="checkbox" name="docs-audit" value="true" />
-                <span>
-                  <strong>Get an AI-readiness docs audit from Manny Silva</strong>
-                  <small>
-                    A short review of how your docs hold up when an AI assistant answers from them: retrieval,
-                    answer accuracy, and structure. Directly with Manny, not a generic report.
-                  </small>
-                </span>
-              </label>
-              <input type="hidden" name="metadata[campaign]" value={CAMPAIGN} />
-              <button type="submit" class="lc-btn">Pick a time <ArrowRight size={18} aria-hidden="true" /></button>
-            </form>
+            <div class="lc-book" id="book" data-book>
+              <div class="lc-choose" data-book-choose>
+                <h2 class="lc-form-title">Book 15 minutes with Promptless</h2>
+                <p class="lc-form-sub">Where would you like to meet?</p>
+                <div class="lc-meet-grid">
+                  {
+                    meetings.map((m) => (
+                      <a
+                        class:list={['lc-meet', `lc-meet-${m.id}`]}
+                        href={m.href}
+                        data-book-pick={m.id}
+                        data-form-title={m.formTitle}
+                        data-form-sub={m.formSub}
+                        data-track-action="choose_meeting"
+                        data-track-funnel="conversion"
+                        data-track-location={`lavacon_hero_${m.id}`}
+                        data-track-campaign={CAMPAIGN}
+                      >
+                        <span class="lc-meet-top">
+                          {m.id === 'booth' ? <MapPin size={26} aria-hidden="true" /> : <Video size={26} aria-hidden="true" />}
+                          <span class="lc-meet-when">{m.when}</span>
+                        </span>
+                        <span class="lc-meet-body">
+                          <strong>{m.title}</strong>
+                          <span class="lc-meet-desc">{m.body}</span>
+                          <span class="lc-meet-cta">{m.cta} <ArrowRight size={16} aria-hidden="true" /></span>
+                        </span>
+                      </a>
+                    ))
+                  }
+                </div>
+                <p class="lc-offer">
+                  <Gift size={20} aria-hidden="true" />
+                  <span>
+                    <strong>LavaCon attendees get three months of Promptless free.</strong>
+                    Book a conversation by November 30, 2026.
+                  </span>
+                </p>
+              </div>
+
+              <form class="lc-form" data-booth-form action={BOOTH_BOOKING_URL} method="get" hidden>
+                <button type="button" class="lc-back" data-book-back><ArrowLeft size={16} aria-hidden="true" />Change how we meet</button>
+                <h2 class="lc-form-title" tabindex="-1" data-book-title>{meetings[0].formTitle}</h2>
+                <p class="lc-form-sub" data-book-sub>{meetings[0].formSub}</p>
+                <label class="sr-only" for="book-name">Your name</label>
+                <input id="book-name" name="name" placeholder="Your Name*" autocomplete="name" required />
+                <label class="sr-only" for="book-email">Email address</label>
+                <input id="book-email" name="email" type="email" placeholder="Email Address*" autocomplete="email" required />
+                <label class="sr-only" for="book-company">Company</label>
+                <input id="book-company" name="company" placeholder="Company*" autocomplete="organization" required />
+                <label class="lc-check lc-check-feature">
+                  <input type="checkbox" name="docs-audit" value="true" />
+                  <span>
+                    <strong>Get an AI-readiness docs audit from Manny Silva</strong>
+                    <small>
+                      A short review of how your docs hold up when an AI assistant answers from them: retrieval,
+                      answer accuracy, and structure. Directly with Manny, not a generic report.
+                    </small>
+                  </span>
+                </label>
+                <input type="hidden" name="metadata[campaign]" value={CAMPAIGN} />
+                <button type="submit" class="lc-btn">Pick a time <ArrowRight size={18} aria-hidden="true" /></button>
+              </form>
+            </div>
           </div>
 
           <p class="lc-virtual">
@@ -563,15 +630,15 @@ const initials = (name: string) =>
       <p>&copy; {new Date().getFullYear()} Promptless</p>
     </footer>
 
-    <script is:inline define:vars={{ CAMPAIGN, BOOTH_CAL_LINK, FORM_ENDPOINT }}>
+    <script is:inline define:vars={{ CAMPAIGN, BOOTH_CAL_LINK, FOLLOW_UP_CAL_LINK, FOLLOW_UP_CONTENT, FORM_ENDPOINT }}>
       (() => {
-        // Booth booking: the form collects the details, then opens the Cal.com
-        // booking popup with them prefilled (the field names match the
-        // booking question slugs on the Cal.com event), so the visitor only
-        // picks a time. The lead also goes to Formspark and PostHog on submit,
-        // so it is kept even if the visitor never finishes booking. Without JS
-        // the form is a plain GET to the Cal.com booking page, which reads the
-        // same fields as prefill parameters.
+        // Booking: the visitor picks the booth or a follow-up call, then the
+        // form collects the details and opens that event's Cal.com booking
+        // popup with them prefilled (the field names match the booth event's
+        // booking question slugs), so the visitor only picks a time. The lead
+        // also goes to Formspark and PostHog on submit, so it is kept even if
+        // the visitor never finishes booking. Without JS the form stays hidden
+        // and each tile links straight to its Cal.com booking page.
         (function (C, A, L) {
           const p = (a, ar) => a.q.push(ar);
           const d = C.document;
@@ -602,10 +669,37 @@ const initials = (name: string) =>
         const CAL_NS = 'lavacon-booth';
         window.Cal('init', CAL_NS, { origin: 'https://app.cal.com' });
         window.Cal.ns[CAL_NS]('ui', { theme: 'light', layout: 'month_view' });
-        window.Cal.ns[CAL_NS]('preload', { calLink: BOOTH_CAL_LINK });
 
-        const bookForm = document.querySelector('[data-booth-form]');
-        if (bookForm) {
+        const CAL_LINKS = { booth: BOOTH_CAL_LINK, follow_up: FOLLOW_UP_CAL_LINK };
+        const book = document.querySelector('[data-book]');
+        const choose = book?.querySelector('[data-book-choose]');
+        const bookForm = book?.querySelector('[data-booth-form]');
+        if (book && choose && bookForm) {
+          let meeting = 'booth';
+          const title = bookForm.querySelector('[data-book-title]');
+          const sub = bookForm.querySelector('[data-book-sub]');
+
+          // Picking a tile swaps the tiles for the form, retitled for the
+          // pick. Modified clicks keep the tile's link to the Cal.com page.
+          book.querySelectorAll('[data-book-pick]').forEach((pick) => {
+            pick.addEventListener('click', (event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              meeting = pick.dataset.bookPick;
+              title.textContent = pick.dataset.formTitle;
+              sub.textContent = pick.dataset.formSub;
+              window.Cal.ns[CAL_NS]('preload', { calLink: CAL_LINKS[meeting] });
+              choose.hidden = true;
+              bookForm.hidden = false;
+              title.focus();
+            });
+          });
+          bookForm.querySelector('[data-book-back]').addEventListener('click', () => {
+            bookForm.hidden = true;
+            choose.hidden = false;
+            book.querySelector(`[data-book-pick="${meeting}"]`).focus();
+          });
+
           try {
             const stored = sessionStorage.getItem('pl_demo_email');
             const emailInput = bookForm.querySelector('input[name="email"]');
@@ -616,11 +710,18 @@ const initials = (name: string) =>
             event.preventDefault();
             const data = new FormData(bookForm);
             const email = String(data.get('email') || '').trim();
+            const followUp = meeting === 'follow_up';
 
             const params = new URLSearchParams();
             for (const [key, value] of data.entries()) {
-              if (String(value).trim()) params.set(key, String(value).trim());
+              const v = String(value).trim();
+              if (!v) continue;
+              // The discovery call has no company or audit questions, so
+              // those ride along as booking metadata instead.
+              const metadataOnly = followUp && (key === 'company' || key === 'docs-audit');
+              params.set(metadataOnly ? `metadata[${key}]` : key, v);
             }
+            if (followUp) params.set('promptless-content', FOLLOW_UP_CONTENT);
             try {
               const ph = window.posthog;
               const distinctId = sessionStorage.getItem('pl_ph_distinct_id') || ph?.get_distinct_id?.();
@@ -630,7 +731,7 @@ const initials = (name: string) =>
             } catch (_) {}
 
             window.Cal.ns[CAL_NS]('modal', {
-              calLink: BOOTH_CAL_LINK + '?' + params.toString(),
+              calLink: CAL_LINKS[meeting] + '?' + params.toString(),
               config: { layout: 'month_view', theme: 'light' },
             });
 
@@ -640,6 +741,7 @@ const initials = (name: string) =>
               lead.delete('metadata[campaign]');
               lead.set('campaign', CAMPAIGN);
               lead.set('form', 'lavacon_booth');
+              lead.set('meeting', meeting);
               fetch(FORM_ENDPOINT, {
                 method: 'POST',
                 body: lead.toString(),
@@ -653,6 +755,7 @@ const initials = (name: string) =>
                   intent: 'demo',
                   location: 'lavacon_hero',
                   campaign: CAMPAIGN,
+                  meeting,
                   $set: { email },
                 });
               }
@@ -818,7 +921,83 @@ const initials = (name: string) =>
       .lc-page .lc-hero-details span { display: inline-flex; align-items: center; gap: 0.5rem; }
       .lc-page .lc-hero-details svg { flex: none; color: var(--pl-color-action); stroke-width: 1.6; }
 
-      /* Booth booking form (hands off to the Cal.com popup) */
+      /* Booking panel: the booth / follow-up tiles, then the form */
+      .lc-page .lc-book { align-self: center; }
+      .lc-page .lc-book [hidden] { display: none; }
+      .lc-page .lc-choose { container-type: inline-size; }
+      .lc-page .lc-choose .lc-offer { margin: 1.25rem 0 0; }
+      .lc-page .lc-meet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+      /* Stack the tiles when the panel is too narrow for each tile's button
+         label to fit on one line (phones, and the two-column hero just above
+         its 960px breakpoint). */
+      @container (max-width: 480px) {
+        .lc-page .lc-meet-grid { grid-template-columns: minmax(0, 1fr); }
+      }
+      main .lc-page .lc-meet {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid var(--lc-line);
+        border-radius: 20px;
+        box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 20px -12px rgba(17, 24, 39, 0.2);
+        text-decoration: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      main .lc-page .lc-meet:hover {
+        border-color: var(--pl-color-action);
+        box-shadow: 0 16px 36px -16px rgba(82, 100, 236, 0.55);
+        transform: translateY(-3px);
+      }
+      .lc-page .lc-meet:focus-visible { outline: 3px solid var(--lc-blue); outline-offset: 2px; }
+      .lc-page .lc-meet-top { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.1rem; background: linear-gradient(135deg, var(--lc-tint-strong), var(--lc-tint)); color: var(--pl-color-action); }
+      .lc-page .lc-meet-follow_up .lc-meet-top { background: linear-gradient(135deg, #efe3fb, #f8f3fd); color: var(--lc-purple); }
+      .lc-page .lc-meet-top svg { stroke-width: 1.5; }
+      .lc-page .lc-meet-when { padding: 0.25rem 0.55rem; border-radius: 999px; background: rgba(255, 255, 255, 0.85); font: 500 0.7rem/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: 0.05em; text-transform: uppercase; color: var(--lc-ink); }
+      .lc-page .lc-meet-body { display: flex; flex-direction: column; flex: 1; padding: 1rem 1.1rem 1.1rem; }
+      .lc-page .lc-meet-body strong { font-size: 1.12rem; font-weight: 600; line-height: 1.25; color: var(--lc-ink); }
+      .lc-page .lc-meet-desc { margin: 0.35rem 0 1.1rem; font-size: 0.88rem; line-height: 1.45; color: var(--lc-text); }
+      .lc-page .lc-meet-cta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-height: 44px;
+        margin-top: auto;
+        padding: 0 0.75rem;
+        border-radius: 10px;
+        background: var(--lc-navy);
+        color: #fff;
+        font: 500 0.78rem/1.2 ui-monospace, 'SF Mono', Menlo, monospace;
+        letter-spacing: 0.08em;
+        text-align: center;
+        text-transform: uppercase;
+        transition: background 0.15s ease;
+      }
+      .lc-page .lc-meet-cta svg { flex: none; stroke-width: 2; transition: transform 0.15s ease; }
+      .lc-page .lc-meet:hover .lc-meet-cta { background: var(--pl-color-action); }
+      .lc-page .lc-meet:hover .lc-meet-cta svg { transform: translateX(3px); }
+      .lc-page .lc-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        align-self: flex-start;
+        margin: 0 0 0.75rem;
+        padding: 0;
+        border: 0;
+        background: none;
+        font: inherit;
+        font-size: 0.88rem;
+        font-weight: 500;
+        line-height: 1;
+        color: var(--pl-color-action);
+        cursor: pointer;
+      }
+      .lc-page .lc-back:hover { text-decoration: underline; text-underline-offset: 3px; }
+      /* The form title takes focus when a tile is picked; no ring on a heading. */
+      .lc-page .lc-form-title:focus { outline: none; }
+
+      /* Booking form (hands off to the Cal.com popup) */
       .lc-page .lc-form { display: flex; flex-direction: column; gap: 0.5rem; }
       .lc-page .lc-form-title { margin: 0; font-size: 1.55rem; font-weight: 500; letter-spacing: -0.01em; }
       .lc-page .lc-form-sub { margin: 0.25rem 0 1.25rem; font-size: 0.95rem; line-height: 1.25; }
@@ -1171,6 +1350,7 @@ const initials = (name: string) =>
 
       @media (prefers-reduced-motion: reduce) {
         .lc-page .lc-carousel-track { transition: none; }
+        main .lc-page .lc-meet:hover, .lc-page .lc-meet:hover .lc-meet-cta svg { transform: none; }
       }
       @media (max-width: 960px) {
         .lc-page .lc-hero { padding-top: 2.5rem; }
