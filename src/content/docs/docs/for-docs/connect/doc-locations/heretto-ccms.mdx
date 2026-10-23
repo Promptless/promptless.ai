@@ -1,0 +1,163 @@
+---
+title: Heretto CCMS
+description: Keep your DITA documentation in a Heretto CCMS folder and have your writers accept or reject Promptless suggestions in Heretto's topic editor.
+id: for-docs-connect-doc-locations-heretto-ccms
+slug: docs/for-docs/connect/doc-locations/heretto-ccms
+type: how-to
+tags:
+  - connect
+  - doc-locations
+  - reference
+keywords:
+  - Heretto CCMS
+  - DITA
+  - Heretto folder ID
+  - Heretto API token
+  - Accept Change
+  - Reject Change
+language: en
+audiences:
+  - aud-enterprise-docs-team
+intent: connect a Heretto CCMS tenant, add a Heretto folder as a doc collection, and review Promptless suggestions as Heretto suggestions in the topic editor
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+  - integration:heretto
+concepts:
+  - doc collection
+  - heretto
+  - dita
+related-pages:
+  - for-docs-reference-configuration-reference
+  - for-docs-reference-integrations
+  - for-docs-connect-doc-locations-github-repos
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I connect Heretto CCMS to Promptless?
+  - How do I add a Heretto folder as a doc collection?
+  - How do I find the Heretto folder ID for a doc collection?
+  - How do writers accept or reject Promptless suggestions in Heretto?
+  - Which files can Promptless change in Heretto?
+sidebar:
+  hidden: false
+  order: 25
+last-updated: 2026-10-20
+---
+
+## Overview
+
+If your team writes DITA topics and maps in Heretto CCMS, you can point Promptless at a Heretto folder. Promptless reads the folder's content and drafts suggestions against it. When you send a suggestion to Heretto, Promptless adds its changes to the topics as Heretto suggestions. Your writers then accept or reject each change in Heretto's topic editor, where they already work.
+
+## How it works
+
+1. **Reading the folder**: Each time Promptless works on documentation for the collection, it reads the folder's current DITA and XML files from Heretto. Suggestions start from what Heretto holds at that moment.
+2. **Suggestions**: Promptless drafts suggestions against those files and saves each changed file's original and proposed content. You can review and comment on them in the Promptless dashboard. Each DITA topic shows as the rendered topic with insertions and deletions marked, and **View source** switches to the XML diff. To change a suggestion's content, ask Promptless to revise it.
+3. **Suggesting in Heretto**: When you send a suggestion to Heretto, Promptless writes each change into the file at the same path. Each change is a Heretto suggestion from the connected Heretto account. For a new file, Promptless creates the file and any missing folders, and the file's whole content is one Heretto suggestion.
+4. **Review in Heretto**: Writers accept or reject each change in Heretto's topic editor. Promptless checks Heretto every hour and records the outcome on the suggestion once every change is resolved.
+
+Promptless writes to Heretto only when you send a suggestion there, so the `auto_create_pr` and `auto_merge` publishing settings don't apply to Heretto collections.
+
+When you ask Promptless to revise an open suggestion, it rebuilds the suggestion from its saved content and checks which files changed in Heretto since. It folds those Heretto changes into the revised suggestion, so the suggestion can be published again.
+
+## Connect Heretto
+
+Connect your Heretto tenant from the [Integrations page](https://app.gopromptless.ai/integrations) in the Promptless dashboard. Promptless reads and writes with the permissions of the Heretto account you connect, so choose an account that can edit the folder you want documented.
+
+1. Sign in to Heretto as that account and generate an API token at `https://<your-heretto-host>/tools/token-management/tokens.xql`.
+2. On the Integrations page, select **Connect Heretto**.
+3. Enter the **Heretto host**, such as `acme.heretto.com`, the account's **Username**, and the **API token**.
+4. Select **Connect**.
+
+Promptless checks the credentials with Heretto and saves them only when the check succeeds. If Heretto rejects the username or token, or the account lacks permission to use the Heretto REST API, the card reports the problem. Correct the credentials and select **Connect** again.
+
+Your organization has one Heretto connection, and connecting again replaces it. Each Heretto doc collection's `host` must match the connected host.
+
+Promptless rechecks the credentials once a day and shows the result on the card. See [Connection health](/docs/for-docs/connect/connection-health). To check right away, select **Check access**. To remove access, select **Disconnect Heretto**.
+
+## Add a Heretto doc collection
+
+After Heretto is connected, add the collection on the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration).
+
+1. Select **Add doc collection**.
+2. Select **Browse folders on** your Heretto host, such as **Browse folders on acme.heretto.com**. To list only that entry, search for `heretto`.
+3. Open a repository, then open folders until you reach the one you want Promptless to document. Promptless documents everything inside it.
+4. Select **Use this folder**.
+5. Select **Add collection**.
+
+The folder browser lists only the repositories that the connected Heretto account can read. A folder that another doc collection already covers is marked **Already a doc collection**. Each Heretto folder can belong to only one doc collection. You can open a marked folder to reach the folders inside, but you can't choose it.
+
+Promptless names the new collection after your Heretto tenant and the folder, such as `acme/product-manual` for a folder named Product Manual on `acme.heretto.com`. If that key is taken, Promptless adds a number, such as `acme/product-manual-2`. Triggers and policy rules refer to the collection by this key.
+
+To point an existing Heretto collection at a different folder, select **Change** under **Heretto folder** and choose the new folder. Choosing a folder also sets the collection's **Heretto host** to the connected Heretto host.
+
+If the folder browser can't list folders, it says why:
+
+| Condition                                            | What to do                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Heretto rejected the saved username or API token.    | Reconnect Heretto on the [Integrations page](https://app.gopromptless.ai/integrations) with a working token. |
+| The connected Heretto account can't open the folder. | Choose another folder, or ask a Heretto admin to give that account access to the folder.                     |
+| The folder no longer exists in Heretto.              | Choose another folder.                                                                                       |
+| Heretto didn't respond.                              | Wait a few minutes, then select **Retry**.                                                                   |
+
+### Configure a Heretto doc collection in YAML
+
+In **YAML** mode on the Configuration page, a Heretto collection sets `platform: heretto`, your Heretto `host`, and the folder's ID as `root_folder_id`. To find the folder ID, open the folder in Heretto, then open **API Info** in the Resource Drawer. The UUID at the end of the folder's REST URL is the folder ID.
+
+In YAML, you choose the collection's key. The key is any `owner/repo`-style name, such as `acme/product-guide`.
+
+```yaml
+doc_collections:
+  acme/product-guide:
+    platform: heretto
+    host: acme.heretto.com
+    root_folder_id: 8f3ed200-cbba-11e1-ac51-c82a1446d15c
+```
+
+Leave out `default_branch`, because a Heretto folder has no branches. The other fields, such as `docs_root_url`, `filter`, and `vale_config_path`, work as they do for other doc collections. See the [configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for every field.
+
+## Send a suggestion to Heretto for review
+
+On the suggestion's review page in the dashboard, select **Suggest in Heretto**. Promptless writes the changes into Heretto, and **Review in Heretto** then opens the first changed file in Heretto's topic editor. Each file's diff also links to that file with **Open in Heretto**. If those links can't load, the review page says why. Select **Connect Heretto** if Heretto isn't connected for the collection, or **Try again** if Heretto didn't answer. Publishing from Slack or Microsoft Teams writes the same changes and replies with the review link.
+
+## Review changes in Heretto
+
+1. Open a changed topic in Heretto's topic editor. Each change from Promptless appears inline as a suggestion from the connected Heretto account.
+2. Right-click a change and choose **Accept Change** or **Reject Change**.
+3. Repeat for every change in every file the suggestion touches.
+
+Within an hour after the last change is resolved, Promptless updates the suggestion:
+
+- If writers rejected every change, so each file holds its original content again, the suggestion closes as **Rejected in Heretto**.
+- Otherwise, including when writers accepted some changes and rejected others or made their own edits, the suggestion is marked merged as **Accepted in Heretto**.
+
+When writers reject a new file, Heretto leaves an empty topic with no title at that path. Delete it in Heretto. Deleting a new file also counts as rejecting it. Accepting or rejecting a whole new topic can show error messages in Heretto's editor, but the change still saves.
+
+## What Promptless can change in Heretto
+
+A suggestion can edit existing DITA and XML files and add new ones. Promptless handles files ending in `.dita`, `.ditamap`, `.ditaval`, or `.xml`.
+
+Promptless doesn't read images or other binary files, or files larger than 5 MB. Suggestions can't add or change images.
+
+## When Promptless can't suggest in Heretto
+
+Before it saves anything, Promptless checks every changed file. If any file fails a check, Promptless writes none of them. The dashboard names each file that failed and why. The suggestion stays open, so you can select **Suggest in Heretto** again after you fix the cause.
+
+| Condition                                                                                                                      | What to do                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Someone edited the file in Heretto after Promptless wrote the suggestion.                                                      | Ask Promptless to revise the suggestion. It folds the Heretto edits into the suggestion, and you can suggest it in Heretto again.       |
+| The file is locked in Heretto.                                                                                                 | Ask the person holding the lock to release it, then select **Suggest in Heretto** again.                                                |
+| The suggestion deletes or renames a file.                                                                                      | Heretto's API can't delete or move files. Make that change in Heretto yourself, and ask Promptless to revise the suggestion without it. |
+| The suggestion adds a file that already exists in Heretto with different content.                                              | Ask Promptless to revise the suggestion so it edits the existing file.                                                                  |
+| The suggestion changes a file that no longer exists at that path in Heretto.                                                   | Ask Promptless to revise the suggestion against the file's current location.                                                            |
+| The suggestion changes a file that isn't DITA or XML.                                                                          | Ask Promptless to revise the suggestion without that file.                                                                              |
+| A change can't be written as a Heretto suggestion. For example, it changes the topic's root element, or the XML doesn't parse. | Ask Promptless to revise the suggestion so the file is well-formed XML and keeps its root element.                                      |
+
+If writing stops partway, for example because Heretto is unreachable, select **Suggest in Heretto** again. Promptless skips files that already carry the suggestion's changes.
+
+## See also
+
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections), for every doc collection field
+- [Connection health](/docs/for-docs/connect/connection-health), for the daily credential check on the Heretto card
+- [GitHub repos](/docs/for-docs/connect/doc-locations/github-repos), to compare with a docs-as-code doc collection

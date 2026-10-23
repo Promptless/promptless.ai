@@ -63,7 +63,7 @@ Form mode saves one item at a time. When you add or change a doc collection, tri
 
 When you need precise control over the file format, switch to **YAML** mode using the toggle at the top of the page. YAML mode is the raw editor with syntax highlighting, schema-driven completions, and inline validation. Use it when you want to copy configurations between environments or edit the file directly.
 
-In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) is not a field you set. It comes from the integration that reaches the repository. The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
+In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform is not a field you set. It comes from the integration that reaches the repository, or from Heretto when you choose a Heretto folder. See [Heretto CCMS](/docs/for-docs/connect/doc-locations/heretto-ccms#add-a-heretto-doc-collection). The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
 Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so every rule points at something that exists.
 
@@ -262,21 +262,22 @@ policies:
 
 ## Doc collections
 
-A doc collection is a documentation repository where Promptless publishes updates. Its key is the repository path: `owner/repo` on GitHub, or the project's full path on GitLab, including every namespace segment (for example, `acme/platform/developer-docs`). The key is also the collection's name. An organization can have one doc collection per repository.
+A doc collection is a documentation repository where Promptless publishes updates. Its key is the repository path: `owner/repo` on GitHub, or the project's full path on GitLab, including every namespace segment (for example, `acme/platform/developer-docs`). A Heretto collection has no repository, so its key is an `owner/repo`-style name, such as `acme/product-guide`. The dashboard derives it from your Heretto tenant and the folder's name; in YAML, you choose it. The key is also the collection's name. An organization can have one doc collection per repository.
 
 Each doc collection accepts these fields:
 
-| Field              | Description                                                                                                                                                                                                |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`.                                                                                                                   |
-| `host`             | Bare instance hostname, with no scheme or path. Required for `github_enterprise`. Optional for `gitlab`: omit it for gitlab.com, or set it for self-hosted GitLab. Not valid for `github` or `github_oss`. |
-| `default_branch`   | Branch that documentation PRs target. Defaults to the repository's default branch.                                                                                                                         |
-| `docs_framework`   | Documentation framework, such as `docusaurus`, `mkdocs`, or `starlight`.                                                                                                                                   |
-| `docs_root_url`    | URL of the published documentation site.                                                                                                                                                                   |
-| `config_file_path` | Path to the framework's configuration file, such as `docusaurus.config.js`.                                                                                                                                |
-| `vale_config_path` | Path to a Vale configuration file. Setting it turns on prose linting.                                                                                                                                      |
-| `doc_detective`    | Doc Detective configuration. Including the key turns on Doc Detective.                                                                                                                                     |
-| `filter`           | Directory prefixes and file paths Promptless can modify. See [Path scope (filter)](#path-scope-filter).                                                                                                    |
+| Field              | Description                                                                                                                                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform`         | Where the documentation lives: `github` (default), `github_oss`, `github_enterprise`, `gitlab`, or `heretto`.                                                                                                                                                                                           |
+| `host`             | Bare instance hostname, with no scheme or path. Required for `github_enterprise`. Required for `heretto`, where it names your Heretto CCMS tenant, such as `acme.heretto.com`. Optional for `gitlab`: omit it for gitlab.com, or set it for self-hosted GitLab. Not valid for `github` or `github_oss`. |
+| `root_folder_id`   | UUID of the Heretto folder the collection covers. Required for `heretto` and not valid for any other platform. Each Heretto folder can belong to only one collection.                                                                                                                                   |
+| `default_branch`   | Branch that documentation PRs target. Defaults to the repository's default branch. Not valid for `heretto`, because Promptless manages the branch.                                                                                                                                                      |
+| `docs_framework`   | Documentation framework, such as `docusaurus`, `mkdocs`, or `starlight`.                                                                                                                                                                                                                                |
+| `docs_root_url`    | URL of the published documentation site.                                                                                                                                                                                                                                                                |
+| `config_file_path` | Path to the framework's configuration file, such as `docusaurus.config.js`.                                                                                                                                                                                                                             |
+| `vale_config_path` | Path to a Vale configuration file. Setting it turns on prose linting.                                                                                                                                                                                                                                   |
+| `doc_detective`    | Doc Detective configuration. Including the key turns on Doc Detective.                                                                                                                                                                                                                                  |
+| `filter`           | Directory prefixes and file paths Promptless can modify. See [Path scope (filter)](#path-scope-filter).                                                                                                                                                                                                 |
 
 ```yaml
 doc_collections:
@@ -301,6 +302,16 @@ doc_collections:
     platform: gitlab
     host: gitlab.acme.com
     docs_framework: mkdocs
+```
+
+A Heretto-backed collection sets `platform: heretto`, the Heretto `host`, and the `root_folder_id` of the folder to document. Promptless writes a suggestion's changes into that folder as Heretto suggestions for your writers to accept or reject. Your Heretto tenant must be connected first. See [Heretto CCMS](/docs/for-docs/connect/doc-locations/heretto-ccms).
+
+```yaml
+doc_collections:
+  acme/product-guide:        # key you choose; Heretto has no repository path
+    platform: heretto
+    host: acme.heretto.com
+    root_folder_id: 8f3ed200-cbba-11e1-ac51-c82a1446d15c
 ```
 
 ### Path scope (filter)
@@ -790,16 +801,16 @@ The configuration editor validates your YAML before it saves. Each validation er
 
 These are the most common validation errors:
 
-| Error                                                                                  | Fix                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unknown key, such as a typo or an unsupported field                                    | Correct the spelling, or remove the key.                                                                                                                                         |
-| Invalid value, such as an unknown `trigger_type`                                       | Use one of the values this page lists for the field.                                                                                                                             |
-| Missing required field, such as `host` when `platform` is `github_enterprise`          | Add the field.                                                                                                                                                                   |
-| Duplicate repository key in `doc_collections`                                          | Keep one entry per repository.                                                                                                                                                   |
-| Malformed `doc_collections` key                                                        | Use exactly `owner/repo` for GitHub, GitHub OSS, and GitHub Enterprise. Use the project's full path, including nested namespaces, for GitLab. Remove any surrounding whitespace. |
-| Trigger or context source key that isn't a lowercase slug                              | Rename the key using lowercase letters, numbers, and hyphens, such as `google-drive`.                                                                                            |
-| Policy rule that references an undefined trigger or doc collection                     | Correct the key, or define the trigger or doc collection it names. Built-in trigger keys are always defined.                                                                     |
-| Provider-backed trigger added, renamed, or modified while its provider is disconnected | Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).   |
+| Error                                                                                                                           | Fix                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unknown key, such as a typo or an unsupported field                                                                             | Correct the spelling, or remove the key.                                                                                                                                         |
+| Invalid value, such as an unknown `trigger_type`                                                                                | Use one of the values this page lists for the field.                                                                                                                             |
+| Missing required field, such as `host` when `platform` is `github_enterprise`, or `root_folder_id` when `platform` is `heretto` | Add the field.                                                                                                                                                                   |
+| Duplicate repository key in `doc_collections`                                                                                   | Keep one entry per repository.                                                                                                                                                   |
+| Malformed `doc_collections` key                                                                                                 | Use exactly `owner/repo` for GitHub, GitHub OSS, and GitHub Enterprise. Use the project's full path, including nested namespaces, for GitLab. Remove any surrounding whitespace. |
+| Trigger or context source key that isn't a lowercase slug                                                                       | Rename the key using lowercase letters, numbers, and hyphens, such as `google-drive`.                                                                                            |
+| Policy rule that references an undefined trigger or doc collection                                                              | Correct the key, or define the trigger or doc collection it names. Built-in trigger keys are always defined.                                                                     |
+| Provider-backed trigger added, renamed, or modified while its provider is disconnected                                          | Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).   |
 
 <Aside type="tip">
   If you push an invalid `promptless.yaml` to your Agent Knowledge Base with git, the last valid configuration stays active. The Configuration page editor shows the error.
