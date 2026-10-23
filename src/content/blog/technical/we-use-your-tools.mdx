@@ -1,0 +1,73 @@
+---
+title: 'We use your tools'
+subtitle: Published October 2026
+description: >-
+  Promptless lints with your Vale config, tests procedures with Doc Detective,
+  and follows your AGENTS.md. Here's what the agent does with each tool.
+author: Manny
+date: '2026-10-14T13:00:00.000Z'
+tag: Opinion
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+Your team has already decided what good docs look like. Those decisions live in a Vale config, a style guide, an `AGENTS.md` file, and a CI pipeline that fails when a link breaks. Most of them took years of review comments to settle.
+
+A documentation agent shouldn't make you restate those decisions in its own format. Promptless works from the guidance and tools your repository already has. It runs your Vale config, follows your `AGENTS.md`, and learns the style of your existing docs. When you haven't specified a style guide or checks, it uses its own fallback style guide and a default set of functional checks. That's a big part of why its output holds up in review.
+
+I've spent years on tooling that checks docs the way tests check code, so I care about this more than most. Here's what the agent does with each tool.
+
+## Why deterministic checks matter
+
+When we built [DoGBench](/blog/technical/dogbench), our benchmark for agent-written documentation, we scored patches with an LLM judge against expert rubrics. The paper's limitations section reports a weakness in that judge. With a general instruction to flag coherent but low-information prose, it flagged 3.2% of submissions. A second prompt listed specific patterns, such as redundant paraphrases, formulaic "not X, but Y" contrasts, and heavy use of em dashes. It asked the judge to flag submissions with two or more of them, and it flagged 7.6%.
+
+The same judge flagged more than twice as many submissions once it knew exactly what to look for. The paper reads that gap as a sign that LLM judges may miss low-information prose during scoring. It also describes what happens when an agent reviews its own writing: what it catches depends on how you phrase the question.
+
+A linter checks the same pattern the same way on every file and every run. The model still writes the draft. Deterministic checks set the floor under it.
+
+## Vale enforces your style
+
+Your style guide only helps if every page follows it. If your team has encoded that guide in Vale, Promptless holds its drafts to the same rules your writers follow. Your preferred terms, banned phrases, and capitalization rules all apply before a reviewer ever sees the draft. The same check your CI runs passes before Promptless opens a pull request, so your reviewers spend their time on substance instead of style nits.
+
+Don't have Vale rules yet? Promptless can turn your written style guide into rules for you, and you review them before anything merges. The [Vale integration](/docs/for-docs/audit/standards-enforcement) page covers the details.
+
+Every Promptless customer with a Vale config depends on Vale, and so do we. Vale is open source and maintained mostly by one person. A tool that many docs teams rely on deserves funding from the companies that build on it. That's why Promptless is a [Vale sponsor](https://vale.sh/sponsors/promptless). If your team runs Vale in CI, consider sponsoring it too.
+
+## Doc Detective tests the procedure
+
+Vale can tell you a sentence is in passive voice. It can't tell you that the button in step 4 was renamed last sprint. Doc Detective can. It carries out documented procedures against the real product by opening a browser, clicking through the UI, making HTTP requests, and running commands. When the product stops matching the docs, the test fails.
+
+When a collection uses Doc Detective, Promptless adds a test for each new workflow, UI path, command, or setup procedure it documents. When a product change makes a documented workflow stale, it updates the prose and the test together, in the same pull request. It follows your existing config and spec layout, and it works from the test credentials and data you've already set up. Ask it to run the tests and it runs them against your product, then reports the command it ran and the result. A syntax check never counts as a passing test.
+
+A disclosure: I created Doc Detective. We wrote up how we test our own docs in [Doc Detective + Promptless](/blog/product-updates/doc-detective).
+
+<BlogNewsletterCTA />
+
+## Promptless follows your AGENTS.md
+
+If you've used a coding agent lately, there's a good chance your repository already has an `AGENTS.md` file explaining how the project works. Promptless reads it too, and it follows that guidance on every suggestion. Keep a `CLAUDE.md` instead? It reads that. Got Agent Skills under `.claude/skills/`, `.agents/skills/`, or `.cursor/skills/`? It picks those up and runs the one that fits the task.
+
+Here's an example from our own docs repository. Our `AGENTS.md` says that `redirects.json` is maintained by hand, so moving a page means adding its redirect entry yourself. A new contributor tends to miss that rule, and a reviewer catches it late. Promptless reads the rule before it starts work. You write your conventions once, and every agent that touches the repository gets them, including ours. See [Custom agent instructions with AGENTS.md](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs#custom-agent-instructions-with-agentsmd).
+
+## Promptless checks your links
+
+A broken link is easy for a machine to detect and tedious for a reviewer to find. Promptless checks links before it hands you a draft, using what your repository already has. Our docs repository keeps a `check-broken-links` skill that crawls a local build with `linkchecker`. Promptless runs it like any other skill when a change touches links or navigation.
+
+After the pull request opens, Promptless keeps watching. Sometimes CI or your hosting provider reports a broken link or a failed build caused by the change. Promptless analyzes the failure and pushes a fix to the branch. See [Automated CI check and build issue resolution](/docs/for-docs/connect/doc-locations/github-repos#automated-ci-check-and-build-issue-resolution).
+
+## And everything else in your repository
+
+Vale, Doc Detective, and link checkers are the tools we see most often, but your team has probably built others. Maybe it's a frontmatter linter in `package.json`, a validation script for your API specs, or a build step in CI. Promptless doesn't need to know a tool by name to use it. It looks through your CI workflows, configuration, and scripts to find the checks that apply to a change. Then it installs what they need and runs them before you see the draft. Our own docs repository, for example, runs `remark-lint` and a frontmatter validator in CI, and Promptless runs both on its drafts. If your team decided a check matters, Promptless runs it.
+
+## An agent that asks
+
+The last tool is the one you already use with any new writer: a question. DoGBench audited 1,267 agent-written patches and traced each one back through the agent's work. In 33.1% of those trajectories, the agent missed decisive evidence and filled the gap with a plausible assumption. A plausible assumption reads fine, which makes it the hardest error for a reviewer to catch.
+
+When Promptless can't settle a fact from the sources it has, it asks you. In Slack, it asks in the thread, and you reply with the detail or file it needs. Over MCP, a task can finish with one clarifying question, and your answer starts a continuation that picks up where the task stopped. A question costs you a minute. A confident wrong default on a published page costs your readers much more.
+
+## No prompt engineering required
+
+None of this depends on prompt engineering. Connect a repository, and Promptless finds the Vale config, the Doc Detective setup, the `AGENTS.md` file, the skills, and the other checks you already keep there. Wherever your team has already decided something, that decision sets the quality floor, enforced by tools the docs community already maintains.
+
+Every DoGBench number above comes from the published paper. Read it and see how each agent scored at [dogbench.ai](https://dogbench.ai).
