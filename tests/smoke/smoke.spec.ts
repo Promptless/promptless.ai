@@ -634,14 +634,12 @@ test('homepage product switcher renders accessible default state and product reg
 
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
-  const docsVideoIndex = homeHtml.indexOf('data-video-id="');
   assert.ok(
-    docsBelowFoldIndex !== -1 &&
-      docsLogoCarouselIndex > docsBelowFoldIndex &&
-      docsVideoIndex > docsLogoCarouselIndex,
-    'Expected the docs customer-logo carousel above the docs demo video.'
+    docsBelowFoldIndex !== -1 && docsLogoCarouselIndex > docsBelowFoldIndex,
+    'Expected the docs customer-logo carousel in the docs below-the-fold region.'
   );
-  assert.match(homeHtml, /data-video-id="[A-Za-z0-9_-]+"/);
+  // The homepage intentionally has no demo video embed.
+  assert.doesNotMatch(homeHtml, /data-video-id="/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
   assert.match(homeHtml, /id="book-a-demo"/);
   assert.match(homeHtml, /id="book-a-demo-docs"/);
