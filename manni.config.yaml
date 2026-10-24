@@ -1,0 +1,115 @@
+# manni configuration for docs content: frontmatter (metadata) validation
+# under `meta:`, and document-structure linting by page type under `lint:`.
+#
+# Complements remark-lint (Markdown syntax, .remarkrc.mjs) and Vale (prose
+# style, .vale.ini). `manni meta validate` checks frontmatter *content* against
+# JSON Schema; Astro's zod schema only fails at build time and silently strips
+# unknown keys. `manni lint structure` checks that each page has the sections
+# its `type:` promises. See adrs/0005-adopt-manni-vocabularies.md.
+#
+# Run locally with `npm run lint:frontmatter` and `npm run lint:structure`
+# (manni requires Node >= 24). CI: .github/workflows/manni.yml.
+
+# Which documents exist. Every manni tool reads this list.
+# Scope is src/content/docs, matching this repo's Vale and remark-lint scope,
+# so blog, changelog, and marketing content are not held to the docs schema.
+collections:
+  - name: site
+    paths:
+      - "src/content/docs/**/*.{md,mdx}"
+    url: https://promptless.ai/docs/
+    externalMetadata:
+      # Maintainer-facing metadata — every field the vocabularies below mark
+      # `x-manni-location: external` (owner, created, personas, journeys,
+      # visibility, source-of-truth, meta-provenance, ...). Keeping it here
+      # leaves page frontmatter to what readers and agents use. Entries are
+      # keyed by each page's `id`, so moving or renaming a page never orphans
+      # its entry.
+      - file: ./docs.metadata.yaml
+        join: id
+
+meta:
+  # Judge pages by exactly this set, in order, rather than manni's built-in
+  # default set (which adds google:okf, passo-uno:seven-action, and the
+  # evals, graph, and citations vocabularies).
+  defaults: false
+  schemas:
+    # 1. Starlight's frontmatter contract, built into manni. Requires `title`
+    #    and checks the form of every other Starlight field that is present.
+    #    Bump the version when Starlight's minor version changes.
+    - astro:starlight:0.41
+    # 2. The manni vocabularies, each followed by its strict overlay. An
+    #    overlay narrows the form of values that are present and requires no
+    #    extra key. Reference:
+    #    https://hawkeyexl.github.io/manni/meta/reference/schemas/manni-vocabularies/
+    - manni:core:1.0.0
+    - manni:core-strict:1.0.0
+    - manni:stewardship:1.1.0
+    - manni:stewardship-strict:1.1.0
+    - manni:audience:1.0.0
+    - manni:audience-strict:1.0.0
+    - manni:lifecycle:1.0.0
+    - manni:lifecycle-strict:1.0.0
+    - manni:structure:1.0.0
+    - manni:structure-strict:1.0.0
+    - manni:ai-context:1.0.0
+    - manni:ai-context-strict:1.0.0
+    # 3. The Good Docs Project page types. Requires a non-empty `type`; the 25
+    #    TGDP template slugs (concept, how-to, reference, quickstart,
+    #    troubleshooting, ...) are recommended, not enforced.
+    #    Reference: https://www.thegooddocsproject.dev/template
+    - tgdp:templates:1.1
+
+  # Stewardship fields stamped from evidence instead of typed by hand, so they
+  # cannot go stale quietly: `validate` fails when a stamp disagrees with git
+  # or CODEOWNERS. Run `npx manni meta derive` to restamp. These are the
+  # merge-safe fields, so stamps written on a branch stay current after a
+  # squash merge. CI needs full git history (fetch-depth: 0) to compare them.
+  derive:
+    collections: [site]
+    fields: [created, last-updated, owner]
+    sources: [git, codeowners]
+
+lint:
+  # Each page routes to a structure template by its `type:` frontmatter. The
+  # built-in Good Docs Project templates (pinned at v1.6) serve how-to,
+  # tutorial, reference, concept, troubleshooting, release-notes, and readme.
+  # List them with `npx manni lint templates`; check routing with
+  # `npx manni lint structure --explain`. Reference:
+  # https://hawkeyexl.github.io/manni/lint/
+  #
+  # Map the page types manni ships no template for to the closest built-in
+  # shape, so those pages are linted rather than reported as unknown types.
+  types:
+    # Step-by-step task pages, like a how-to.
+    installation-guide: tgdp:how-to:1.6
+    quickstart: tgdp:how-to:1.6
+    # Lookup pages without a task, like a reference.
+    glossary: tgdp:reference:1.6
+    contact-support: tgdp:reference:1.6
+
+a11y:
+  # `manni a11y check` crawls a served build of the whole site (docs, blog,
+  # changelog, and marketing pages share one header, footer, and stylesheet)
+  # and runs axe-core on every page. Build and serve first:
+  #   npm run build && npm run preview   # serves http://127.0.0.1:4321
+  #   npm run lint:a11y                  # in a second terminal
+  # CI: .github/workflows/a11y-scheduled.yml runs it weekly on main and asks
+  # Promptless to fix any failures. See
+  # adrs/0008-adopt-manni-a11y.md and https://hawkeyexl.github.io/manni/a11y/
+  urls:
+    - http://127.0.0.1:4321/
+  # Fail on serious and critical axe findings (WCAG and best-practice rules
+  # alike). The moderate findings left at adoption come from Starlight's
+  # markup: each Aside is an <aside> landmark labelled only by its type, and
+  # starlight-openapi renders example headings as <h5>.
+  severity: error
+  exclude:
+    # Pages whose remaining findings sit inside third-party embeds we can't
+    # change: the Cal.com booking widget on /meet, and the Tella player's
+    # poster image (no alt text) inside its iframe.
+    - /meet
+    - /docs/for-docs/start-here/how-promptless-works
+    # Linked downloads, not pages. The browser can't open them, and the
+    # crawl counts a page that fails to load as a failure.
+    - "/**/*.{ics,yaml,yml}"

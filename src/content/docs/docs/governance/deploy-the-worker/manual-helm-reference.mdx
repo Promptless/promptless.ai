@@ -1,12 +1,51 @@
 ---
 title: Manual Helm reference
 description: Configure the current trace analyzer's deployment, storage, model, and secrets, and map Helm values to worker settings.
+id: governance-deploy-the-worker-manual-helm-reference
 slug: docs/governance/deploy-the-worker/manual-helm-reference
 type: reference
 tags:
   - agent-instructions
   - governance
   - reference
+keywords:
+  - pig-trace-analyzer chart values
+  - PIG_ environment variables
+  - storageBackend
+  - health probes
+  - Datadog
+  - Sentry
+language: en
+audiences:
+  - aud-agent-governance
+intent: look up pig-trace-analyzer worker chart values and their PIG_ environment variables for storage, model provider, secrets, probes, and telemetry
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-agent-instructions
+  - deploy:self-hosted
+  - deploy:kubernetes
+concepts:
+  - helm
+  - analyzer worker
+  - object storage
+  - model provider
+  - observability
+next-steps:
+  - governance-deploy-the-worker-verify-your-deployment
+related-pages:
+  - governance-deploy-the-worker-manual-helm
+  - governance-deploy-the-worker-configuration-reference
+  - governance-deploy-the-worker-postgresql
+  - governance-reference-supported-agents
+  - governance-start-here-trust-and-data-model
+risks:
+  - read-only
+sample-questions:
+  - Which Helm values configure Azure Blob Storage for the manually managed PIG analyzer?
+  - Which Secret keys does the pig-trace-analyzer chart read?
+  - How do I enable Datadog or Sentry for the PIG worker chart?
+  - What do the /readyz and /healthz probes on the PIG analyzer check?
 sidebar:
   hidden: false
   order: 8
@@ -93,34 +132,44 @@ These suffixes use the `PIG_` prefix. `traceObjectPrefix` defaults to `trace-obj
 
 ## Service account, database TLS, and image
 
-Create the workload identity ServiceAccount before installing the chart, then use it for both workloads:
+The pre-install migration hook runs before Helm creates ordinary resources. Create its ServiceAccount, credential Secret, and CA ConfigMap in the release namespace before you install the chart. The analyzer and the migration Job both use the ServiceAccount named in `serviceAccount.name`.
+
+| Helm key                      | Default                                 | Meaning                                                                                                                                                                  |
+| ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `serviceAccount.create`       | `false`                                 | Keep `false` while `migrationJob.enabled` is `true`. The chart fails to render when both are `true`.                                                                     |
+| `serviceAccount.name`         | `pig-analyzer`                          | Existing workload identity ServiceAccount for the analyzer and the migration Job.                                                                                        |
+| `migrationJob.enabled`        | `true`                                  | Runs schema migrations in a pre-install and pre-upgrade hook Job.                                                                                                        |
+| `podLabels`                   | `{}`                                    | Labels for the analyzer and migration Job pods, such as the Azure workload identity label.                                                                               |
+| `nodeSelector`                | `{}`                                    | Node labels for the analyzer and migration Job pods. On GKE Standard with workload identity, set `iam.gke.io/gke-metadata-server-enabled: "true"`; omit it on Autopilot. |
+| `pig.postgresCaConfigMapName` | Empty                                   | ConfigMap with the trusted database CA bundle. When set, both workloads mount it at `/etc/pig/postgres-ca/ca.pem` and set `PGSSLROOTCERT`.                               |
+| `pig.postgresCaConfigMapKey`  | `ca.pem`                                | Key in that ConfigMap that holds the CA bundle.                                                                                                                          |
+| `image.repository`            | `ghcr.io/promptless/pig-trace-analyzer` | Worker image repository.                                                                                                                                                 |
+| `image.digest`                | Set by the published chart              | Verified worker image digest, in the form `sha256:<64 lowercase hex characters>`. A source checkout requires the digest from the matching release.                       |
+
+For example, to use an existing `pig-analyzer` ServiceAccount and a `postgres-ca` ConfigMap:
 
 ```yaml
 serviceAccount:
   create: false
   name: pig-analyzer
-migrationJob:
-  serviceAccountName: pig-analyzer
 pig:
   postgresCaConfigMapName: postgres-ca
   postgresCaConfigMapKey: ca.pem
 ```
 
-The pre-install migration hook runs before Helm creates ordinary resources. Its ServiceAccount, credential Secret, and CA ConfigMap must already exist in the release namespace. The migration Job otherwise defaults to the namespace's `default` ServiceAccount.
-
-Create `postgres-ca` with the trusted database CA bundle under `ca.pem`, or change the two ConfigMap values above. Both workloads mount the selected key at `/etc/pig/postgres-ca/ca.pem` and set `PGSSLROOTCERT` to that path. Use `sslmode=verify-full` in the DSN. See [PostgreSQL requirements](/docs/governance/deploy-the-worker/postgresql) for TLS and schema permissions.
-
-The published chart pins the worker image through `image.repository` and `image.digest`. A source checkout requires a verified `image.digest` in the form `sha256:<64 lowercase hex characters>`. Use the digest from the matching release; do not replace it with a mutable tag.
+Use `sslmode=verify-full` in the DSN. See [PostgreSQL requirements](/docs/governance/deploy-the-worker/postgresql) for TLS and schema permissions.
 
 ## Health and readiness probes
 
-The chart configures the analyzer's Kubernetes probes. Your ingress and monitoring route around these endpoints:
+The chart configures these Kubernetes probes for the analyzer:
 
-- **Readiness (`/readyz`)** gates upload and analysis traffic on recent database and object-storage checks. A storage failure withdraws the analyzer from Service endpoints until it recovers. Point load-balancer health checks here.
-- **Liveness (`/healthz`)** fails when the worker's background tasks stop, or when a storage check or canonical-object repair makes no progress for 180 seconds. Kubernetes then restarts the analyzer. A database or object-storage outage that the analyzer detects and reports keeps it live but not ready.
-- **Startup (`/healthz`)** allows up to 180 seconds for storage to become ready before the liveness check applies.
+| Probe     | Path       | Behavior                                                                                                                                                                    |
+| --------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Readiness | `/readyz`  | Gates upload and analysis traffic on recent database and object-storage checks. A storage failure removes the analyzer from Service endpoints until storage recovers.       |
+| Liveness  | `/healthz` | Fails when the worker's background tasks stop, or when a storage check or canonical-object repair makes no progress for 180 seconds. Kubernetes then restarts the analyzer. |
+| Startup   | `/healthz` | Allows up to 180 seconds for storage to become ready before the liveness probe applies.                                                                                     |
 
-The analyzer's `terminationGracePeriodSeconds` is 120 seconds, so in-flight work settles during a rollout.
+A database or object-storage outage that the analyzer detects makes it unready but keeps it live. The chart's optional Ingress, enabled with `gateway.enabled`, exposes `/healthz` for load-balancer health checks; `/readyz` stays inside the cluster. The analyzer's `terminationGracePeriodSeconds` is 120 seconds, so in-flight work settles during a rollout.
 
 ## Analysis activation
 
@@ -176,17 +225,21 @@ Set `secrets.migrationPostgresDsnKey` to run schema migrations with a [separate 
 
 The chart also supports creating a Secret from values, but an existing Secret keeps credential values out of your GitOps configuration. Use your secret-management system to rotate credentials. Restart the worker after updating environment-backed Secret values so the process receives them.
 
-Sentry uses a separate Secret reference. See [Enable Sentry](#enable-sentry) for the exact values.
+Sentry uses a separate Secret reference. See [Sentry error-reporting values](#sentry-error-reporting-values).
 
-## Validate a configuration change
+## Datadog tracing values
 
-Render the chart with your values and review the generated references and endpoints. Apply through the deployment's owner: your Helm workflow or its GitOps controller. Do not let a supervisor manage the same worker resources.
+Use these values when your cluster already runs a Datadog Agent that accepts APM traffic. The Helm keys are under `observability.datadog`:
 
-After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/verify-your-deployment). Configuration validation and a healthy pod do not prove that credentials can access the database, bucket, or model.
+| Helm key   | Default                             | Meaning                                                                                             |
+| ---------- | ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `enabled`  | `false`                             | Turns on Datadog tracing and adds log-discovery annotations to the analyzer and migration Job pods. |
+| `env`      | `local`                             | Sets `DD_ENV` and the `tags.datadoghq.com/env` label.                                               |
+| `service`  | `pig-trace-analyzer`                | Sets `DD_SERVICE`, the `tags.datadoghq.com/service` label, and the service in log discovery.        |
+| `agentUrl` | `http://datadog-agent.datadog:8126` | Sets `DD_TRACE_AGENT_URL`. Starts with `http://` or `https://`.                                     |
+| `site`     | `datadoghq.com`                     | Sets `DD_SITE`.                                                                                     |
 
-## Enable Datadog
-
-If your cluster already runs a Datadog Agent that accepts APM traffic, add these Helm values:
+For example, with your installation's Agent URL and site:
 
 ```yaml title="observability-values.yaml"
 observability:
@@ -199,13 +252,22 @@ observability:
     site: datadoghq.com
 ```
 
-Replace the Agent URL and site for your installation. The chart sets `DD_TRACE_ENABLED`, `DD_ENV`, `DD_SERVICE`, `DD_VERSION`, `DD_TRACE_AGENT_URL`, and `DD_SITE`, and adds a log-discovery annotation. Configure the Agent's container-log collection and network access separately.
+When Datadog is enabled, the chart also sets `DD_TRACE_ENABLED`, `DD_TRACE_ANALYTICS_ENABLED`, and `DD_VERSION` on the analyzer and the migration Job. The chart sets only these `DD_*` variables. Configure the Agent's container-log collection and network access separately.
 
-The chart exposes the listed settings; it does not pass arbitrary `DD_*` environment variables from values. Analysis tracing can include LLM observability data. Review your telemetry collection and retention settings before enabling it for sensitive sessions.
+Analysis tracing can include LLM observability data. Review your telemetry collection and retention settings before enabling it for sensitive sessions.
 
-## Enable Sentry
+## Sentry error-reporting values
 
-Create a Secret named `acme-pig-sentry` with a `SENTRY_DSN` key using your secret-management system, then add:
+The Helm keys are under `observability`:
+
+| Helm key                    | Default      | Meaning                                                                                     |
+| --------------------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| `environment`               | `local`      | Sets `SENTRY_ENVIRONMENT`.                                                                  |
+| `sentry.enabled`            | `false`      | Turns on Sentry error reporting.                                                            |
+| `sentry.existingSecretName` | Empty        | Secret in the release namespace that holds the Sentry DSN. Required when Sentry is enabled. |
+| `sentry.dsnKey`             | `SENTRY_DSN` | Key in that Secret that holds the DSN.                                                      |
+
+Create the Secret with your secret-management system. For example, with a Secret named `acme-pig-sentry` that holds the DSN under `SENTRY_DSN`:
 
 ```yaml title="sentry-values.yaml"
 observability:
@@ -216,8 +278,16 @@ observability:
     dsnKey: SENTRY_DSN
 ```
 
-The chart supplies `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` to the worker and migration Job. Error reporting is enabled by the DSN; Sentry performance tracing is disabled in the worker's current setup.
+The chart supplies `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, and `SENTRY_RELEASE` to the analyzer and the migration Job. The worker reports errors to Sentry; Sentry performance tracing is off in the worker's current setup.
 
 <Aside type="note">
   Opting into external telemetry adds another data destination. Logs and error reports can contain operational context. Apply your organization's access and retention controls, and review the [data boundaries](/docs/governance/start-here/trust-and-data-model).
 </Aside>
+
+## Notes
+
+### Apply a configuration change
+
+Render the chart with your values and review the generated references and endpoints. Apply the change through the deployment's owner: your Helm workflow or its GitOps controller. Don't let a supervisor manage the same worker resources. [Manually manage the analyzer](/docs/governance/deploy-the-worker/manual-helm#install-the-analyzer) shows the render and install commands.
+
+After rollout, repeat the [complete-session verification](/docs/governance/deploy-the-worker/verify-your-deployment). Configuration validation and a healthy pod don't prove that credentials can access the database, bucket, or model.

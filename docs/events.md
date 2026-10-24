@@ -21,6 +21,7 @@ Fires every time a visitor gives us their email, regardless of context.
 | `intent` | string | Why they gave it: `demo`, `newsletter`, `free_tool` |
 | `location` | string | Where: `hero`, `demo_page`, `blog`, `free_tools` |
 | `campaign` | string | Campaign slug or empty |
+| `meeting` | string | `/lavacon` only: `booth` or `follow_up`, the tile picked before the form |
 | `$set: { email }` | string | Always set to identify the person |
 
 **Sources**: HeroV2.astro, DemoBooking.astro, BlogRequestDemo.astro,
@@ -60,6 +61,7 @@ Current `action` values:
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
 | `view_event` | `nav` (homepage announcement slot; event slug in `campaign`, e.g. `lavacon-2026`) |
+| `choose_meeting` | `lavacon_hero_booth`, `lavacon_hero_follow_up` (the `/lavacon` tiles that open the booking form for a booth meeting or a follow-up call) |
 | `view_dogbench` | `footer` (Content column link), `footer_card` (homepage-only card); both open dogbench.ai |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 | `book_demo` (Agent Score) | `agent_score_landing`, `agent_score_report` (the Promptless block at the end of each Agent Score page) |
@@ -228,6 +230,19 @@ Fires when a visitor clicks Rescan on a report page.
 | `location` | string | `agent_score_report` |
 
 **Source**: ReportClient.astro
+
+### `agent_score_scan_cancelled`
+
+Fires when a visitor clicks Cancel in a scan progress panel. The page stops
+polling; the scan itself still finishes on the backend.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug being scanned |
+| `location` | string | `agent_score_hero`, `agent_score_not_found`, or `agent_score_report` |
+| `elapsed_seconds` | number | Seconds since the scan was requested or the page began following it |
+
+**Source**: ScanForm.astro, ReportClient.astro
 
 ### `agent_score_fix_prompt_copied`
 
