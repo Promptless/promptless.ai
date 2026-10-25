@@ -18,6 +18,9 @@ test('parseSlug canonicalizes hosts and keeps path case', () => {
   const deepPath = parseSlug('example.com/products/x/docs/latest/guide');
   assert.ok(deepPath.ok, 'Expected a 5-segment path to be accepted.');
   assert.equal(deepPath.slug, 'example.com/products/x/docs/latest/guide');
+  const deeperPath = parseSlug('example.com/a/b/c/d/e/f');
+  assert.ok(deeperPath.ok);
+  assert.equal(deeperPath.slug, 'example.com/a/b/c/d/e/f');
 });
 
 test('parseSlug rejects non-public and malformed hosts', () => {
