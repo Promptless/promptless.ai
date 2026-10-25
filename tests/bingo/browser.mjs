@@ -49,6 +49,11 @@ const fixture = await sharp(svg)
   .toBuffer();
 const fixturePath = resolve(artifacts, "synthetic-evidence.jpg");
 await writeFile(fixturePath, fixture);
+const largeFixturePath = resolve(artifacts, "large-portrait-evidence.jpg");
+await sharp(svg)
+  .resize(3000, 4000, { fit: "contain" })
+  .jpeg()
+  .toFile(largeFixturePath);
 const upload = () => page.locator('input[aria-label="Upload photo"]');
 const photoAction = () =>
   page.getByRole("button", { name: "Take or Upload Photo", exact: true });
@@ -100,6 +105,124 @@ async function saveFixture() {
   await choosePhoto(fixturePath);
   await page.getByRole("button", { name: "Save photo & mark square" }).click();
   await page.waitForSelector("dialog", { state: "detached" });
+}
+
+async function scrollState(releasePreview = false) {
+  return page.locator("dialog[open]").evaluate((dialog, release) => {
+    const focused = document.activeElement;
+    if (release) {
+      document.removeEventListener("load", window.bingoHoldPreview, true);
+      window.bingoHeldPreview.dispatchEvent(new Event("load"));
+    }
+    const save = dialog.querySelector('[data-track-action="bingo_save"]');
+    const bounds = dialog.getBoundingClientRect();
+    const button = save?.getBoundingClientRect();
+    return {
+      top: dialog.scrollTop,
+      overflow: dialog.scrollHeight - dialog.clientHeight,
+      pageX: window.scrollX,
+      pageY: window.scrollY,
+      focusPreserved: document.activeElement === focused,
+      saveVisible:
+        !!button &&
+        button.top >= bounds.top + dialog.clientTop &&
+        button.bottom <= bounds.top + dialog.clientTop + dialog.clientHeight &&
+        button.top >= 0 &&
+        button.bottom <= window.innerHeight,
+    };
+  }, releasePreview);
+}
+
+async function resetModalScroll() {
+  await photoAction().evaluate((button) => {
+    button.focus({ preventScroll: true });
+    button.closest("dialog").scrollTop = 0;
+  });
+  return scrollState();
+}
+
+async function assertPreviewScroll(
+  file,
+  name,
+  reducedMotion = "no-preference",
+) {
+  const viewport = page.viewportSize();
+  await page.setViewportSize({
+    width: reducedMotion === "reduce" ? 320 : 390,
+    height: 640,
+  });
+  await page.emulateMedia({ reducedMotion });
+  const before = await resetModalScroll();
+  // Hold the real image's load event after it has dimensions, so a draft-state
+  // effect (which would scroll before the preview is ready) cannot pass.
+  await page.evaluate(() => {
+    window.bingoHeldPreview = null;
+    window.bingoHoldPreview = (event) => {
+      if (
+        event.target instanceof HTMLImageElement &&
+        event.target.closest(".photo-preview")
+      ) {
+        event.stopImmediatePropagation();
+        window.bingoHeldPreview = event.target;
+      }
+    };
+    document.addEventListener("load", window.bingoHoldPreview, true);
+  });
+  await upload().setInputFiles(file);
+  await page.waitForFunction(() => window.bingoHeldPreview?.naturalHeight > 0);
+  const pending = await scrollState();
+  assert.ok(pending.overflow > 100, `${name}: the actual dialog must overflow`);
+  assert.equal(pending.top, 0, `${name}: wait for the preview's load event`);
+  const loaded = await scrollState(true);
+  assert.ok(
+    Math.abs(loaded.top - loaded.overflow) <= 1,
+    `${name}: immediately at the modal bottom`,
+  );
+  assert.equal(loaded.saveVisible, true, `${name}: Save is fully visible`);
+  assert.equal(
+    loaded.focusPreserved,
+    true,
+    `${name}: scrolling preserves focus`,
+  );
+  assert.equal(
+    loaded.pageX,
+    before.pageX,
+    `${name}: page horizontal scroll is preserved`,
+  );
+  assert.equal(
+    loaded.pageY,
+    before.pageY,
+    `${name}: page vertical scroll is preserved`,
+  );
+  await page.screenshot({
+    path: resolve(artifacts, `photo-scroll-${name}.png`),
+  });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(viewport);
+}
+
+async function assertNoSelectionScroll(file, alertText) {
+  const before = await resetModalScroll();
+  await upload().setInputFiles(file);
+  if (alertText)
+    await page.getByRole("alert").filter({ hasText: alertText }).waitFor();
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
+  const after = await scrollState();
+  assert.equal(
+    after.top,
+    before.top,
+    "Cancel/failure must not scroll the dialog",
+  );
+  assert.equal(
+    after.pageY,
+    before.pageY,
+    "Cancel/failure must not scroll the page",
+  );
 }
 
 try {
@@ -202,7 +325,7 @@ try {
     buffer: Buffer.from("heic"),
   });
   await page.getByRole("alert").filter({ hasText: "For HEIC" }).waitFor();
-  await choosePhoto(fixturePath);
+  await assertPreviewScroll(fixturePath, "first-photo");
   await page.getByText("Preview · not saved yet").waitFor();
   const draftSource = await page
     .locator(".photo-preview img")
@@ -212,12 +335,20 @@ try {
     "",
     "Same-file selection can be retried",
   );
-  await choosePhoto([]);
+  await assertNoSelectionScroll([]);
   assert.equal(
     await page.locator(".photo-preview img").getAttribute("src"),
     draftSource,
   );
-  await choosePhoto(fixturePath);
+  await assertNoSelectionScroll(
+    {
+      name: "undecodable.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0, 0]),
+    },
+    "could not be opened",
+  );
+  await assertPreviewScroll(fixturePath, "retry");
   await page.waitForFunction(
     (previous) =>
       document.querySelector(".photo-preview img")?.getAttribute("src") !==
@@ -237,7 +368,7 @@ try {
     "Closing a dialog restores focus to its square",
   );
   await openFirst();
-  await choosePhoto([]);
+  await assertNoSelectionScroll([]);
   assert.equal(await page.locator(".photo-preview").count(), 0);
   await page.keyboard.press("Escape");
   // Cancel while conversion is still pending: no late result may mark a square.
@@ -296,17 +427,27 @@ try {
   // Staged replacement must not clobber the committed photo when interrupted.
   await openFirst();
   await page.getByText("Saved on this device", { exact: true }).waitFor();
+  await page.locator(".photo-preview img").evaluate((image) => image.decode());
+  assert.equal(
+    (await scrollState()).top,
+    0,
+    "Opening a saved photo does not jump to the bottom",
+  );
   const savedSource = await page
     .locator(".photo-preview img")
     .getAttribute("src");
-  await choosePhoto([]);
+  await assertNoSelectionScroll([]);
   assert.equal(
     await page.locator(".photo-preview img").getAttribute("src"),
     savedSource,
   );
   assert.equal(await page.getByText("Preview · not saved yet").count(), 0);
   assert.equal(await page.locator(".marked").count(), 1);
-  await choosePhoto(fixturePath);
+  await assertPreviewScroll(
+    largeFixturePath,
+    "replacement-reduced-motion",
+    "reduce",
+  );
   await page.getByText("Preview · not saved yet").waitFor();
   await page.reload();
   await page.waitForSelector(".marked");
@@ -465,6 +606,9 @@ try {
       "repeated save taps",
       "simulated picker cancel preserves draft and saved photo",
       "same file retry",
+      "preview load scrolls only the modal, keeping Save visible and focus unchanged",
+      "large portrait replacement with reduced motion",
+      "picker cancel and decode failure do not scroll; retry does",
       "save/reload",
       "EXIF stripping",
       "interrupted replacement",
