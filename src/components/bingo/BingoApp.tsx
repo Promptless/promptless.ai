@@ -1,7 +1,13 @@
 import Modal from "./BingoModal";
 import SavePanel, { type EmailCodeRequest } from "./SavePanel";
 import { BingoCloud, requestCode } from "../../lib/bingo/cloud";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactEventHandler,
+} from "react";
 import {
   completedLines,
   FREE,
@@ -25,15 +31,31 @@ const track = (action: string) => ({
   "data-track-campaign": "lavacon",
 });
 
-function Photo({ blob, className = "" }: { blob: Blob; className?: string }) {
-  const [url, setUrl] = useState("");
+function Photo({
+  blob,
+  className = "",
+  onLoad,
+}: {
+  blob: Blob;
+  className?: string;
+  onLoad?: ReactEventHandler<HTMLImageElement>;
+}) {
+  const [source, setSource] = useState<{ blob: Blob; url: string } | null>(
+    null,
+  );
   useEffect(() => {
     const next = URL.createObjectURL(blob);
-    setUrl(next);
+    setSource({ blob, url: next });
     return () => URL.revokeObjectURL(next);
   }, [blob]);
-  return url ? (
-    <img src={url} className={className} alt="Your saved writing example" />
+  // A replacement must load its own preview before invoking the new handler.
+  return source?.blob === blob ? (
+    <img
+      src={source.url}
+      className={className}
+      alt="Your saved writing example"
+      onLoad={onLoad}
+    />
   ) : null;
 }
 
@@ -112,7 +134,18 @@ function Evidence({
       </blockquote>
       {(draft || existing) && (
         <div className="photo-preview">
-          <Photo blob={(draft || existing)!} />
+          <Photo
+            blob={(draft || existing)!}
+            onLoad={(event) => {
+              if (!draft || preparing || error) return;
+              const dialog = event.currentTarget.closest("dialog");
+              // The image now has dimensions. Move only the modal, without animation or a focus change.
+              dialog?.scrollTo({
+                top: dialog.scrollHeight,
+                behavior: "instant",
+              });
+            }}
+          />
           <span>
             {draft ? "Preview · not saved yet" : "Saved on this device"}
           </span>
