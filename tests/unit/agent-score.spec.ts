@@ -15,9 +15,12 @@ test('parseSlug canonicalizes hosts and keeps path case', () => {
   const withPath = parseSlug('stripe.com/Docs/API');
   assert.ok(withPath.ok);
   assert.equal(withPath.slug, 'stripe.com/Docs/API');
-  const deepPath = parseSlug('example.com/a/b/c/d/e/f');
-  assert.ok(deepPath.ok);
-  assert.equal(deepPath.slug, 'example.com/a/b/c/d/e/f');
+  const deepPath = parseSlug('example.com/products/x/docs/latest/guide');
+  assert.ok(deepPath.ok, 'Expected a 5-segment path to be accepted.');
+  assert.equal(deepPath.slug, 'example.com/products/x/docs/latest/guide');
+  const deeperPath = parseSlug('example.com/a/b/c/d/e/f');
+  assert.ok(deeperPath.ok);
+  assert.equal(deeperPath.slug, 'example.com/a/b/c/d/e/f');
 });
 
 test('parseSlug rejects non-public and malformed hosts', () => {
@@ -31,6 +34,7 @@ test('normalizeTargetUrl accepts bare hosts and strips query and fragment', () =
     ['docs.stripe.com', 'docs.stripe.com', 'https://docs.stripe.com'],
     ['https://Stripe.com/docs/?utm=1#top', 'stripe.com/docs', 'https://stripe.com/docs'],
     ['http://docs.example.com/guide/', 'docs.example.com/guide', 'http://docs.example.com/guide'],
+    ['https://example.com/a/b/c/d/e/f', 'example.com/a/b/c/d/e/f', 'https://example.com/a/b/c/d/e/f'],
   ];
   for (const [input, slug, url] of cases) {
     const result = normalizeTargetUrl(input);
