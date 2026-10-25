@@ -1,7 +1,7 @@
 ---
 /**
  * Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only.
- * Shows the top 24 first; a button loads up to the API's 1,000-entry limit.
+ * Shows the top 24 first, then replaces them with up to the API's 1,000-entry limit.
  */
 import { getAgentScoreApiBase } from '@lib/agent-score/config';
 
@@ -10,7 +10,7 @@ const apiBase = getAgentScoreApiBase();
 
 <section class="pl-as-section" id="leaderboard" aria-labelledby="pl-as-board-title">
   <h2 class="pl-as-h2" id="pl-as-board-title">Leaderboard</h2>
-  <div data-as-board data-api-base={apiBase} aria-live="polite" aria-busy="true">
+  <div data-as-board data-api-base={apiBase} aria-busy="true">
     <ul class="pl-as-board" aria-hidden="true">
       {Array.from({ length: 6 }, () => <li class="pl-as-board-skeleton" />)}
     </ul>
@@ -60,34 +60,15 @@ const apiBase = getAgentScoreApiBase();
     container.replaceChildren(box);
   }
 
-  /** Footer under the list: a button that loads the rest, or a note when the API limit hides some sites. */
-  function renderMore(data: LeaderboardResponse): HTMLElement | null {
-    const total = data.totalSites;
-    if (total <= data.entries.length) return null;
+  /** A note under the list when the API limit hides some sites. */
+  function renderCapNote(data: LeaderboardResponse): HTMLElement | null {
+    if (data.totalSites <= data.entries.length || data.entries.length < FULL_LIMIT) return null;
     const footer = el('div', 'pl-as-board-more');
-    if (data.entries.length >= FULL_LIMIT) {
-      footer.append(el('p', 'pl-as-muted', `Showing the top ${formatCount(FULL_LIMIT)} of ${formatCount(total)} scored sites.`));
-      return footer;
-    }
-    const label = total > FULL_LIMIT ? `Show the top ${formatCount(FULL_LIMIT)} of ${formatCount(total)} sites` : `Show all ${formatCount(total)} sites`;
-    const button = el('button', 'pl-as-btn', label);
-    button.type = 'button';
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      button.textContent = 'Loading…';
-      try {
-        render(await fetchBoard(FULL_LIMIT), data.entries.length);
-      } catch {
-        button.disabled = false;
-        button.textContent = 'Couldn’t load more sites. Try again';
-      }
-    });
-    footer.append(button);
+    footer.append(el('p', 'pl-as-muted', `Showing the top ${formatCount(FULL_LIMIT)} of ${formatCount(data.totalSites)} scored sites.`));
     return footer;
   }
 
-  /** Renders the list; `focusIndex` moves focus to that entry, so a keyboard user lands on the first newly loaded site. */
-  function render(data: LeaderboardResponse, focusIndex?: number) {
+  function render(data: LeaderboardResponse) {
     if (!container) return;
     if (!data.entries.length) {
       renderMessage('No sites scored yet', 'Score your docs above and your site shows up here.', true);
@@ -107,20 +88,28 @@ const apiBase = getAgentScoreApiBase();
       item.append(link);
       list.append(item);
     });
-    const more = renderMore(data);
-    container.replaceChildren(...(more ? [list, more] : [list]));
-    if (focusIndex !== undefined) list.children[focusIndex]?.querySelector('a')?.focus();
+    const note = renderCapNote(data);
+    container.replaceChildren(...(note ? [list, note] : [list]));
   }
 
   async function load() {
     if (!container) return;
+    let initial: LeaderboardResponse;
     try {
-      render(await fetchBoard(INITIAL_LIMIT));
+      initial = await fetchBoard(INITIAL_LIMIT);
     } catch {
       renderMessage('The leaderboard is unavailable right now', 'Scanning still works. Try again in a minute.', false);
-    } finally {
       container.setAttribute('aria-busy', 'false');
+      return;
     }
+    render(initial);
+    if (initial.totalSites > initial.entries.length) {
+      // The top sites are already on screen, so a failed full load leaves them in place.
+      try {
+        render(await fetchBoard(FULL_LIMIT));
+      } catch {}
+    }
+    container.setAttribute('aria-busy', 'false');
   }
 
   load();
