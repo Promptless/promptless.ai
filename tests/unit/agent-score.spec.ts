@@ -15,10 +15,13 @@ test('parseSlug canonicalizes hosts and keeps path case', () => {
   const withPath = parseSlug('stripe.com/Docs/API');
   assert.ok(withPath.ok);
   assert.equal(withPath.slug, 'stripe.com/Docs/API');
+  const deepPath = parseSlug('example.com/a/b/c/d/e/f');
+  assert.ok(deepPath.ok);
+  assert.equal(deepPath.slug, 'example.com/a/b/c/d/e/f');
 });
 
 test('parseSlug rejects non-public and malformed hosts', () => {
-  for (const raw of ['localhost', '10.0.0.1', 'intranet.local', 'a_b.com', 'example.com/a/b/c/d/e', 'example.com/../etc', '']) {
+  for (const raw of ['localhost', '10.0.0.1', 'intranet.local', 'a_b.com', 'example.com/../etc', '']) {
     assert.equal(parseSlug(raw).ok, false, `Expected ${raw} to be rejected.`);
   }
 });
