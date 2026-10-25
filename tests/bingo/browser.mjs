@@ -50,6 +50,19 @@ const fixture = await sharp(svg)
 const fixturePath = resolve(artifacts, "synthetic-evidence.jpg");
 await writeFile(fixturePath, fixture);
 const upload = () => page.locator('input[aria-label="Upload photo"]');
+const photoAction = () =>
+  page.getByRole("button", { name: "Take or Upload Photo", exact: true });
+async function choosePhoto(files) {
+  const pendingChooser = page.waitForEvent("filechooser");
+  await photoAction().click();
+  const chooser = await pendingChooser;
+  assert.equal(
+    await chooser.element().getAttribute("aria-label"),
+    "Upload photo",
+  );
+  assert.equal(chooser.isMultiple(), false);
+  await chooser.setFiles(files);
+}
 const square = () => page.locator("button.square").first();
 const screenshot = async (name) => {
   await page.addStyleTag({
@@ -84,7 +97,7 @@ async function openFirst() {
   await page.waitForSelector("dialog[open]");
 }
 async function saveFixture() {
-  await upload().setInputFiles(fixturePath);
+  await choosePhoto(fixturePath);
   await page.getByRole("button", { name: "Save photo & mark square" }).click();
   await page.waitForSelector("dialog", { state: "detached" });
 }
@@ -142,10 +155,35 @@ try {
   await closePanel();
 
   await openFirst();
+  assert.equal(await photoAction().count(), 1);
   assert.equal(
-    await page.locator("input[capture]").getAttribute("capture"),
-    "environment",
+    await page.getByRole("button", { name: /take photo/i }).count(),
+    0,
   );
+  assert.equal(await page.locator('input[type="file"]').count(), 1);
+  assert.equal(await page.locator("input[capture]").count(), 0);
+  assert.equal(
+    await upload().getAttribute("accept"),
+    "image/jpeg,image/png,image/webp",
+  );
+  for (const width of [320, 375, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(
+      await photoAction().evaluate((button) => {
+        const box = button.getBoundingClientRect();
+        return (
+          box.width >= 44 &&
+          box.height >= 44 &&
+          box.left >= 0 &&
+          box.right <= window.innerWidth &&
+          button.scrollWidth <= button.clientWidth
+        );
+      }),
+      `Photo action fits at ${width}px`,
+    );
+    if (width === 320) await screenshot("04a-mobile-photo-action-narrow");
+  }
+  await screenshot("04b-mobile-photo-action");
   await upload().setInputFiles({
     name: "bad.jpg",
     mimeType: "image/jpeg",
@@ -164,8 +202,28 @@ try {
     buffer: Buffer.from("heic"),
   });
   await page.getByRole("alert").filter({ hasText: "For HEIC" }).waitFor();
-  await upload().setInputFiles(fixturePath);
+  await choosePhoto(fixturePath);
   await page.getByText("Preview · not saved yet").waitFor();
+  const draftSource = await page
+    .locator(".photo-preview img")
+    .getAttribute("src");
+  assert.equal(
+    await upload().inputValue(),
+    "",
+    "Same-file selection can be retried",
+  );
+  await choosePhoto([]);
+  assert.equal(
+    await page.locator(".photo-preview img").getAttribute("src"),
+    draftSource,
+  );
+  await choosePhoto(fixturePath);
+  await page.waitForFunction(
+    (previous) =>
+      document.querySelector(".photo-preview img")?.getAttribute("src") !==
+      previous,
+    draftSource,
+  );
   await screenshot("04-mobile-photo-preview");
   await audit("Evidence dialog");
   await page
@@ -173,13 +231,13 @@ try {
     .click();
   assert.equal(await page.locator(".marked").count(), 0);
 
-  // Native picker cancellation, escape, and same-file reselection.
+  // Simulate picker cancellation, escape, and same-file reselection.
   assert.ok(
     await square().evaluate((element) => element === document.activeElement),
     "Closing a dialog restores focus to its square",
   );
   await openFirst();
-  await upload().setInputFiles([]);
+  await choosePhoto([]);
   assert.equal(await page.locator(".photo-preview").count(), 0);
   await page.keyboard.press("Escape");
   // Cancel while conversion is still pending: no late result may mark a square.
@@ -198,6 +256,7 @@ try {
   await page
     .getByText("Preparing a private copy… You can cancel below.")
     .waitFor();
+  assert.equal(await photoAction().isDisabled(), true);
   await page
     .getByRole("button", { name: "Cancel — keep my last saved board" })
     .click();
@@ -236,7 +295,18 @@ try {
 
   // Staged replacement must not clobber the committed photo when interrupted.
   await openFirst();
-  await upload().setInputFiles(fixturePath);
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
+  const savedSource = await page
+    .locator(".photo-preview img")
+    .getAttribute("src");
+  await choosePhoto([]);
+  assert.equal(
+    await page.locator(".photo-preview img").getAttribute("src"),
+    savedSource,
+  );
+  assert.equal(await page.getByText("Preview · not saved yet").count(), 0);
+  assert.equal(await page.locator(".marked").count(), 1);
+  await choosePhoto(fixturePath);
   await page.getByText("Preview · not saved yet").waitFor();
   await page.reload();
   await page.waitForSelector(".marked");
@@ -387,12 +457,13 @@ try {
       "24 randomized squares + free center",
       "asyndetic parataxis hint on mobile",
       "earlier edition preserves photo bytes and identity",
-      "capture attribute",
+      "single photo action opens the existing chooser without forced capture",
+      "photo action fits at 320, 375 and 390px",
       "bad/oversized/HEIC rejection",
       "preview/cancel",
       "cancel during processing",
       "repeated save taps",
-      "picker cancel",
+      "simulated picker cancel preserves draft and saved photo",
       "same file retry",
       "save/reload",
       "EXIF stripping",
@@ -404,7 +475,8 @@ try {
       "concurrent writes",
       "same email in separate browser",
     ],
-    realPhoneCamera: "Not exercised; requires physical iOS/Android device",
+    realPhoneChooser:
+      "Not exercised; native iOS/Android chooser requires a physical device",
     externalRequests,
     pageErrors: failures,
   };
