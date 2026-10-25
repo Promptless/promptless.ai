@@ -1,5 +1,8 @@
 ---
-/** Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only. */
+/**
+ * Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only.
+ * Shows the top 24 first; a button loads up to the API's 1,000-entry limit.
+ */
 import { getAgentScoreApiBase } from '@lib/agent-score/config';
 
 const apiBase = getAgentScoreApiBase();
@@ -18,7 +21,19 @@ const apiBase = getAgentScoreApiBase();
   import { gradeTone } from '@lib/agent-score/meta';
   import type { LeaderboardResponse } from '@lib/agent-score/types';
 
+  const INITIAL_LIMIT = 24;
+  /** The API's maximum `limit`. */
+  const FULL_LIMIT = 1000;
+
   const container = document.querySelector<HTMLElement>('[data-as-board]');
+  const apiBase = container?.dataset.apiBase ?? '';
+  const formatCount = (count: number) => count.toLocaleString('en-US');
+
+  async function fetchBoard(limit: number): Promise<LeaderboardResponse> {
+    const response = await fetch(`${apiBase}/leaderboard?limit=${limit}&sort=top`);
+    if (!response.ok) throw new Error(String(response.status));
+    return (await response.json()) as LeaderboardResponse;
+  }
 
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
     const node = document.createElement(tag);
@@ -45,7 +60,34 @@ const apiBase = getAgentScoreApiBase();
     container.replaceChildren(box);
   }
 
-  function render(data: LeaderboardResponse) {
+  /** Footer under the list: a button that loads the rest, or a note when the API limit hides some sites. */
+  function renderMore(data: LeaderboardResponse): HTMLElement | null {
+    const total = data.totalSites;
+    if (total <= data.entries.length) return null;
+    const footer = el('div', 'pl-as-board-more');
+    if (data.entries.length >= FULL_LIMIT) {
+      footer.append(el('p', 'pl-as-muted', `Showing the top ${formatCount(FULL_LIMIT)} of ${formatCount(total)} scored sites.`));
+      return footer;
+    }
+    const label = total > FULL_LIMIT ? `Show the top ${formatCount(FULL_LIMIT)} of ${formatCount(total)} sites` : `Show all ${formatCount(total)} sites`;
+    const button = el('button', 'pl-as-btn', label);
+    button.type = 'button';
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      button.textContent = 'Loading…';
+      try {
+        render(await fetchBoard(FULL_LIMIT), data.entries.length);
+      } catch {
+        button.disabled = false;
+        button.textContent = 'Couldn’t load more sites. Try again';
+      }
+    });
+    footer.append(button);
+    return footer;
+  }
+
+  /** Renders the list; `focusIndex` moves focus to that entry, so a keyboard user lands on the first newly loaded site. */
+  function render(data: LeaderboardResponse, focusIndex?: number) {
     if (!container) return;
     if (!data.entries.length) {
       renderMessage('No sites scored yet', 'Score your docs above and your site shows up here.', true);
@@ -65,16 +107,15 @@ const apiBase = getAgentScoreApiBase();
       item.append(link);
       list.append(item);
     });
-    container.replaceChildren(list);
+    const more = renderMore(data);
+    container.replaceChildren(...(more ? [list, more] : [list]));
+    if (focusIndex !== undefined) list.children[focusIndex]?.querySelector('a')?.focus();
   }
 
   async function load() {
     if (!container) return;
-    const apiBase = container.dataset.apiBase ?? '';
     try {
-      const response = await fetch(`${apiBase}/leaderboard?limit=24&sort=top`);
-      if (!response.ok) throw new Error(String(response.status));
-      render((await response.json()) as LeaderboardResponse);
+      render(await fetchBoard(INITIAL_LIMIT));
     } catch {
       renderMessage('The leaderboard is unavailable right now', 'Scanning still works. Try again in a minute.', false);
     } finally {
