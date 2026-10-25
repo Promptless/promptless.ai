@@ -57,7 +57,6 @@ function Evidence({
   const [removing, setRemoving] = useState(false);
   const operation = useRef(0);
   const saveLock = useRef(false);
-  const camera = useRef<HTMLInputElement>(null);
   const upload = useRef<HTMLInputElement>(null);
   const existing = game.photos[tell.id]?.blob;
   useEffect(
@@ -124,18 +123,6 @@ function Evidence({
         you have permission to use.
       </p>
       <input
-        ref={camera}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        hidden
-        aria-label="Camera photo"
-        onChange={(event) => {
-          void choose(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-      />
-      <input
         ref={upload}
         type="file"
         accept="image/jpeg,image/png,image/webp"
@@ -151,19 +138,10 @@ function Evidence({
           type="button"
           className="button secondary"
           disabled={preparing || saving}
-          onClick={() => camera.current?.click()}
-          {...track("bingo_camera")}
-        >
-          ◉ Take photo
-        </button>
-        <button
-          type="button"
-          className="button secondary"
-          disabled={preparing || saving}
           onClick={() => upload.current?.click()}
           {...track("bingo_upload")}
         >
-          ↑ {existing || draft ? "Replace photo" : "Upload photo"}
+          Take or Upload Photo
         </button>
       </div>
       <p className="fine">
