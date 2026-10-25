@@ -105,14 +105,15 @@ async function saveFixture() {
 try {
   await page.goto(`${base}/bingo`);
   await page.waitForSelector("button.square");
+  await page.getByText("Email saving is unavailable", { exact: true }).waitFor();
   assert.equal(
     await page.locator('input[type="email"]').count(),
-    1,
-    "Optional inline email save",
+    0,
+    "Unavailable saving does not ask for an email",
   );
   await screenshot("01-mobile-anonymous");
-  await page.getByLabel("Your email", { exact: true }).waitFor();
-  await audit("Email save form");
+  await page.getByRole("button", { name: "Retry connection" }).waitFor();
+  await audit("Unavailable email saving");
   await screenshot("01b-mobile-save-email");
   assert.equal(
     await page.getByRole("button", { name: "Device & privacy" }).count(),

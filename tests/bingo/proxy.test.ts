@@ -124,6 +124,42 @@ test("disabled saving fails closed and a malformed verification never sets a coo
   }
 });
 
+test("configuration guards and upstream outages stay observable without forwarding credentials to the browser", async () => {
+  let calls = 0;
+  let status = 503;
+  const fetch = mock.method(globalThis, "fetch", async () => {
+    calls++;
+    return Response.json({ detail: "Backend saving unavailable" }, { status });
+  });
+  try {
+    for (const override of [
+      { base: undefined },
+      { secret: undefined },
+      { secret: "short" },
+      { base: "not a URL" },
+      { base: "http://backend.example/bingo" },
+    ]) {
+      const response = await proxyBingo(context("session").ctx, {
+        ...config,
+        ...override,
+      });
+      assert.equal(response.status, 503);
+      assert.equal(response.headers.get("Cache-Control"), "no-store");
+      assert.doesNotMatch(await response.text(), /preview|test-proxy-secret/);
+    }
+    assert.equal(calls, 0);
+    for (status of [503, 403, 401]) {
+      const response = await proxyBingo(context("session").ctx, config);
+      assert.equal(response.status, status);
+      assert.deepEqual(await response.json(), {
+        detail: "Backend saving unavailable",
+      });
+    }
+  } finally {
+    fetch.mock.restore();
+  }
+});
+
 test("expiry clears the cookie and does not forward client-supplied authentication", async () => {
   const item = context("board");
   item.ctx.request.headers.set("Authorization", "Bearer forged");

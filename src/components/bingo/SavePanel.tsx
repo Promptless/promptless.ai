@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type FormEvent } from "react";
 import Modal from "./BingoModal";
 import {
   cloudRequest,
+  CloudError,
   requestCode,
   verifyCode,
   type BingoCloud,
@@ -32,7 +33,7 @@ export default function SavePanel({
   onSaved: (game: Game, message: string) => void;
   onClose: () => void;
   initialCodeRequest?: EmailCodeRequest;
-  onCodeRequested: (request: EmailCodeRequest) => void;
+  onCodeRequested: (request: EmailCodeRequest | undefined) => void;
 }) {
   const [step, setStep] = useState<"email" | "code" | "account" | "choose">(
     cloud.state.email ? "account" : initialCodeRequest ? "code" : "email",
@@ -86,6 +87,12 @@ export default function SavePanel({
     try {
       await work();
     } catch (failure) {
+      if (failure instanceof CloudError && failure.status === 401) {
+        setStep("email");
+        setChallenge("");
+        setCode("");
+        onCodeRequested(undefined);
+      }
       setError(
         failure instanceof Error
           ? failure.message
@@ -99,7 +106,7 @@ export default function SavePanel({
   async function connect(address: string) {
     const saved = await cloud.connect(game, address);
     if (!saved) {
-      onSaved(game, "Email verified. Your board is saving privately.");
+      onSaved(game, "Your board and photos are saved across devices.");
       return;
     }
     if (!Object.keys(game.photos).length) {
@@ -127,6 +134,7 @@ export default function SavePanel({
     event.preventDefault();
     void perform(async () => {
       const verified = await verifyCode(challenge, code);
+      onCodeRequested(undefined);
       setEmail(verified.email);
       setCode("");
       setChallenge("");

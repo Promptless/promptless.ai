@@ -9,6 +9,7 @@ export interface RemoteBoard {
   photos: Record<string, { digest: string; savedAt: string }>;
 }
 export interface SaveState {
+  availability: "checking" | "available" | "unavailable";
   phase: "local" | "saving" | "saved" | "error" | "conflict";
   email: string;
   message: string;
@@ -87,6 +88,7 @@ async function photoDigest(photo: Game["photos"][string]): Promise<string> {
 
 export class BingoCloud {
   state: SaveState = {
+    availability: "checking",
     phase: "local",
     email: "",
     message: "Saved on this device",
@@ -107,38 +109,66 @@ export class BingoCloud {
     for (const listener of this.listeners) listener();
   }
   async initialize(): Promise<void> {
+    this.show({ availability: "checking" });
     try {
       const { email } = await cloudRequest<{ email: string }>("session");
-      this.show({ email });
+      this.show({ email, availability: "available" });
       await this.sync();
     } catch (error) {
       if (error instanceof CloudError && error.status === 401)
-        this.show({ email: "", phase: "local" });
+        this.show({
+          email: "",
+          phase: "local",
+          availability: "available",
+          message: "Saved on this device",
+        });
+      else
+        this.show({
+          availability: "unavailable",
+          phase: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Email saving is unavailable. Your local board is safe.",
+        });
     }
   }
   async connect(game: Game, email: string): Promise<RemoteBoard | null> {
     await this.pending;
-    this.show({ email });
-    const remote = await cloudRequest<RemoteBoard | null>("board");
-    const saved = await this.local.loadCheckpoint();
-    if (remote) {
-      if (
-        remote.id === game.token &&
-        saved?.email === email &&
-        saved.revision === remote.revision
-      ) {
-        await this.sync();
-        return null;
+    try {
+      this.show({ email, availability: "available" });
+      const remote = await cloudRequest<RemoteBoard | null>("board");
+      const saved = await this.local.loadCheckpoint();
+      if (remote) {
+        if (
+          remote.id === game.token &&
+          saved?.email === email &&
+          saved.revision === remote.revision
+        ) {
+          await this.syncConnected();
+          return null;
+        }
+        return remote;
       }
-      return remote;
+      const created = await cloudRequest<RemoteBoard>(
+        "board",
+        json({ id: game.token, order: game.order }),
+      );
+      await this.local.saveCheckpoint(game.token, checkpoint(created, email));
+      await this.syncConnected();
+      return null;
+    } catch (error) {
+      this.showFailure(error);
+      throw error;
     }
-    const created = await cloudRequest<RemoteBoard>(
-      "board",
-      json({ id: game.token, order: game.order }),
-    );
-    await this.local.saveCheckpoint(game.token, checkpoint(created, email));
+  }
+  private async syncConnected(): Promise<void> {
     await this.sync();
-    return null;
+    if (this.state.phase !== "saved")
+      throw new CloudError(
+        !this.state.email ? 401 : this.state.phase === "conflict" ? 409 : 0,
+        this.state.message,
+      );
   }
   async restore(game: Game, remote: RemoteBoard): Promise<Game> {
     this.paused++;
@@ -213,6 +243,8 @@ export class BingoCloud {
     }
   }
   sync(): Promise<void> {
+    if (this.state.availability !== "available" || !this.state.email)
+      return Promise.resolve();
     if (this.paused) return Promise.resolve();
     if (this.pending) {
       this.again = true;
@@ -280,15 +312,18 @@ export class BingoCloud {
         this.show({ phase: "saved", message: "Saved across devices" });
       } while (this.again && !this.paused);
     } catch (error) {
-      const status = error instanceof CloudError ? error.status : 0;
-      this.show({
-        phase: status === 409 ? "conflict" : "error",
-        ...(status === 401 ? { email: "" } : {}),
-        message:
-          error instanceof Error
-            ? error.message
-            : "Couldn’t save online. Your local board is safe.",
-      });
+      this.showFailure(error);
     }
+  }
+  private showFailure(error: unknown) {
+    const status = error instanceof CloudError ? error.status : 0;
+    this.show({
+      phase: status === 409 ? "conflict" : "error",
+      ...(status === 401 ? { email: "" } : {}),
+      message:
+        error instanceof Error
+          ? error.message
+          : "Couldn’t save online. Your local board is safe.",
+    });
   }
 }
