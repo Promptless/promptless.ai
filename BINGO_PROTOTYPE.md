@@ -73,7 +73,7 @@ Validation completed locally:
 - Anonymous browser tests pass at widths 320, 375, 390, 768, and 1280 px, with no horizontal overflow, page errors, or axe violations in the tested states.
 - Browser photo checks cover cancellation, repeated taps, invalid inputs, EXIF removal, replacement/removal, quota failures, reload, offline saves, earlier cards, and win detection.
 - Two isolated browsers pass email verification, wrong-code retry, private restoration, offline sync, stale-device conflicts, local backup recovery, lost upload responses, sign-out, and server deletion.
-- The companion backend passes 35 focused feature, environment-contract, and migration tests, plus full runtime Ruff and ty checks. Its PR records unrelated failures from the full runtime suite and the comparison against unchanged `main`.
+- The companion backend PR records its current runtime CI, focused regression tests, and full runtime Ruff and ty results.
 
 Reports and screenshots are under `tmp/bingo-evidence/` and `tmp/bingo-cloud-evidence/`. Physical iOS/Android cameras and real Resend delivery remain unverified.
 
@@ -81,7 +81,7 @@ Reports and screenshots are under `tmp/bingo-evidence/` and `tmp/bingo-cloud-evi
 
 Prithvi needs to approve the existing sender for Bingo, the shared proxy-secret configuration, and activation of the two deployments. No new auth provider is needed.
 
-Approve the proposed 30-day inactivity expiry, a scheduled physical-deletion owner, and the 1 GiB event photo-storage cap. Current cleanup runs on accepted code requests, so it does not guarantee physical deletion on the expiry date. Database backups retain their existing policy. Review the 60-code-per-IP-per-hour limit for a shared booth network.
+The backend defaults support about 100 players sharing conference Wi-Fi: 600 code requests per IP per hour, 2,000 across the event per rolling day, and 3 GiB of stored photos. The per-email limit remains five requests per hour. Boards expire after 30 days of inactivity, and the runtime's hourly Bingo retention job deletes expired boards and photos independently of traffic. Database backups retain their existing policy. Confirm the retention job is deployed when enabling saving.
 
 Test actual iOS Safari and Android Chrome camera/library flows, including large photos and cancellation. Approve any prize/redemption rules separately. The game does not subscribe email addresses to marketing. Keep `noindex` until the route is approved for launch.
 
