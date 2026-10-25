@@ -32,7 +32,7 @@ export async function cloudRequest<T>(
       ...init,
       credentials: "same-origin",
       cache: "no-store",
-      signal: AbortSignal.timeout(25_000),
+      signal: AbortSignal.timeout(path === "email/code" ? 45_000 : 25_000),
     });
   } catch {
     throw new CloudError(

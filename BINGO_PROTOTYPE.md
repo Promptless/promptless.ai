@@ -83,6 +83,8 @@ Prithvi needs to approve the existing sender for Bingo, the shared proxy-secret 
 
 The backend defaults support about 100 players sharing conference Wi-Fi: 600 code requests per IP per hour, 2,000 across the event per rolling day, and 3 GiB of stored photos. The per-email limit remains five requests per hour. Boards expire after 30 days of inactivity, and the runtime's hourly Bingo retention job deletes expired boards and photos independently of traffic. Database backups retain their existing policy. Confirm the retention job is deployed when enabling saving.
 
+The existing runtime Redis paces code delivery across web pods. Code requests allow up to 45 seconds in the browser for a busy booth; ordinary board/photo requests keep their shorter timeout. Confirm the existing Resend account has enough email quota before activation.
+
 Test actual iOS Safari and Android Chrome camera/library flows, including large photos and cancellation. Approve any prize/redemption rules separately. The game does not subscribe email addresses to marketing. Keep `noindex` until the route is approved for launch.
 
 ## Find the changes

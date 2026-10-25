@@ -117,7 +117,7 @@ export async function proxyBingo(
       body,
       redirect: "error",
       cache: "no-store",
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(path === "email/code" ? 40_000 : 20_000),
     });
   } catch {
     return error(
