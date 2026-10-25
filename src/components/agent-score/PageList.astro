@@ -1,6 +1,10 @@
 ---
-/** Pages an issue affects: up to `limit` paths, then a count. */
-import { shortUrl, type AffectedPage } from '@lib/agent-score/issues';
+/**
+ * Pages an issue affects: up to `limit` paths, a toggle that reveals the rest
+ * of the listed paths, then a count of pages afdocs flagged but didn't list.
+ */
+import type { AffectedPage } from '@lib/agent-score/issues';
+import PageRow from './PageRow.astro';
 
 interface Props {
   pages: AffectedPage[];
@@ -12,21 +16,25 @@ interface Props {
 
 const { pages, total, host, limit = 3 } = Astro.props;
 const shown = pages.slice(0, limit);
-const more = Math.max(0, total - shown.length);
+const hidden = pages.slice(limit);
+const unlisted = Math.max(0, total - pages.length);
 ---
 
 {
   shown.length > 0 && (
-    <ul class="pl-as-pages">
-      {shown.map((page) => (
-        <li>
-          <a href={page.url} target="_blank" rel="noopener nofollow">
-            {shortUrl(page.url, host)}
-          </a>
-          {page.note && <span>{page.note}</span>}
-        </li>
-      ))}
-      {more > 0 && <li class="pl-as-pages-more">and {more} more</li>}
-    </ul>
+    <div class="pl-as-pages-block">
+      <ul class="pl-as-pages">
+        {shown.map((page) => <PageRow page={page} host={host} />)}
+      </ul>
+      {hidden.length > 0 && (
+        <details class="pl-as-pages-toggle">
+          <summary>Show {hidden.length} more</summary>
+          <ul class="pl-as-pages">
+            {hidden.map((page) => <PageRow page={page} host={host} />)}
+          </ul>
+        </details>
+      )}
+      {unlisted > 0 && <p class="pl-as-pages-more">and {unlisted} more</p>}
+    </div>
   )
 }
