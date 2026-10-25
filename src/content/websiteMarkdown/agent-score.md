@@ -15,7 +15,7 @@ The public JSON API lives at `https://api.gopromptless.ai/public/free-tools/agen
 - `GET /scans/<scanId>` returns `status` (`queued`, `running`, `complete`, or `failed`) and `progress`.
 - `GET /sites/<slug>` returns the latest result, history, and changes since the previous scan.
 - `GET /sites/<slug>/badge.svg` returns an SVG badge.
-- `GET /leaderboard?sort=top|recent&limit=24` lists scored sites.
+- `GET /leaderboard?sort=top|recent&limit=24` lists scored sites with each site's latest score and the total number of scored sites. `limit` defaults to 24 and accepts up to 1000.
 
 ## Score a private site
 
