@@ -49,7 +49,7 @@ The [AIStoryHub reference](https://aistoryhub.co/bingo) informed the general int
 
 ## Handle photos
 
-The camera picker requests the rear camera. The separate library picker accepts JPEG, PNG, and WebP. HEIC receives a conversion message. Input validation checks MIME, file signatures, and a 12 MiB input limit. Images above 40 megapixels are rejected after decoding.
+The **Take or Upload Photo** button opens one file picker that accepts JPEG, PNG, and WebP. The phone's own chooser then offers its photo library, camera, and files. Camera availability depends on the phone and browser. HEIC receives a conversion message. Input validation checks MIME, file signatures, and a 12 MiB input limit. Images above 40 megapixels are rejected after decoding.
 
 Canvas processing removes metadata and filenames, flattens transparency, and produces a JPEG at most 1600 pixels on its longest edge and 1 MiB. A board holds at most 24 photos. The backend repeats format, size, and pixel checks and re-encodes before persistence. Private JPEGs are stored in the existing Postgres database for this event implementation. No public gallery, public storage URL, analytics, or session replay is included.
 
