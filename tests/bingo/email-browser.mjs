@@ -20,6 +20,7 @@ const browser = await chromium.launch({
   headless: true,
 });
 const errors = [];
+const navigations = [];
 const email = "player@example.test";
 let remote = null;
 const photos = new Map();
@@ -38,6 +39,9 @@ async function device() {
   const page = await context.newPage();
   page.setDefaultTimeout(15_000);
   page.on("pageerror", (error) => errors.push(error.message));
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) navigations.push(frame.url());
+  });
   return { context, page };
 }
 async function mockSaving(context) {
@@ -71,6 +75,7 @@ async function mockSaving(context) {
       if (request.method() === "POST")
         remote = {
           ...request.postDataJSON(),
+          publicAlias: "Player ABCDEF1234",
           revision: 0,
           photos: {},
           createdAt: new Date().toISOString(),
@@ -206,6 +211,9 @@ try {
   await page.getByRole("button", { name: "Save or restore my board" }).click();
   await page.waitForSelector("dialog", { state: "detached" });
   await page.getByText("Saved across devices", { exact: true }).waitFor();
+  await page
+    .getByRole("link", { name: "Provisional leaderboard: Player ABCDEF1234" })
+    .waitFor();
   assert.deepEqual(await snapshot(page), original);
   assert.equal(photos.size, 1);
   await shot(page, "03-retry-saved");
@@ -241,7 +249,12 @@ try {
     original,
     "Second device restores board and every photo after verification",
   );
+  await second.page
+    .getByRole("link", { name: "Provisional leaderboard: Player ABCDEF1234" })
+    .waitFor();
   assert.deepEqual(errors, []);
+  assert.ok(navigations.length > 0);
+  assert.ok(navigations.every((url) => url === `${base}/bingo`));
   await writeFile(
     resolve(artifacts, "results.json"),
     JSON.stringify(
@@ -253,9 +266,11 @@ try {
           "failed initial upload remains visible and retry succeeds",
           "session expiry requests a new challenge",
           "verified second-device restore",
+          "email verification keeps both devices on the Bingo page",
           "error-dialog accessibility",
         ],
         errors,
+        navigations,
       },
       null,
       2,

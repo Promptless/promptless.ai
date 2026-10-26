@@ -37,6 +37,30 @@ export interface ProxyConfig {
 const error = (status: number, detail: string) =>
   Response.json({ detail }, { status, headers: privateHeaders });
 
+export function bingoUpstream(config: ProxyConfig): URL | null {
+  if (!config.base) return null;
+  let upstream: URL;
+  try {
+    upstream = new URL(config.base);
+  } catch {
+    return null;
+  }
+  if (
+    upstream.username ||
+    upstream.password ||
+    upstream.search ||
+    upstream.hash ||
+    (upstream.protocol !== "https:" &&
+      !(
+        upstream.protocol === "http:" &&
+        !config.production &&
+        ["localhost", "127.0.0.1"].includes(upstream.hostname)
+      ))
+  )
+    return null;
+  return upstream;
+}
+
 export async function proxyBingo(
   context: ProxyContext,
   config: ProxyConfig,
@@ -52,26 +76,8 @@ export async function proxyBingo(
       503,
       "Email saving is not configured on this website. Your board and photos stay on this device.",
     );
-  let upstream: URL;
-  try {
-    upstream = new URL(config.base);
-  } catch {
-    return error(503, "Saving is not configured.");
-  }
-  if (
-    upstream.username ||
-    upstream.password ||
-    upstream.search ||
-    upstream.hash ||
-    (upstream.protocol !== "https:" &&
-      !(
-        upstream.protocol === "http:" &&
-        !config.production &&
-        ["localhost", "127.0.0.1"].includes(upstream.hostname)
-      ))
-  ) {
-    return error(503, "Saving is not configured.");
-  }
+  const upstream = bingoUpstream(config);
+  if (!upstream) return error(503, "Saving is not configured.");
   // SameSite is defense in depth. Every mutation also requires the exact browser origin.
   if (request.method !== "GET" && request.headers.get("Origin") !== url.origin)
     return error(403, "Open Bingo on this website to continue.");

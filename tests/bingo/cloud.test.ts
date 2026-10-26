@@ -82,6 +82,7 @@ test("verification followed by a failed upload rejects; retry saves the original
         remote = {
           ...JSON.parse(init.body as string),
           revision: 0,
+          publicAlias: "Player ABCDEF1234",
           photos: {},
           createdAt: local.game.createdAt,
         };
