@@ -78,8 +78,10 @@ Run `npm run test:book-request` for payload, validation, and failure handling te
 (also included in `npm run check`). End-to-end checks must use clearly labeled
 synthetic data and a reserved address such as `example.com`; do not fulfill test
 requests or permanently delete submissions without approval. The cover image is
-the first page of the existing DoGBench field guide PDF from the DoGBench site's
-`site/field-guide/dogbench-field-guide.pdf`.
+the first page of the DoGBench 5 × 8 inch export at
+`book/out/web/dogbench-field-guide.pdf` on `field-guide-proof-fixes`
+(commit `8c193746bb4441a850a805f4fccc6ef20d276dd8`). It uses the blue
+mesh-dog cover; the older `site/field-guide/` PDF has a superseded cover.
 
 ### Deployment
 
