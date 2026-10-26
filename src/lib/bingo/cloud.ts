@@ -3,6 +3,7 @@ import { LocalBingoStorage, type CloudCheckpoint } from "./storage";
 
 export interface RemoteBoard {
   id: string;
+  publicAlias: string;
   revision: number;
   order: string[];
   createdAt: string;
@@ -12,6 +13,7 @@ export interface SaveState {
   availability: "checking" | "available" | "unavailable";
   phase: "local" | "saving" | "saved" | "error" | "conflict";
   email: string;
+  publicAlias: string;
   message: string;
 }
 export class CloudError extends Error {
@@ -91,6 +93,7 @@ export class BingoCloud {
     availability: "checking",
     phase: "local",
     email: "",
+    publicAlias: "",
     message: "Saved on this device",
   };
   private again = false;
@@ -118,6 +121,7 @@ export class BingoCloud {
       if (error instanceof CloudError && error.status === 401)
         this.show({
           email: "",
+          publicAlias: "",
           phase: "local",
           availability: "available",
           message: "Saved on this device",
@@ -136,7 +140,7 @@ export class BingoCloud {
   async connect(game: Game, email: string): Promise<RemoteBoard | null> {
     await this.pending;
     try {
-      this.show({ email, availability: "available" });
+      this.show({ email, publicAlias: "", availability: "available" });
       const remote = await cloudRequest<RemoteBoard | null>("board");
       const saved = await this.local.loadCheckpoint();
       if (remote) {
@@ -222,7 +226,11 @@ export class BingoCloud {
         next,
         checkpoint(remote, this.state.email),
       );
-      this.show({ phase: "saved", message: "Saved across devices" });
+      this.show({
+        phase: "saved",
+        publicAlias: remote.publicAlias,
+        message: "Saved across devices",
+      });
       return restored;
     } finally {
       this.paused--;
@@ -236,6 +244,7 @@ export class BingoCloud {
       this.show({
         phase: "local",
         email: "",
+        publicAlias: "",
         message: "Signed out. This browser still has your local board.",
       });
     } finally {
@@ -268,7 +277,11 @@ export class BingoCloud {
           saved.email !== this.state.email ||
           saved.boardId !== game.token
         ) {
-          this.show({ phase: "local", message: "Saved on this device" });
+          this.show({
+            phase: "local",
+            publicAlias: "",
+            message: "Saved on this device",
+          });
           return;
         }
         this.show({
@@ -309,7 +322,11 @@ export class BingoCloud {
         const current = await this.local.load();
         if (current?.token === game.token && current.revision !== game.revision)
           this.again = true;
-        this.show({ phase: "saved", message: "Saved across devices" });
+        this.show({
+          phase: "saved",
+          publicAlias: latest.publicAlias,
+          message: "Saved across devices",
+        });
       } while (this.again && !this.paused);
     } catch (error) {
       this.showFailure(error);
@@ -319,7 +336,7 @@ export class BingoCloud {
     const status = error instanceof CloudError ? error.status : 0;
     this.show({
       phase: status === 409 ? "conflict" : "error",
-      ...(status === 401 ? { email: "" } : {}),
+      ...(status === 401 ? { email: "", publicAlias: "" } : {}),
       message:
         error instanceof Error
           ? error.message

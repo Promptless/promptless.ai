@@ -398,6 +398,13 @@ export default function BingoApp({
                       : "Your work is saved on this device"}
                   </strong>
                   <p role="status">{saveState.message}</p>
+                  {saveState.phase === "saved" && saveState.publicAlias && (
+                    <p>
+                      <a href="/bingo-leaderboard">
+                        Provisional leaderboard: {saveState.publicAlias}
+                      </a>
+                    </p>
+                  )}
                 </div>
                 <button
                   className="button secondary"
@@ -571,7 +578,7 @@ export default function BingoApp({
           <p>
             Made for curious humans by <a href="/">Promptless</a>.
           </p>
-          <span>PLAY NOW · SAVE WITH EMAIL WHEN YOU’RE READY</span>
+          <a href="/bingo-leaderboard">See the provisional leaderboard ↗</a>
         </footer>
       </main>
       {game && panel === "save" && (
