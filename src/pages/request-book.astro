@@ -1,0 +1,123 @@
+---
+import BookRequestLayout from '../layouts/BookRequestLayout.astro';
+import { ArrowRight, BookOpen, Check, PawPrint } from '@lucide/astro';
+import { BOOK_REQUEST_ENDPOINT } from '../lib/book-request';
+---
+
+<BookRequestLayout title="Request a free DoGBench field guide">
+  <div class="book-grid">
+    <section class="book-intro" aria-labelledby="book-title">
+      <p class="eyebrow"><BookOpen size={16} aria-hidden="true" /> A little research. A better way to write docs.</p>
+      <h1 id="book-title">Request a free<br /><span>DoGBench</span><br />field guide.</h1>
+      <p class="book-deck">What AI agents get wrong when writing docs, and what it means for your team.</p>
+      <div class="book-feature">
+        <div class="book-art">
+          <PawPrint class="background-paw" size={120} aria-hidden="true" />
+          <img class="book-cover" src="/site/dogbench-field-guide-cover.jpg" width="668" height="1000" alt="Cover of What AI Agents Get Wrong When Writing Docs: A DoGBench Field Guide" fetchpriority="high" />
+        </div>
+        <div class="book-details">
+          <p class="eyebrow">Inside the guide</p>
+          <ul>
+            <li><Check size={17} aria-hidden="true" /> What expert reviewers look for</li>
+            <li><Check size={17} aria-hidden="true" /> Where AI-written docs fall short</li>
+            <li><Check size={17} aria-hidden="true" /> Lessons to put into practice</li>
+          </ul>
+          <a class="text-link" href="/blog/technical/dogbench">Explore the research <ArrowRight size={16} aria-hidden="true" /></a>
+        </div>
+      </div>
+    </section>
+
+    <section class="request-card" aria-labelledby="request-heading">
+      <div id="request-fields">
+        <p class="card-kicker">YOUR NEXT GOOD READ</p>
+        <h2 id="request-heading">Let's get you a copy.</h2>
+        <p class="card-intro">Leave your details and we'll follow up about getting you a free field guide.</p>
+        <form id="book-request-form" action={BOOK_REQUEST_ENDPOINT} method="post" aria-describedby="request-privacy request-status">
+          <input type="hidden" name="form" value="dogbench_book_request" />
+          <input type="hidden" name="source" value="request_book" />
+          <input type="hidden" name="_email.subject" value="Free DoGBench field guide request" />
+          <input type="hidden" name="_redirect" value="https://promptless.ai/request-book/thanks" />
+          <div class="honeypot" aria-hidden="true">
+            <label for="book-website">Leave this field empty</label>
+            <input id="book-website" name="_gotcha" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="request-name">Name</label>
+            <input id="request-name" name="name" autocomplete="name" maxlength="120" required />
+          </div>
+          <div class="field">
+            <label for="request-email">Email address</label>
+            <input id="request-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required />
+          </div>
+          <div class="field">
+            <label for="request-company">Company <span>(optional)</span></label>
+            <input id="request-company" name="company" autocomplete="organization" maxlength="160" />
+          </div>
+          <fieldset class="copy-choice">
+            <legend>Would you like a physical copy?</legend>
+            <label><input type="radio" name="physical_copy" value="yes" required /><span>Yes, a physical copy</span></label>
+            <label><input type="radio" name="physical_copy" value="no" required /><span>A digital copy works for me</span></label>
+          </fieldset>
+          <button class="request-button" type="submit" data-track-action="request_book" data-track-funnel="conversion" data-track-location="request_book">Request my free copy <ArrowRight size={19} aria-hidden="true" /></button>
+          <p id="request-status" class="request-status" role="status" aria-live="polite" aria-atomic="true"></p>
+          <p id="request-privacy" class="privacy-note">No purchase required. We'll use your details to handle this request. This doesn't sign you up for marketing. <a href="/privacy">Privacy policy</a></p>
+          <noscript><p class="privacy-note">Submitting will take you to a confirmation page.</p></noscript>
+        </form>
+      </div>
+      <div id="request-success" class="success-panel" hidden tabindex="-1">
+        <span class="success-icon"><Check size={30} aria-hidden="true" /></span>
+        <p class="card-kicker">REQUEST RECEIVED</p>
+        <h2>You're on the list.</h2>
+        <p>Thanks for your interest in DoGBench. We'll follow up by email about getting you a copy.</p>
+        <a class="text-link" href="/blog/technical/dogbench">Explore the research <ArrowRight size={17} aria-hidden="true" /></a>
+      </div>
+    </section>
+  </div>
+</BookRequestLayout>
+
+<script>
+  import { parseBookRequest, submitBookRequest } from '../lib/book-request';
+
+  const form = document.querySelector<HTMLFormElement>('#book-request-form');
+  const button = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const status = document.querySelector<HTMLElement>('#request-status');
+  const fields = document.querySelector<HTMLElement>('#request-fields');
+  const success = document.querySelector<HTMLElement>('#request-success');
+  if (form && button && status && fields && success) {
+    let submitting = false;
+    let retryAfter = 0;
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (submitting) return;
+      status.dataset.tone = 'error';
+      if (Date.now() < retryAfter) {
+        status.textContent = 'Please wait a minute before trying again.';
+        return;
+      }
+      const request = parseBookRequest(new FormData(form));
+      if (!request.ok) {
+        status.textContent = request.message;
+        return;
+      }
+      submitting = true;
+      button.disabled = true;
+      form.setAttribute('aria-busy', 'true');
+      status.dataset.tone = 'neutral';
+      status.textContent = 'Sending your request…';
+      const result = await submitBookRequest(request.data);
+      submitting = false;
+      form.removeAttribute('aria-busy');
+      if (result.ok) {
+        form.reset();
+        fields.hidden = true;
+        success.hidden = false;
+        success.focus();
+        return;
+      }
+      if (result.rateLimited) retryAfter = Date.now() + 60_000;
+      button.disabled = false;
+      status.dataset.tone = 'error';
+      status.textContent = result.message;
+    });
+  }
+</script>
