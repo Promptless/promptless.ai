@@ -303,7 +303,7 @@ export default function BingoApp({
     if (game) void cloud.sync();
   }, [game?.token, game?.revision, saveState.email]);
   useEffect(() => {
-    const retry = () => void cloud.sync();
+    const retry = () => void cloud.initialize();
     window.addEventListener("online", retry);
     return () => window.removeEventListener("online", retry);
   }, []);
@@ -376,7 +376,20 @@ export default function BingoApp({
           </div>
         ) : game ? (
           <section className="play-area" aria-labelledby="board-title">
-            {saveState.email ? (
+            {saveState.availability === "unavailable" ? (
+              <div className="save-banner saved-summary">
+                <div>
+                  <strong>Email saving is unavailable</strong>
+                  <p role="status">{saveState.message}</p>
+                </div>
+                <button
+                  className="button secondary"
+                  onClick={() => void cloud.initialize()}
+                >
+                  Retry connection
+                </button>
+              </div>
+            ) : saveState.email ? (
               <div className="save-banner saved-summary">
                 <div>
                   <strong>
@@ -420,15 +433,23 @@ export default function BingoApp({
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    disabled={sendingCode}
+                    disabled={
+                      sendingCode || saveState.availability === "checking"
+                    }
                     aria-describedby="save-note"
                   />
                   <button
                     className="button secondary"
                     type="submit"
-                    disabled={sendingCode}
+                    disabled={
+                      sendingCode || saveState.availability === "checking"
+                    }
                   >
-                    {sendingCode ? "Sending…" : "Save"}
+                    {sendingCode
+                      ? "Sending…"
+                      : saveState.availability === "checking"
+                        ? "Checking…"
+                        : "Save"}
                   </button>
                 </div>
                 <p id="save-note">
@@ -566,7 +587,7 @@ export default function BingoApp({
           initialCodeRequest={codeRequest}
           onCodeRequested={(request) => {
             setCodeRequest(request);
-            setEmail(request.email);
+            if (request) setEmail(request.email);
           }}
         />
       )}

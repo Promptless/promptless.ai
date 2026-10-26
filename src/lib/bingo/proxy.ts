@@ -50,7 +50,7 @@ export async function proxyBingo(
   if (!config.base || !config.secret || config.secret.length < 32)
     return error(
       503,
-      "Saving across devices is not connected in this preview. Your board is saved on this device.",
+      "Email saving is not configured on this website. Your board and photos stay on this device.",
     );
   let upstream: URL;
   try {
