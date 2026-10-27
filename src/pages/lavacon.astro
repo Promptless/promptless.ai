@@ -3,23 +3,19 @@
 // StarlightPage so it shares the site's top bar (Header override) and
 // analytics, but with the sidebar off and the site footer suppressed
 // (getActiveSection() maps /lavacon to 'none') so the page can carry its own
-// light-only event layout: hero + booth / follow-up booking, problem cards,
+// light-only event layout: hero + follow-up booking, problem cards,
 // the sessions, the booth team and what's at the booth, testimonials, the
 // open-source proof carousel, and a closing pitch with a contact email.
 //
-// The hero first asks how the visitor wants to meet, with two tiles: at the
-// booth, or on a follow-up video call after LavaCon. Booth meetings book
-// through the Cal.com team event BOOTH_CAL_LINK: 15-minute slots at Booth 10
-// with Prithvi and Manny as hosts, on a Charlotte-time schedule that only
-// opens October 26–28. Follow-ups book a dedicated LavaCon event with
+// The hero offers a follow-up video call after LavaCon, booked through a
+// dedicated LavaCon event with
 // availability starting November 2, 2026, through FOLLOW_UP_CAL_LINK.
-// Picking a tile swaps in the hero form, which collects
+// Picking the call swaps in the hero form, which collects
 // name, email, company, and the Manny audit opt-in, then opens that event's
-// Cal.com booking popup with them prefilled; the field names match the booth
-// event's booking question slugs. The popup carries the campaign and PostHog
+// Cal.com booking popup with them prefilled. The popup carries the campaign and PostHog
 // ids as booking metadata, so the Cal.com webhook can attribute `demo_booked`
 // to this page, and the lead also goes to Formspark on submit. Without JS the
-// tiles link straight to each Cal.com booking page. /lavacon/book redirects
+// card links straight to the Cal.com booking page. /lavacon/book redirects
 // to the #book anchor on the booking panel.
 //
 // All page styles are scoped under .lc-page and the wrapper carries
@@ -47,8 +43,6 @@ import vitessLogo from '../assets/site/logos/vitess-stacked.png';
 import { googleCalendarUrl, lavaconSessions as sessions } from '@lib/lavacon-sessions';
 
 const CAMPAIGN = 'lavacon-2026';
-const BOOTH_CAL_LINK = 'team/promptless/lavacon-booth';
-const BOOTH_BOOKING_URL = `https://app.cal.com/${BOOTH_CAL_LINK}`;
 const FORM_ENDPOINT = 'https://submit-form.com/roBOd2Oxb';
 const FOLLOW_UP_CAL_LINK = 'team/promptless/lavacon-follow-up';
 // Prefill the follow-up call's "What would you like Promptless to manage?"
@@ -57,19 +51,9 @@ const FOLLOW_UP_CONTENT = 'Customer-facing documentation';
 const FOLLOW_UP_BOOKING_URL = `https://cal.com/${FOLLOW_UP_CAL_LINK}?promptless-content=${encodeURIComponent(FOLLOW_UP_CONTENT)}&metadata[campaign]=${CAMPAIGN}`;
 const CONTACT_EMAIL = 'hello@gopromptless.ai';
 
-// The hero's two ways to meet. Picking one retitles the booking form with
+// The hero's follow-up call. Picking it retitles the booking form with
 // formTitle and formSub; `href` is the no-JS fallback.
 const meetings = [
-  {
-    id: 'booth',
-    when: 'Oct 26–28',
-    title: 'At the booth',
-    body: 'Meet us in person at Booth 10 in Charlotte.',
-    cta: 'Pick a booth time',
-    href: `${BOOTH_BOOKING_URL}?metadata[campaign]=${CAMPAIGN}`,
-    formTitle: 'Book 15 minutes at Booth 10',
-    formSub: 'Tell us a little about yourself, then pick a time.',
-  },
   {
     id: 'follow_up',
     when: 'From Nov 2',
@@ -84,7 +68,7 @@ const meetings = [
 
 const title = 'Promptless at LavaCon 2026';
 const description =
-  'Meet the Promptless team at Booth 10 at LavaCon 2026 in Charlotte, October 25–28. Book 15 minutes at the booth, join our free docs audit workshop, and get three months of Promptless free.';
+  'Meet the Promptless team at Booth 10 at LavaCon 2026 in Charlotte, October 25–28. Book a 15-minute follow-up after LavaCon, join our free docs audit workshop, and get three months of Promptless free.';
 
 const problems = [
   {
@@ -298,8 +282,8 @@ const initials = (name: string) =>
 
             <div class="lc-book" id="book" data-book>
               <div class="lc-choose" data-book-choose>
-                <h2 class="lc-form-title">Book 15 minutes with Promptless</h2>
-                <p class="lc-form-sub">Where would you like to meet?</p>
+                <h2 class="lc-form-title">Book a follow-up after LavaCon</h2>
+                <p class="lc-form-sub">Spend 15 minutes with the Promptless team.</p>
                 <div class="lc-meet-grid">
                   {
                     meetings.map((m) => (
@@ -315,7 +299,7 @@ const initials = (name: string) =>
                         data-track-campaign={CAMPAIGN}
                       >
                         <span class="lc-meet-top">
-                          {m.id === 'booth' ? <MapPin size={26} aria-hidden="true" /> : <Video size={26} aria-hidden="true" />}
+                          <Video size={26} aria-hidden="true" />
                           <span class="lc-meet-when">{m.when}</span>
                         </span>
                         <span class="lc-meet-body">
@@ -336,8 +320,8 @@ const initials = (name: string) =>
                 </p>
               </div>
 
-              <form class="lc-form" data-booth-form action={BOOTH_BOOKING_URL} method="get" hidden>
-                <button type="button" class="lc-back" data-book-back><ArrowLeft size={16} aria-hidden="true" />Change how we meet</button>
+              <form class="lc-form" data-booth-form action={FOLLOW_UP_BOOKING_URL} method="get" hidden>
+                <button type="button" class="lc-back" data-book-back><ArrowLeft size={16} aria-hidden="true" />Back to meeting details</button>
                 <h2 class="lc-form-title" tabindex="-1" data-book-title>{meetings[0].formTitle}</h2>
                 <p class="lc-form-sub" data-book-sub>{meetings[0].formSub}</p>
                 <label class="sr-only" for="book-name">Your name</label>
@@ -623,15 +607,14 @@ const initials = (name: string) =>
       <p>&copy; {new Date().getFullYear()} Promptless</p>
     </footer>
 
-    <script is:inline define:vars={{ CAMPAIGN, BOOTH_CAL_LINK, FOLLOW_UP_CAL_LINK, FOLLOW_UP_CONTENT, FORM_ENDPOINT }}>
+    <script is:inline define:vars={{ CAMPAIGN, FOLLOW_UP_CAL_LINK, FOLLOW_UP_CONTENT, FORM_ENDPOINT }}>
       (() => {
-        // Booking: the visitor picks the booth or a follow-up call, then the
-        // form collects the details and opens that event's Cal.com booking
-        // popup with them prefilled (the field names match the booth event's
-        // booking question slugs), so the visitor only picks a time. The lead
+        // Booking: the visitor picks a follow-up call, then the form collects
+        // the details and opens the Cal.com booking popup with them prefilled,
+        // so the visitor only picks a time. The lead
         // also goes to Formspark and PostHog on submit, so it is kept even if
         // the visitor never finishes booking. Without JS the form stays hidden
-        // and each tile links straight to its Cal.com booking page.
+        // and the card links straight to the Cal.com booking page.
         (function (C, A, L) {
           const p = (a, ar) => a.q.push(ar);
           const d = C.document;
@@ -663,25 +646,23 @@ const initials = (name: string) =>
         window.Cal('init', CAL_NS, { origin: 'https://app.cal.com' });
         window.Cal.ns[CAL_NS]('ui', { theme: 'light', layout: 'month_view' });
 
-        const CAL_LINKS = { booth: BOOTH_CAL_LINK, follow_up: FOLLOW_UP_CAL_LINK };
         const book = document.querySelector('[data-book]');
         const choose = book?.querySelector('[data-book-choose]');
         const bookForm = book?.querySelector('[data-booth-form]');
         if (book && choose && bookForm) {
-          let meeting = 'booth';
+          const meeting = 'follow_up';
           const title = bookForm.querySelector('[data-book-title]');
           const sub = bookForm.querySelector('[data-book-sub]');
 
-          // Picking a tile swaps the tiles for the form, retitled for the
-          // pick. Modified clicks keep the tile's link to the Cal.com page.
+          // Picking the call swaps the card for the form. Modified clicks
+          // keep the card's link to the Cal.com page.
           book.querySelectorAll('[data-book-pick]').forEach((pick) => {
             pick.addEventListener('click', (event) => {
               if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
               event.preventDefault();
-              meeting = pick.dataset.bookPick;
               title.textContent = pick.dataset.formTitle;
               sub.textContent = pick.dataset.formSub;
-              window.Cal.ns[CAL_NS]('preload', { calLink: CAL_LINKS[meeting] });
+              window.Cal.ns[CAL_NS]('preload', { calLink: FOLLOW_UP_CAL_LINK });
               choose.hidden = true;
               bookForm.hidden = false;
               title.focus();
@@ -703,7 +684,6 @@ const initials = (name: string) =>
             event.preventDefault();
             const data = new FormData(bookForm);
             const email = String(data.get('email') || '').trim();
-            const followUp = meeting === 'follow_up';
 
             const params = new URLSearchParams();
             for (const [key, value] of data.entries()) {
@@ -711,10 +691,10 @@ const initials = (name: string) =>
               if (!v) continue;
               // The follow-up call has no company or audit questions, so
               // those ride along as booking metadata instead.
-              const metadataOnly = followUp && (key === 'company' || key === 'docs-audit');
+              const metadataOnly = key === 'company' || key === 'docs-audit';
               params.set(metadataOnly ? `metadata[${key}]` : key, v);
             }
-            if (followUp) params.set('promptless-content', FOLLOW_UP_CONTENT);
+            params.set('promptless-content', FOLLOW_UP_CONTENT);
             try {
               const ph = window.posthog;
               const distinctId = sessionStorage.getItem('pl_ph_distinct_id') || ph?.get_distinct_id?.();
@@ -724,7 +704,7 @@ const initials = (name: string) =>
             } catch (_) {}
 
             window.Cal.ns[CAL_NS]('modal', {
-              calLink: CAL_LINKS[meeting] + '?' + params.toString(),
+              calLink: FOLLOW_UP_CAL_LINK + '?' + params.toString(),
               config: { layout: 'month_view', theme: 'light' },
             });
 
@@ -914,18 +894,11 @@ const initials = (name: string) =>
       .lc-page .lc-hero-details span { display: inline-flex; align-items: center; gap: 0.5rem; }
       .lc-page .lc-hero-details svg { flex: none; color: var(--pl-color-action); stroke-width: 1.6; }
 
-      /* Booking panel: the booth / follow-up tiles, then the form */
+      /* Booking panel: the full-width follow-up card, then the form */
       .lc-page .lc-book { align-self: center; }
       .lc-page .lc-book [hidden] { display: none; }
-      .lc-page .lc-choose { container-type: inline-size; }
       .lc-page .lc-choose .lc-offer { margin: 1.25rem 0 0; }
-      .lc-page .lc-meet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-      /* Stack the tiles when the panel is too narrow for each tile's button
-         label to fit on one line (phones, and the two-column hero just above
-         its 960px breakpoint). */
-      @container (max-width: 480px) {
-        .lc-page .lc-meet-grid { grid-template-columns: minmax(0, 1fr); }
-      }
+      .lc-page .lc-meet-grid { display: grid; grid-template-columns: minmax(0, 1fr); }
       main .lc-page .lc-meet {
         display: flex;
         flex-direction: column;
