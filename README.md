@@ -69,6 +69,30 @@ npm run dev                    # then open http://localhost:4321/agent-score/doc
 
 The mock serves `docs.promptless.ai` (3 scans with changes) and `docs.acme-api.dev` (one low-scoring scan), simulates a scan of any other URL over about 10 seconds, and keeps new results in memory until it restarts. Scan a hostname containing `unreachable`, `ratelimit`, or `private` to see the error states, set `AGENT_SCORE_MOCK_EMPTY_LEADERBOARD=1` for the empty leaderboard, and `AGENT_SCORE_MOCK_SCAN_SECONDS` to change the scan length. The contract types live in `src/lib/agent-score/types.ts`.
 
+### DoGBench book requests
+
+`/request-book` is a native page that sends requests to the existing Formspark
+Contact form (`roBOd2Oxb`). Open the [private submissions inbox](https://dashboard.formspark.io/workspaces/sd9lLcQnV/forms/roBOd2Oxb/submissions)
+and search for `dogbench_book_request`. The existing team notifications and
+`website-signups` Slack integration receive these requests too. No autoresponder
+is configured. Check the Spam view when looking for a missing submission.
+
+The form collects name, email, optional company, and physical-copy preference.
+Shipping details are deferred to follow-up; submitting does not subscribe anyone
+to marketing. Contact details are not sent to site analytics or browser storage.
+Formspark's existing automatic filter and a built-in honeypot handle spam;
+rate-limit responses show a one-minute retry message. The native POST fallback
+returns to `/request-book/thanks` when JavaScript is unavailable.
+
+Run `npm run test:book-request` for payload, validation, and failure handling tests
+(also included in `npm run check`). End-to-end checks must use clearly labeled
+synthetic data and a reserved address such as `example.com`; do not fulfill test
+requests or permanently delete submissions without approval. The cover image is
+the first page of the DoGBench 5 × 8 inch export at
+`book/out/web/dogbench-field-guide.pdf` on `field-guide-proof-fixes`
+(commit `8c193746bb4441a850a805f4fccc6ef20d276dd8`). It uses the blue
+mesh-dog cover; the older `site/field-guide/` PDF has a superseded cover.
+
 ### Deployment
 
 - Production and preview deployments are handled by Vercel Git integration.
