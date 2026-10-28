@@ -234,6 +234,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/for-docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/for-docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Fluid Topics doc gaps', slug: 'docs/for-docs/get-the-most-out/fluid-topics-analytics' },
                     { label: 'Localized docs', slug: 'docs/for-docs/get-the-most-out/localization' },
                     { label: 'Changelogs & release notes', slug: 'docs/for-docs/get-the-most-out/release-notes' },
                     { label: 'Passive channel listening', slug: 'docs/for-docs/get-the-most-out/passive-channel-listening' },
