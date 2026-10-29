@@ -25,9 +25,11 @@ docs/
 
 ```
 src/
-+-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/)
++-- pages/              # Astro page routes (index, demo, pricing, jobs, blog/, changelog/, free-tools/, agent-score/)
+|   +-- agent-score/    # Agent Score landing (static) + on-demand [...site] report, .md twin, og.png
 +-- components/
 |   +-- site/           # Marketing page components (Hero, DemoBooking, PricingCards, VideoEmbed, etc.)
+|   +-- agent-score/    # Agent Score landing sections, report sections, scan form, client scripts
 |   +-- starlight/      # Starlight component overrides (Header, Footer, Sidebar, etc.)
 |   +-- shared/         # Cross-cutting components (AnalyticsClickTracker, AnnouncementBanner, TopHeader)
 |   +-- posthog.astro   # PostHog analytics init snippet
@@ -37,12 +39,15 @@ src/
 |   +-- changelog/      # Changelog entries (MDX)
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
++-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
-+-- styles/             # Global CSS (custom.css, site.css)
+|   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
++-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
 tests/smoke/            # Smoke tests
+tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
@@ -91,14 +96,19 @@ CUSTOMIZE.md            # Starport "where to change what" map (branding, content
 ```bash
 npm install              # install dependencies
 npm run dev              # dev server at localhost:4321
-npm run build            # production build (MCP_ENABLED=false for a static, adapter-less build)
+npm run dev:agent-score-mock # local Agent Score API mock on 127.0.0.1:5000 (see README)
+npm run build            # production build (Vercel adapter; also renders /agent-score/<site> on demand)
 npm run check            # typecheck + MCP contract tests + build
 npm run test:mcp         # MCP server contract + index tests (packages/starlight-mcp)
 npm run test:smoke       # smoke tests (serves .vercel/output/static or dist from the last build)
 npm run build:diagrams   # compile src/diagrams/*.mmd → public/mermaid/*.svg
 npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs)
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
-npm run lint:frontmatter # docmeta: frontmatter validation (needs Node >= 24)
+npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
+npm run lint:structure   # manni: page structure by `type:` (advisory in CI)
+npm run lint:a11y        # manni: axe-core accessibility crawl (needs `npm run build && npm run preview` running)
+npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
+npx manni check          # run every manni check set up here (or pass pages); never restamps
 ```
 
 ## Docs linting gates (Starport v1.1.0)
@@ -121,14 +131,66 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   commits the fix on same-repo PRs, and blocks on anything left. Run
   `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
   Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
-  a CI guard enforces this. See ADR 0005.
-- **docmeta** (`docmeta.config.yaml`, `schemas/`, `docmeta.yml`) — frontmatter
-  *content* against three schemas (Starlight mirror, Google OKF, extension
-  seam). **Every docs page requires `type`** (`landing` | `guide` | `reference`)
-  and should carry `tags`. Add repo-specific required fields in
-  `schemas/custom-frontmatter.schema.json`, not the config. Runs on Node 24. See
-  Starport ADR 0006 and [ADR 0004, Drop the docmeta timestamp field](adrs/0004-drop-docmeta-timestamp.md),
-  which stopped populating `timestamp`.
+  a CI guard enforces this. See Starport ADR 0005.
+- **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `manni.yml`) —
+  frontmatter *content* against manni's built-in Starlight schema
+  (`astro:starlight:0.41`), the open and strict versions of six manni
+  vocabularies (core, stewardship, audience, lifecycle, structure,
+  ai-context), and The Good Docs Project page types (`tgdp:templates:1.1`).
+  **Every docs page requires `title`, `description`, and `type`.** Use a
+  [Good Docs Project template slug](https://www.thegooddocsproject.dev/template)
+  for `type`, such as `concept`, `how-to`, `reference`, `quickstart`, or
+  `troubleshooting`; CI doesn't reject other values, so check the spelling.
+  Every page also needs an `id`: the slug without `docs/`, with `/` replaced
+  by `-`; keep it when a page moves. No schema requires `id`, but CI fails
+  without it: `owner` and `created` are stamped into `docs.metadata.yaml`
+  under the page's `id`, so a page with no `id` fails `derived:stale`, and an
+  entry whose page lost its `id` fails as an orphan. Reader-facing fields (`keywords`, `audiences`, `intent`,
+  `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
+  `related-pages`, `risks`, `sample-questions`, `last-updated`) live in
+  frontmatter. Maintainer fields (`owner`, `created`, `personas`, `journeys`,
+  `visibility`, `source-of-truth`, `meta-provenance`) live in
+  `docs.metadata.yaml`, keyed by `id`; never put them in a page.
+  `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
+  after you commit a change to a page's body, run `npx manni meta derive` and
+  commit the result, or CI fails with `derived:stale`. Then run
+  `npx manni check` to verify (pass page paths to check only those): it runs
+  every manni check this repo has set up, including the `meta validate` CI
+  runs, and reports a stale stamp, but it doesn't restamp, so `derive` is
+  always the fix.
+  `manni check` also runs the structure lint below, so read which check
+  failed: only `meta validate` blocks CI.
+  Runs on Node 24. See [ADR 0005, Adopt manni and its strict metadata vocabularies](adrs/0005-adopt-manni-vocabularies.md).
+- **manni lint** (`lint:` in `manni.config.yaml`, `structure` job in
+  `manni.yml`) — page *structure* against the template for the page's
+  `type:`: the built-in Good Docs Project templates (`npx manni lint
+  templates`), with `installation-guide` and `quickstart` routed to how-to
+  and `glossary` and `contact-support` to reference. For example, a how-to
+  needs an `Overview` H2 first and a `See also` H2 last, and every reference
+  H2 after the first needs a table. Run `npx manni lint templates show
+  tgdp:how-to:1.6` (or another template) to see each section a template asks
+  for and what it's for. Each finding names the template section it breaks
+  and repeats that purpose. Advisory: on a PR, CI annotates the pages
+  you changed but doesn't fail. Fix the findings on pages you edit; run
+  `npm run lint:structure -- <page>` locally, and add `--explain` to see
+  which template a page routed to. See [ADR 0006](adrs/0006-adopt-manni-lint-structure.md).
+- **manni a11y** (`a11y:` in `manni.config.yaml`,
+  `.github/workflows/a11y-scheduled.yml`) — accessibility of the *rendered*
+  site, not only `src/content/docs`. It doesn't run on pull requests. Every
+  Monday, and on demand from the Actions tab, the workflow builds and serves
+  `main`, crawls every page from `http://127.0.0.1:4321/`, and runs axe-core
+  on each. When it finds a serious or critical violation, it sends the
+  findings to the Promptless API (`POST /v1/triggers`) so Promptless opens a
+  fix, and the run fails. A component, stylesheet, or page change can cause
+  a finding. Common causes are text below 4.5:1 contrast and an `aria-label`
+  that leaves out the control's visible text. Others are a skipped heading
+  level and an ARIA role without its required children. To check a change
+  before merge, run `npm run build`, then `npm run preview` in one terminal
+  and `npm run lint:a11y` in another. Each finding names the page, the axe
+  rule, and the element. `/meet` and
+  `/docs/for-docs/start-here/how-promptless-works` are excluded because their
+  findings are inside third-party embeds. See
+  [ADR 0008](adrs/0008-adopt-manni-a11y.md).
 
 ## Diagrams
 

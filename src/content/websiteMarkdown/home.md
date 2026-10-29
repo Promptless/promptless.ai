@@ -43,6 +43,10 @@ Promptless suggests doc updates when your product changes. You review, edit, and
 
 Customer logos on the page: Megaport, Mezmo, Vitess, Helm, Aptible, Runpod, Flatfile, Latitude, Mautic, Vellum, Coactive, Rain, Miter, and Basis.
 
+### Watch how Promptless works
+
+[How Promptless works](https://promptless.ai/videos/promptless-explainer.mp4), a 75-second silent video: Promptless watches your workspace for product changes and drafts the doc update before anyone asks. It learns your content strategy, style guide, information architecture, and audiences, and every draft stays yours to review and edit.
+
 ### See Promptless-drafted docs shipping in Vitess and Helm
 
 Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and suggests changes; their docs maintainers review, revise, and ship them. Every commit is public.

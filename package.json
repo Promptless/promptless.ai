@@ -6,6 +6,7 @@
   "scripts": {
     "predev": "npm run generate:manifest && npm run generate:og",
     "dev": "astro dev",
+    "dev:agent-score-mock": "tsx scripts/agent-score-mock-api.ts",
     "build": "astro build && tsx scripts/normalize-vercel-redirects.ts",
     "build:diagrams": "tsx scripts/build-diagrams.ts",
     "prebuild": "npm run generate:manifest && npm run generate:og",
@@ -17,12 +18,19 @@
     "test:smoke": "tsx --test tests/smoke/smoke.spec.ts",
     "lint:md": "remark src/content/docs --ext md,mdx --frail --quiet",
     "lint:md:fix": "remark src/content/docs --ext md,mdx --output --quiet",
-    "lint:frontmatter": "docmeta validate --quiet",
+    "lint:frontmatter": "manni meta validate --quiet",
+    "lint:structure": "manni lint structure",
+    "lint:a11y": "manni a11y check",
     "test:mcp": "node --import tsx --test packages/starlight-mcp/src/core/contract.test.ts packages/starlight-mcp/src/core/index/build.test.ts",
-    "check": "npm run typecheck && npm run test:mcp && npm run test:search && npm run build && npm run test:search:build",
+    "check": "npm run typecheck && npm run test:markdown && npm run test:mcp && npm run test:search && npm run build && npm run test:search:build",
+    "test:markdown": "node --import tsx --test tests/unit/markdown-links.spec.ts tests/unit/markdown-middleware.spec.ts tests/unit/mdx-partials.spec.ts tests/unit/toc-overview.spec.ts",
     "test:search": "node --import tsx --test packages/starlight-search/tests/*.test.ts",
     "test:search:build": "tsx packages/starlight-search/tests/verify-build.ts && npm run test:search:quality",
-    "test:search:quality": "node --import tsx --test tests/search-quality.test.ts"
+    "test:search:quality": "node --import tsx --test tests/search-quality.test.ts",
+    "test:bingo": "node --import tsx --test tests/bingo/*.test.ts",
+    "test:bingo:browser": "node tests/bingo/browser.mjs",
+    "test:bingo:email": "node tests/bingo/email-browser.mjs",
+    "test:bingo:cloud": "node tests/bingo/cloud-browser.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^7.0.1",
@@ -53,7 +61,9 @@
     "@ai-sdk/anthropic": "^4.0.49",
     "ai": "^7.0.93",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "micromark": "4.0.2",
+    "micromark-util-decode-string": "2.0.1"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
@@ -64,7 +74,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.10",
     "@vercel/edge": "^1.2.2",
-    "docmeta": "1.2.0",
+    "@hawkeyexl/manni": "4.13.0",
     "remark-cli": "^12.0.1",
     "remark-directive": "^4.0.0",
     "remark-frontmatter": "^5.0.0",
@@ -77,7 +87,9 @@
     "typescript": "^5.8.2",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
-    "@types/turndown": "^5.0.6"
+    "@types/turndown": "^5.0.6",
+    "playwright-core": "1.57.0",
+    "@axe-core/playwright": "4.14.0"
   },
   "engines": {
     "node": ">=22.12.0"
