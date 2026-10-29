@@ -14,6 +14,16 @@ setup, the event catalog, known gaps, and recommendations.
 - **Autocapture**: PostHog autocapture is enabled (pageviews, clicks, web
   vitals, rageclicks).
 
+The signup tracker in `src/lib/signup-attribution.ts` retains the first observed
+referral or campaign for 30 days. It stores the landing path, referring host,
+and `utm_source`, `utm_medium`, and `utm_campaign` fields. It excludes other
+query parameters and fragments. Links to `https://app.gopromptless.ai` and
+`https://app.promptless.ai` carry those fields in a `signup_attribution` query
+parameter. The app validates the payload, removes that parameter from its URL,
+and attaches the evidence to signup metadata. The destination's other query
+parameters and fragment stay intact. Attribution is browser-reported. A missing
+referrer cannot distinguish direct traffic from a hidden referring source.
+
 ## Event Catalog
 
 ### Well-instrumented events
