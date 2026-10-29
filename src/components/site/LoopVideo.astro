@@ -1,0 +1,72 @@
+---
+// A silent, looping video served from public/. It plays muted while it is on
+// screen and pauses when it scrolls away or its section is hidden (for example
+// when the homepage product switcher hides the docs track). Visitors who ask for
+// reduced motion get the poster and can press play themselves. Native controls
+// let anyone pause it, which WCAG 2.2.2 requires for motion longer than 5 s.
+interface Props {
+  id?: string;
+  /** Path under public/, for example /videos/promptless-explainer.mp4 */
+  src: string;
+  /** Path under public/ for the frame shown before playback */
+  poster: string;
+  /** Accessible name that also says what the video shows */
+  title: string;
+}
+
+const { id = 'video', src, poster, title } = Astro.props;
+---
+
+<section id={id} data-section-tracked={id}>
+  <div class="pl-site-video-embed">
+    <video
+      data-loop-video
+      src={src}
+      poster={poster}
+      aria-label={title}
+      muted
+      loop
+      playsinline
+      controls
+      preload="none"
+    ></video>
+  </div>
+</section>
+
+<script>
+  function initLoopVideos() {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const videos = document.querySelectorAll<HTMLVideoElement>('video[data-loop-video]:not([data-ready])');
+    videos.forEach((video) => {
+      video.dataset.ready = 'true';
+      // Browsers only autoplay muted media; set the property as well as the attribute.
+      video.muted = true;
+      if (reduceMotion || !('IntersectionObserver' in window)) return;
+
+      // Once a visitor pauses, leave it paused until they press play again.
+      let pausedByVisitor = false;
+      let pausingForView = false;
+      video.addEventListener('pause', () => {
+        if (pausingForView) pausingForView = false;
+        else if (!video.ended) pausedByVisitor = true;
+      });
+      video.addEventListener('play', () => {
+        pausedByVisitor = false;
+      });
+
+      new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            if (!pausedByVisitor && video.paused) video.play().catch(() => {});
+          } else if (!video.paused) {
+            pausingForView = true;
+            video.pause();
+          }
+        },
+        { threshold: 0.35 }
+      ).observe(video);
+    });
+  }
+  initLoopVideos();
+  document.addEventListener('astro:page-load', initLoopVideos);
+</script>

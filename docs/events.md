@@ -122,9 +122,11 @@ Fires when a visitor starts playing an embedded video.
 | `video_title` | string | Human-readable title |
 | `location` | string | Page where the video appears: `demo`, `homepage` |
 
-**Component**: `VideoEmbed.astro`. The homepage demo now uses YouTube
-(`AONpRsZJkTY`), which exposes the IFrame Player API — `video_played` and
-`video_progress` are unblocked but not yet implemented.
+**Component**: `LoopVideo.astro` on the homepage and `VideoEmbed.astro`
+elsewhere. Not yet implemented. The homepage video is a self-hosted, muted
+loop (`/videos/promptless-explainer.mp4`) that autoplays in view, so count a
+play only when the visitor presses play or unmutes, not on autoplay. Its
+native `<video>` element exposes `play`, `timeupdate`, and `ended` events.
 
 ---
 
@@ -138,8 +140,9 @@ Fires at 25%, 50%, 75%, 100% watch milestones.
 | `percent` | number | `25`, `50`, `75`, `100` |
 | `seconds_watched` | number | Elapsed watch time |
 
-**Component**: `VideoEmbed.astro`. Requires YouTube IFrame Player API.
-Homepage demo switched to YouTube on 2026-04-16, so this is unblocked.
+**Component**: `LoopVideo.astro` (homepage, native `<video>` events) and
+`VideoEmbed.astro` (other pages, YouTube IFrame Player API). Not yet
+implemented.
 
 ---
 
