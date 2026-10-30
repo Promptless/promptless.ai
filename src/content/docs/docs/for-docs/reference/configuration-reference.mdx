@@ -22,7 +22,7 @@ audiences:
   - aud-enterprise-docs-team
 intent: look up the promptless.yaml fields for doc collections, context sources, triggers, and policies and edit them in the Configuration page
 lifecycle: published
-last-updated: 2026-10-20
+last-updated: 2026-10-30
 applies-to:
   - promptless-for-docs
 concepts:
@@ -266,17 +266,17 @@ A doc collection is a documentation repository where Promptless publishes update
 
 Each doc collection accepts these fields:
 
-| Field              | Description                                                                                                                                                                                                |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`.                                                                                                                   |
-| `host`             | Bare instance hostname, with no scheme or path. Required for `github_enterprise`. Optional for `gitlab`: omit it for gitlab.com, or set it for self-hosted GitLab. Not valid for `github` or `github_oss`. |
-| `default_branch`   | Branch that documentation PRs target. Defaults to the repository's default branch.                                                                                                                         |
-| `docs_framework`   | Documentation framework, such as `docusaurus`, `mkdocs`, or `starlight`.                                                                                                                                   |
-| `docs_root_url`    | URL of the published documentation site.                                                                                                                                                                   |
-| `config_file_path` | Path to the framework's configuration file, such as `docusaurus.config.js`.                                                                                                                                |
-| `vale_config_path` | Path to a Vale configuration file. Setting it turns on prose linting.                                                                                                                                      |
-| `doc_detective`    | Doc Detective configuration. Including the key turns on Doc Detective.                                                                                                                                     |
-| `filter`           | Directory prefixes and file paths Promptless can modify. See [Path scope (filter)](#path-scope-filter).                                                                                                    |
+| Field              | Description                                                                                                                                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `platform`         | Repository platform: `github` (default), `github_oss`, `github_enterprise`, or `gitlab`.                                                                                                                              |
+| `host`             | Bare instance hostname, with no scheme or path. Required for `github_enterprise`. Optional for `gitlab`: omit it for gitlab.com, or set it for self-hosted GitLab. Not valid for `github` or `github_oss`.            |
+| `default_branch`   | Branch that documentation PRs target. Defaults to the repository's default branch.                                                                                                                                    |
+| `docs_framework`   | Documentation framework, such as `docusaurus`, `mkdocs`, or `starlight`.                                                                                                                                              |
+| `docs_root_url`    | URL of the published documentation site.                                                                                                                                                                              |
+| `config_file_path` | Path to the framework's configuration file, such as `docusaurus.config.js`.                                                                                                                                           |
+| `vale_config_path` | Path to a Vale configuration file. Setting it turns on prose linting.                                                                                                                                                 |
+| `doc_detective`    | Doc Detective settings. Including the key marks the collection as using Doc Detective, even before the repository has Doc Detective files. Set `config_path` only when your config file isn't at the repository root. |
+| `filter`           | Directory prefixes and file paths Promptless can modify. See [Path scope (filter)](#path-scope-filter).                                                                                                               |
 
 ```yaml
 doc_collections:
@@ -680,11 +680,10 @@ policies:
 
 #### `escalation`
 
-The escalation channel receives items that need a person. Announcements about suggestions being created, updated, closed, or merged go to the `notification` channels. Escalations include these examples:
+The escalation channel receives problem reports: configuration and operational problems that need a person. Announcements about suggestions being created, updated, closed, or merged go to the `notification` channels. Promptless sends two kinds of problem reports:
 
-- A test account is missing the feature flags Promptless needs to take a screenshot.
-- A PR references a Jira issue that Promptless can't read, because the Jira integration isn't connected or the project isn't accessible.
-- A connected integration develops a problem, which sends a [proactive notification](/docs/for-docs/reference/integrations#proactive-notifications).
+- A trigger problem is one Promptless hits while working on a trigger. For example, a test account is missing the feature flags Promptless needs to take a screenshot. Or a PR references a Jira issue that Promptless can't read, because the Jira integration isn't connected or the project isn't accessible.
+- A connection alert comes from the daily [connection check](/docs/for-docs/reference/integrations#proactive-notifications), such as an integration that needs reconnecting.
 
 See [Escalation channel](/docs/for-docs/tune/notifications#escalation-channel) for the full behavior.
 
@@ -701,16 +700,20 @@ policies:
   default:
     escalation:
       slack_channel: ops-alerts
-      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+      msteams_channel: "19:4e5f6a7b@thread.tacv2"
       email:
         - oncall@acme.com
 ```
 
 Set any combination of the three fields. They resolve the same way as `notification`: omit a field to inherit it, and set `slack_channel` or `msteams_channel` to `null`, or `email` to `[]`, to turn it off. `msteams_channel` needs the same prior bot activity as in `notification`.
 
-Escalations reach the escalation channels even when suggestion notifications are off or no notification channel is set. When a platform's escalation channel is unset, Promptless sends escalations through your suggestion-notification routing on that platform.
+Escalations reach the escalation channels even when suggestion notifications are off or no notification channel is set. A problem report goes to a platform's `notification` channel only when it's a trigger problem and the resolved `escalation` section omits that platform's field. A `null` field sends it nowhere on that platform. Connection alerts go only to the `escalation` destinations in `policies.default`. See [When problem reports go to the notification channel](/docs/for-docs/tune/notifications#when-problem-reports-go-to-the-notification-channel) for an example.
 
-Email is for escalations only, and suggestion notifications never arrive by email. Promptless emails only the addresses you list. Email escalation needs email delivery configured for your deployment. Promptless-hosted deployments have it on by default, and self-hosted deployments must configure it.
+<Aside type="caution">
+  If you set only a `notification` channel, connection alerts reach no channel. Set an `escalation` destination in `policies.default` to receive them.
+</Aside>
+
+Email is for escalations only, and suggestion notifications never arrive by email. `notification` has no email setting, so Promptless emails escalations only when you set `escalation.email`. Promptless emails only the addresses you list. Email escalation needs email delivery configured for your deployment. Promptless-hosted deployments have it on by default, and self-hosted deployments must configure it.
 
 #### `publishing`
 
