@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks, or to edit your docs directly. Authorize with OAuth. No API key needed.
+description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks. Authorize with OAuth. No API key needed.
 id: for-docs-connect-triggers-mcp
 slug: docs/for-docs/connect/triggers/mcp
 type: how-to
@@ -13,8 +13,6 @@ keywords:
   - Cursor
   - MCP tool approval
   - OAuth editor connection
-  - direct edits
-  - triage-suggestions
 language: en
 audiences:
   - aud-devrel-devex
@@ -42,7 +40,6 @@ risks:
   - open-world
 sample-questions:
   - How do I connect Claude Code or Cursor to Promptless over MCP?
-  - How do I edit documentation files directly from my editor through Promptless?
   - How do I revoke my Promptless MCP connection?
 sidebar:
   hidden: false
@@ -50,9 +47,6 @@ sidebar:
 ---
 
 import { Aside, Steps } from '@astrojs/starlight/components';
-import McpToolAnchorRedirect from '@components/docs/McpToolAnchorRedirect.astro';
-
-<McpToolAnchorRedirect />
 
 ## Overview
 
@@ -74,14 +68,7 @@ To connect Promptless to Claude or ChatGPT, see [Use Promptless from Claude](/do
 
 ## Connect the server
 
-Promptless has two server URLs:
-
-- `https://api.gopromptless.ai/mcp` is the standard server. Promptless drafts the documentation changes, and you review them. Use it day to day.
-- `https://api.gopromptless.ai/mcp/with-direct-edits` adds tools so your client can [edit doc files itself](#read-and-edit-documentation-directly). The extra tools use more of your client's context, so switch to `/mcp` once you no longer need to edit files directly.
-
-Each URL is a separate connection that you authorize on its own. The steps below use `/mcp`. Use the direct-edit URL in its place to get the extra tools.
-
-Connect the server once per editor. For Claude Code, one command sets it up:
+Connect each editor once, at `https://api.gopromptless.ai/mcp`. Promptless drafts the documentation changes, and you review them. For Claude Code, one command sets it up:
 
 ```bash
 claude mcp add --transport http promptless https://api.gopromptless.ai/mcp
@@ -151,7 +138,7 @@ The same URL and command also appear in the [dashboard](https://app.gopromptless
 
 ### Other MCP clients
 
-Any client that supports HTTP transport and OAuth connects at either URL. The exact steps vary by client.
+Any client that supports HTTP transport and OAuth connects at the same URL. The exact steps vary by client.
 
 ## Authorize in the browser
 
@@ -176,12 +163,11 @@ Your editor handles authorization automatically over OAuth. You approve the conn
   - Revise a suggestion Promptless already produced.
   - Update a suggestion's labels, assignees, and title, and open its docs pull request.
   - Close a suggestion, which also closes its docs pull request.
-  - On the direct-edit URL, read and search your documentation and commit edits to an open suggestion's branch.
 
-  The write actions (revise, update, close, and edit) act on any suggestion in your organization, like the read tools, including suggestions other members created. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions), and MCP access can't be limited to specific members or roles. To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
+  The write actions (revise, update, and close) act on any suggestion in your organization, like the read tools, including suggestions other members created. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions), and MCP access can't be limited to specific members or roles. To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
-A token is tied to one organization. When your client names the server URL in its authorization request, the token works only at that URL. When it doesn't, the token works at both URLs, so the consent screen lists file reading and editing for every connection. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
+A token is tied to one organization. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
 
 ## Approve tool calls
 
@@ -190,14 +176,6 @@ Your editor lists the Promptless tools when it connects. Each tool's MCP annotat
 <Aside type="note">
   Your editor loads the tool list when it connects. To pick up tools Promptless added or changed since then, refresh or reconnect the `promptless` server. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
 </Aside>
-
-## Read and edit documentation directly
-
-Connect at `https://api.gopromptless.ai/mcp/with-direct-edits` to have your client find pages, edit them on an open suggestion's branch, check the diff, and open the pull request with `update_suggestion`.
-
-Edits go on an open suggestion. For a change no open suggestion covers, start a task with `submit_documentation_task`, then edit the suggestion it creates.
-
-Each edit asks before it runs and makes one commit on the suggestion's branch. No tool deletes a file. To remove a page, describe the removal with `request_changes`. For the file tools' arguments, limits, and commit details, see [Documentation file tools](/docs/for-docs/reference/mcp-tools#documentation-file-tools).
 
 ## Answer a clarifying question
 
@@ -216,13 +194,9 @@ Your editor follows the accepted answer via its `next_call`, which points at the
 
 ## Workflow skills
 
-If your editor supports it, Promptless can hand it step-by-step guidance for multi-step workflows that chain several [Promptless tools](/docs/for-docs/reference/mcp-tools) together. A skill adds no tools of its own. The editor decides when to load a skill, and you ask for what you want as usual.
+If your editor supports it, Promptless hands it step-by-step guidance for multi-step workflows that chain several [Promptless tools](/docs/for-docs/reference/mcp-tools) together. A skill adds no tools of its own. The editor decides when to load a skill, and you ask for what you want as usual.
 
-`triage-suggestions` is a workflow for working through a backlog of suggestions, at both server URLs. It pulls the backlog with `search_suggestions` and checks the `truncated` flag to see whether more are waiting. Then it reads each proposal in turn. Next it gives each suggestion one outcome, then hands the queue back to you. It can label or assign a suggestion with `update_suggestion`, send it back for a revision with `request_changes`, or close it with `close_suggestion`. Following that sequence keeps the editor from treating a truncated result set as your whole backlog. It also gives each suggestion exactly one outcome without you prompting each step.
-
-`edit-documentation` walks your client through one direct edit, at the direct-edit URL only. It finds the pages, picks or starts a suggestion, edits each page, checks the diff, and opens the pull request.
-
-A skill doesn't change how the tools behave. The work-changing tools a skill calls still prompt before each run, just as they do when you call them directly. A skill only guides the sequence. It doesn't bypass those confirmations.
+A skill only guides the sequence. The work-changing tools a skill calls still prompt before each run, just as they do when you call them directly.
 
 <Aside type="note">
   Skills reach your editor over the draft **Skills extension (SEP-2640)**. The MCP endpoint declares it as the `io.modelcontextprotocol/skills` capability in its `initialize` response. Many clients don't support the extension yet and show no skills. To check whether yours does, see its MCP settings or release notes. Because the extension is still a draft, its shape can change.
@@ -252,9 +226,7 @@ To close a suggestion you won't ship, ask for that: "Close Promptless suggestion
 
 If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
 
-To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the `triage-suggestions` steps. If not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
-
-On the direct-edit URL, name the change and the suggestion to put it on: "Find the pages that say webhook retries default to 3. Change them to 5 on the open webhook retries suggestion, show me the diff, and open the PR." Each edit asks before it commits.
+To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the Promptless triage workflow. If not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
 
 ## See your MCP tasks in the dashboard
 
