@@ -75,9 +75,9 @@
           }
         },
         {
-          "description": "The rotate preview reaches real docs content, not an empty shell: the demo video facade and the social-proof heading inside #pl-below-fold-docs are both on screen",
+          "description": "The rotate preview reaches real docs content, not an empty shell: the demo video and the social-proof heading inside #pl-below-fold-docs are both on screen",
           "runBrowserScript": {
-            "script": "const slot = document.getElementById('pl-below-fold-docs'); if (!slot) return 'slot=missing'; const onScreen = (el) => { if (!el) return 'absent'; const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden') return 'invisible'; return el.getClientRects().length > 0 ? 'onscreen' : 'norects'; }; const heading = Array.from(slot.querySelectorAll('h2')).find((h) => /See why Vitess and Helm chose Promptless/.test(h.textContent || '')); return ['video=' + onScreen(slot.querySelector('.lite-youtube[data-video-id=\"AONpRsZJkTY\"]')), 'socialProofHeading=' + onScreen(heading)].join(' ');",
+            "script": "const slot = document.getElementById('pl-below-fold-docs'); if (!slot) return 'slot=missing'; const onScreen = (el) => { if (!el) return 'absent'; const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden') return 'invisible'; return el.getClientRects().length > 0 ? 'onscreen' : 'norects'; }; const heading = Array.from(slot.querySelectorAll('h2')).find((h) => /See why Vitess and Helm chose Promptless/.test(h.textContent || '')); return ['video=' + onScreen(slot.querySelector('video[data-loop-video]')), 'socialProofHeading=' + onScreen(heading)].join(' ');",
             "output": "video=onscreen socialProofHeading=onscreen",
             "timeout": 10000
           }
@@ -121,59 +121,44 @@
       ]
     },
     {
-      "testId": "product-switcher-demo-video-play-stops-rotation",
-      "description": "Guard added alongside the fix. Because the docs below-fold slot is now revealed during a rotate preview, starting the demo video counts as committing to the docs track: it stops auto-rotation so the next rotate cannot tear the embed down mid-playback. Clicking the LiteYouTube facade injects an iframe from youtube-nocookie.com, so this test needs outbound network access to that host; the assertion is about rotation stopping and the embed surviving, not about playback itself.",
+      "testId": "homepage-demo-video-plays-muted-in-view",
+      "description": "The docs-track demo video (src/components/site/LoopVideo.astro) is a self-hosted, silent loop. It stays unloaded until it scrolls into view, then plays muted, and pauses when a visitor presses pause. Reduced motion skips autoplay, and headless Chrome reports no preference, so this test expects autoplay.",
       "steps": [
         {
           "description": "Open the homepage",
           "goTo": "/"
         },
         {
-          "description": "Wait for auto-rotation to select the customer-facing-docs pill on its own, which reveals the below-fold demo video",
-          "find": {
-            "selector": "#pl-product-switcher-tab-docs[aria-selected='true']",
-            "timeout": 25000
-          }
-        },
-        {
-          "description": "Hover the active docs pill to pause auto-rotation, so the steps that follow are not racing whatever is left of the current rotate window. Moving off the tablist to the video restarts a fresh full window.",
-          "find": {
-            "selector": "#pl-product-switcher-tab-docs",
-            "moveTo": true,
-            "timeout": 8000
-          }
-        },
-        {
-          "description": "Scroll the demo video facade into view",
-          "find": {
-            "elementAria": "Play: Promptless demo",
-            "moveTo": true,
-            "timeout": 8000
-          }
-        },
-        {
-          "description": "Play the demo video, which activates the LiteYouTube embed and pins the docs track",
+          "description": "Select the customer-facing-docs pill, which shows the below-fold slot holding the video",
           "click": {
-            "elementAria": "Play: Promptless demo"
+            "selector": "#pl-product-switcher-tab-docs"
           }
         },
         {
-          "description": "The click activated the embed rather than being swallowed by the facade",
+          "description": "Scroll the demo video into view",
+          "find": {
+            "selector": "#pl-below-fold-docs video[data-loop-video]",
+            "moveTo": true,
+            "timeout": 8000
+          }
+        },
+        {
+          "description": "Give the video time to load its first frames and start",
+          "wait": 4000
+        },
+        {
+          "description": "The video is playing, muted, and looping",
           "runBrowserScript": {
-            "script": "const embed = document.querySelector('#pl-below-fold-docs .lite-youtube[data-video-id=\"AONpRsZJkTY\"]'); if (!embed) return 'embed=missing'; return ['activated=' + (embed.dataset.activated === 'true' ? 'yes' : 'no'), 'iframe=' + (embed.querySelector('iframe') ? 'present' : 'absent')].join(' ');",
-            "output": "activated=yes iframe=present",
+            "script": "const v = document.querySelector('#pl-below-fold-docs video[data-loop-video]'); if (!v) return 'video=missing'; return ['playing=' + (!v.paused && v.currentTime > 0 ? 'yes' : 'no'), 'muted=' + (v.muted ? 'yes' : 'no'), 'loop=' + (v.loop ? 'yes' : 'no')].join(' ');",
+            "output": "playing=yes muted=yes loop=yes",
             "timeout": 10000
           }
         },
         {
-          "description": "Wait longer than one 10s rotate window to prove playing the video stopped auto-rotation",
-          "wait": 13000
-        },
-        {
-          "description": "The docs track is still active, the below-fold slot holding the video is still on screen, and the injected iframe was never torn back down to the facade",
+          "description": "A visitor's pause sticks: the video stays paused while it is still on screen",
           "runBrowserScript": {
-            "script": "const state = (id) => { const el = document.getElementById(id); if (!el) return id + '=missing'; const s = getComputedStyle(el); const visible = s.display !== 'none' && s.visibility !== 'hidden'; return id + '=' + (el.hasAttribute('hidden') ? 'hidden' : 'shown') + '/' + (visible ? 'visible' : 'invisible'); }; const tab = (id) => { const el = document.getElementById(id); return id + '=' + (el ? el.getAttribute('aria-selected') : 'missing'); }; const embed = document.querySelector('#pl-below-fold-docs .lite-youtube[data-video-id=\"AONpRsZJkTY\"]'); return [tab('pl-product-switcher-tab-agents'), tab('pl-product-switcher-tab-docs'), state('pl-below-fold-agents'), state('pl-below-fold-docs'), 'iframe=' + (embed && embed.querySelector('iframe') ? 'present' : 'absent')].join(' ');",
-            "output": "pl-product-switcher-tab-agents=false pl-product-switcher-tab-docs=true pl-below-fold-agents=hidden/invisible pl-below-fold-docs=shown/visible iframe=present",
+            "script": "const v = document.querySelector('#pl-below-fold-docs video[data-loop-video]'); if (!v) return 'video=missing'; v.pause(); return new Promise((resolve) => setTimeout(() => resolve('paused=' + (v.paused ? 'yes' : 'no')), 1500));",
+            "output": "paused=yes",
             "timeout": 10000
           }
         }
