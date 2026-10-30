@@ -74,6 +74,10 @@ async function buildSections(): Promise<LlmsSection[]> {
           description:
             'Connect Claude Code, Cursor, VS Code, or Codex over MCP with OAuth sign-in, or let a coding agent create an account for a person to claim.',
         }),
+        docsPage('/docs/for-docs/reference/mcp-tools', {
+          label: 'MCP tools reference',
+          description: 'Arguments, results, annotations, and errors of each Promptless MCP tool.',
+        }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
         docsPage('/docs/governance/agent-setup-guide', {
           label: 'Set up PIG with a coding agent',

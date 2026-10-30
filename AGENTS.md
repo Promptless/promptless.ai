@@ -40,12 +40,14 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
+|   +-- generated/mcp/  # Generated MCP tools reference partials; don't edit (scripts/mcp-reference/, ADR adrs/0009)
++-- data/mcp/           # catalog.json: exported MCP tool, skill, and resource definitions
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock; mcp-reference/ generates the MCP tools reference
 tests/smoke/            # Smoke tests
 tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
