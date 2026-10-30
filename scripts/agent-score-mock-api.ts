@@ -311,7 +311,7 @@ const server = createServer(async (req, res) => {
 
   if (route === '/leaderboard') {
     const sort = url.searchParams.get('sort') === 'recent' ? 'recent' : 'top';
-    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 24));
+    const limit = Math.min(1000, Math.max(1, Number(url.searchParams.get('limit')) || 24));
     return send(res, 200, leaderboard(sort, limit), { 'Cache-Control': 'public, max-age=60' });
   }
 

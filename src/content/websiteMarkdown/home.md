@@ -43,9 +43,9 @@ Promptless suggests doc updates when your product changes. You review, edit, and
 
 Customer logos on the page: Megaport, Mezmo, Vitess, Helm, Aptible, Runpod, Flatfile, Latitude, Mautic, Vellum, Coactive, Rain, Miter, and Basis.
 
-### Watch the demo
+### Watch how Promptless works
 
-[Promptless demo](https://www.youtube.com/watch?v=AONpRsZJkTY) on YouTube: Promptless turns a product change into a documentation pull request with citations, then hands it to a technical writer for review.
+[How Promptless works](https://promptless.ai/videos/promptless-explainer.mp4), a 75-second silent video: Promptless watches your workspace for product changes and drafts the doc update before anyone asks. It learns your content strategy, style guide, information architecture, and audiences, and every draft stays yours to review and edit.
 
 ### See Promptless-drafted docs shipping in Vitess and Helm
 

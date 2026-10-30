@@ -19,9 +19,9 @@ audiences:
   - aud-devrel-devex
   - aud-brownfield-docs-team
   - aud-scaleup-docs-team
-intent: enable Doc Detective on a doc collection so Promptless creates and updates executable tests for documented workflows
+intent: set up Doc Detective in a docs repository so Promptless creates and updates executable tests for documented workflows
 lifecycle: published
-last-updated: 2026-10-20
+last-updated: 2026-10-30
 applies-to:
   - promptless-for-docs
 concepts:
@@ -33,7 +33,7 @@ related-pages:
 risks:
   - privileged
 sample-questions:
-  - How do I enable Doc Detective for a Promptless doc collection?
+  - Do I need to configure anything for Promptless to write Doc Detective tests?
   - Can Promptless write and update Doc Detective tests when the product changes?
   - What does Promptless do when a Doc Detective check fails on its docs PR?
 sidebar:
@@ -50,7 +50,7 @@ Docs describe how your product works. Every setup guide, UI walkthrough, CLI exa
 
 Promptless uses [Doc Detective](https://docs.doc-detective.com/) to make each of those assertions executable. Doc Detective is an open-source implementation of the [Docs as Tests](https://www.docsastests.com/docs-as-tests/concept/2024/01/09/intro-docs-as-tests.html) framework. That framework tests documentation against the real product experience, beyond proofreading it for style and checking it for broken links.
 
-Enable Doc Detective on a doc collection when you want Promptless to keep tests current along with the prose. When a new feature changes the product, Promptless can document the change and add the tests that prove the documented workflow still works. With Doc Detective enabled, Promptless:
+Use Doc Detective in your docs repository when you want Promptless to keep tests current along with the prose. When a new feature changes the product, Promptless can document the change and add the tests that prove the documented workflow still works. When your repository uses Doc Detective, Promptless:
 
 - Creates Doc Detective tests when new documented workflows, UI paths, commands, or setup procedures are added
 - Updates existing Doc Detective tests when product changes make the old workflow stale
@@ -63,34 +63,36 @@ Executable tests are one of the tools behind [Audit and keep your docs healthy](
   Doc Detective is an open-source documentation testing framework. You can view the core project at [doc-detective/doc-detective](https://github.com/doc-detective/doc-detective). The agent tooling Promptless uses is at [doc-detective/agent-tools](https://github.com/doc-detective/agent-tools).
 </Aside>
 
-## Before you start
+## Set up Doc Detective
 
-- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration).
-- Optional. A Doc Detective config file in your docs repository, such as `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml`.
+If your repository already uses Doc Detective, Promptless writes and updates tests without any configuration. Any of these counts: a config file at the repository root, test specs, inline test statements, or a CI job that runs Doc Detective. If your repository doesn't use Doc Detective yet, add a Doc Detective config file, such as `.doc-detective.json`, `.doc-detective.yaml`, or `.doc-detective.yml`, at the repository root.
 
-## Enable Doc Detective on a doc collection
-
-To enable Doc Detective with a config file:
+Set **Doc Detective config path** only when your config file isn't at the repository root or uses another name. Leave it blank otherwise. A blank path doesn't stop Promptless from writing tests in a repository that uses Doc Detective. You need an admin role in your Promptless organization to edit the [Configuration page](https://app.gopromptless.ai/configuration).
 
 <Steps>
   1. On the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration), expand the doc collection.
 
   2. Select **More filters (optional)**.
 
-  3. In **Doc Detective config path**, enter the repo-relative path to your Doc Detective config file, such as `.doc-detective.json`.
+  3. In **Doc Detective config path**, enter the repo-relative path to your Doc Detective config file, such as `config/doc-detective.json`.
 
   4. Select **Save changes**.
 </Steps>
 
-To enable Doc Detective without a config file, switch the Configuration page to **YAML** mode and add an empty `doc_detective` key to the doc collection:
+In YAML mode, the same setting is `doc_detective.config_path` on the doc collection. See the [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections) for the full doc collection schema.
 
-```yaml
-doc_collections:
-  acme/docs:
-    doc_detective: {}
-```
+## Default behavior
 
-Without a config path, Promptless inspects the repository for existing Doc Detective specs and config files before it adds coverage. To set the path in YAML, add it under the same key, as `doc_detective.config_path`.
+When your repository uses Doc Detective, Promptless handles tests this way by default:
+
+- **Test coverage:** Promptless writes or updates tests for the workflows a docs change touches and commits them in the same suggestion.
+- **Validation:** Promptless runs your configured syntax check, when you have one, before it opens the suggestion. A syntax check confirms that the test files are valid, not that the documented workflow works.
+- **Test runs:** Your tests run wherever you run Doc Detective, such as in CI on the docs PR. See [CI failure handling](#ci-failure-handling).
+- **Results:** Promptless records the checks it ran and their results in the suggestion description. Citations on the docs PR link changed passages to the source evidence behind them.
+
+Promptless writes tests against the test accounts and data your tests already use. It doesn't invent credentials, URLs, or test data to make a test pass.
+
+To change these defaults, add an instruction to `PROMPTLESS.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base). For example, tell Promptless which kind of tests you prefer. Choose detected test statements, inline test statements (best for most people), a mix of the two, or standalone test files. Standalone files are ideal when editors clobber inline test statements. Promptless loads `PROMPTLESS.md` into every session.
 
 ## CI failure handling
 
