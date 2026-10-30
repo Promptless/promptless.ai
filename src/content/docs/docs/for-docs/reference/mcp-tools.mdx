@@ -48,7 +48,7 @@ Your MCP client lists the tools of the URL it connects to. The standard URL, `ht
 
 ## Tool annotations
 
-Each tool carries MCP annotations. Your client can use them to decide whether a tool runs without asking you first. Each tool section below names its annotation:
+Each tool carries MCP annotations. Your client can use them to decide whether a tool runs without asking you first. The table at the start of each tool group names each tool's annotation:
 
 - **Read-only**: `readOnlyHint` is true. The tool changes no data, and your client can auto-approve it.
 - **Changes data**: `readOnlyHint` is false and `destructiveHint` is false. The tool adds work or input, and changes no existing content. Your client asks before it runs.
@@ -56,9 +56,26 @@ Each tool carries MCP annotations. Your client can use them to decide whether a 
 
 ## Task, suggestion, and account tools
 
-### `submit_documentation_task`
+These tools are on both server URLs.
 
-Annotation: Changes data.
+| Tool                                                        | Annotation               |
+| ----------------------------------------------------------- | ------------------------ |
+| [`submit_documentation_task`](#submit_documentation_task)   | Changes data             |
+| [`list_doc_collections`](#list_doc_collections)             | Read-only                |
+| [`get_task_status`](#get_task_status)                       | Read-only                |
+| [`wait_for_task_update`](#wait_for_task_update)             | Read-only                |
+| [`send_task_message`](#send_task_message)                   | Changes data             |
+| [`answer_task_question`](#answer_task_question)             | Changes data             |
+| [`request_changes`](#request_changes)                       | Changes data             |
+| [`update_suggestion`](#update_suggestion)                   | Changes existing content |
+| [`close_suggestion`](#close_suggestion)                     | Changes existing content |
+| [`list_recent_tasks`](#list_recent_tasks)                   | Read-only                |
+| [`search_suggestions`](#search_suggestions)                 | Read-only                |
+| [`get_account_status`](#get_account_status)                 | Read-only                |
+| [`connect_integration`](#connect_integration)               | Changes data             |
+| [`message_promptless_support`](#message_promptless_support) | Changes data             |
+
+### `submit_documentation_task`
 
 Starts a documentation task and returns a task ID (the `trigger_event_id`) you can check with `get_task_status`. It also returns a `next_call`, the next tool call your editor should make. It names `wait_for_task_update` with its arguments, so your editor can follow the task automatically.
 
@@ -75,13 +92,9 @@ A run takes several minutes. The submission returns a `next_call`, and your edit
 
 ### `list_doc_collections`
 
-Annotation: Read-only.
-
 Lists your documentation collections. Use it to get a `doc_collection_id` to pass to `submit_documentation_task`.
 
 ### `get_task_status`
-
-Annotation: Read-only.
 
 Checks the status of any documentation task in your organization by its `trigger_event_id`, not only tasks you submitted over MCP. Tasks started from Slack, a GitHub pull request, the dashboard, or the API are all readable. The task's submitted instructions and context appear in its trigger history.
 
@@ -94,8 +107,6 @@ Each message carries a stable, immutable `id`, a `sequence` number, an `author` 
 A `status_guidance` field is a short text string carrying server-generated advice about following the task and interpreting its outcome. That advice is distinct from the conversation itself, which `messages` carries.
 
 ### `wait_for_task_update`
-
-Annotation: Read-only.
 
 Follows a running task in the same conversation. It waits for new messages, a changed result, or completion. You get the outcome without checking status by hand.
 
@@ -113,8 +124,6 @@ You stay in control of following. Ask your editor to follow just once, or to sto
 
 ### `send_task_message`
 
-Annotation: Changes data.
-
 Use `send_task_message` to add an instruction to a task that's still running. Use `submit_documentation_task` to start a new task, and `request_changes` to revise a suggestion Promptless already produced.
 
 Sends an additional instruction into a task that's already running. The instruction folds into that running task's work, and no new task starts. A task stops accepting messages once it finishes, including one that finished by reporting a blocker or by marking a clarifying question. To answer a clarifying question, use [`answer_task_question`](#answer_task_question) instead. It answers a finished task's marked question.
@@ -130,8 +139,6 @@ It returns the stored `message` plus a `deduplicated` boolean. When the message 
 Like reading a task's status, sending isn't limited to tasks you started. You can send to an eligible task in your organization by its `trigger_event_id`. Task conversations apply to tasks submitted over the API or MCP, and to tasks created by calling `request_changes` over MCP. Reading a task's status with `get_task_status` stays available for every task source.
 
 ### `answer_task_question`
-
-Annotation: Changes data.
 
 Use `answer_task_question` to answer a clarifying question a finished task marked. Use `send_task_message` to add an instruction to a task that's still running. For the full walkthrough, see [Answer a clarifying question](/docs/for-docs/connect/triggers/mcp#answer-a-clarifying-question).
 
@@ -152,8 +159,6 @@ It returns the `question` text, an `outcome`, an optional continuation `trigger_
 
 ### `request_changes`
 
-Annotation: Changes data.
-
 Use `request_changes` when you want Promptless to make the change for you. Use `update_suggestion` to set the suggestion's labels, assignees, or title, or to open its pull request yourself. Use `close_suggestion` to end a review without shipping it.
 
 Asks Promptless to revise a suggestion it already produced. This is the revision loop.
@@ -166,8 +171,6 @@ Asks Promptless to revise a suggestion it already produced. This is the revision
 Promptless updates that suggestion's existing docs pull request instead of opening a second one. It returns a task ID you check with `get_task_status`, plus a `next_call` that follows the revision task with `wait_for_task_update`. If the suggestion's pull request is no longer one Promptless can revise, the tool reports that back. Start a new task with `submit_documentation_task` instead.
 
 ### `update_suggestion`
-
-Annotation: Changes existing content.
 
 Sets a suggestion's metadata (its labels, assignees, and title) yourself, and optionally opens its docs pull request. This is the path where you make the change yourself. By contrast, `request_changes` has Promptless make it, and `close_suggestion` ends a review without shipping it. Pass the suggestion's ID (from `search_suggestions` or `get_task_status`).
 
@@ -189,8 +192,6 @@ Opening the pull request is idempotent too. If the suggestion's docs pull reques
 
 ### `close_suggestion`
 
-Annotation: Changes existing content.
-
 Ends a review without shipping it. This is the close path. It contrasts with revising the suggestion using `request_changes`, or opening its pull request yourself with `update_suggestion`.
 
 | Argument        | Required | Description                            |
@@ -210,13 +211,9 @@ The call returns the `suggestion_id`, the resulting `status`, and a `message`.
 
 ### `list_recent_tasks`
 
-Annotation: Read-only.
-
 Lists your organization's recent documentation tasks, newest first, each with the `trigger_event_id` you pass to `get_task_status`. Use it when you've lost a task's ID, or to see what Promptless has been working on. Like `get_task_status`, it covers tasks started from Slack, a GitHub pull request, or the dashboard, as well as tasks submitted over MCP. A task submitted over the API is read by ID with `get_task_status`.
 
 ### `search_suggestions`
-
-Annotation: Read-only.
 
 Searches your existing suggestions by keyword and status. Use it to check whether a change is already covered before starting a new task, or to find a suggestion to revise.
 
@@ -231,15 +228,11 @@ When more suggestions match than were returned, the result sets a `truncated` fl
 
 ### `get_account_status`
 
-Annotation: Read-only.
-
 Reports your organization's setup: its name, which integrations are connected, and the setup steps that remain. It takes no arguments and is read-only. When `submit_documentation_task` reports that the organization hasn't finished setting up Promptless, call `get_account_status` for the remaining steps.
 
 The result carries `organization_id`, `organization_name`, `integrations` (each with its `type` and, when known, the connected `account`), and `next_steps`. `claimed` is false and `expires_at` is set only for an organization that an agent created and no person has claimed yet. For an organization a person set up, `claimed` is true and `expires_at` is null.
 
 ### `connect_integration`
-
-Annotation: Changes data.
 
 Creates a link that a person opens in a browser to connect one integration, such as GitHub, to your organization. Send the link to someone who administers that tool. They sign in to Promptless, confirm, and approve the connection with the provider. Only a member of the organization can complete it.
 
@@ -251,8 +244,6 @@ Creates a link that a person opens in a browser to connect one integration, such
 The result carries the `connect_url`, its `expires_at`, and `instructions` to pass along. The link works until `expires_at`. Creating a link changes nothing until someone opens it, and each call returns an equivalent link. After the person finishes, call `get_account_status` to confirm the connection.
 
 ### `message_promptless_support`
-
-Annotation: Changes data.
 
 Sends a report to the Promptless team, such as a problem with a task or a question about your setup. The report is one way: no reply comes back through the tool, so don't wait for one. The report includes your name, email, and MCP client name.
 
@@ -267,6 +258,15 @@ The result confirms that the report was sent. If Promptless can't confirm delive
 
 These tools are on the direct-edit URL only. Edits go on an open suggestion's branch. For how to use them, see [Read and edit documentation directly](/docs/for-docs/connect/triggers/mcp#read-and-edit-documentation-directly).
 
+| Tool                                                    | Annotation               |
+| ------------------------------------------------------- | ------------------------ |
+| [`list_documentation_files`](#list_documentation_files) | Read-only                |
+| [`read_documentation_file`](#read_documentation_file)   | Read-only                |
+| [`search_documentation`](#search_documentation)         | Read-only                |
+| [`get_suggestion_diff`](#get_suggestion_diff)           | Read-only                |
+| [`write_documentation_file`](#write_documentation_file) | Changes existing content |
+| [`edit_documentation_file`](#edit_documentation_file)   | Changes existing content |
+
 ### Choose what a read covers
 
 `list_documentation_files`, `read_documentation_file`, and `search_documentation` take the same two optional arguments to choose what they read:
@@ -280,8 +280,6 @@ Each read returns a `ref` with the `sha` and `branch_name` it read. Pass that `s
 
 ### `list_documentation_files`
 
-Annotation: Read-only.
-
 Lists a collection's file paths in sorted order. Use it to find a page's path before you read or edit it.
 
 | Argument      | Required | Description                                                        |
@@ -293,13 +291,9 @@ It returns the `files`, a `total` count of matching paths, and a `truncated` fla
 
 ### `read_documentation_file`
 
-Annotation: Read-only.
-
 Reads one text file by its repository-relative `path`, which is required. It returns the file's `content` and `size_bytes`. It refuses binary files and files over 256 KB.
 
 ### `search_documentation`
-
-Annotation: Read-only.
 
 Finds lines that match text or a regular expression across a collection's text files, such as Markdown, MDX, reStructuredText, YAML, JSON, and HTML.
 
@@ -317,15 +311,11 @@ Each match returns the file `path`, `line` number, and line `text`. A search rea
 
 ### `get_suggestion_diff`
 
-Annotation: Read-only.
-
 Shows what a suggestion changes. Pass its `suggestion_id`, which is required. It returns one unified diff per changed file against the collection's base branch, and each file's `status`: `added`, `modified`, `removed`, or `renamed`. It also returns the suggestion's `head_sha`, which you can pass as `expected_head_sha` when you edit.
 
 Diff text is capped at 200,000 characters per response. Once the cap is reached, each later file carries a `diff` of `null` and `truncated` is true. Binary files carry no diff text.
 
 ### `write_documentation_file`
-
-Annotation: Changes existing content.
 
 Creates or replaces one file on an open suggestion's branch with the full content you pass. Use it for a new page or a rewrite of most of a page. For a change to part of a page, use `edit_documentation_file`.
 
@@ -337,8 +327,6 @@ Creates or replaces one file on an open suggestion's branch with the full conten
 | `expected_head_sha` | No       | The `ref.sha` from your last read, or the `head_sha` from your last write. The write is refused when the suggestion's branch has moved since then. |
 
 ### `edit_documentation_file`
-
-Annotation: Changes existing content.
 
 Replaces exact text in one file on an open suggestion's branch. It takes `suggestion_id`, `path`, and `expected_head_sha` as `write_documentation_file` does, plus `edits`, which is required.
 
@@ -354,36 +342,33 @@ No tool deletes a file. To remove a page, describe the removal with `request_cha
 
 Tool failures come back as errors your client's model sees, each formatted as `code: message`. Common ones:
 
-- **Empty `instructions`**: resubmit with a specific `instructions` string.
-- **A `doc_collection_id` that isn't a valid ID (UUID)**: call `list_doc_collections` and pass an `id` from the returned list.
-- **An unrecognized `search_suggestions` status**: use one of `draft`, `open`, `merged`, or `closed`.
-- **A missing `search_suggestions` `query`, or one shorter than 3 characters after trimming**: provide a `query` of at least 3 characters.
-- **The organization hasn't finished setting up Promptless**: the tool returns "This organization has not finished setting up Promptless." Finish setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask a member with admin access to finish it.
-- **A requested collection isn't configured**: the tool returns "The requested doc collection is not configured." Call `list_doc_collections` for a valid `id`, or configure the collection first.
-- **A suggestion that can no longer be revised**: `request_changes` reports that the suggestion is no longer one Promptless can revise. Its pull request has moved beyond where a revision applies. Start a new task with `submit_documentation_task` instead.
-- **An `update_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. Setting a suggestion's labels, assignees, or title still succeeds even on a closed or merged suggestion. Only opening a pull request is refused for a closed suggestion that hasn't merged, and the tool reports why. If the host rejects the title push, the call fails and the stored title is left unchanged. Any labels or assignees from the same call stay applied. No MCP tool retracts a pull request while keeping the suggestion open for further editing. Closing over MCP with `close_suggestion` closes the suggestion and its pull request together. If you opened a pull request by mistake and want to keep working the suggestion, close the pull request on the host directly. The host is GitHub or GitLab.
-- **A `close_suggestion` call that can't be applied**: a `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. If the host refuses to close the pull request, the suggestion stays open and the tool reports why. A pull request that already merged can't be closed. A suggestion that's already closed can't be closed again, and the tool reports so.
-- **Sending to a finished task**: the tool rejects it with `task_finished`. A task that finished by reporting a blocker or a clarification request has still finished, so it also rejects messages. Start a new task with `submit_documentation_task` to continue. If the finished task marked a clarifying question, answer it with [`answer_task_question`](#answer_task_question). That continues the work in a new task.
-- **Sending to a task that isn't API- or MCP-sourced**: the tool rejects it with `unsupported_task_source`. Task conversations are scoped to API and MCP submissions and to tasks created by calling `request_changes` over MCP. Read the task's status instead, or start an API or MCP task to converse.
-- **An empty or over-length message**: the tool rejects it with `invalid_message`. The limit is 20,000 characters after trimming.
-- **A retried message that conflicts with a stored one**: the tool rejects it with `idempotency_conflict`. The retry reused the same `idempotency_key` with different text. Resend with a new `idempotency_key`, or with the original text.
-- **A `wait_for_task_update` cursor that's invalid or from another task**: the tool rejects it with `invalid_cursor`. Omit the cursor to read from the beginning. If task storage doesn't respond in time, the tool returns `task_read_timeout`. Retry the same task and cursor. Set `wait_seconds` between 0 and 30, the server maximum.
-- **`answer_task_question` returns `unavailable`**: your editor can't show a native form. It asks the clarifying question in chat and calls `answer_task_question` again with your answer.
-- **`answer_task_question` returns `already_answered`**: the question already had an answer committed. Follow the task the returned `trigger_event_id` names, which is the continuation already created. If a different answer won first, yours wasn't submitted. Following that task shows the committed answer.
-- **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
-- **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
-- **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
-- **A read that names no collection in an organization with several**: the tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.
-- **A path outside the paths Promptless maintains**: the read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.
-- **A `search_documentation` query that isn't valid RE2**: the tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.
-- **A `search_documentation` query over 256 characters**: the tool refuses it. Shorten the query.
-- **A file over 256 KB**: `read_documentation_file` and both write tools refuse it. A binary file is refused for reading too.
-- **A write to a closed suggestion**: the tool refuses it, since a closed suggestion's branch accepts no edits. Pick an open suggestion with `search_suggestions`, or start a task with `submit_documentation_task`.
-- **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
-- **`stale_head`**: the suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.
-- **An `old_text` that matches no place or several places**: `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.
-
-## Related pages
-
-- [MCP triggers](/docs/for-docs/connect/triggers/mcp) describes how to connect an editor or chat app and how to work with Promptless from it.
-- [Claude and ChatGPT connector reference](/docs/for-docs/reference/claude-and-chatgpt-connector) lists the server, sign-in, and data-access facts for chat-app admins and reviewers.
+| Error                                                                                   | What to do                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Empty `instructions`                                                                    | Resubmit with a specific `instructions` string.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| A `doc_collection_id` that isn't a valid ID (UUID)                                      | Call `list_doc_collections` and pass an `id` from the returned list.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| An unrecognized `search_suggestions` status                                             | Use one of `draft`, `open`, `merged`, or `closed`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| A missing `search_suggestions` `query`, or one shorter than 3 characters after trimming | Provide a `query` of at least 3 characters.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| The organization hasn't finished setting up Promptless                                  | The tool returns "This organization has not finished setting up Promptless." Finish setup on the [Configuration page](https://app.gopromptless.ai/configuration), or ask a member with admin access to finish it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| A requested collection isn't configured                                                 | The tool returns "The requested doc collection is not configured." Call `list_doc_collections` for a valid `id`, or configure the collection first.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| A suggestion that can no longer be revised                                              | `request_changes` reports that the suggestion is no longer one Promptless can revise. Its pull request has moved beyond where a revision applies. Start a new task with `submit_documentation_task` instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| An `update_suggestion` call that can't be applied                                       | A `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. Setting a suggestion's labels, assignees, or title still succeeds even on a closed or merged suggestion. Only opening a pull request is refused for a closed suggestion that hasn't merged, and the tool reports why. If the host rejects the title push, the call fails and the stored title is left unchanged. Any labels or assignees from the same call stay applied. No MCP tool retracts a pull request while keeping the suggestion open for further editing. Closing over MCP with `close_suggestion` closes the suggestion and its pull request together. If you opened a pull request by mistake and want to keep working the suggestion, close the pull request on the host directly. The host is GitHub or GitLab. |
+| A `close_suggestion` call that can't be applied                                         | A `suggestion_id` that isn't a valid ID (UUID) or matches no suggestion returns an error. Call `search_suggestions` for a valid ID. If the host refuses to close the pull request, the suggestion stays open and the tool reports why. A pull request that already merged can't be closed. A suggestion that's already closed can't be closed again, and the tool reports so.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Sending to a finished task                                                              | The tool rejects it with `task_finished`. A task that finished by reporting a blocker or a clarification request has still finished, so it also rejects messages. Start a new task with `submit_documentation_task` to continue. If the finished task marked a clarifying question, answer it with [`answer_task_question`](#answer_task_question). That continues the work in a new task.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Sending to a task that isn't API- or MCP-sourced                                        | The tool rejects it with `unsupported_task_source`. Task conversations are scoped to API and MCP submissions and to tasks created by calling `request_changes` over MCP. Read the task's status instead, or start an API or MCP task to converse.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| An empty or over-length message                                                         | The tool rejects it with `invalid_message`. The limit is 20,000 characters after trimming.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| A retried message that conflicts with a stored one                                      | The tool rejects it with `idempotency_conflict`. The retry reused the same `idempotency_key` with different text. Resend with a new `idempotency_key`, or with the original text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| A `wait_for_task_update` cursor that's invalid or from another task                     | The tool rejects it with `invalid_cursor`. Omit the cursor to read from the beginning. If task storage doesn't respond in time, the tool returns `task_read_timeout`. Retry the same task and cursor. Set `wait_seconds` between 0 and 30, the server maximum.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `answer_task_question` returns `unavailable`                                            | Your editor can't show a native form. It asks the clarifying question in chat and calls `answer_task_question` again with your answer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `answer_task_question` returns `already_answered`                                       | The question already had an answer committed. Follow the task the returned `trigger_event_id` names, which is the continuation already created. If a different answer won first, yours wasn't submitted. Following that task shows the committed answer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `answer_task_question` returns `decline` or `cancel`                                    | You declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| An answer reference that points at an unrelated task                                    | `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| A deduplicated answer whose continuation can't be found                                 | `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A read that names no collection in an organization with several                         | The tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| A path outside the paths Promptless maintains                                           | The read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A `search_documentation` query that isn't valid RE2                                     | The tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| A `search_documentation` query over 256 characters                                      | The tool refuses it. Shorten the query.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A file over 256 KB                                                                      | `read_documentation_file` and both write tools refuse it. A binary file is refused for reading too.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| A write to a closed suggestion                                                          | The tool refuses it, since a closed suggestion's branch accepts no edits. Pick an open suggestion with `search_suggestions`, or start a task with `submit_documentation_task`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A write to a suggestion whose task hasn't finished                                      | The tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `stale_head`                                                                            | The suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| An `old_text` that matches no place or several places                                   | `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
