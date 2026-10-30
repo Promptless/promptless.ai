@@ -228,7 +228,7 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
 
   assertLink(nav, '/', 'Home');
   assertLink(nav, '/pricing', 'Pricing');
-  assert.match(nav, /<summary[^>]*aria-label="Choose a documentation product"[^>]*>/i);
+  assert.match(nav, /<summary[^>]*aria-label="Docs: choose a documentation product"[^>]*>/i);
   assertLink(nav, '/docs/for-docs/start-here/welcome', 'Promptless for Docs');
   assertLink(nav, '/docs/governance', 'Promptless for Agent Instructions');
   assert.match(nav, /class="pl-docs-product-badge">New<\/span>/i);
@@ -634,14 +634,14 @@ test('homepage product switcher renders accessible default state and product reg
 
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
-  const docsVideoIndex = homeHtml.indexOf('data-video-id="');
+  const docsVideoIndex = homeHtml.search(/<video[^>]*data-loop-video/);
   assert.ok(
     docsBelowFoldIndex !== -1 &&
       docsLogoCarouselIndex > docsBelowFoldIndex &&
       docsVideoIndex > docsLogoCarouselIndex,
     'Expected the docs customer-logo carousel above the docs demo video.'
   );
-  assert.match(homeHtml, /data-video-id="[A-Za-z0-9_-]+"/);
+  assert.match(homeHtml, /<video[^>]*data-loop-video[^>]*src="\/videos\/promptless-explainer\.mp4"/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
   assert.match(homeHtml, /id="book-a-demo"/);
   assert.match(homeHtml, /id="book-a-demo-docs"/);
