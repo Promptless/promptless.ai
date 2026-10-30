@@ -69,15 +69,14 @@ async function buildSections(): Promise<LlmsSection[]> {
           description:
             'Any Git-backed platform works: Mintlify, Fern, ReadMe, GitBook, Docusaurus, MkDocs, Hugo, Ghost, Nextra, Starlight, Vocs, or a custom site built from a repository.',
         }),
-        docsPage('/docs/for-docs/work-the-queue/mcp-server', {
-          label: 'Promptless MCP server',
-          description:
-            'Ask for documentation edits, follow tasks to a docs pull request, and review suggestions from Claude Code, Cursor, Codex, or VS Code.',
-        }),
         docsPage('/docs/for-docs/connect/triggers/mcp', {
           label: 'MCP setup',
           description:
             'Connect Claude Code, Cursor, VS Code, or Codex over MCP with OAuth sign-in, or let a coding agent create an account for a person to claim.',
+        }),
+        docsPage('/docs/for-docs/reference/mcp-tools', {
+          label: 'MCP tools reference',
+          description: 'Arguments, results, annotations, and errors of each Promptless MCP tool.',
         }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
         docsPage('/docs/governance/agent-setup-guide', {
