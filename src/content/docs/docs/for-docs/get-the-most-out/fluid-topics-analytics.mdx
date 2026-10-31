@@ -1,0 +1,111 @@
+---
+title: Find documentation gaps with Fluid Topics analytics
+description: Connect your Fluid Topics portal so Promptless reads its search, view, and rating analytics, checks each signal against your docs source, and reports a ranked list of documentation gaps.
+id: for-docs-get-the-most-out-fluid-topics-analytics
+slug: docs/for-docs/get-the-most-out/fluid-topics-analytics
+type: how-to
+tags:
+  - get-the-most-out
+  - guide
+keywords:
+  - Fluid Topics
+  - Fluid Topics analytics
+  - ANALYTICS_USER
+  - documentation gaps
+  - searches with no results
+  - least-viewed topics
+  - topic ratings
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-enterprise-docs-team
+intent: connect a Fluid Topics portal read-only and ask Promptless for a ranked list of documentation gaps based on reader searches, views, and ratings
+lifecycle: published
+last-updated: 2026-10-28
+applies-to:
+  - promptless-for-docs
+  - integration:fluid-topics
+concepts:
+  - integrations
+  - analytics
+  - documentation gaps
+related-pages:
+  - for-docs-get-the-most-out-teach-promptless-a-custom-task-analytics-docs-gaps
+  - for-docs-connect-connection-health
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I connect Fluid Topics to Promptless?
+  - Which Fluid Topics role does the Promptless API key need?
+  - Which Fluid Topics analytics does Promptless read?
+  - How does Promptless decide that a search term is a documentation gap?
+sidebar:
+  hidden: false
+  order: 30
+  label: Fluid Topics doc gaps
+---
+
+import FluidTopicsConnect from '@partials/integrations/fluid-topics-connect.mdx';
+
+## Overview
+
+If you publish your documentation on a Fluid Topics portal, its reader analytics show where readers look for answers and don't find them. Connect Fluid Topics so Promptless reads those analytics, checks each signal against your documentation source, and tells you which gaps to fix first.
+
+Promptless reads these Fluid Topics reports:
+
+| Report                     | What it can point to                                    |
+| -------------------------- | ------------------------------------------------------- |
+| Searches with no results   | A subject readers look for that no page covers.         |
+| Most-searched terms        | A popular subject the docs answer poorly or not at all. |
+| Least-viewed topics        | A page that exists but that readers don't find.         |
+| Topic and document ratings | A page readers find but rate low.                       |
+
+The connection is read-only. Promptless reads aggregate analytics and never changes your portal or its content. The reports carry counts, not individual readers or the text of reader feedback, so ratings are the only quality signal Promptless has.
+
+## Before you start
+
+- A Fluid Topics administrator, to create the API key.
+- An admin role in your Promptless organization, to connect Fluid Topics.
+- A [doc collection](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs) that holds the source of the docs your portal publishes. Promptless searches it to confirm each gap.
+
+## Connect Fluid Topics
+
+<FluidTopicsConnect />
+
+## Ask Promptless for a gap analysis
+
+Ask Promptless for a gap analysis in Slack, in Microsoft Teams, or from **New Task**. For example: "@Promptless find documentation gaps in our Fluid Topics analytics for the last 90 days."
+
+Name a date range, a locale, or a product or guide to narrow the analysis. Without a date range, Promptless uses the last 90 days for every report.
+
+For each candidate gap, Promptless searches your doc collection for the term, its synonyms, and the product names it contains. It drops typos, terms about other products, and terms the docs already answer. It then classifies each remaining gap:
+
+| Class       | Meaning                                                                                                                          |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Missing     | No page covers the subject.                                                                                                      |
+| Findability | A page covers the subject, but readers miss it or rarely open it. Its title, headings, and metadata don't use the readers' term. |
+| Quality     | Readers find the page but rate it low.                                                                                           |
+
+Promptless returns a table of gaps ranked by reader impact, and a gap that appears in several reports ranks first. Each row cites the report, the term or title, its count, and the date range. It also names the page that covers the subject, or "no page". To fix a gap, ask Promptless to open a suggestion for it.
+
+To run the analysis on a schedule, pair a schedule trigger with a workflow. See [Example: Turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps).
+
+## Troubleshooting
+
+### Fluid Topics doesn't connect
+
+When you select **Connect**, Promptless reads analytics with the key. The connection saves only when that read succeeds:
+
+- **Invalid Fluid Topics API key**: Fluid Topics rejected the key. Copy the key again from **Administration** > **Integration** > **API keys** and reconnect.
+- **Fluid Topics API key lacks the ANALYTICS\_USER role**: the key authenticates but can't read analytics. Give the key the `ANALYTICS_USER` role in Fluid Topics, then select **Connect** again.
+- **Fluid Topics host must be an https URL**: Promptless connects to the portal only over HTTPS. Enter the portal URL with `https://`, or with no scheme, such as `docs.example.com`.
+
+### The Fluid Topics card shows Needs reconnect
+
+Promptless checks the key regularly. The card shows **Needs reconnect** when Fluid Topics rejects the key, the key loses the `ANALYTICS_USER` role, or the portal address stops resolving. Fix the key or its role in Fluid Topics, then select **Check access**. If the key was deleted, disconnect Fluid Topics and connect it with a new key. See [Connection health & troubleshooting](/docs/for-docs/connect/connection-health).
+
+## See also
+
+- [Example: Turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps), for the same kind of analysis with PostHog on a schedule
+- [Pay down docs debt with Deep Analysis](/docs/for-docs/get-the-most-out/pay-down-docs-debt), to fix many gaps in one coordinated run
