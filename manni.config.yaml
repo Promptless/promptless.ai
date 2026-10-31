@@ -27,6 +27,20 @@ collections:
       # its entry.
       - file: ./docs.metadata.yaml
         join: id
+  # The termbase: one page per term, `type: term`. Kept outside
+  # src/content/docs so Starlight doesn't build a page per term; the glossary
+  # pages embed a rendered definition list instead. See terms/README.md.
+  - name: terms
+    paths:
+      - "terms/**/*.md"
+    exclude:
+      - "terms/README.md"
+
+# Outside tools manni runs. `manni term lint` and `manni term write -f vale`
+# run Vale with this configuration.
+tools:
+  vale:
+    config: .vale.ini
 
 meta:
   # Judge pages by exactly this set, in order, rather than manni's built-in
@@ -59,6 +73,14 @@ meta:
     #    troubleshooting, ...) are recommended, not enforced.
     #    Reference: https://www.thegooddocsproject.dev/template
     - tgdp:templates:1.1
+  # The term pages in terms/ are termbase records, not docs pages, so they're
+  # judged by manni's terminology vocabulary alone. Strict requires every term
+  # to carry a definition (or a `see:` redirect).
+  overrides:
+    - collection: terms
+      schemas:
+        - manni:terminology:1.2.0
+        - manni:terminology-strict:1.2.0
 
   # Stewardship fields stamped from evidence instead of typed by hand, so they
   # cannot go stale quietly: `validate` fails when a stamp disagrees with git
@@ -87,6 +109,8 @@ lint:
     # Lookup pages without a task, like a reference.
     glossary: tgdp:reference:1.6
     contact-support: tgdp:reference:1.6
+    # Term pages (terms/) are frontmatter only; see terms/README.md.
+    term: ./terms/term.template.yaml
 
 a11y:
   # `manni a11y check` crawls a served build of the whole site (docs, blog,
