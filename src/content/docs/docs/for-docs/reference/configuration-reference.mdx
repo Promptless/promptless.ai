@@ -65,7 +65,7 @@ When you need precise control over the file format, switch to **YAML** mode usin
 
 In Form mode, Promptless fills in fields from your connected integrations. The doc collection platform (GitHub, GitHub OSS, GitHub Enterprise, or GitLab) is not a field you set. It comes from the integration that reaches the repository. The repo, Slack channel, and Jira, Confluence, Linear, and Notion pickers autocomplete from what each integration can see.
 
-Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too, so every rule points at something that exists.
+Form mode also keeps references consistent for you. Renaming a doc collection updates every trigger and policy rule that points at it in the same save. It also warns you if the new name is already taken. Deleting a doc collection or trigger that a policy rule depends on removes those rules too. Deleting the doc collection that `style.rules_collection` names clears that setting. Every rule and setting then points at something that exists.
 
 ### Provider connection and trigger availability
 
@@ -187,7 +187,7 @@ In a typical pull request workflow, this overlaps with your PR triggers. Merging
 
 ## File structure
 
-`promptless.yaml` has four top-level sections:
+`promptless.yaml` has five top-level sections:
 
 | Section           | Defines                                                                                | Details                             |
 | ----------------- | -------------------------------------------------------------------------------------- | ----------------------------------- |
@@ -195,6 +195,7 @@ In a typical pull request workflow, this overlaps with your PR triggers. Merging
 | `context_sources` | Limits on what Promptless reads from connected integrations                            | [Context sources](#context-sources) |
 | `triggers`        | Events that start documentation work                                                   | [Triggers](#triggers)               |
 | `policies`        | Where notifications and escalations go, how Promptless publishes, and when it archives | [Policies](#policies)               |
+| `style`           | Where your organization's style rules live                                             | [Style](#style)                     |
 
 Every section is optional. A key the schema doesn't define, at any level of the file, fails validation.
 
@@ -778,6 +779,19 @@ When a rule sets both keys, both must match.
   Promptless resolves policies when it publishes a suggestion. If you change the configuration while Promptless is creating a suggestion, the new policy values apply when that suggestion publishes.
 </Aside>
 
+## Style
+
+The `style` section sets where your organization's style rules live. Promptless keeps one set of style rules for every connected doc collection. See [Turn your style guidance into rules](/docs/for-docs/audit/standards-enforcement#turn-your-style-guidance-into-rules).
+
+```yaml
+style:
+  rules_collection: acme/style-guide
+```
+
+| Field              | Description                                                                                                                                                                                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rules_collection` | Optional. The `doc_collections` key of the GitHub or GitLab repository that owns your style rules. Promptless syncs its rules from this repository and proposes rule changes to it as suggestions. Omit it to keep the rules in your Agent Knowledge Base. |
+
 ## Validation and errors
 
 The configuration editor validates your YAML before it saves. Each validation error appears as an inline marker with these details:
@@ -790,16 +804,17 @@ The configuration editor validates your YAML before it saves. Each validation er
 
 These are the most common validation errors:
 
-| Error                                                                                  | Fix                                                                                                                                                                              |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unknown key, such as a typo or an unsupported field                                    | Correct the spelling, or remove the key.                                                                                                                                         |
-| Invalid value, such as an unknown `trigger_type`                                       | Use one of the values this page lists for the field.                                                                                                                             |
-| Missing required field, such as `host` when `platform` is `github_enterprise`          | Add the field.                                                                                                                                                                   |
-| Duplicate repository key in `doc_collections`                                          | Keep one entry per repository.                                                                                                                                                   |
-| Malformed `doc_collections` key                                                        | Use exactly `owner/repo` for GitHub, GitHub OSS, and GitHub Enterprise. Use the project's full path, including nested namespaces, for GitLab. Remove any surrounding whitespace. |
-| Trigger or context source key that isn't a lowercase slug                              | Rename the key using lowercase letters, numbers, and hyphens, such as `google-drive`.                                                                                            |
-| Policy rule that references an undefined trigger or doc collection                     | Correct the key, or define the trigger or doc collection it names. Built-in trigger keys are always defined.                                                                     |
-| Provider-backed trigger added, renamed, or modified while its provider is disconnected | Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).   |
+| Error                                                                                                   | Fix                                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unknown key, such as a typo or an unsupported field                                                     | Correct the spelling, or remove the key.                                                                                                                                         |
+| Invalid value, such as an unknown `trigger_type`                                                        | Use one of the values this page lists for the field.                                                                                                                             |
+| Missing required field, such as `host` when `platform` is `github_enterprise`                           | Add the field.                                                                                                                                                                   |
+| Duplicate repository key in `doc_collections`                                                           | Keep one entry per repository.                                                                                                                                                   |
+| Malformed `doc_collections` key                                                                         | Use exactly `owner/repo` for GitHub, GitHub OSS, and GitHub Enterprise. Use the project's full path, including nested namespaces, for GitLab. Remove any surrounding whitespace. |
+| Trigger or context source key that isn't a lowercase slug                                               | Rename the key using lowercase letters, numbers, and hyphens, such as `google-drive`.                                                                                            |
+| Policy rule that references an undefined trigger or doc collection                                      | Correct the key, or define the trigger or doc collection it names. Built-in trigger keys are always defined.                                                                     |
+| A `style.rules_collection` value that isn't a `doc_collections` key, or that names a Heretto collection | Choose a GitHub or GitLab collection, or remove the setting.                                                                                                                     |
+| Provider-backed trigger added, renamed, or modified while its provider is disconnected                  | Reconnect the provider, then save again. See [Connect a provider before you add its triggers](/docs/for-docs/connect/triggers#connect-a-provider-before-you-add-its-triggers).   |
 
 <Aside type="tip">
   If you push an invalid `promptless.yaml` to your Agent Knowledge Base with git, the last valid configuration stays active. The Configuration page editor shows the error.
@@ -809,9 +824,9 @@ These are the most common validation errors:
 
 When you rename a GitHub repository or a Slack channel, Promptless updates your configuration to match. It commits the change to your Agent Knowledge Base:
 
-| Renamed           | What Promptless updates                                                                                                       |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| GitHub repository | The `doc_collections` key, the repository in trigger `repos` and `excluded_repos` lists, and `doc_collection` in policy rules |
-| Slack channel     | The channel in `slack_listen` triggers, and `slack_channel` in `notification` and `escalation` policies                       |
+| Renamed           | What Promptless updates                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub repository | The `doc_collections` key, the repository in trigger `repos` and `excluded_repos` lists, `doc_collection` in policy rules, and `style.rules_collection` |
+| Slack channel     | The channel in `slack_listen` triggers, and `slack_channel` in `notification` and `escalation` policies                                                 |
 
 A Slack channel rename leaves `msteams_channel` values unchanged.
