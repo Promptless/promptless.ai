@@ -58,7 +58,7 @@ Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and
 
 1. **Listen.** When a PR opens, a Slack thread about docs starts, or a doc ticket gets created, Promptless automatically wakes up and decides whether it warrants a doc update.
 2. **Draft.** Promptless does research across the context you connect it to, and proactively notifies you when there's a documentation suggestion.
-3. **Review.** Review citations, provide feedback, or edit suggestions inline.
+3. **Review.** Ask Promptless where any line came from, provide feedback, or edit suggestions inline.
 4. **Publish.** Open PRs or deploy directly to your docs provider.
 
 ### Why Promptless? Built to fit into your workflows, not to make you a prompt engineer
@@ -66,7 +66,7 @@ Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and
 - **Proactive, automatic updates.** PRs, Slack threads, and support tickets kick off doc updates automatically. No prompting required.
 - **Screenshot capture.** Auto-regenerates screenshots when the UI changes, complete with crops and annotations.
 - **Writes like your team.** Matches the style of your existing docs, or plug in your style guide and Vale rules. No AI slop.
-- **Full citations and explanations.** Every suggestion has in-line citations to code functions, Slack conversations, websites, or support tickets.
+- **Ask for sources.** Ask Promptless where any line came from and it replies with the code, conversations, or tickets behind it.
 - **Learns from your feedback.** Every time you leave a comment, reject a suggestion, or message Promptless with feedback, Promptless gets better.
 - **Works with your stack.** Plugs into your existing docs platform, repos, and tools. Promptless adapts to your workflows, not vice versa.
 

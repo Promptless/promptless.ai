@@ -13,7 +13,7 @@ import { docsPage, link, llmsIndexResponse, marketingPage, type LlmsSection } fr
 export const prerender = true;
 
 const BLURB =
-  'Promptless is an AI agent that keeps customer-facing documentation and agent instructions in sync with what your team ships: documentation pull requests drafted from code changes, Slack threads, and tickets, with citations, for docs teams and solo technical writers on any Git-backed docs platform.';
+  'Promptless is an AI agent that keeps customer-facing documentation and agent instructions in sync with what your team ships: documentation pull requests drafted from code changes, Slack threads, and tickets, with sources on request, for docs teams and solo technical writers on any Git-backed docs platform.';
 
 const NOTE =
   'This file indexes the markdown version of every page on promptless.ai. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
