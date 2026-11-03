@@ -1,0 +1,117 @@
+---
+title: "Example: request a review from the source author"
+description: Teach Promptless to request a review from the author of the GitHub PR or GitLab merge request that led to a documentation PR, with the workflow file and PROMPTLESS.md hook
+id: for-docs-get-the-most-out-teach-promptless-a-custom-task-request-source-author-review
+slug: docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/request-source-author-review
+type: how-to
+tags:
+  - get-the-most-out
+  - guide
+keywords:
+  - request reviewer
+  - source PR author
+  - docs PR reviewer
+  - GitLab merge request reviewer
+  - doc_workflows
+  - PROMPTLESS.md hook
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-engineer-owned-docs
+  - aud-enterprise-docs-team
+intent: teach Promptless to request a review on each documentation PR or merge request from the author of the GitHub or GitLab change that triggered it
+lifecycle: published
+last-updated: 2026-10-19
+applies-to:
+  - promptless-for-docs
+  - integration:github
+  - integration:gitlab
+concepts:
+  - custom task
+  - trigger
+  - docs pr
+related-pages:
+  - for-docs-get-the-most-out-teach-promptless-a-custom-task
+  - for-docs-connect-triggers-github-prs
+  - for-docs-connect-triggers-gitlab-merge-requests
+  - for-docs-get-the-most-out-agent-knowledge-base
+risks:
+  - privileged
+sample-questions:
+  - Can Promptless add the engineer who wrote the code change as a reviewer on the docs PR?
+  - How do I get the source PR author to review the documentation Promptless writes for their change?
+  - Does requesting a reviewer work for GitLab merge requests as well as GitHub PRs?
+  - What happens when the source PR author is a bot?
+sidebar:
+  hidden: false
+  order: 37
+  label: "Example: Request source author review"
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+<Aside type="tip">
+  You can set this up by hand as this page describes, or ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless for GitHub and GitLab triggers, add the author of the original PR as a reviewer on the docs PR." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+The engineer who wrote a code change knows best whether the documentation describes it correctly. This example has Promptless request a review from that person on every documentation PR or merge request that a GitHub or GitLab trigger produces. The docs change then reaches the person who can confirm it, and your docs team can review alongside them.
+
+This example follows the general process in [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task). It adds a step to work your existing triggers already do, so it needs a workflow and a `PROMPTLESS.md` hook but no new trigger.
+
+## Prerequisites
+
+Before you set up this task, make sure you have:
+
+- **A GitHub PR or GitLab merge request trigger** that watches your source repositories, such as `acme/api`. See [GitHub PRs](/docs/for-docs/connect/triggers/github-prs) or [GitLab merge requests](/docs/for-docs/connect/triggers/gitlab-merge-requests).
+- **Source authors with access to the docs repository.** A reviewer needs access to the docs repository or project.
+- **The ability to chat with Promptless** in Slack or Teams to make edits for you, or **admin access** to edit the Knowledge Base directly.
+
+<Steps>
+  1. **Write the workflow.** Save it as a markdown file under `doc_workflows/` in your Knowledge Base, for example `doc_workflows/request-source-author-review.md`. Give it contents like this:
+
+     ```markdown
+     # Request a review from the source author
+
+     When a GitHub or GitLab trigger leads to a documentation PR or merge request (MR), request a review from the person who authored the original trigger.
+
+     1. Identify the author of the original trigger:
+
+        - For a PR or MR event, use the author of the source PR or MR.
+        - For an @Promptless mention in a PR or MR comment, use the person who wrote the comment.
+        - When one docs PR covers several source PRs, use each distinct human author.
+
+     2. Skip authors who can't review:
+
+        - Bots and apps, such as dependabot, renovate, and accounts ending in [bot].
+        - The person who opened the docs PR. GitHub doesn't let PR authors approve their own PRs.
+
+     3. Request the review when you open the docs PR or MR:
+
+        - On GitHub, add the author as a requested reviewer on the PR.
+        - On GitLab, add the author to the MR's reviewers.
+
+        If a later update adds another source PR or MR, request a review from its author too.
+
+     4. If GitHub or GitLab rejects the request, for example because the author has no access to the docs repo, keep the docs PR open. Add a line to its description naming the source author, such as "Source author: @jdoe", so a teammate can follow up.
+     ```
+
+  2. **Add the hook.** Add an explicit "If, then" hook in `PROMPTLESS.md` that points to the workflow. `PROMPTLESS.md` is loaded on every run, and the workflow file is loaded only on demand, so the hook is what makes the workflow fire reliably:
+
+     > If a GitHub or GitLab trigger leads to a documentation PR or merge request, then follow `doc_workflows/request-source-author-review.md`.
+
+  3. **Save the workflow and hook.** Save both files from the Agent Knowledge Base in one of two ways:
+
+     - An organization admin edits the files directly in the [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base). In the left sidebar, open **Settings** and select **Agent Knowledge Base**.
+     - Ask Promptless to make the changes. It edits `PROMPTLESS.md` and the workflow file and commits the change.
+</Steps>
+
+## What Promptless does on each docs PR
+
+When a GitHub or GitLab trigger leads to a documentation PR or merge request, Promptless:
+
+1. Reads the trigger and identifies who authored the source change or comment.
+2. Opens the documentation PR or merge request as usual.
+3. Requests a review from each eligible source author.
+4. Names the source author in the PR description when GitHub or GitLab rejects the request.
+
+This workflow applies to GitHub and GitLab triggers. For docs PRs that start from a Slack or Jira request, add a separate instruction to `PROMPTLESS.md`. For example, have Promptless assign the PR to the Slack requester.
