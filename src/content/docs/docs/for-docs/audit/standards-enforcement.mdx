@@ -22,7 +22,7 @@ audiences:
   - aud-devrel-devex
 intent: configure Vale for a doc collection so Promptless lints and fixes prose before creating suggestions
 lifecycle: published
-last-updated: 2026-10-20
+last-updated: 2026-11-03
 applies-to:
   - promptless-for-docs
 concepts:
@@ -116,11 +116,18 @@ After drafting prose content, Promptless:
 1. **Syncs packages.** Downloads the external style packages your config references, such as Microsoft, Google, or write-good, when they aren't already vendored in your repository. Promptless downloads them the first time it lints during a session.
 2. **Lints prose.** Runs Vale on every prose file it creates or substantially edits.
 3. **Applies your alert level.** Reads your config's `MinAlertLevel` and uses it to decide which findings to fix. See [Severity handling](#severity-handling).
-4. **Matches your CI.** Reads the Vale job in your repository's GitHub Actions workflows and reproduces that invocation on the changed files. The run confirms the files pass before Promptless creates the suggestion.
+4. **Matches your CI.** Reads your repository's CI configuration, such as GitHub Actions workflows or `.gitlab-ci.yml`, and any script a check calls, such as a Vale wrapper script. Promptless installs what those checks need and runs them on the changed files before it creates the suggestion.
 
 Vale runs only on prose content. Code blocks, commands, configuration, frontmatter, schemas, and tables are excluded from linting.
 
-Vale errors can still slip through or arise from later edits. When Vale fails in a GitHub Actions workflow on a Promptless PR, Promptless analyzes the failure and pushes fixes to the branch. The same handling covers other CI checks, such as broken-link detection and [Doc Detective](/docs/for-docs/audit/doc-detective) tests.
+To make sure Promptless runs a specific check, name the command in `PROMPTLESS.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base) and say that it must pass. Promptless then pushes a branch only after that check passes.
+
+### When CI fails on a Promptless change
+
+Vale errors can still slip through or arise from later edits. What happens next depends on where your docs live:
+
+- **GitHub:** When Vale fails in a GitHub Actions workflow on a Promptless PR, Promptless analyzes the failure and pushes fixes to the branch. The same handling covers other CI checks, such as broken-link detection and [Doc Detective](/docs/for-docs/audit/doc-detective) tests.
+- **GitLab:** Promptless receives merge request and comment events from GitLab, but not pipeline events, so a failed pipeline doesn't start a fix. Comment on the merge request, mention Promptless, and paste the failing job's output. Promptless then pushes a fix to the merge request branch.
 
 ## Severity handling
 
@@ -138,7 +145,7 @@ How Promptless treats findings depends on whether your config sets `MinAlertLeve
 
 Setting `MinAlertLevel` sets the severity bar your docs hold to. Promptless fixes every finding Vale reports at or above that level, including warnings and suggestions. That mirrors what your Vale CI reports, so Promptless resolves findings you'd otherwise see as review comments before the suggestion reaches you.
 
-For example, with `MinAlertLevel = suggestion`, Promptless fixes every error, warning, and suggestion Vale reports. To have Promptless fix fewer findings, raise the level, for example to `warning` or `error`.
+For example, with `MinAlertLevel = suggestion`, Promptless fixes every error, warning, and suggestion Vale reports. Use this level when your CI fails on any Vale alert. To have Promptless fix fewer findings, raise the level, for example to `warning` or `error`.
 
 ### When MinAlertLevel is unset
 
