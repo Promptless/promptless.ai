@@ -66,7 +66,7 @@ The game supports one saved board per verified email. It does not merge competin
 
 `src/lib/bingo/patterns.ts` contains the agreed card set. **Asyndetic parataxis** includes a plain-language hint, plus optional ellipsis and repeated-closure details for writers. Examples are hypothetical. No square establishes AI authorship, and the game assigns no authorship probability.
 
-The card has a free center and recognizes every row, column, and diagonal. There is no timer, correctness grading, or public leaderboard. Earlier prototype cards retain their original square IDs, hints, order, and photos through `legacy-patterns.ts`.
+The card has a free center and recognizes every row, column, and diagonal. Play is untimed, and the game doesn't grade whether a photo matches its square. Saved boards appear on the provisional [`/bingo-leaderboard`](README.md#ai-tells-bingo-leaderboard) under anonymous aliases until organizers review the photos. Earlier prototype cards retain their original square IDs, hints, order, and photos through `legacy-patterns.ts`.
 
 The [AIStoryHub reference](https://aistoryhub.co/bingo) informed the general interaction. No code, artwork, or full third-party corpus was copied.
 
