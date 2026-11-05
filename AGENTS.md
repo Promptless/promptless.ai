@@ -39,7 +39,7 @@ src/
 |   +-- changelog/      # Changelog entries (MDX)
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
-+-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
++-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007); glossary/ is generated from terms/
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
@@ -48,6 +48,7 @@ packages/
 scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
 tests/smoke/            # Smoke tests
 tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
+terms/                  # Termbase: one manni term page per concept (see terms/README.md, ADR adrs/0009)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
@@ -106,6 +107,8 @@ npm run lint:md          # remark-lint: Markdown/MDX structure (src/content/docs
 npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
 npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
 npm run lint:structure   # manni: page structure by `type:` (advisory in CI)
+npm run lint:terms       # manni term: check concepts: against terms/, lint definitions (needs Vale)
+npm run terms:write      # regenerate the glossary partials and the Terms Vale style from terms/
 npm run lint:a11y        # manni: axe-core accessibility crawl (needs `npm run build && npm run preview` running)
 npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
 npx manni check          # run every manni check set up here (or pass pages); never restamps
@@ -174,6 +177,17 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   you changed but doesn't fail. Fix the findings on pages you edit; run
   `npm run lint:structure -- <page>` locally, and add `--explain` to see
   which template a page routed to. See [ADR 0006](adrs/0006-adopt-manni-lint-structure.md).
+- **manni term** (`terms/`, `terms` job in `manni.yml`) — every `concepts:`
+  value must name a term page in `terms/` by label, id, or alt-label, or CI
+  fails. When you add a new concept, add its term with `npx manni term fill
+  -o terms/<for-docs|governance|topics>/`, write or check the definition, and
+  run `npm run terms:write`. That regenerates the glossary partials in
+  `src/partials/glossary/` and the `Terms` Vale style in `.vale/styles/Terms/`;
+  commit both, because CI fails when they're stale. Never edit them by hand.
+  Definitions are held to the house Vale styles (`npx manni term lint`). The
+  `Terms` style warns on docs pages about a term in the wrong case, such as
+  `GitHub app` for `GitHub App`. See [`terms/README.md`](terms/README.md) and
+  [ADR 0009](adrs/0009-adopt-manni-term.md).
 - **manni a11y** (`a11y:` in `manni.config.yaml`,
   `.github/workflows/a11y-scheduled.yml`) — accessibility of the *rendered*
   site, not only `src/content/docs`. It doesn't run on pull requests. Every

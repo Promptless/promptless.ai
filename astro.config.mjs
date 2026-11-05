@@ -12,6 +12,7 @@ import starlightMcp from './packages/starlight-mcp/src/index.ts';
 import { inlineMdxPartials } from './src/lib/mdx-partials.ts';
 import starlightSearch, { searchIncludeFiles } from './packages/starlight-search/src/index.ts';
 import rehypeAppLinksNewTab from './src/lib/rehype-app-links-new-tab.ts';
+import { remarkDefinitionList, defListHastHandlers } from 'remark-definition-list';
 import { DOCS_PRODUCTS } from './src/lib/docs-products.ts';
 
 import redirectsManifest from './src/lib/generated/redirects.json' with { type: 'json' };
@@ -113,7 +114,13 @@ export default defineConfig({
   },
   // Links to the Promptless app (app.gopromptless.ai) open in a new tab so
   // readers don't lose their place in the docs. See src/lib/rehype-app-links-new-tab.ts.
+  //
+  // Definition lists (`Term` / `:   Definition`) render as <dl>. The glossary
+  // partials that `manni term write` renders (src/partials/glossary/) are
+  // definition lists; see terms/README.md.
   markdown: {
+    remarkPlugins: [remarkDefinitionList],
+    remarkRehype: { handlers: defListHastHandlers },
     rehypePlugins: [rehypeAppLinksNewTab],
   },
   integrations: [
@@ -268,6 +275,7 @@ export default defineConfig({
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
                     { label: 'Getting support', slug: 'docs/for-docs/reference/getting-help' },
+                    { label: 'Glossary', slug: 'docs/for-docs/reference/glossary' },
                   ],
                 },
                 ...openAPISidebarGroups,
