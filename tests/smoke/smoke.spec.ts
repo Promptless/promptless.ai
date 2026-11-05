@@ -642,6 +642,8 @@ test('homepage product switcher renders accessible default state and product reg
     'Expected the docs customer-logo carousel above the docs demo video.'
   );
   assert.match(homeHtml, /<video[^>]*data-loop-video[^>]*src="\/videos\/promptless-explainer\.mp4"/);
+  // The homepage no longer embeds the YouTube demo video.
+  assert.doesNotMatch(homeHtml, /data-video-id="/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
   assert.match(homeHtml, /id="book-a-demo"/);
   assert.match(homeHtml, /id="book-a-demo-docs"/);
