@@ -1,0 +1,2902 @@
+{
+  "source": {
+    "repository": "Promptless/promptless",
+    "commit": "ae3b0a25d6b49ca864e0c2b4ee8eb0cf9d84105a"
+  },
+  "surfaces": [
+    {
+      "key": "developer",
+      "path": "/mcp",
+      "name": "Promptless",
+      "tools": [
+        "submit_documentation_task",
+        "request_changes",
+        "update_suggestion",
+        "close_suggestion",
+        "list_doc_collections",
+        "wait_for_task_update",
+        "get_task_status",
+        "send_task_message",
+        "list_recent_tasks",
+        "search_suggestions",
+        "answer_task_question",
+        "get_account_status",
+        "connect_integration",
+        "message_promptless_support"
+      ],
+      "skills": [
+        "skill://triage-suggestions/SKILL.md"
+      ],
+      "resources": [
+        "skill://triage-suggestions/SKILL.md"
+      ]
+    },
+    {
+      "key": "with_direct_edits",
+      "path": "/mcp/with-direct-edits",
+      "name": "Promptless with direct edits",
+      "tools": [
+        "submit_documentation_task",
+        "request_changes",
+        "update_suggestion",
+        "close_suggestion",
+        "list_doc_collections",
+        "wait_for_task_update",
+        "get_task_status",
+        "send_task_message",
+        "list_recent_tasks",
+        "search_suggestions",
+        "answer_task_question",
+        "get_account_status",
+        "connect_integration",
+        "message_promptless_support",
+        "list_documentation_files",
+        "read_documentation_file",
+        "search_documentation",
+        "get_suggestion_diff",
+        "write_documentation_file",
+        "edit_documentation_file"
+      ],
+      "skills": [
+        "skill://edit-documentation/SKILL.md",
+        "skill://triage-suggestions/SKILL.md"
+      ],
+      "resources": [
+        "skill://edit-documentation/SKILL.md",
+        "skill://triage-suggestions/SKILL.md"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "submit_documentation_task",
+      "title": "Submit a documentation task",
+      "description": "Ask Promptless to update your documentation. Promptless researches the affected docs and proposes changes when needed. Returns a trigger_event_id right away, but the work itself takes several minutes. The response includes the next_call for following the submitted work with wait_for_task_update. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#submit_documentation_task",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "instructions": {
+            "type": "string",
+            "description": "What changed and what the documentation should say about it. Include the detail a technical writer would need: behavior before and after, affected surfaces, and any naming or terminology to use."
+          },
+          "context": {
+            "type": "object",
+            "description": "Supporting material for the task, such as diffs, PR links, ticket ids, or file paths.",
+            "additionalProperties": true
+          },
+          "attachments": {
+            "type": "array",
+            "description": "Links to material that explains the change, such as a screenshot, design file, or spec. Nothing is uploaded — tool arguments are JSON only — so each entry is a URL Promptless may open while researching, and one it cannot reach or authenticate to is skipped.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string",
+                  "description": "Where the material lives."
+                },
+                "description": {
+                  "type": "string",
+                  "description": "What the link shows, in a sentence."
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "doc_collection_id": {
+            "type": "string",
+            "description": "Id of the doc collection to target, from list_doc_collections. Omit to let Promptless route the request across the organization's collections."
+          }
+        },
+        "required": [
+          "instructions"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "trigger_event_id": {
+            "type": "string",
+            "description": "Pass this to wait_for_task_update or get_task_status."
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "next_call": {
+            "$ref": "#/$defs/WaitNextCall"
+          }
+        },
+        "$defs": {
+          "WaitCallArguments": {
+            "additionalProperties": false,
+            "description": "Arguments a client can pass directly to the next wait call.",
+            "properties": {
+              "trigger_event_id": {
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cursor"
+              },
+              "wait_seconds": {
+                "default": 30,
+                "title": "Wait Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "trigger_event_id"
+            ],
+            "title": "WaitCallArguments",
+            "type": "object"
+          },
+          "WaitNextCall": {
+            "additionalProperties": false,
+            "description": "Concrete continuation, interpreted by the client rather than the protocol.",
+            "properties": {
+              "name": {
+                "const": "wait_for_task_update",
+                "default": "wait_for_task_update",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/WaitCallArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "WaitNextCall",
+            "type": "object"
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "status",
+          "message",
+          "next_call"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Submit a documentation task",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "request_changes",
+      "title": "Request changes on a documentation suggestion",
+      "description": "Ask Promptless to change a suggestion it already produced, the same as the Request Changes button in the Promptless dashboard. Any changes apply to that suggestion and its existing pull request if one is open. To make the edit yourself instead, edit that pull request directly — its URL is the suggestion's docs_pr_url. Takes a suggestion id from search_suggestions or get_task_status and returns a trigger_event_id for the new task. Use submit_documentation_task when no suggestion exists yet, and when the suggestion is closed or merged and can no longer be changed. The response includes next_call for following the submitted work with wait_for_task_update. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#request_changes",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "description": "Id of the suggestion to change, from search_suggestions or get_task_status."
+          },
+          "instructions": {
+            "type": "string",
+            "description": "What to change about the suggestion. Be as specific as a review comment: which wording or section is wrong, and what it should say instead."
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "instructions"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "trigger_event_id": {
+            "type": "string",
+            "description": "Pass this to wait_for_task_update or get_task_status."
+          },
+          "suggestion_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "next_call": {
+            "$ref": "#/$defs/WaitNextCall"
+          }
+        },
+        "$defs": {
+          "WaitCallArguments": {
+            "additionalProperties": false,
+            "description": "Arguments a client can pass directly to the next wait call.",
+            "properties": {
+              "trigger_event_id": {
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cursor"
+              },
+              "wait_seconds": {
+                "default": 30,
+                "title": "Wait Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "trigger_event_id"
+            ],
+            "title": "WaitCallArguments",
+            "type": "object"
+          },
+          "WaitNextCall": {
+            "additionalProperties": false,
+            "description": "Concrete continuation, interpreted by the client rather than the protocol.",
+            "properties": {
+              "name": {
+                "const": "wait_for_task_update",
+                "default": "wait_for_task_update",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/WaitCallArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "WaitNextCall",
+            "type": "object"
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "suggestion_id",
+          "status",
+          "message",
+          "next_call"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Request changes on a documentation suggestion",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "update_suggestion",
+      "title": "Update a documentation suggestion",
+      "description": "Change a suggestion's own fields and open its documentation pull request. Set the title, labels, or assignees, and pass open_pull_request to publish the branch as a pull request you can review and edit directly. Every argument is optional except suggestion_id; an omitted field is left alone. Supplying labels or assignees replaces the whole list, so read the current values from search_suggestions or get_task_status first. A new title is also pushed to the suggestion's pull request while that pull request is open, so the two never disagree; if the host rejects the push, the stored title is left unchanged. Opening is idempotent: a suggestion already carrying a pull request returns it rather than opening a second, and draft state follows the organization's source-pull-request policy. Use request_changes to ask Promptless to rewrite the documentation itself. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#update_suggestion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "description": "Id of the suggestion to update, from search_suggestions or get_task_status."
+          },
+          "title": {
+            "type": "string",
+            "description": "Replacement title for the suggestion. While its pull request is open, the new title is pushed there too. Omit to leave the title unchanged."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replacement labels for the suggestion. Omit to leave labels unchanged. The priority label mirrors the suggestion's priority and is kept as is."
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Replacement assignees for the suggestion. Omit to leave assignees unchanged."
+          },
+          "open_pull_request": {
+            "type": "boolean",
+            "description": "Open the documentation pull request for this suggestion. Ignored when it already has one, which is returned instead."
+          }
+        },
+        "required": [
+          "suggestion_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assignees": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "docs_pr_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pull request carrying the change; null when none was requested or exists."
+          },
+          "pull_request_opened": {
+            "type": "boolean",
+            "description": "True when this call opened the pull request rather than finding one."
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "title",
+          "labels",
+          "assignees",
+          "docs_pr_url",
+          "pull_request_opened",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Update a documentation suggestion",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "close_suggestion",
+      "title": "Close a documentation suggestion",
+      "description": "Close a suggestion and its documentation pull request, ending the review without shipping it. Use it to reject a proposal while triaging search_suggestions results. The pull request is closed on GitHub or GitLab first, so a suggestion whose host refuses the close stays open and the call reports why. Closing cannot be undone from here, and a suggestion that already merged is refused rather than closed. Use request_changes instead when the proposal is worth keeping but needs rework. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#close_suggestion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "description": "Id of the suggestion to close, from search_suggestions or get_task_status."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the suggestion is being closed. Stored as reviewer feedback on the suggestion and read by the team, so say what was wrong with it."
+          }
+        },
+        "required": [
+          "suggestion_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "status",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Close a documentation suggestion",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "list_doc_collections",
+      "title": "List documentation collections",
+      "description": "List the doc collections Promptless maintains for this organization, with the id to pass as doc_collection_id when submitting a task. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#list_doc_collections",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string"
+                },
+                "default_branch": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "platform",
+                "default_branch"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "doc_collections"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List documentation collections",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "wait_for_task_update",
+      "title": "Wait for a documentation task update",
+      "description": "Follow a Promptless task: wait up to 30 seconds for new messages, changed results, or completion. Omit cursor for an immediate initial snapshot; reuse the returned cursor to receive later messages. A timeout is normal: use next_call to continue waiting without a separate sleep. Drain has_more_messages even when finished is true. Read resolution and suggestions for the outcome. Use get_task_status for a one-time check. Waiting does not cancel cloud work. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#wait_for_task_update",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "Read position and bounded wait duration for one authorized task.",
+        "properties": {
+          "trigger_event_id": {
+            "format": "uuid",
+            "title": "Trigger Event Id",
+            "type": "string"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cursor"
+          },
+          "wait_seconds": {
+            "default": 30,
+            "maximum": 30,
+            "minimum": 0,
+            "title": "Wait Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "trigger_event_id"
+        ],
+        "title": "TaskWaitRequest",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "TaskMessage": {
+            "description": "One persisted message exposed identically through MCP and HTTP.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "title": "Id",
+                "type": "string"
+              },
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "sequence": {
+                "title": "Sequence",
+                "type": "integer"
+              },
+              "author": {
+                "$ref": "#/$defs/TaskMessageAuthor"
+              },
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              },
+              "attachments": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TaskMessageAttachment"
+                },
+                "title": "Attachments",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "trigger_event_id",
+              "sequence",
+              "author",
+              "created_at",
+              "message"
+            ],
+            "title": "TaskMessage",
+            "type": "object"
+          },
+          "TaskMessageAttachment": {
+            "additionalProperties": false,
+            "description": "A file a customer sent with a message, described without its storage location.\n\nA dashboard reply's retry compares these, so a retried reply matches its\nfirst delivery by the files it carries rather than by where each upload landed.",
+            "properties": {
+              "filename": {
+                "title": "Filename",
+                "type": "string"
+              },
+              "content_type": {
+                "title": "Content Type",
+                "type": "string"
+              },
+              "size": {
+                "title": "Size",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "filename",
+              "content_type",
+              "size"
+            ],
+            "title": "TaskMessageAttachment",
+            "type": "object"
+          },
+          "TaskMessageAuthor": {
+            "additionalProperties": false,
+            "description": "Customer-facing author label for one conversation message.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "promptless",
+                  "customer"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              }
+            },
+            "required": [
+              "type",
+              "name"
+            ],
+            "title": "TaskMessageAuthor",
+            "type": "object"
+          },
+          "TaskResult": {
+            "additionalProperties": false,
+            "description": "Visible outcome, including provisional suggestions during active work.",
+            "properties": {
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Resolution"
+              },
+              "suggestions": {
+                "items": {
+                  "$ref": "#/$defs/TaskSuggestionResult"
+                },
+                "title": "Suggestions",
+                "type": "array"
+              },
+              "status_guidance": {
+                "title": "Status Guidance",
+                "type": "string"
+              }
+            },
+            "required": [
+              "resolution",
+              "suggestions",
+              "status_guidance"
+            ],
+            "title": "TaskResult",
+            "type": "object"
+          },
+          "TaskSuggestionResult": {
+            "additionalProperties": false,
+            "description": "Suggestion fields shared with one-time task status inspection.",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Title"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Description"
+              },
+              "status": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Status"
+              },
+              "doc_collection_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Doc Collection Id"
+              },
+              "docs_pr_url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Docs Pr Url"
+              },
+              "branch_name": {
+                "title": "Branch Name",
+                "type": "string"
+              },
+              "labels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Labels",
+                "type": "array"
+              },
+              "assignees": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Assignees",
+                "type": "array"
+              },
+              "created_at": {
+                "title": "Created At",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "description",
+              "status",
+              "doc_collection_id",
+              "docs_pr_url",
+              "branch_name",
+              "labels",
+              "assignees",
+              "created_at"
+            ],
+            "title": "TaskSuggestionResult",
+            "type": "object"
+          },
+          "TriggerEventStatus": {
+            "description": "Canonical lifecycle states for trigger events.\n\nRECEIVED: intake persisted the event; it is waiting for the live Dispatch to receive it.\nPROCESSING: the live Dispatch received its mailbox delivery and is working on it.\nCOMPLETED: the event has been terminally resolved (success, failure, skip, or absorption).\nSKIPPED: ops-only suppression — hidden from customer-facing surfaces; never set by agents.",
+            "enum": [
+              "received",
+              "processing",
+              "completed",
+              "skipped"
+            ],
+            "title": "TriggerEventStatus",
+            "type": "string"
+          },
+          "WaitCallArguments": {
+            "additionalProperties": false,
+            "description": "Arguments a client can pass directly to the next wait call.",
+            "properties": {
+              "trigger_event_id": {
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cursor"
+              },
+              "wait_seconds": {
+                "default": 30,
+                "title": "Wait Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "trigger_event_id"
+            ],
+            "title": "WaitCallArguments",
+            "type": "object"
+          },
+          "WaitNextCall": {
+            "additionalProperties": false,
+            "description": "Concrete continuation, interpreted by the client rather than the protocol.",
+            "properties": {
+              "name": {
+                "const": "wait_for_task_update",
+                "default": "wait_for_task_update",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/WaitCallArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "WaitNextCall",
+            "type": "object"
+          },
+          "AnswerNextCall": {
+            "additionalProperties": false,
+            "description": "A write continuation that may request native user input.",
+            "properties": {
+              "name": {
+                "const": "answer_task_question",
+                "default": "answer_task_question",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/QuestionArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "AnswerNextCall",
+            "type": "object"
+          },
+          "QuestionArguments": {
+            "additionalProperties": false,
+            "description": "Stable references the client can pass without reconstructing task context.",
+            "properties": {
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "question_message_id": {
+                "format": "uuid",
+                "title": "Question Message Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "trigger_event_id",
+              "question_message_id"
+            ],
+            "title": "QuestionArguments",
+            "type": "object"
+          },
+          "TaskQuestion": {
+            "additionalProperties": false,
+            "description": "The complete marked question, independent of message pagination.",
+            "properties": {
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "question_message_id": {
+                "format": "uuid",
+                "title": "Question Message Id",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              }
+            },
+            "required": [
+              "trigger_event_id",
+              "question_message_id",
+              "message"
+            ],
+            "title": "TaskQuestion",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Task update extended with its MCP continuation, when following should continue.",
+        "properties": {
+          "trigger_event_id": {
+            "format": "uuid",
+            "title": "Trigger Event Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/TriggerEventStatus"
+          },
+          "finished": {
+            "title": "Finished",
+            "type": "boolean"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/$defs/TaskMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "cursor": {
+            "title": "Cursor",
+            "type": "string"
+          },
+          "has_more_messages": {
+            "title": "Has More Messages",
+            "type": "boolean"
+          },
+          "update_type": {
+            "enum": [
+              "snapshot",
+              "changed",
+              "timeout"
+            ],
+            "title": "Update Type",
+            "type": "string"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TaskResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_call": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/WaitNextCall"
+              },
+              {
+                "$ref": "#/$defs/AnswerNextCall"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Call"
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TaskQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "status",
+          "finished",
+          "messages",
+          "cursor",
+          "has_more_messages",
+          "update_type",
+          "result",
+          "next_call"
+        ],
+        "title": "WaitToolResult",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Wait for a documentation task update",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "get_task_status",
+      "title": "Check a documentation task",
+      "description": "Check the state of any documentation task in this organization and read the suggestions it produced. It covers tasks you submitted here and tasks that started in Slack, GitHub, or the Promptless dashboard. A finished task can legitimately produce nothing, so read resolution and the suggestions list rather than assuming a pull request exists. This call returns one status snapshot; finished indicates completion, and suggestions can appear while work continues. Each response includes the latest 100 conversation messages, oldest first. Track message IDs to relay new Dispatch messages once, including messages in the final response. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#get_task_status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "trigger_event_id": {
+            "type": "string",
+            "description": "The trigger_event_id to look up. submit_documentation_task returns one; ids from Slack, GitHub, and dashboard tasks resolve here too."
+          }
+        },
+        "required": [
+          "trigger_event_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "trigger_event_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "received",
+              "processing",
+              "completed",
+              "skipped"
+            ]
+          },
+          "finished": {
+            "type": "boolean",
+            "description": "Whether Promptless has stopped working on the task. A finished task may have produced no documentation change at all."
+          },
+          "submitted_at": {
+            "type": "string",
+            "description": "ISO 8601 timestamp."
+          },
+          "source": {
+            "type": "string",
+            "description": "Surface the task came from, such as api, slack, github_pr, or follow_on."
+          },
+          "request": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One-line summary of what was asked; null when none was recorded."
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/TaskMessage"
+            },
+            "maxItems": 100
+          },
+          "suggestions": {
+            "type": "array",
+            "description": "Suggestions this task created, updated, or superseded. May be populated while the task is still running, and empty for a finished task that proposed no documentation change.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Pass this to request_changes, update_suggestion, or close_suggestion."
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "open",
+                    "draft",
+                    "merged",
+                    "closed",
+                    null
+                  ],
+                  "description": "Review state of the documentation pull request; null before one is opened."
+                },
+                "doc_collection_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "docs_pr_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Pull request carrying the change; null when one has not been opened yet. Edit this pull request directly to make a change yourself, or ask update_suggestion to open one."
+                },
+                "branch_name": {
+                  "type": "string",
+                  "description": "Branch in the doc collection's repository holding the change. It exists whether or not a pull request is open, so it can be checked out and reviewed locally."
+                },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Labels on the suggestion. Read these before replacing them with update_suggestion."
+                },
+                "assignees": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Assignees on the suggestion. Read these before replacing them with update_suggestion."
+                },
+                "created_at": {
+                  "type": "string",
+                  "description": "ISO 8601 timestamp."
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "description",
+                "status",
+                "doc_collection_id",
+                "docs_pr_url",
+                "branch_name",
+                "labels",
+                "assignees",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "resolution": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why the task ended, in Promptless's own words. Null until the task finishes."
+          },
+          "outcome": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "suggestions_created",
+              "no_change_needed",
+              "needs_input",
+              "failed",
+              null
+            ],
+            "description": "How the task ended, as a fixed value. Read it to tell a deliberate no-op from a run that could not finish: both are status completed with no suggestions. Null until the task finishes."
+          },
+          "status_guidance": {
+            "type": "string",
+            "description": "Server-generated guidance for interpreting the task's current state and outcome."
+          },
+          "question": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TaskQuestion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "next_call": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/WaitNextCall"
+              },
+              {
+                "$ref": "#/$defs/AnswerNextCall"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Call"
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "status",
+          "finished",
+          "submitted_at",
+          "source",
+          "request",
+          "resolution",
+          "outcome",
+          "suggestions",
+          "status_guidance",
+          "messages"
+        ],
+        "$defs": {
+          "TaskMessageAttachment": {
+            "additionalProperties": false,
+            "description": "A file a customer sent with a message, described without its storage location.\n\nA dashboard reply's retry compares these, so a retried reply matches its\nfirst delivery by the files it carries rather than by where each upload landed.",
+            "properties": {
+              "filename": {
+                "title": "Filename",
+                "type": "string"
+              },
+              "content_type": {
+                "title": "Content Type",
+                "type": "string"
+              },
+              "size": {
+                "title": "Size",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "filename",
+              "content_type",
+              "size"
+            ],
+            "title": "TaskMessageAttachment",
+            "type": "object"
+          },
+          "TaskMessageAuthor": {
+            "additionalProperties": false,
+            "description": "Customer-facing author label for one conversation message.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "promptless",
+                  "customer"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              }
+            },
+            "required": [
+              "type",
+              "name"
+            ],
+            "title": "TaskMessageAuthor",
+            "type": "object"
+          },
+          "TaskMessage": {
+            "description": "One persisted message exposed identically through MCP and HTTP.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "title": "Id",
+                "type": "string"
+              },
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "sequence": {
+                "title": "Sequence",
+                "type": "integer"
+              },
+              "author": {
+                "$ref": "#/$defs/TaskMessageAuthor"
+              },
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              },
+              "attachments": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TaskMessageAttachment"
+                },
+                "title": "Attachments",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "trigger_event_id",
+              "sequence",
+              "author",
+              "created_at",
+              "message"
+            ],
+            "title": "TaskMessage",
+            "type": "object"
+          },
+          "AnswerNextCall": {
+            "additionalProperties": false,
+            "description": "A write continuation that may request native user input.",
+            "properties": {
+              "name": {
+                "const": "answer_task_question",
+                "default": "answer_task_question",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/QuestionArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "AnswerNextCall",
+            "type": "object"
+          },
+          "QuestionArguments": {
+            "additionalProperties": false,
+            "description": "Stable references the client can pass without reconstructing task context.",
+            "properties": {
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "question_message_id": {
+                "format": "uuid",
+                "title": "Question Message Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "trigger_event_id",
+              "question_message_id"
+            ],
+            "title": "QuestionArguments",
+            "type": "object"
+          },
+          "TaskQuestion": {
+            "additionalProperties": false,
+            "description": "The complete marked question, independent of message pagination.",
+            "properties": {
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "question_message_id": {
+                "format": "uuid",
+                "title": "Question Message Id",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              }
+            },
+            "required": [
+              "trigger_event_id",
+              "question_message_id",
+              "message"
+            ],
+            "title": "TaskQuestion",
+            "type": "object"
+          },
+          "WaitCallArguments": {
+            "additionalProperties": false,
+            "description": "Arguments a client can pass directly to the next wait call.",
+            "properties": {
+              "trigger_event_id": {
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cursor"
+              },
+              "wait_seconds": {
+                "default": 30,
+                "title": "Wait Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "trigger_event_id"
+            ],
+            "title": "WaitCallArguments",
+            "type": "object"
+          },
+          "WaitNextCall": {
+            "additionalProperties": false,
+            "description": "Concrete continuation, interpreted by the client rather than the protocol.",
+            "properties": {
+              "name": {
+                "const": "wait_for_task_update",
+                "default": "wait_for_task_update",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/WaitCallArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "WaitNextCall",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Check a documentation task",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "send_task_message",
+      "title": "Reply to an active documentation task",
+      "description": "Send additional customer instructions to an existing task submitted through the API, MCP, or the dashboard's New Task page, without creating another task. Other sources return unsupported_task_source. Only received or processing tasks accept messages. Finished tasks, including blockers and clarification requests, return task_finished and are not reopened. Reuse an idempotency_key when retrying the same message during active work. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#send_task_message",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "trigger_event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "maxLength": 20000,
+            "title": "Message",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Idempotency Key"
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "$ref": "#/$defs/TaskMessage"
+          },
+          "deduplicated": {
+            "type": "boolean"
+          }
+        },
+        "$defs": {
+          "TaskMessageAttachment": {
+            "additionalProperties": false,
+            "description": "A file a customer sent with a message, described without its storage location.\n\nA dashboard reply's retry compares these, so a retried reply matches its\nfirst delivery by the files it carries rather than by where each upload landed.",
+            "properties": {
+              "filename": {
+                "title": "Filename",
+                "type": "string"
+              },
+              "content_type": {
+                "title": "Content Type",
+                "type": "string"
+              },
+              "size": {
+                "title": "Size",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "filename",
+              "content_type",
+              "size"
+            ],
+            "title": "TaskMessageAttachment",
+            "type": "object"
+          },
+          "TaskMessageAuthor": {
+            "additionalProperties": false,
+            "description": "Customer-facing author label for one conversation message.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "promptless",
+                  "customer"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Name"
+              }
+            },
+            "required": [
+              "type",
+              "name"
+            ],
+            "title": "TaskMessageAuthor",
+            "type": "object"
+          },
+          "TaskMessage": {
+            "description": "One persisted message exposed identically through MCP and HTTP.",
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "title": "Id",
+                "type": "string"
+              },
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "sequence": {
+                "title": "Sequence",
+                "type": "integer"
+              },
+              "author": {
+                "$ref": "#/$defs/TaskMessageAuthor"
+              },
+              "created_at": {
+                "format": "date-time",
+                "title": "Created At",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              },
+              "attachments": {
+                "default": [],
+                "items": {
+                  "$ref": "#/$defs/TaskMessageAttachment"
+                },
+                "title": "Attachments",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "trigger_event_id",
+              "sequence",
+              "author",
+              "created_at",
+              "message"
+            ],
+            "title": "TaskMessage",
+            "type": "object"
+          }
+        },
+        "required": [
+          "message",
+          "deduplicated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Reply to an active documentation task",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "list_recent_tasks",
+      "title": "List recent documentation tasks",
+      "description": "List this organization's recent documentation tasks, newest first, each with the trigger_event_id needed to check it. Use it when a task id was not kept, or to see what Promptless has been working on. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#list_recent_tasks",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "How many tasks to return. Defaults to 20; anything above 100 is capped at it."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "received",
+              "processing",
+              "completed"
+            ],
+            "description": "Restrict results to tasks in this lifecycle state."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "trigger_event_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "received",
+                    "processing",
+                    "completed",
+                    "skipped"
+                  ]
+                },
+                "finished": {
+                  "type": "boolean",
+                  "description": "Whether Promptless has stopped working on the task. A finished task may have produced no documentation change at all."
+                },
+                "submitted_at": {
+                  "type": "string",
+                  "description": "ISO 8601 timestamp."
+                },
+                "source": {
+                  "type": "string",
+                  "description": "Surface the task came from, such as api, slack, github_pr, or follow_on."
+                },
+                "request": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "One-line summary of what was asked; null when none was recorded."
+                }
+              },
+              "required": [
+                "trigger_event_id",
+                "status",
+                "finished",
+                "submitted_at",
+                "source",
+                "request"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The cap actually applied."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when more tasks matched than were returned."
+          }
+        },
+        "required": [
+          "tasks",
+          "limit",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List recent documentation tasks",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "search_suggestions",
+      "title": "Search documentation suggestions",
+      "description": "Search this organization's documentation suggestions by keyword, review status, and label. Use it to check whether a suggestion for a change already exists before submitting a new task, to find a suggestion id to request changes on, to pull a labelled queue such as the P0 suggestions, or to review past suggestions. Results are capped; when truncated is true, narrow the query. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#search_suggestions",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Free text to match against a suggestion's title and description."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "draft",
+              "merged",
+              "closed"
+            ],
+            "description": "Restrict results to suggestions in this review state."
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Restrict results to suggestions carrying any one of these labels. Labels match exactly, including case."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "How many suggestions to return, newest first. Defaults to 25; anything above 100 is capped at it."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Pass this to request_changes, update_suggestion, or close_suggestion."
+                },
+                "title": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "description": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "enum": [
+                    "open",
+                    "draft",
+                    "merged",
+                    "closed",
+                    null
+                  ],
+                  "description": "Review state of the documentation pull request; null before one is opened."
+                },
+                "doc_collection_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "docs_pr_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Pull request carrying the change; null when one has not been opened yet. Edit this pull request directly to make a change yourself, or ask update_suggestion to open one."
+                },
+                "branch_name": {
+                  "type": "string",
+                  "description": "Branch in the doc collection's repository holding the change. It exists whether or not a pull request is open, so it can be checked out and reviewed locally."
+                },
+                "labels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Labels on the suggestion. Read these before replacing them with update_suggestion."
+                },
+                "assignees": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Assignees on the suggestion. Read these before replacing them with update_suggestion."
+                },
+                "created_at": {
+                  "type": "string",
+                  "description": "ISO 8601 timestamp."
+                }
+              },
+              "required": [
+                "id",
+                "title",
+                "description",
+                "status",
+                "doc_collection_id",
+                "docs_pr_url",
+                "branch_name",
+                "labels",
+                "assignees",
+                "created_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "The cap actually applied."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "True when more suggestions matched than were returned."
+          }
+        },
+        "required": [
+          "suggestions",
+          "limit",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Search documentation suggestions",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "answer_task_question",
+      "title": "Answer a Promptless task question",
+      "description": "Answer one completed task's marked clarification. Omit answer to ask the user through native input. Supply answer only when the user already provided it; never invent an answer. Acceptance creates a new task. Decline or cancel stops following. If native input is unavailable, ask in chat and call again with the user's answer. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#answer_task_question",
+      "inputSchema": {
+        "additionalProperties": false,
+        "description": "One marked task question, optionally answered in the user's chat.",
+        "properties": {
+          "trigger_event_id": {
+            "format": "uuid",
+            "title": "Trigger Event Id",
+            "type": "string"
+          },
+          "question_message_id": {
+            "format": "uuid",
+            "title": "Question Message Id",
+            "type": "string"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Answer"
+          }
+        },
+        "required": [
+          "trigger_event_id",
+          "question_message_id"
+        ],
+        "title": "AnswerRequest",
+        "type": "object"
+      },
+      "outputSchema": {
+        "$defs": {
+          "TaskQuestion": {
+            "additionalProperties": false,
+            "description": "The complete marked question, independent of message pagination.",
+            "properties": {
+              "trigger_event_id": {
+                "format": "uuid",
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "question_message_id": {
+                "format": "uuid",
+                "title": "Question Message Id",
+                "type": "string"
+              },
+              "message": {
+                "title": "Message",
+                "type": "string"
+              }
+            },
+            "required": [
+              "trigger_event_id",
+              "question_message_id",
+              "message"
+            ],
+            "title": "TaskQuestion",
+            "type": "object"
+          },
+          "WaitCallArguments": {
+            "additionalProperties": false,
+            "description": "Arguments a client can pass directly to the next wait call.",
+            "properties": {
+              "trigger_event_id": {
+                "title": "Trigger Event Id",
+                "type": "string"
+              },
+              "cursor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cursor"
+              },
+              "wait_seconds": {
+                "default": 30,
+                "title": "Wait Seconds",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "trigger_event_id"
+            ],
+            "title": "WaitCallArguments",
+            "type": "object"
+          },
+          "WaitNextCall": {
+            "additionalProperties": false,
+            "description": "Concrete continuation, interpreted by the client rather than the protocol.",
+            "properties": {
+              "name": {
+                "const": "wait_for_task_update",
+                "default": "wait_for_task_update",
+                "title": "Name",
+                "type": "string"
+              },
+              "arguments": {
+                "$ref": "#/$defs/WaitCallArguments"
+              }
+            },
+            "required": [
+              "arguments"
+            ],
+            "title": "WaitNextCall",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "An accepted continuation or a stopped question with explicit recovery guidance.",
+        "properties": {
+          "outcome": {
+            "enum": [
+              "submitted",
+              "already_answered",
+              "decline",
+              "cancel",
+              "unavailable"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "question": {
+            "$ref": "#/$defs/TaskQuestion"
+          },
+          "trigger_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Trigger Event Id"
+          },
+          "next_call": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/WaitNextCall"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "question",
+          "message"
+        ],
+        "title": "AnswerToolResult",
+        "type": "object"
+      },
+      "annotations": {
+        "title": "Answer a Promptless task question",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "get_account_status",
+      "title": "Get account status",
+      "description": "Report this Promptless organization's name, whether a person has claimed it, when an unclaimed agent-created organization expires, which integrations are connected, and the next setup steps. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "organization_id": {
+            "type": "string"
+          },
+          "organization_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "claimed": {
+            "type": "boolean",
+            "description": "False for an agent-created organization that no person has claimed yet."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When an unclaimed organization is deleted; null once claimed."
+          },
+          "integrations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The connected workspace, owner, or tenant, when known."
+                }
+              },
+              "required": [
+                "type",
+                "account"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "organization_id",
+          "organization_name",
+          "claimed",
+          "expires_at",
+          "integrations",
+          "next_steps"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Get account status",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": false
+    },
+    {
+      "name": "connect_integration",
+      "title": "Connect an integration",
+      "description": "Create a link that lets a person connect one integration to this organization in their browser. Send connect_url to someone who administers that tool. They sign in to Promptless and must be a member of this organization; the first person to open a link for an unclaimed organization claims it and becomes its owner. Call get_account_status after they finish to confirm the connection. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "github",
+              "slack",
+              "atlassian",
+              "msteams",
+              "google",
+              "linear",
+              "notion",
+              "clickup",
+              "vercel",
+              "zendesk"
+            ]
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "jira",
+                    "confluence"
+                  ]
+                },
+                "description": "Atlassian only, and required for it: the products to connect."
+              },
+              "subdomain": {
+                "type": "string",
+                "description": "Zendesk only, and required for it: <subdomain>.zendesk.com."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "provider"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "connect_url": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "connect_url",
+          "expires_at",
+          "instructions"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Connect an integration",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": false
+    },
+    {
+      "name": "message_promptless_support",
+      "title": "Message Promptless support",
+      "description": "Report a Promptless problem or ask the Promptless team for help. Include relevant task or suggestion IDs in concern. Sends a one-way report; no reply comes back through this tool. Do not wait for a reply. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "concern": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "concern",
+          "severity"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean",
+            "const": true
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sent",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Message Promptless support",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "list_documentation_files",
+      "title": "List documentation files",
+      "description": "List the files in a doc collection's repository, inside the paths Promptless maintains, at the collection's default branch or at a suggestion's branch. Use it to find a page's path before reading or editing it. Results are sorted and capped; when truncated is true, narrow with path_prefix. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string",
+            "description": "Which doc collection to read, from list_doc_collections. Optional when the organization has exactly one collection or when suggestion_id is given."
+          },
+          "suggestion_id": {
+            "type": "string",
+            "description": "Read the suggestion's branch instead of the collection's default branch, to see content as the suggestion proposes it."
+          },
+          "path_prefix": {
+            "type": "string",
+            "description": "Only list files whose path starts with this prefix, such as docs/api/."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000,
+            "description": "How many paths to return. Defaults to 500."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "object",
+            "description": "The commit the read was pinned to and the branch it came from.",
+            "properties": {
+              "sha": {
+                "type": "string"
+              },
+              "branch_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sha",
+              "branch_name"
+            ],
+            "additionalProperties": false
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "description": "How many files matched before the cap."
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "doc_collection_id",
+          "ref",
+          "files",
+          "total",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List documentation files",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "read_documentation_file",
+      "title": "Read a documentation file",
+      "description": "Read one file's text from a doc collection at its default branch, or at a suggestion's branch to see the proposed version. The path must lie inside the collection's maintained paths. Files over 256 KB and binary files are refused. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string",
+            "description": "Which doc collection to read, from list_doc_collections. Optional when the organization has exactly one collection or when suggestion_id is given."
+          },
+          "suggestion_id": {
+            "type": "string",
+            "description": "Read the suggestion's branch instead of the collection's default branch, to see content as the suggestion proposes it."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative file path."
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "object",
+            "description": "The commit the read was pinned to and the branch it came from.",
+            "properties": {
+              "sha": {
+                "type": "string"
+              },
+              "branch_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sha",
+              "branch_name"
+            ],
+            "additionalProperties": false
+          },
+          "path": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "doc_collection_id",
+          "ref",
+          "path",
+          "content",
+          "size_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Read a documentation file",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "search_documentation",
+      "title": "Search documentation content",
+      "description": "Find lines matching a substring or an RE2 regular expression (syntax similar to grep -E) across a doc collection's text files (Markdown, MDX, reStructuredText, YAML, JSON, HTML, and similar), at the default branch or at a suggestion's branch. Each match carries the file path, line number, and line text. Use it to find every page that mentions a feature, flag, or endpoint before changing it. The scan reads at most 400 files within a time budget; files_skipped reports how many were left unread, and truncated reports that more lines matched than were returned. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string",
+            "description": "Which doc collection to read, from list_doc_collections. Optional when the organization has exactly one collection or when suggestion_id is given."
+          },
+          "suggestion_id": {
+            "type": "string",
+            "description": "Read the suggestion's branch instead of the collection's default branch, to see content as the suggestion proposes it."
+          },
+          "query": {
+            "type": "string",
+            "description": "Text to find, or a regular expression when regex is true."
+          },
+          "regex": {
+            "type": "boolean",
+            "description": "Treat query as an RE2 regular expression, similar to grep -E. Defaults to false."
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "description": "Match case exactly. Defaults to false."
+          },
+          "path_prefix": {
+            "type": "string",
+            "description": "Only search files whose path starts with this prefix."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200,
+            "description": "How many matching lines to return. Defaults to 50."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "doc_collection_id": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "object",
+            "description": "The commit the read was pinned to and the branch it came from.",
+            "properties": {
+              "sha": {
+                "type": "string"
+              },
+              "branch_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sha",
+              "branch_name"
+            ],
+            "additionalProperties": false
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "description": "1-based line number."
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "line",
+                "text"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "files_matched": {
+            "type": "integer"
+          },
+          "files_scanned": {
+            "type": "integer"
+          },
+          "files_skipped": {
+            "type": "integer"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "doc_collection_id",
+          "ref",
+          "matches",
+          "files_matched",
+          "files_scanned",
+          "files_skipped",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Search documentation content",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "get_suggestion_diff",
+      "title": "Get a documentation suggestion's diff",
+      "description": "Show what a suggestion changes: one unified diff per file against the collection's base branch, plus the head commit to pass as expected_head_sha when editing. Use it to review a suggestion before labelling, editing, or opening its pull request. Diff text is capped in total; when truncated is true, later files carry no diff text. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "suggestion_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          },
+          "branch_name": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "base_sha": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "added, modified, removed, or renamed."
+                },
+                "previous_path": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "is_binary": {
+                  "type": "boolean"
+                },
+                "diff": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Unified diff; null for binary files or once the cap is hit."
+                }
+              },
+              "required": [
+                "path",
+                "status",
+                "previous_path",
+                "is_binary",
+                "diff"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "branch_name",
+          "head_sha",
+          "base_sha",
+          "files",
+          "truncated"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Get a documentation suggestion's diff",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "write_documentation_file",
+      "title": "Write a documentation file",
+      "description": "Create or replace one file on an open suggestion's branch with the full content given, as one commit attributed to you. Use it for a new page or a rewrite; use edit_documentation_file for changes to part of a page. The path must lie inside the collection's maintained paths. Open the pull request with update_suggestion afterwards. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "description": "The open suggestion whose branch receives the commit."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative file path inside the collection."
+          },
+          "expected_head_sha": {
+            "type": "string",
+            "description": "The suggestion head you last read, from a read result's ref.sha or a previous write's head_sha. The write is refused if the suggestion has moved since."
+          },
+          "content": {
+            "type": "string",
+            "description": "The complete new file content."
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "path",
+          "content"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch_name": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string",
+            "description": "The commit the edit produced; pass it as expected_head_sha on the next write."
+          },
+          "docs_pr_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The suggestion's review status after the edit."
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "path",
+          "branch_name",
+          "head_sha",
+          "docs_pr_url",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Write a documentation file",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    },
+    {
+      "name": "edit_documentation_file",
+      "title": "Edit a documentation file",
+      "description": "Replace exact text in one file on an open suggestion's branch, as one commit attributed to you. Each edit's old_text must occur exactly once in the file, so include enough surrounding lines to make it unique; the call is refused, with the match count, when it does not. Edits apply in order. Read the file first so old_text matches it verbatim. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string",
+            "description": "The open suggestion whose branch receives the commit."
+          },
+          "path": {
+            "type": "string",
+            "description": "Repository-relative file path inside the collection."
+          },
+          "expected_head_sha": {
+            "type": "string",
+            "description": "The suggestion head you last read, from a read result's ref.sha or a previous write's head_sha. The write is refused if the suggestion has moved since."
+          },
+          "edits": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "properties": {
+                "old_text": {
+                  "type": "string",
+                  "description": "Text to find; must match exactly once."
+                },
+                "new_text": {
+                  "type": "string",
+                  "description": "Replacement text; may be empty."
+                }
+              },
+              "required": [
+                "old_text",
+                "new_text"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "path",
+          "edits"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "suggestion_id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "branch_name": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string",
+            "description": "The commit the edit produced; pass it as expected_head_sha on the next write."
+          },
+          "docs_pr_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The suggestion's review status after the edit."
+          }
+        },
+        "required": [
+          "suggestion_id",
+          "path",
+          "branch_name",
+          "head_sha",
+          "docs_pr_url",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Edit a documentation file",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "x-promptless-members-only": true
+    }
+  ],
+  "skills": [
+    {
+      "uri": "skill://triage-suggestions/SKILL.md",
+      "frontmatter": {
+        "name": "triage-suggestions",
+        "description": "Use when asked to triage, clean up, sort, label, assign, review, or clear out a backlog of Promptless documentation suggestions with the search_suggestions, update_suggestion, close_suggestion, and request_changes tools. Use edit-documentation to make one change yourself."
+      },
+      "resources": [
+        {
+          "uri": "skill://triage-suggestions/SKILL.md",
+          "digest": "sha256:bab8a049778b49df44036b322c4cc03681cbf0745426299c5077235e600dabf9",
+          "size": 4214
+        }
+      ]
+    },
+    {
+      "uri": "skill://edit-documentation/SKILL.md",
+      "frontmatter": {
+        "name": "edit-documentation",
+        "description": "Use when asked to change, fix, rewrite, or add documentation content yourself through the Promptless connector with search_documentation, read_documentation_file, edit_documentation_file, write_documentation_file, get_suggestion_diff, and update_suggestion, rather than asking Promptless to draft the change. Use triage-suggestions for a backlog of suggestions rather than one change."
+      },
+      "resources": [
+        {
+          "uri": "skill://edit-documentation/SKILL.md",
+          "digest": "sha256:05f54d97105fe174a713c3895c0852f278db689ab7eba8e7a7c6ffdf666ca888",
+          "size": 3677
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "name": "triage-suggestions",
+      "uri": "skill://triage-suggestions/SKILL.md",
+      "description": "Use when asked to triage, clean up, sort, label, assign, review, or clear out a backlog of Promptless documentation suggestions with the search_suggestions, update_suggestion, close_suggestion, and request_changes tools. Use edit-documentation to make one change yourself.",
+      "mimeType": "text/markdown"
+    },
+    {
+      "name": "edit-documentation",
+      "uri": "skill://edit-documentation/SKILL.md",
+      "description": "Use when asked to change, fix, rewrite, or add documentation content yourself through the Promptless connector with search_documentation, read_documentation_file, edit_documentation_file, write_documentation_file, get_suggestion_diff, and update_suggestion, rather than asking Promptless to draft the change. Use triage-suggestions for a backlog of suggestions rather than one change.",
+      "mimeType": "text/markdown"
+    }
+  ]
+}
