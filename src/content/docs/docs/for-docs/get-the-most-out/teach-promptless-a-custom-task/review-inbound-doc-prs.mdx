@@ -1,6 +1,6 @@
 ---
 title: "Example: review inbound documentation PRs"
-description: Teach Promptless to review contributor documentation PRs, covering prerequisites, trigger, workflow instructions, and PROMPTLESS.md updates
+description: Teach Promptless to review contributor documentation PRs and GitLab merge requests, covering prerequisites, triggers, workflow instructions, comment threads, and PROMPTLESS.md updates
 id: for-docs-get-the-most-out-teach-promptless-a-custom-task-review-inbound-doc-prs
 slug: docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/review-inbound-doc-prs
 type: how-to
@@ -11,6 +11,9 @@ keywords:
   - review contributor PRs
   - inbound documentation PRs
   - github_pr trigger
+  - gitlab_mr trigger
+  - GitLab merge request review
+  - resolvable threads
   - doc_workflow
   - PR review workflow
   - PROMPTLESS.md hook
@@ -19,12 +22,13 @@ audiences:
   - aud-oss-maintainer
   - aud-scaleup-docs-team
   - aud-enterprise-docs-team
-intent: teach Promptless to review documentation PRs opened by contributors in a GitHub docs repo using a github_pr trigger and a written review workflow
+intent: teach Promptless to review documentation PRs or merge requests opened by contributors in a GitHub or GitLab docs repo using a PR or merge request trigger and a written review workflow
 lifecycle: published
 last-updated: 2026-10-20
 applies-to:
   - promptless-for-docs
   - integration:github
+  - integration:gitlab
 concepts:
   - custom task
   - trigger
@@ -42,6 +46,8 @@ sample-questions:
   - What workflow instructions do I write for Promptless to review inbound doc PRs?
   - What github_pr trigger configuration starts a review when a PR is opened?
   - Does Promptless edit the contributor's PR branch or only leave comments?
+  - Does Promptless post GitLab review comments as resolvable threads?
+  - Can Promptless review documentation merge requests in a GitLab project?
 sidebar:
   hidden: false
   order: 35
@@ -52,7 +58,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-This example teaches Promptless to review documentation PRs that someone other than Promptless opens, such as a contributor or a teammate. Promptless checks each PR for documentation quality and style, and for correctness against your source code. It fixes clear problems directly on the PR branch, comments where the author needs to decide, and submits a GitHub review.
+This example teaches Promptless to review documentation PRs that someone other than Promptless opens, such as a contributor or a teammate. Promptless checks each PR for documentation quality and style, and for correctness against your source code. It fixes clear problems directly on the PR branch, comments where the author needs to decide, and submits a GitHub review. To review merge requests in a GitLab project, see [Review merge requests in a GitLab project](#review-merge-requests-in-a-gitlab-project).
 
 The example follows the process in [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task), pairing a written review workflow with a GitHub PR trigger.
 
@@ -151,8 +157,46 @@ When a contributor opens a qualifying PR, Promptless:
 3. Reviews the changes, editing the PR branch for clear fixes and commenting where the author needs to decide.
 4. Posts a summary comment describing what it reviewed and what it found, and submits a GitHub review state.
 
+## Review merge requests in a GitLab project
+
+The same workflow reviews merge requests that contributors open in a GitLab documentation project. Pair it with a GitLab merge request trigger, and decide which of Promptless's comments reviewers need to resolve before merging.
+
+### Add the GitLab merge request trigger
+
+Add a [GitLab merge request trigger](/docs/for-docs/connect/triggers/gitlab-merge-requests) scoped to your documentation project that runs only when a merge request opens:
+
+```yaml
+triggers:
+  review-inbound-doc-mrs:
+    trigger_type: gitlab_mr
+    match:
+      - repos:
+          - acme/docs
+        trigger_on:
+          - opened
+```
+
+In the `PROMPTLESS.md` hook, name the GitLab project and merge requests:
+
+```text
+If a merge request that touches documentation content is opened in the GitLab project `acme/docs`, then follow the inbound documentation PR review workflow in `doc_workflow/review-inbound-doc-prs.md`.
+```
+
+### Choose how review comments post
+
+Promptless posts its review comments and the summary on the merge request's **Overview** tab, at the merge request level. Each comment is a plain comment by default, which reviewers can't resolve.
+
+To have Promptless post a comment as a resolvable thread, ask for it in the workflow. A project that requires all threads to be resolved before merging then waits until someone resolves each thread. For example, replace step 5 of the workflow with:
+
+```markdown
+5. On GitLab, post each comment from step 3 as a resolvable thread, and start it with the file path and line it refers to. Post the summary from step 4 as a resolvable thread when comments from step 3 are still unresolved.
+```
+
+Starting each comment with its file path and line tells the contributor where to look. Only the [citation threads](/docs/for-docs/connect/doc-locations/gitlab-projects) on merge requests that Promptless opens attach to lines in the diff.
+
 ## See also
 
 - [GitHub PRs](/docs/for-docs/connect/triggers/github-prs), for every GitHub PR trigger option, including trigger modes
+- [GitLab merge requests](/docs/for-docs/connect/triggers/gitlab-merge-requests), for every GitLab merge request trigger option
 - [Example: turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps), for the same pattern with a schedule trigger
 - [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), where the workflow file and `PROMPTLESS.md` live
