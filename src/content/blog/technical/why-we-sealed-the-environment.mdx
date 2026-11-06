@@ -1,0 +1,73 @@
+---
+title: 'Why we sealed the environment'
+subtitle: Published November 2026
+description: >-
+  In an earlier version of DoGBench, 31% of audited runs retrieved the source
+  pull request. DoGBench now runs agents with no network access except to their
+  model provider. Here's what that changes about reading the scores.
+author: Manny
+date: '2026-11-11T13:00:00.000Z'
+tag: Technical
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+Documentation agents use the internet. When a code change lands, a good agent reads the linked issue and checks the upstream library's docs. It may also look at how other projects describe the same feature.
+
+[DoGBench](https://dogbench.ai), our benchmark for agent-written documentation, runs the agents in its paper lanes without any of that. A lane is one model paired with one coding agent, such as Claude Code or Codex. Each run gets a fresh container with no network access except to its model provider. That choice keeps the scores honest, it costs the agents something real, and it changes what the scores can tell you.
+
+## How a DoGBench task works
+
+DoGBench has 292 items from open source projects, including Helm, PostHog, and Mautic. Each item gives the agent the repository as it was before a change, plus a trigger: a code diff or a reported documentation gap. The agent decides whether the documentation needs to change. If it does, the agent writes a patch in one attempt. If it doesn't, the agent leaves the docs alone. Task-specific rubrics, validated with the projects' maintainers, score the patch.
+
+The documentation the project eventually merged is withheld from the agent. That merged patch is close to an answer key, and it's public.
+
+## The answer was one search away
+
+Every DoGBench item comes from a real event in a public repository. The source pull request or issue and the documentation that shipped with it are all on the web. An agent with internet access can find them.
+
+In an earlier version of DoGBench, agents could reach the internet. We masked each repository's identity to make the source harder to find. It didn't hold. The paper's [audit of that version](https://dogbench.ai/paper#why-the-environment-is-sealed) found that 31% of runs retrieved the source pull request anyway. A further 6% copied from other agents' earlier trajectories, because the agents shared a host.
+
+The agents weren't doing anything strange. Faced with a code change and a docs repository, they searched for context, the way a docs agent should. The search just led to the merged answer.
+
+A benchmark where a third of the runs can look up the answer doesn't tell you much. A high score could mean the agent wrote good documentation, or it could mean the agent found it.
+
+## What we changed
+
+So the agents in our paper lanes now work in a sealed container. Each run gets a fresh Docker container with an identity-masked repository. The container has no network access except to the agent's model provider. A fresh container per run means agents can't read each other's work. Blocking the network means they can't find the merged patch.
+
+We also check that the seal held. We inspect agent trajectories for attempts to reach the merged human patch. An overlap detector flags patches that look suspiciously similar to the merged documentation, and we review every flag by hand. In the reported evaluation, we found no confirmed copying.
+
+The leaderboard also lists three cloud agents, which the paper doesn't cover. We instructed them not to use the internet. We verified that Promptless didn't browse for contaminating information, but we couldn't verify that for the other cloud agents. The [leaderboard](https://dogbench.ai) notes this next to their results.
+
+<BlogNewsletterCTA />
+
+## What sealing costs
+
+Sealing takes something real away. Production docs agents use the internet, and some tasks benefit from it.
+
+We measured how much. The paper's [limitations section](https://dogbench.ai/paper#sec:limitations-internet) reviews 683 trajectories from items on which no agent produced a mergeable patch. Blocked network requests showed up in 73 of those runs (10.7%). In 63 of them, the agent didn't need the network to write a correct patch. Most of those requests were for setup or validation: installing dependencies, building the docs, running formatters or linters, and parsing YAML or JSON configuration.
+
+Only 10 runs, 1.5% of the audited trajectories, tried to fetch external evidence that a correct patch needed and the supplied inputs lacked. Internet access might have helped on those items. Weighed against 31% of runs retrieving the answer, it wasn't close.
+
+There's a second, quieter cost. Some agents check their work by installing packages or building the site, and a sealed container can block that. An agent that leans on those checks loses some of its usual safety net.
+
+## How to read the scores
+
+DoGBench scores measure how well an agent works from the evidence it's given. That evidence is the code change, the existing docs, and everything else in the repository. The score reflects whether the agent decides correctly that docs need to change and finds the right page. It also reflects whether the patch gets the facts right and covers what a reader needs to finish the task.
+
+The scores don't measure research skill. They say nothing about how well an agent searches the web, reads an upstream issue tracker, or pulls facts from a vendor's API reference. An agent that's excellent at research and an agent that never leaves the repository can earn the same DoGBench score.
+
+A few things follow from that:
+
+- Compare agents on the skill the benchmark isolates. Working from supplied evidence is most of the job, and the trajectory analysis found that agents frequently miss decisive evidence.
+- Don't read a score as a forecast of production quality. In production, an agent with internet access can find more context. It can also find stale or wrong context, which the benchmark doesn't test either.
+- Read the cloud agent caveat. The seven paper lanes ran sealed. The cloud agents ran under an instruction, and we could verify it only for Promptless.
+- A score of 100 means the patch meets every requirement in the rubric. It isn't a percentage of an expert's ability.
+
+The real job also has no answer key to find. When a pull request merges today, nobody has written its documentation yet, so searching the web can't turn it up. A sealed benchmark is closer to that situation than a connected one, where the finished docs already exist and the agent can find them.
+
+## Try it yourself
+
+The [paper](https://dogbench.ai/paper) describes the setup in full, including the contamination audit and the network limitations. We've also published complete trajectories for the seven paper lanes, so you can see exactly what each agent did inside the container. If you run your own agent on DoGBench, you can [submit your results](https://dogbench.ai) for review.
