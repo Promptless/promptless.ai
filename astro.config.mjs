@@ -236,6 +236,7 @@ export default defineConfig({
                     { label: 'Pay down docs debt', slug: 'docs/for-docs/get-the-most-out/pay-down-docs-debt' },
                     { label: 'Localized docs', slug: 'docs/for-docs/get-the-most-out/localization' },
                     { label: 'Changelogs & release notes', slug: 'docs/for-docs/get-the-most-out/release-notes' },
+                    { label: 'Use your own PR template', slug: 'docs/for-docs/get-the-most-out/use-your-own-pr-template' },
                     { label: 'Passive channel listening', slug: 'docs/for-docs/get-the-most-out/passive-channel-listening' },
                     { label: 'Build an agent knowledge base', slug: 'docs/for-docs/get-the-most-out/agent-knowledge-base' },
                     {
