@@ -1,0 +1,56 @@
+---
+/**
+ * Explains a scan that tested fewer pages than afdocs needs to score the site,
+ * and offers a scan form filled with a better URL. The visitor confirms that
+ * scan; nothing starts on its own.
+ */
+import ScanForm from './ScanForm.astro';
+import { MIN_PAGES_FOR_SCORING, type PartialScan } from '@lib/agent-score/discovery';
+
+interface Props {
+  partial: PartialScan;
+}
+
+const { partial } = Astro.props;
+const pages = partial.testedPages === 1 ? '1 page' : `${partial.testedPages} pages`;
+const suggestion = partial.kind === 'index_above' || partial.kind === 'deep_url' ? partial.suggestion : null;
+---
+
+<section class="pl-as-panel pl-as-partial" aria-labelledby="pl-as-partial-title">
+  <h2 id="pl-as-partial-title">afdocs tested only {pages}</h2>
+  {
+    partial.kind === 'index_above' && (
+      <p>
+        afdocs found your llms.txt at <a href={partial.indexUrl} target="_blank" rel="noopener nofollow">{partial.indexUrl}</a>,
+        but it tests only the pages under the URL you entered. Scan the folder that holds your llms.txt to test the whole site.
+      </p>
+    )
+  }
+  {
+    partial.kind === 'deep_url' && (
+      <p>
+        afdocs tests only the pages under the URL you entered, and it found {pages} there. If this URL is one page of a
+        larger docs site, scan the root of the docs site.
+      </p>
+    )
+  }
+  {
+    partial.kind === 'no_index' && (
+      <p>
+        afdocs found no llms.txt and no sitemap, so it could test only this page. AI agents use these files to find pages,
+        so agents can't find your pages either. <a href="#check-llms-txt-exists">Add an llms.txt</a> or a sitemap, then
+        rescan.
+      </p>
+    )
+  }
+  {
+    partial.kind === 'few_pages' && (
+      <p>afdocs found {pages} to test in your llms.txt or sitemap.</p>
+    )
+  }
+  <p class="pl-as-muted">
+    With fewer than {MIN_PAGES_FOR_SCORING} pages, afdocs doesn't score the page-level categories, so this score doesn't
+    represent the site.
+  </p>
+  {suggestion && <ScanForm id="agent-score-partial-form" location="agent_score_partial_notice" prefill={suggestion} buttonLabel="Scan this URL" />}
+</section>
