@@ -398,6 +398,7 @@ export default defineConfig({
               '/docs/internal/**/*',
               '/docs/marketing-images',
               '/docs/media-kit',
+              '/docs/micro-employees',
               '/use-cases',
               '/use-cases/**/*',
               '/blog',
