@@ -10,24 +10,37 @@ on:
       - "package-lock.json"
       - ".github/workflows/remark-lint.yml"
 
-# Needed so the auto-repair step can push the reflow back to the PR branch.
-# Effective only for same-repo PRs; fork PRs receive a read-only token (see the
-# "Commit repairs" / "Ensure repairs are committed" steps below).
+# The auto-repair commit is pushed with a GitHub App token, not GITHUB_TOKEN:
+# a GITHUB_TOKEN push puts the PR's follow-up check runs into "approval
+# required", so the PR head sits with no CI until someone approves them.
+# https://docs.github.com/en/actions/concepts/security/github_token
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
+      # Same-repo PRs only: fork PRs get no secrets, so they skip this step and
+      # are handled by the "Ensure repairs are committed" guard below.
+      - name: Create auto-fix push token
+        id: app-token
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DOCS_AUTOFIX_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DOCS_AUTOFIX_APP_PRIVATE_KEY }}
+          permission-contents: write
+
       # Check out the PR's head branch from wherever it lives (same repo or a
       # fork) so a committed fix lands on the contributor's branch. Actions are
-      # pinned to commit SHAs because this job holds `contents: write`.
+      # pinned to commit SHAs because this job holds a write token.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -53,11 +66,11 @@ jobs:
       - name: Auto-repair
         run: npm run lint:md:fix
 
-      # Commit repairs back to the PR branch — same-repo PRs only. Fork PRs get a
-      # read-only token, so pushing would fail; they are handled by the guard
-      # below instead. `file_pattern` is a directory path (not a glob) so every
-      # nested repair is staged; a glob like `**/*.mdx` can under-match and let a
-      # nested fix go uncommitted.
+      # Commit repairs back to the PR branch — same-repo PRs only. The push uses
+      # the App token that checkout persisted, so the new commit's checks run.
+      # `file_pattern` is a directory path (not a glob) so every nested repair
+      # is staged; a glob like `**/*.mdx` can under-match and let a nested fix
+      # go uncommitted.
       - name: Commit repairs
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
