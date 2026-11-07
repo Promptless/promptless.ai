@@ -58,7 +58,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-This example teaches Promptless to review documentation PRs that someone other than Promptless opens, such as a contributor or a teammate. Promptless checks each PR for documentation quality and style, and for correctness against your source code. When the PR's branch is in your documentation repository, Promptless fixes clear problems directly on that branch. On a PR from a contributor's fork, which Promptless can't push to, it posts each fix as a comment. It also comments where the author needs to decide, and submits a GitHub review. For GitLab, see [Review merge requests in a GitLab project](#review-merge-requests-in-a-gitlab-project).
+This example teaches Promptless to review documentation PRs that someone other than Promptless opens, such as a contributor or a teammate. Promptless checks each PR for documentation quality and style, and for correctness against your source code. When the PR's branch is in your documentation repository, Promptless fixes clear problems directly on that branch. On a PR from a contributor's fork, which Promptless can't push to, it posts each fix as a comment. It also comments where the author needs to decide, and posts a summary comment with its overall assessment. For GitLab, see [Review merge requests in a GitLab project](#review-merge-requests-in-a-gitlab-project).
 
 The example follows the process in [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task). It pairs a written review workflow with a GitHub PR trigger or a GitLab merge request trigger.
 
@@ -100,9 +100,7 @@ The workflow tells Promptless how to review a contributor's documentation PR. It
         - **Make direct edits** on the PR branch for clear fixes, like typos, broken links, wrong flag names, outdated values, awkward sentences with obvious better phrasing, or factual corrections you verified against source. Do not leave a comment asking them to make a change you could make yourself. When the PR comes from a fork, which you can't push to, post each clear fix as a comment with the corrected text.
         - **Leave comments** when there is ambiguity that needs the contributor to resolve it, like two valid interpretations, a design/intent question, a claim you can't verify from source, or a change that would alter meaning in a way the author should confirm. Comments are for judgment calls, not for changes you're confident about.
 
-     4. Leave a top-level summary comment that states what you reviewed, what you changed directly (with a short list), what you left as open questions/comments and why, and the overall assessment. The summary comment must be present even when you made only direct edits and left no inline comments, and even when you found nothing to change (in which case say so).
-
-     5. Set a GitHub review state. If the docs are correct and ready, approve the PR. Otherwise, submit the review with a Comment state, including when the inline comments from step 3 are still unresolved.
+     4. Leave a top-level summary comment that states what you reviewed, what you changed directly (with a short list), what you left as open questions/comments and why, and the overall assessment, including whether the docs are ready to merge. The summary comment must be present even when you made only direct edits and left no other comments, and even when you found nothing to change (in which case say so).
      ```
 
   3. In `PROMPTLESS.md`, add an "If, then" hook that points to the workflow. Promptless loads `PROMPTLESS.md` into every run and loads the workflow file only when it needs it, so the hook makes the workflow run reliably:
@@ -156,7 +154,7 @@ When a contributor opens a qualifying PR, Promptless:
 1. Comments on the PR that a review is in progress.
 2. Reads the PR's title and description, diff, review comments, and commits.
 3. Reviews the changes. It edits the PR branch for clear fixes, or posts them as comments on a PR from a fork. It also comments where the author needs to decide.
-4. Posts a summary comment describing what it reviewed and what it found, and submits a GitHub review state.
+4. Posts a summary comment describing what it reviewed, what it changed, and its overall assessment.
 
 ## Review merge requests in a GitLab project
 
@@ -164,19 +162,11 @@ The workflow also reviews merge requests that contributors open in a GitLab docu
 
 ### Adapt the workflow for GitLab
 
-Make two changes to the workflow file:
+In the workflow file, widen the opening line to cover merge requests:
 
-1. Widen its opening line to cover merge requests:
-
-   ```markdown
-   When a pull request or merge request is opened in the docs repo (acme/docs), or someone asks you to review one there, and it touches documentation content:
-   ```
-
-2. Replace step 5, which sets a GitHub review state that GitLab doesn't have. For example:
-
-   ```markdown
-   5. On GitHub, set a review state. If the docs are correct and ready, approve the PR. Otherwise, submit the review with a Comment state. On GitLab, state in the summary comment whether the merge request is ready to merge.
-   ```
+```markdown
+When a pull request or merge request is opened in the docs repo (acme/docs), or someone asks you to review one there, and it touches documentation content:
+```
 
 Add a `PROMPTLESS.md` hook for the GitLab project:
 
@@ -217,10 +207,10 @@ triggers:
 
 Promptless posts its review comments and the summary on the merge request's **Overview** tab. Each comment is a plain comment by default, which reviewers can't resolve.
 
-To have Promptless post its comments as resolvable threads, ask for it in the workflow. If the project requires all threads to be resolved before merging, the merge request can't merge until someone resolves each one. For example, replace the GitLab sentence of step 5 with:
+To have Promptless post its comments as resolvable threads, ask for it in the workflow. If the project requires all threads to be resolved before merging, the merge request can't merge until someone resolves each one. For example, add this step to the workflow:
 
 ```markdown
-On GitLab, post each comment from step 3 as a resolvable thread, and start it with the file path and line it refers to. When step 3 produced any comments, post the summary from step 4 as a resolvable thread too.
+5. On GitLab, post each comment from step 3 as a resolvable thread, and start it with the file path and line it refers to. When step 3 produced any comments, post the summary from step 4 as a resolvable thread too.
 ```
 
 Promptless posts these threads on the merge request, not on diff lines, so the example asks it to name the file and line.
