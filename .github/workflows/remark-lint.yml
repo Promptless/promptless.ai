@@ -61,13 +61,16 @@ jobs:
       - name: Auto-repair
         run: npm run lint:md:fix
 
+      # The error and diff print here, early in the log, because Promptless's
+      # CI-failure follow-up reads only the first 200 lines of a failed job.
       - name: Save suggested fixes
         id: fixes
         run: |
           git diff -- src/content/docs > remark-fixes.diff
           if [ -s remark-fixes.diff ]; then
             echo "found=true" >> "$GITHUB_OUTPUT"
-            git --no-pager diff -- src/content/docs
+            echo "::error::remark-lint has formatting fixes for this PR. Apply this diff (also posted as a PR comment) with 'git apply', or run 'npm run lint:md:fix', and commit the result."
+            cat remark-fixes.diff
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
           fi
@@ -85,10 +88,11 @@ jobs:
       - name: Block on remaining violations
         run: npm run lint:md
 
+      # Fails after lint:md so one run reports both kinds of problem.
       - name: Fail on unapplied fixes
         if: steps.fixes.outputs.found == 'true'
         run: |
-          echo "::error::remark-lint has formatting fixes for this PR. Apply the diff in the PR comment (or above in this log), or run 'npm run lint:md:fix' and commit the result."
+          echo "Formatting fixes are needed; see the 'Save suggested fixes' step."
           exit 1
 
   # Posts the suggested diff as one PR comment, edits it on later runs, and
