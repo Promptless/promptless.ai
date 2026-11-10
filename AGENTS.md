@@ -127,9 +127,11 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
-  references, trailing whitespace). CI auto-repairs (`--output` full reflow),
-  commits the fix on same-repo PRs, and blocks on anything left. Run
-  `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
+  references, trailing whitespace). CI runs the repair (`--output` full
+  reflow) but doesn't push it: the job fails, and on same-repo PRs a
+  `github-actions[bot]` comment shows the diff (edited on each run, deleted
+  once clean). Apply that diff, or run `npm run lint:md:fix` locally, and
+  commit the result.
   Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
   a CI guard enforces this. See Starport ADR 0005.
 - **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `manni.yml`) —
