@@ -1,0 +1,69 @@
+---
+title: 'Knowing when not to write'
+subtitle: Published November 2026
+description: >-
+  In DoGBench, 35 of 117 held-out changes needed no docs. The seven agents in
+  our paper left the docs alone 28.6% to 85.7% of the time. Here's why that matters.
+author: Manny
+date: '2026-11-18T13:00:00.000Z'
+tag: Technical
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+A pull request renames an internal class, regenerates some types, and bumps two dependencies. A docs agent reads the diff, finds a page that mentions the component, and opens a docs PR. The PR is tidy and on topic. Nobody needed it.
+
+In [DoGBench](/blog/technical/dogbench), our benchmark for AI-written docs, 35 of the 117 held-out changes needed no documentation at all. For those changes, the right move was to leave the docs alone. The seven agents in our paper got that right between 28.6% and 85.7% of the time. The most cautious agent left the docs alone on 30 of the 35. The most eager left them alone on 10.
+
+Most talk about docs agents is about the quality of what they write. This post is about the decision that comes before writing.
+
+## How DoGBench tests the decision
+
+Each DoGBench item starts from a real event in an open source project, usually a code pull request. The agent gets the repository as it was before the change and decides whether the docs need an update. If they do, it writes a patch. If they don't, the correct answer is to abstain and change nothing.
+
+The [held-out split](https://dogbench.ai/paper#sec:results-decision) has 117 items. Of those, 82 need a patch and 35 need no change. Abstention recall is the share of those 35 items on which an agent leaves the docs alone. Across the seven agents, it ran from 28.6% to 85.7%. Put the other way, the agents wrote an unneeded patch for 37.1% of the no-change items on average, according to the [field guide](https://dogbench.ai/field-guide/#eager).
+
+The composite score treats this decision and patch quality as jointly necessary. An agent that patches every change can't score well, however good its patches are.
+
+## Unneeded docs aren't harmless
+
+It's tempting to treat an extra docs PR as cheap. The worst case seems to be that someone closes it. That closing is the first cost. A reviewer still has to read the PR, work out that the change affects nothing a user can see, and reject it. A docs lead who reviews agent output all week pays that cost on every unneeded PR.
+
+Sometimes the reviewer doesn't catch it, and the PR merges. Then the docs describe implementation details as if they were part of the product. Users can't act on those details, and they make the guidance that matters harder to find. The paper's [decision results](https://dogbench.ai/paper#sec:results-decision) note that every unnecessary patch needs maintainer attention during triage, review, and ongoing maintenance.
+
+Merged text keeps costing. The page has to be versioned with each release and translated into every supported language. Someone has to keep it true as the code moves, and the code it describes was never meant to be a stable contract.
+
+There's one more cost, and it's easy to miss. The next agent run reads the existing docs to learn what belongs in them. An agent that finds implementation details on a page treats them as a pattern to follow. The [field guide](https://dogbench.ai/field-guide/#status-quo) describes the same habit from the other side: agents take what the docs already say as the rule. One unneeded patch makes the next one look more reasonable.
+
+<BlogNewsletterCTA />
+
+## The changes that usually need no docs
+
+The paper's [failure analysis](https://dogbench.ai/paper#sec:decision-failure-mechanisms) traced unneeded patches to a few kinds of change. Agents documented them even though readers didn't need them:
+
+- Internal refactors, renames, and mechanically regenerated types that leave the public contract unchanged.
+- Performance optimizations, tests, CI, and dependency changes with no effect a user can observe.
+- Generated files and reference artifacts that people shouldn't update by hand.
+
+These patches often look defensible. The terms in the diff match terms in the docs, and the page the agent picked is on the right topic. Over-editing usually starts with a cue like that: an internal name that sounds user-facing, or an existing page that mentions the component.
+
+The step the agent skips is checking whether the change creates behavior a user can invoke, observe, or act on. Once an agent decides to edit, it looks for a place to put text. It rarely goes back to ask whether a docs change is needed, even when it later finds evidence that one isn't.
+
+The same question works for human reviewers. Before you read the prose in an agent's docs PR, look at the product change behind it. Does it affect anything a user can invoke, see, or act on? If it doesn't, you can stop there. The field guide's [reviewer's checklist](https://dogbench.ai/field-guide/#ch-6) puts this check first for that reason.
+
+The rule has a mirror image, and it matters just as much. Agents also miss real changes by reading a missing page as proof that a topic is out of scope. A failed search for existing coverage can mean the gap is the problem to fix. "No docs page mentions this" and "this needs no docs" are different findings.
+
+One caveat on the numbers. A few of DoGBench's no-change labels may be wrong. Some rest only on no docs update appearing within 90 days of the change. Those items may have needed docs that nobody wrote. The paper discusses this in its [limitations](https://dogbench.ai/paper#sec:limitations-labels).
+
+## Drift is a detection problem
+
+Documentation drift happens when the product changes and the docs don't. The usual response is to write more, faster. If every merged change might need docs, the fix looks like an agent that drafts a patch for each one.
+
+The DoGBench results point somewhere else. A docs agent's first job is to tell which changes affect readers. An agent that writes for every change misses no drift, but it buries the real updates under PRs nobody needed, and reviewers learn to skim. An agent that writes for none creates no noise and lets the docs fall behind. The useful agent is the one that tells the two cases apart and gets them right.
+
+That makes drift a detection problem before it's a writing problem. Detection needs a valid negative answer. "No change needed" should be an output an agent can give, with its reasoning, that a person can review. A good answer names the change, says why no user can invoke, see, or act on it, and lists the pages it checked. A reviewer can confirm that in a minute, or catch the case where the missing page was the gap.
+
+Treat that answer as work the agent did, and review it the way you'd review a patch. An agent that can say "nothing here for readers" and show why is doing the job of a careful docs lead.
+
+Our first hands-on lab, running the same morning as this post, practices this decision on real changes. The [paper](https://dogbench.ai/paper), the [field guide](https://dogbench.ai/field-guide/), and the public development split are at [dogbench.ai](https://dogbench.ai) if you want to test your own agent on it.
