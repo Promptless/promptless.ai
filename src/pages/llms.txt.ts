@@ -112,7 +112,7 @@ async function buildSections(): Promise<LlmsSection[]> {
         await marketingPage('/agent-score', {
           label: 'Agent Score',
           description:
-            'Free tool that scores a docs site from 0 to 100 for AI-agent readiness with the open-source afdocs CLI (28 checks, 7 categories). Public reports at /agent-score/<host>[/<path>] with a .md twin, a JSON API, and score history. The same checks run locally with npx afdocs.',
+            'Free tool that scores a docs site from 0 to 100 for AI-agent readiness with the open-source afdocs CLI (27 scored checks, 7 categories). Public reports at /agent-score/<host>[/<path>] with a .md twin, a JSON API, and score history. The same checks run locally with npx afdocs --skip-checks llms-txt-coverage.',
         }),
       ],
     },

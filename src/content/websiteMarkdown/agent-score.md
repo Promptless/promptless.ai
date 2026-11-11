@@ -3,11 +3,13 @@ title: Agent Score
 description: Free tool that scores how well AI agents can read a docs site, from 0 to 100, using the open-source afdocs checks. Public reports, score history, and fixes.
 routePath: /agent-score
 ---
-Agent Score runs [afdocs](https://github.com/agent-ecosystem/afdocs) against a public docs site and returns a score out of 100 across 28 checks in 7 categories, a fix for each failing check, and score history. No signup. Every report is public at `https://promptless.ai/agent-score/<host>[/<path>]`, for example [promptless.ai/docs](https://promptless.ai/agent-score/promptless.ai/docs.md). Append `.md` to any report URL for its markdown version.
+Agent Score runs [afdocs](https://github.com/agent-ecosystem/afdocs) against a public docs site and returns a score out of 100 across 27 scored checks in 7 categories. Each report includes a fix for each failing check and score history. No signup. Every report is public at `https://promptless.ai/agent-score/<host>[/<path>]`, for example [promptless.ai/docs](https://promptless.ai/agent-score/promptless.ai/docs.md). Append `.md` to any report URL for its markdown version.
 
 ## Score a public site
 
 Open https://promptless.ai/agent-score and enter the URL of a docs site. A scan takes about a minute. `docs.example.com` and `example.com/docs` are scored separately. A site scanned in the last 10 minutes returns the cached result.
+
+Agent Score scans only the standard HTTPS and HTTP ports. It rejects any URL with an explicit port, even `:443` or `:80`. For a site on another port, run afdocs yourself as described in [Score a private site](#score-a-private-site). You can also email help@gopromptless.ai to have Promptless run the scan.
 
 The public JSON API lives at `https://api.gopromptless.ai/public/free-tools/agent-score`:
 
@@ -19,18 +21,18 @@ The public JSON API lives at `https://api.gopromptless.ai/public/free-tools/agen
 
 ## Score a private site
 
-Agent Score is a hosted run of afdocs and nothing more. The same command on a staging site, a localhost build, or docs on your VPN gives the same score. afdocs is MIT-licensed, written by [Dachary Carey](https://github.com/dacharyc), and implements the [Agent-Friendly Docs Spec](https://agentdocsspec.com/spec/web/). Promptless adds no checks and changes no weights. Needs Node 22 or later:
+Agent Score is a hosted run of afdocs and nothing more. The same command on a staging site, a localhost build, or docs on your VPN gives the same score. afdocs is MIT-licensed, written by [Dachary Carey](https://github.com/dacharyc), and implements the [Agent-Friendly Docs Spec](https://agentdocsspec.com/spec/web/). Promptless adds no checks and changes no weights; it skips the `llms-txt-coverage` check, which expects llms.txt to list every sitemap URL. Pass the same `--skip-checks` flag locally to match a hosted score. Needs Node 22 or later:
 
 ```bash
-npx afdocs@latest check https://docs.example.com --format scorecard
-npx afdocs@latest check https://docs.example.com --fixes --verbose
+npx afdocs@latest check https://docs.example.com --skip-checks llms-txt-coverage --format scorecard
+npx afdocs@latest check https://docs.example.com --skip-checks llms-txt-coverage --fixes --verbose
 ```
 
-The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic`.
+The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic --skip-checks llms-txt-coverage`.
 
 ## Checks
 
-28 checks in 7 categories: content discoverability, markdown availability, page size, content structure, URL stability, observability, and authentication. Every check is a yes-or-no test an HTTP client can run; none of them read your prose. See the [check reference](https://afdocs.dev/checks/) and [how the score is calculated](https://afdocs.dev/agent-score-calculation).
+27 scored checks in 7 categories: content discoverability, markdown availability, page size, content structure, URL stability, observability, and authentication. Every check is a yes-or-no test an HTTP client can run; none of them read your prose. See the [check reference](https://afdocs.dev/checks/) and [how the score is calculated](https://afdocs.dev/agent-score-calculation).
 
 ## Auditing the content itself
 
