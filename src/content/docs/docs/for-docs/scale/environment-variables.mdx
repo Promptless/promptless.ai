@@ -1,6 +1,6 @@
 ---
 title: Manage environment variables
-description: Store credentials, API keys, and configuration values that Promptless uses when interacting with your systems, and mark sensitive values as secrets
+description: Store credentials, API keys, and configuration values that Promptless uses when interacting with your systems, mark sensitive values as secrets, and set where each secret can be used
 id: for-docs-scale-environment-variables
 slug: docs/for-docs/scale/environment-variables
 type: how-to
@@ -13,11 +13,13 @@ keywords:
   - API keys
   - test account credentials
   - screenshot login
+  - credential protection
+  - credential use
 language: en
 audiences:
   - aud-scaleup-docs-team
   - aud-enterprise-docs-team
-intent: add, update, and delete Promptless agent environment variables and mark credentials such as screenshot test-account passwords as secrets
+intent: add, update, and delete Promptless agent environment variables, mark credentials such as screenshot test-account passwords as secrets, and set where each secret can be used
 lifecycle: published
 last-updated: 2026-10-20
 applies-to:
@@ -34,6 +36,7 @@ sample-questions:
   - How do I store a password that Promptless uses to capture screenshots?
   - How do I mark a Promptless environment variable as a secret?
   - Can I view the value of a secret environment variable after saving it?
+  - How do I limit a Promptless secret to one API host or login form?
 sidebar:
   hidden: false
   order: 34
@@ -64,7 +67,9 @@ Promptless sees each variable's name, so use a name that says what the value is 
 
   4. If the value is a password, API key, or other sensitive value, turn on the **Secret** toggle. The **Value** field then masks what you type.
 
-  5. Select **Add Variable**. The variable appears in the table above the form.
+  5. For a secret, select its **Credential use** and enter the destination fields for it. See [Set where Promptless can use a secret](#set-where-promptless-can-use-a-secret).
+
+  6. Select **Add Variable**. The variable appears in the table above the form.
 </Steps>
 
 <figure>
@@ -87,6 +92,30 @@ After you save a secret, the dashboard hides its value, and no one can view it a
   Store credentials for dedicated test or service accounts, not personal accounts. Screenshots then contain no personal data, and results stay consistent.
 </Aside>
 
+## Set where Promptless can use a secret
+
+Credential protection keeps secret values away from the agent. When credential protection is enabled, the agent gets a placeholder in place of each secret. Promptless puts the real value only into the request field you approve, in requests to the HTTPS destination you set. A placeholder that the agent prints or sends anywhere else contains no credential.
+
+Each secret's **Credential use** setting records that destination and field. Under credential protection, Promptless can't start documentation work while any secret has no **Credential use** setting, so set one for every secret. Save values that don't need protection, such as usernames and login URLs, as ordinary variables.
+
+Select the **Credential use** that matches how the service receives the secret:
+
+| Credential use                    | Use it for                                                       | Fields to enter                                                       |
+| --------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Bearer token**                  | A token the API reads from an `Authorization: Bearer` header     | **HTTPS destination**                                                 |
+| **API key in a header**           | An API key the service reads from a named header                 | **HTTPS destination**, **Header name**, and an optional **Header prefix** |
+| **Basic authentication password** | A password for HTTP Basic authentication                         | **HTTPS destination** and **Username**                                |
+| **Browser password (form field)** | A password that a login form submits, such as a test-account password | **Login submission URL** and **Password field name**              |
+| **Browser password (JSON field)** | A password that a login page submits in a JSON body              | **Login submission URL** and **JSON field pointer**, such as `/password` |
+
+Enter destinations in these forms:
+
+- **HTTPS destination** is the service's host only, such as `https://api.example.com`. Leave out the path, port, query, and username. The secret works on every path of that host. To limit it to one path, expand **Request restrictions** and enter a **Request path**.
+- **Login submission URL** is the HTTPS URL and exact path that receive the login request, such as `https://app.yourcompany.com/login`. It can differ from the address of the login page. To find it, log in once with your browser's developer tools open and read the URL of the request that sends the password.
+- **HTTP methods**, under **Request restrictions**, lists the uppercase methods separated by commas, such as `GET, POST`. Browser passwords start with `POST`, and other credential uses start with all common methods.
+
+To set **Credential use** for a secret that you already saved, update the secret and leave the **Value** field empty. See [Update or delete a variable](#update-or-delete-a-variable).
+
 ## Example: Screenshot capture credentials
 
 For [Promptless Capture](/docs/for-docs/get-the-most-out/screenshots), add these variables so Promptless can log in to your application:
@@ -97,22 +126,26 @@ For [Promptless Capture](/docs/for-docs/get-the-most-out/screenshots), add these
 | `TEST_ACCOUNT_USER` | `qa-screenshots@yourcompany.com`    | No     |
 | `TEST_ACCOUNT_PASS` | `(your password)`                   | Yes    |
 
+For `TEST_ACCOUNT_PASS`, select **Browser password (form field)** as its **Credential use**. Enter the URL that your login form submits to as the **Login submission URL**, and the form's password field name, such as `password`.
+
 <Aside type="tip">
   Give the test account access to every feature you want documented, including features that need specific permissions or plan tiers.
 </Aside>
 
 ## Update or delete a variable
 
-You can change a variable's value, but not its key name. To rename a variable, delete it and add it again under the new name.
+You can change a variable's value and a secret's **Credential use**. You can't change a key name or whether a variable is a secret. To change either, delete the variable and add it again.
 
-To change a variable's value:
+To change a variable:
 
 <Steps>
   1. In the variable's row, select **Update**.
 
-  2. Enter the new value. The field starts empty, so enter the whole value.
+  2. To change the value, enter the whole new value. To keep the saved value, leave the field empty.
 
-  3. Select **Save**.
+  3. For a secret, change its **Credential use** or destination fields as needed.
+
+  4. Select **Save**.
 </Steps>
 
 To delete a variable:
@@ -124,6 +157,8 @@ To delete a variable:
 </Steps>
 
 Promptless removes the variable, and the agent can no longer use it.
+
+When credential protection is enabled, changing or deleting a secret stops your organization's running documentation work. New work uses the saved settings. If Promptless can't stop all of that work, the page shows a warning. Contact [help@gopromptless.ai](mailto\:help@gopromptless.ai) to stop the remaining work.
 
 ## See also
 
