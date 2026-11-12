@@ -46,3 +46,4 @@ New, non-migration architecture decisions go here in `adrs/` using the MADR temp
 - [0005 — Adopt manni and its strict metadata vocabularies](0005-adopt-manni-vocabularies.md) — accepted
 - [0006 — Lint docs page structure by page type with manni lint](0006-adopt-manni-lint-structure.md) — accepted
 - [0007 — Embed integration procedures as MDX partials and drop integration pages from the nav](0007-embed-integration-procedures-as-partials.md) — accepted
+- [0008 — Check the rendered site's accessibility with manni a11y](0008-adopt-manni-a11y.md) — accepted

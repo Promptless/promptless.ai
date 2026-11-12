@@ -1,5 +1,8 @@
 ---
-/** Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only. */
+/**
+ * Top-scoring sites, loaded client-side from GET /leaderboard. Score and name only.
+ * Shows the top 24 first, then replaces them with up to the API's 1,000-entry limit.
+ */
 import { getAgentScoreApiBase } from '@lib/agent-score/config';
 
 const apiBase = getAgentScoreApiBase();
@@ -7,7 +10,7 @@ const apiBase = getAgentScoreApiBase();
 
 <section class="pl-as-section" id="leaderboard" aria-labelledby="pl-as-board-title">
   <h2 class="pl-as-h2" id="pl-as-board-title">Leaderboard</h2>
-  <div data-as-board data-api-base={apiBase} aria-live="polite" aria-busy="true">
+  <div data-as-board data-api-base={apiBase} aria-busy="true">
     <ul class="pl-as-board" aria-hidden="true">
       {Array.from({ length: 6 }, () => <li class="pl-as-board-skeleton" />)}
     </ul>
@@ -18,7 +21,19 @@ const apiBase = getAgentScoreApiBase();
   import { gradeTone } from '@lib/agent-score/meta';
   import type { LeaderboardResponse } from '@lib/agent-score/types';
 
+  const INITIAL_LIMIT = 24;
+  /** The API's maximum `limit`. */
+  const FULL_LIMIT = 1000;
+
   const container = document.querySelector<HTMLElement>('[data-as-board]');
+  const apiBase = container?.dataset.apiBase ?? '';
+  const formatCount = (count: number) => count.toLocaleString('en-US');
+
+  async function fetchBoard(limit: number): Promise<LeaderboardResponse> {
+    const response = await fetch(`${apiBase}/leaderboard?limit=${limit}&sort=top`);
+    if (!response.ok) throw new Error(String(response.status));
+    return (await response.json()) as LeaderboardResponse;
+  }
 
   const el = <K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) => {
     const node = document.createElement(tag);
@@ -45,6 +60,14 @@ const apiBase = getAgentScoreApiBase();
     container.replaceChildren(box);
   }
 
+  /** A note under the list when the API limit hides some sites. */
+  function renderCapNote(data: LeaderboardResponse): HTMLElement | null {
+    if (data.totalSites <= data.entries.length || data.entries.length < FULL_LIMIT) return null;
+    const footer = el('div', 'pl-as-board-more');
+    footer.append(el('p', 'pl-as-muted', `Showing the top ${formatCount(FULL_LIMIT)} of ${formatCount(data.totalSites)} scored sites.`));
+    return footer;
+  }
+
   function render(data: LeaderboardResponse) {
     if (!container) return;
     if (!data.entries.length) {
@@ -65,21 +88,28 @@ const apiBase = getAgentScoreApiBase();
       item.append(link);
       list.append(item);
     });
-    container.replaceChildren(list);
+    const note = renderCapNote(data);
+    container.replaceChildren(...(note ? [list, note] : [list]));
   }
 
   async function load() {
     if (!container) return;
-    const apiBase = container.dataset.apiBase ?? '';
+    let initial: LeaderboardResponse;
     try {
-      const response = await fetch(`${apiBase}/leaderboard?limit=24&sort=top`);
-      if (!response.ok) throw new Error(String(response.status));
-      render((await response.json()) as LeaderboardResponse);
+      initial = await fetchBoard(INITIAL_LIMIT);
     } catch {
       renderMessage('The leaderboard is unavailable right now', 'Scanning still works. Try again in a minute.', false);
-    } finally {
       container.setAttribute('aria-busy', 'false');
+      return;
     }
+    render(initial);
+    if (initial.totalSites > initial.entries.length) {
+      // The top sites are already on screen, so a failed full load leaves them in place.
+      try {
+        render(await fetchBoard(FULL_LIMIT));
+      } catch {}
+    }
+    container.setAttribute('aria-busy', 'false');
   }
 
   load();
