@@ -170,10 +170,6 @@ export const CHECK_NAMES: Record<string, string> = {
   'bot-protection-interference': 'Bot protection interference',
 };
 
-export function getCategoryMeta(id: string): CategoryMeta | undefined {
-  return CATEGORY_BY_ID.get(id);
-}
-
 export function categoryName(id: string, fallback?: string | null): string {
   return fallback || CATEGORY_BY_ID.get(id)?.name || id;
 }
@@ -235,15 +231,6 @@ export const GRADE_HEX: Record<GradeTone, string> = {
   d: '#fb9a5b',
   f: '#f87171',
   none: '#747987',
-};
-
-export const GRADE_LABEL: Record<GradeTone, string> = {
-  a: 'Excellent',
-  b: 'Good',
-  c: 'Improving',
-  d: 'Needs work',
-  f: 'Not agent-ready',
-  none: 'Unscored',
 };
 
 export const STATUS_LABEL: Record<CheckStatus, string> = {

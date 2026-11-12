@@ -9,17 +9,15 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import PageAssets from '@components/agent-score/PageAssets.astro';
 import ReportHeader from '@components/agent-score/ReportHeader.astro';
-import ReportSummary from '@components/agent-score/ReportSummary.astro';
 import ScoreHistory from '@components/agent-score/ScoreHistory.astro';
 import CategoryList from '@components/agent-score/CategoryList.astro';
-import MiniRunIt from '@components/agent-score/MiniRunIt.astro';
-import PromptlessBlock from '@components/agent-score/PromptlessBlock.astro';
+import ReportFooter from '@components/agent-score/ReportFooter.astro';
 import CreditLine from '@components/agent-score/CreditLine.astro';
 import ReportState from '@components/agent-score/ReportState.astro';
 import ReportClient from '@components/agent-score/ReportClient.astro';
-import { fetchSite, getBadgeUrl, getSiteJsonUrl } from '@lib/agent-score/api';
+import { fetchSite, getSiteJsonUrl } from '@lib/agent-score/api';
 import { PUBLIC_AGENT_SCORE_API_BASE, getAgentScoreApiBase } from '@lib/agent-score/config';
-import { buildFixPrompt, summarySentence } from '@lib/agent-score/report';
+import { actionableChecks, buildFixPrompt, summarySentence } from '@lib/agent-score/report';
 import { parseSlug, scorePagePath } from '@lib/agent-score/slug';
 import type { SiteResponse } from '@lib/agent-score/types';
 
@@ -101,16 +99,14 @@ const report =
     ? (() => {
         const { site } = view;
         const pageUrl = `${siteOrigin}${scorePagePath(site.slug)}`;
-        const publicBadge = getBadgeUrl(site.slug, PUBLIC_AGENT_SCORE_API_BASE);
         return {
           site,
           pageUrl,
           jsonUrl: getSiteJsonUrl(site.slug, apiBase),
-          badgeUrl: getBadgeUrl(site.slug, apiBase),
-          badgeEmbed: `[![Agent Score](${publicBadge})](${pageUrl})`,
           mdPath: `${scorePagePath(site.slug)}.md`,
           shareText: `${site.displayName} scores ${site.latest.overall}/100 (Grade ${site.latest.grade}) on Agent Score, the AI-agent readiness check for docs.`,
           fixPrompt: buildFixPrompt(site, pageUrl),
+          hasIssues: actionableChecks(site.latest).length > 0 || site.latest.diagnostics.length > 0,
         };
       })()
     : null;
@@ -132,25 +128,22 @@ const report =
     <PageAssets />
     {
       report ? (
-        <>
+        <div class="pl-as-report">
           <ReportHeader
             site={report.site}
             pageUrl={report.pageUrl}
             jsonUrl={report.jsonUrl}
-            badgeUrl={report.badgeUrl}
-            badgeEmbed={report.badgeEmbed}
             mdPath={report.mdPath}
             apiBase={apiBase}
             shareText={report.shareText}
+            fixPrompt={report.fixPrompt}
+            hasIssues={report.hasIssues}
           />
-          <ReportSummary site={report.site} fixPrompt={report.fixPrompt} />
           <ScoreHistory site={report.site} />
           <CategoryList latest={report.site.latest} />
-          <MiniRunIt scanUrl={report.site.latest.scanUrl} version={report.site.latest.engine.version} />
-          <PromptlessBlock location="agent_score_report" />
-          <CreditLine />
+          <ReportFooter latest={report.site.latest} />
           <ReportClient />
-        </>
+        </div>
       ) : view.kind === 'invalid' ? (
         <ReportState kind="invalid" message={view.message} />
       ) : view.kind === 'not_found' ? (
