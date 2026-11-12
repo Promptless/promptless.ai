@@ -23,7 +23,7 @@ export const lavaconSessions: LavaconSession[] = [
     title: 'Does Your Documentation Survive an AI Assistant? A Hands-On Docs Audit',
     when: 'Free pre-conference workshop · Sunday, October 25 · 8:00 AM – 12:00 PM',
     body: 'Bring your real content and run retrieval and answer-accuracy tests against it. Learn to tell retrieval, content, and structure failures apart, and leave with a repeatable audit you can rerun with your team every release.',
-    presenters: ['Manny Silva', 'Prithvi Ramakrishnan'],
+    presenters: ['Prithvi Ramakrishnan', 'Isaiah'],
     start: '2026-10-25T12:00:00Z',
     end: '2026-10-25T16:00:00Z',
   },
