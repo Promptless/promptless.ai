@@ -10,24 +10,40 @@ on:
       - "package-lock.json"
       - ".github/workflows/remark-lint.yml"
 
-# Needed so the auto-repair step can push the reflow back to the PR branch.
-# Effective only for same-repo PRs; fork PRs receive a read-only token (see the
-# "Commit repairs" / "Ensure repairs are committed" steps below).
+# CI doesn't push remark's fixes: a push with GITHUB_TOKEN leaves the PR's
+# follow-up check runs waiting for approval
+# (https://docs.github.com/en/actions/concepts/security/github_token).
+# Instead, `lint` fails and saves the diff remark wants, and `comment` posts it
+# on the PR for the PR's owner to apply.
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: remark-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    outputs:
+      fixes: ${{ steps.fixes.outputs.found }}
     steps:
-      # Check out the PR's head branch from wherever it lives (same repo or a
-      # fork) so a committed fix lands on the contributor's branch. Actions are
-      # pinned to commit SHAs because this job holds `contents: write`.
+      # Check out the PR head, not the merge commit, so the suggested diff
+      # applies to the PR branch.
+      # The env turns off two git hints (about 30 log lines) so the error in
+      # "Save suggested fixes" stays within the first 200 lines of the log.
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        env:
+          GIT_CONFIG_COUNT: "2"
+          GIT_CONFIG_KEY_0: advice.detachedHead
+          GIT_CONFIG_VALUE_0: "false"
+          GIT_CONFIG_KEY_1: init.defaultBranch
+          GIT_CONFIG_VALUE_1: main
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -48,36 +64,103 @@ jobs:
             exit 1
           fi
 
-      # "Attempt to repair": remark's fix is a full reformat (remark-stringify),
-      # so this normalizes structure and fixes auto-fixable rule violations.
+      # remark's fix is a full reformat (remark-stringify), so this normalizes
+      # structure and fixes auto-fixable rule violations in the working tree.
       - name: Auto-repair
         run: npm run lint:md:fix
 
-      # Commit repairs back to the PR branch — same-repo PRs only. Fork PRs get a
-      # read-only token, so pushing would fail; they are handled by the guard
-      # below instead. `file_pattern` is a directory path (not a glob) so every
-      # nested repair is staged; a glob like `**/*.mdx` can under-match and let a
-      # nested fix go uncommitted.
-      - name: Commit repairs
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: stefanzweifel/git-auto-commit-action@b863ae1933cb653a53c021fe36dbb774e1fb9403 # v5
-        with:
-          commit_message: "style: remark-lint auto-fix"
-          file_pattern: src/content/docs
-
-      # Fail if any repair is still uncommitted. This closes two gaps: (a) a fork
-      # PR, where the commit step was skipped, and (b) any file the commit step
-      # did not stage. Without this, the block step below would lint the locally
-      # repaired working tree and pass green while the fixes never reached the PR.
-      - name: Ensure repairs are committed
+      # The error and diff print here, early in the log, because Promptless's
+      # CI-failure follow-up reads only the first 200 lines of a failed job.
+      - name: Save suggested fixes
+        id: fixes
         run: |
-          if ! git diff --quiet -- src/content/docs; then
-            echo "::error::remark-lint produced fixes that were not committed (fork PR?). Run 'npm run lint:md:fix' locally and commit the result."
-            git --no-pager diff --stat -- src/content/docs
-            exit 1
+          git diff -- src/content/docs > remark-fixes.diff
+          if [ -s remark-fixes.diff ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "::error::remark-lint has formatting fixes for this PR. Apply this diff (also posted as a PR comment) with 'git apply', or run 'npm run lint:md:fix', and commit the result."
+            cat remark-fixes.diff
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # "Block otherwise": --frail exits non-zero on any remaining lint message
-      # that the reformat could not fix.
+      - name: Upload suggested fixes
+        if: steps.fixes.outputs.found == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: remark-fixes
+          path: remark-fixes.diff
+          retention-days: 7
+
+      # --frail exits non-zero on any remaining lint message that the reformat
+      # could not fix.
       - name: Block on remaining violations
         run: npm run lint:md
+
+      # Fails after lint:md so one run reports both kinds of problem.
+      - name: Fail on unapplied fixes
+        if: steps.fixes.outputs.found == 'true'
+        run: |
+          echo "Formatting fixes are needed; see the 'Save suggested fixes' step."
+          exit 1
+
+  # Posts the suggested diff as one PR comment, edits it on later runs, and
+  # deletes it once remark has nothing to fix. Fork PRs get a read-only token,
+  # so they skip this job and rely on the lint job's log and error.
+  comment:
+    needs: lint
+    if: >-
+      always() &&
+      needs.lint.outputs.fixes != '' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      MARKER: "<!-- remark-lint-fixes -->"
+    steps:
+      - name: Download suggested fixes
+        if: needs.lint.outputs.fixes == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: remark-fixes
+
+      - name: Post, update, or delete the fixes comment
+        run: |
+          existing=$(gh api --paginate "repos/$GH_REPO/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$MARKER\"))) | .id" | head -n 1)
+
+          if [ "${{ needs.lint.outputs.fixes }}" != "true" ]; then
+            if [ -n "$existing" ]; then
+              gh api -X DELETE "repos/$GH_REPO/issues/comments/$existing"
+            fi
+            exit 0
+          fi
+
+          {
+            echo "$MARKER"
+            echo "**remark-lint:** apply this diff to the PR branch and commit it (\`git apply\`), or run \`npm run lint:md:fix\` and commit the result. Generated for ${HEAD_SHA}."
+            echo
+            # GitHub caps comments at 65,536 characters.
+            if [ "$(wc -c < remark-fixes.diff)" -gt 60000 ]; then
+              echo "The diff is too large to post. It's in the remark-lint job log."
+            else
+              # Fence with more backticks than any run in the diff, since docs
+              # contain code fences.
+              longest=$(grep -o '`\+' remark-fixes.diff | awk '{ if (length > m) m = length } END { print m + 0 }')
+              fence=$(printf '%*s' "$(( longest >= 3 ? longest + 1 : 3 ))" '' | tr ' ' '`')
+              echo "${fence}diff"
+              cat remark-fixes.diff
+              echo "$fence"
+            fi
+          } > comment.md
+
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$GH_REPO/issues/comments/$existing" -F body=@comment.md > /dev/null
+          else
+            gh api "repos/$GH_REPO/issues/$PR/comments" -F body=@comment.md > /dev/null
+          fi
