@@ -136,7 +136,16 @@ async function buildSections(): Promise<LlmsSection[]> {
       heading: 'Customers',
       intro: 'Stories and public work from teams that use Promptless.',
       links: [
-        docsPage('/blog/customer-stories/vellum', { description: 'Customer story' }),
+        await marketingPage('/customers', { label: 'Customer stories', description: 'Index of customer case studies.' }),
+        await marketingPage('/customers/mautic', {
+          label: 'Mautic case study',
+          description:
+            'From Mautic’s own post: 129 Promptless docs PRs merged in about four months, and 27 days from code merge to docs merge against 98 days by hand.',
+        }),
+        await marketingPage('/customers/vellum', {
+          label: 'Vellum case study',
+          description: 'Over 50% of Vellum’s new doc updates come from Promptless (July 2025).',
+        }),
         await marketingPage('/', {
           label: 'Testimonials',
           description:

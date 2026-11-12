@@ -23,6 +23,8 @@ export const config = {
     '/',
     '/demo',
     '/pricing',
+    '/customers',
+    '/customers/:path*',
     '/free-tools',
     '/free-tools/:path*',
     '/agent-score',

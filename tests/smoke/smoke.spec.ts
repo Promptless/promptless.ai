@@ -997,6 +997,9 @@ test('website markdown endpoints are available for agent-friendly content', asyn
     '/pricing.md',
     '/free-tools.md',
     '/free-tools/broken-link-report.md',
+    '/customers.md',
+    '/customers/mautic.md',
+    '/customers/vellum.md',
   ];
 
   for (const route of routes) {

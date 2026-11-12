@@ -54,6 +54,12 @@ Vitess and Helm are popular open-source CNCF projects. Promptless drafts PRs and
 - [vitessio/website](https://github.com/vitessio/website/commits/): View commits on GitHub
 - [helm/helm-www](https://github.com/helm/helm-www/commits/main/): View commits on GitHub
 
+### Customer stories: how teams keep their docs current with Promptless
+
+- [How Mautic keeps docs up to date automatically](https://promptless.ai/customers/mautic.md): Promptless drafts a docs PR for each code PR on mautic/mautic, and developers and the Education Team review every one. In about four months, 129 Promptless docs PRs merged, and Promptless updates averaged 27 days from code merge to docs merge, against 98 days for docs written by hand (roughly 3.5 times faster). Figures from Mautic's own post.
+- [How Vellum uses Promptless to draft over 50% of their doc updates](https://promptless.ai/customers/vellum.md): 54% of Vellum's docs PRs in one month originated from Promptless suggestions, and 60% of its product and engineering team drafts doc updates with Promptless every month (as of July 2025).
+- [All customer stories](https://promptless.ai/customers.md)
+
 ### How Promptless works
 
 1. **Listen.** When a PR opens, a Slack thread about docs starts, or a doc ticket gets created, Promptless automatically wakes up and decides whether it warrants a doc update.

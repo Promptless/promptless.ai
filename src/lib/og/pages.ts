@@ -68,6 +68,21 @@ const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: 
     description: 'Free tools to help you quickly improve docs quality.',
   },
   {
+    routePath: '/customers',
+    title: 'Customer stories',
+    description: 'How Mautic, Vellum, and other teams keep their docs current with Promptless.',
+  },
+  {
+    routePath: '/customers/mautic',
+    title: 'How Mautic keeps docs up to date automatically',
+    description: '129 Promptless docs PRs merged in about four months, roughly 3.5 times faster than docs written by hand.',
+  },
+  {
+    routePath: '/customers/vellum',
+    title: 'How Vellum uses Promptless to draft over 50% of their doc updates',
+    description: 'Docs became a team sport: 60% of Vellum’s product and engineering team drafts doc updates with Promptless every month.',
+  },
+  {
     routePath: '/agent-score',
     title: 'Agent Score: how well can AI agents read your docs?',
     description: 'Free, open methodology. 28 afdocs checks, a 0 to 100 score, fixes, and history for any docs site.',

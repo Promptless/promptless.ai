@@ -74,7 +74,7 @@ const redirects = {
   '/site': '/#demo',
   '/site/demo': '/#demo',
   '/video-demo': '/#demo',
-  '/blog/customer-stories-vellum': '/blog/customer-stories/vellum',
+  '/blog/customer-stories-vellum': '/customers/vellum',
   '/use-cases': '/',
   '/faq': '/docs/for-docs/reference/faq',
   // The dynamic source/destination pair is supported by Astro. The Vercel
