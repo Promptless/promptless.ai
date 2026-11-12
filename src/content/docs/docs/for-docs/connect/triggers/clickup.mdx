@@ -1,0 +1,134 @@
+---
+title: ClickUp
+description: Start Promptless documentation work when a ClickUp task moves into a status you choose, such as Ready for docs.
+id: for-docs-connect-triggers-clickup
+slug: docs/for-docs/connect/triggers/clickup
+type: how-to
+tags:
+  - connect
+  - triggers
+  - reference
+keywords:
+  - ClickUp trigger
+  - ClickUp status trigger
+  - task status change
+  - statuses
+  - ready for docs
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-engineer-owned-docs
+intent: configure a ClickUp status trigger so a ClickUp task moving into a chosen status starts Promptless documentation work
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:clickup
+concepts:
+  - trigger
+  - clickup
+prerequisites:
+  - for-docs-reference-integrations-clickup
+related-pages:
+  - for-docs-connect-triggers
+  - for-docs-reference-configuration-reference
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - How do I start Promptless documentation work from a ClickUp task?
+  - Which ClickUp task details does Promptless read?
+  - Why didn't a ClickUp status change start documentation work?
+sidebar:
+  hidden: false
+  order: 13.6
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import ClickUpConnect from '@partials/integrations/clickup-connect.mdx';
+
+## Overview
+
+A ClickUp status trigger starts Promptless documentation work when a task moves into a status you choose. Use it when your team tracks product work in ClickUp and moves a task to a status such as `Ready for docs` when its documentation should start.
+
+Connecting ClickUp sets up status-change delivery to Promptless. A ClickUp status trigger then chooses which statuses start documentation work.
+
+## Before you start
+
+- ClickUp connected to Promptless. If it isn't connected yet, [connect it](#connect-clickup) first.
+- The exact name of each ClickUp status that should start documentation work.
+
+## Connect ClickUp
+
+Skip this section if ClickUp is already connected on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<ClickUpConnect />
+
+## Add a ClickUp status trigger
+
+<Steps>
+  1. On the **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add an automatic or scheduled trigger**.
+
+  2. Under **Tasks & tickets**, select **A ClickUp status**.
+
+  3. In **Which statuses?**, add each status that should start documentation work, such as `ready for docs`.
+
+  4. Select **Add trigger**.
+</Steps>
+
+To add the same trigger in YAML mode, add a `clickup` trigger to the `triggers` section:
+
+```yaml
+triggers:
+  clickup-status:
+    trigger_type: clickup
+    match:
+      - statuses: [ready for docs, released]
+```
+
+The trigger map key, such as `clickup-status`, is yours to name. The `trigger_type` value `clickup` is a fixed type identifier.
+
+## Match a status change
+
+A ClickUp status trigger matches on one field, `statuses`. Each clause under `match` needs at least one status. A task matches when it moves into any listed status, and separate clauses are ORed.
+
+Promptless compares the full status name and ignores capitalization, so `Ready for docs` matches `ready for docs`. Promptless doesn't check status names against your ClickUp workspace. A misspelled status saves as valid configuration but never matches, so copy status names from ClickUp.
+
+The trigger watches every list, folder, and space in the connected workspace. To limit which tasks start documentation work, use a status that only those tasks reach.
+
+## What Promptless reads from the task
+
+When a task matches, Promptless receives the task ID and its previous and new status. Promptless then reads the task itself, including:
+
+- The task name, description, status, tags, and URL.
+- The space, folder, and list the task belongs to.
+- Its dates, such as created, due, and closed.
+- Custom fields whose names contain `PRs` or `Notes`.
+
+Promptless doesn't read task comments, attachments, subtasks, or linked tasks. Put what documentation needs to know in the task description, and link related pull requests in a custom field whose name contains `PRs`, such as `Linked PRs`. With GitHub or GitLab connected, Promptless then reads the code change behind the task.
+
+Promptless doesn't post anything back to ClickUp. It reports the run through your usual Slack or Microsoft Teams notification and, when your publishing policy calls for one, a documentation PR.
+
+[Backfill](/docs/for-docs/connect/triggers#backfill-suggestions) isn't available for ClickUp status triggers, so a status change from before you added the trigger starts no documentation work.
+
+## Example
+
+A product team plans features in ClickUp. Each feature task carries a `Linked PRs` custom field, and the team's workflow ends with a `Ready for docs` status. The docs lead adds a ClickUp status trigger with `statuses: [ready for docs]`.
+
+An engineer moves the task "Add CSV export to reports" to `Ready for docs`. Promptless reads the task description and, through the team's GitHub connection, the pull request in `Linked PRs`. It drafts an update to the reports guide that names the export format and the columns the pull request adds. Following the publishing policy, Promptless opens a documentation PR or leaves a draft suggestion, and sends the usual notification.
+
+## Troubleshoot a status change that started no work
+
+Check each of these in order:
+
+1. The status name in the trigger matches the ClickUp status, apart from capitalization.
+2. The task belongs to the workspace Promptless watches. Promptless watches one workspace per connection, as [Connect ClickUp](#connect-clickup) describes.
+3. The trigger shows as active on the **Triggers** tab. A trigger shows as inactive while ClickUp is disconnected.
+
+If all three hold, disconnect ClickUp on the [Integrations page](https://app.gopromptless.ai/integrations) and connect it again. Connecting again creates a new webhook in your ClickUp workspace.
+
+## See also
+
+- [ClickUp integration](/docs/for-docs/reference/integrations/clickup), for what connecting and disconnecting ClickUp does
+- [Triggers](/docs/for-docs/connect/triggers), for how triggers work and how to follow what one did
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger field
