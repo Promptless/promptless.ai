@@ -1,0 +1,45 @@
+{/* Connect LaunchDarkly to Promptless with a service token. Embedded in the
+    LaunchDarkly integration and LaunchDarkly flag trigger pages; the host page
+    supplies the heading. */}
+
+import { Steps } from '@astrojs/starlight/components';
+
+You need an admin role in your Promptless organization to connect LaunchDarkly, and a LaunchDarkly account that can create access tokens.
+
+<Steps>
+  1. In LaunchDarkly, open [Authorization settings](https://app.launchdarkly.com/settings/authorization) and create an access token.
+
+  2. Mark the token as a **service token**. A service token isn't tied to an individual user, so the integration keeps working when team members leave.
+
+  3. For the token's role, select **Inline policy**.
+
+  4. Enter this policy:
+
+     ```json
+     [
+       {
+         "effect": "allow",
+         "actions": ["createWebhook", "deleteWebhook"],
+         "resources": ["webhook/*"]
+       },
+       {
+         "effect": "allow",
+         "actions": ["viewProject"],
+         "resources": ["proj/*"]
+       }
+     ]
+     ```
+
+     The policy grants Promptless the minimum permissions it needs:
+
+     - `createWebhook` and `deleteWebhook` on `webhook/*` let Promptless manage its subscription to flag-change events.
+     - `viewProject` on `proj/*` lets Promptless view projects and flag state.
+
+  5. Save the token, and copy it. For more on API access tokens, see the [LaunchDarkly docs](https://launchdarkly.com/docs/home/account/api-create).
+
+  6. On the Promptless [Integrations](https://app.gopromptless.ai/integrations) page, select **Connect LaunchDarkly**.
+
+  7. Paste the service token into the modal, and select **Connect**.
+</Steps>
+
+Promptless validates the token and creates a webhook in your LaunchDarkly account that delivers flag-change events. LaunchDarkly then shows as connected on the Integrations page.

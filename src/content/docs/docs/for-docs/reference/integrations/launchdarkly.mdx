@@ -1,60 +1,76 @@
 ---
 title: LaunchDarkly integration (beta)
 description: Connect LaunchDarkly with a service token so a configured LaunchDarkly flag trigger can start documentation work when a feature flag changes.
+id: for-docs-reference-integrations-launchdarkly
 slug: docs/for-docs/reference/integrations/launchdarkly
-type: reference
+type: how-to
 tags:
   - reference
   - integrations
+keywords:
+  - LaunchDarkly
+  - service token
+  - feature flag
+  - flag-change webhook
+  - inline policy
+language: en
+audiences:
+  - aud-enterprise-docs-team
+  - aud-scaleup-docs-team
+intent: connect LaunchDarkly to Promptless with a service token so a LaunchDarkly flag trigger can start documentation work when a feature flag changes
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+  - integration:launchdarkly
+concepts:
+  - launchdarkly
+  - trigger
+  - release timing
+next-steps:
+  - for-docs-connect-triggers-launchdarkly
+related-pages:
+  - for-docs-connect-connection-health
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - What permissions does the LaunchDarkly service token for Promptless need?
+  - How do I connect LaunchDarkly to Promptless?
+  - What happens in LaunchDarkly when I disconnect the Promptless integration?
 sidebar:
   hidden: false
   order: 58
 ---
 
-**Used for: Triggers**
+import LaunchDarklyConnect from '@partials/integrations/launchdarkly-connect.mdx';
 
-Connecting LaunchDarkly creates a webhook that receives flag-change events from your projects. This connection is the prerequisite for flag-triggered documentation work. A configured [LaunchDarkly flag trigger](/docs/for-docs/connect/triggers/launchdarkly) is what starts documentation work when a matching feature flag changes.
+## Overview
 
-## Installation
+Connect LaunchDarkly so Promptless can start documentation work when a feature flag changes. Connecting creates a webhook in your LaunchDarkly account that sends Promptless flag-change events from all your projects. The connection alone starts no work. A [LaunchDarkly flag trigger](/docs/for-docs/connect/triggers/launchdarkly) decides which flag changes start documentation work.
 
-1. In your LaunchDarkly account, [create an Access Token](https://app.launchdarkly.com/settings/authorization). Mark it as a **service token** and select **Inline policy** for its role. Use this policy:
+Promptless reads projects and flag state, and it manages only its own webhook. It never edits a flag. The LaunchDarkly integration is in beta.
 
-   ```json
-   [
-     {
-       "effect": "allow",
-       "actions": ["createWebhook", "deleteWebhook"],
-       "resources": ["webhook/*"]
-     },
-     {
-       "effect": "allow",
-       "actions": ["viewProject"],
-       "resources": ["proj/*"]
-     }
-   ]
-   ```
+In this guide, you create a LaunchDarkly service token, connect it in Promptless, and disconnect when you no longer need flag-triggered work.
 
-   This grants Promptless the minimum permissions needed:
+## Before you start
 
-   - **createWebhook** and **deleteWebhook** on `webhook/*` let Promptless manage its subscription to flag-change events
-   - **viewProject** on `proj/*` lets Promptless view projects and flag state
+- An admin role in your Promptless organization.
+- A LaunchDarkly account that can create access tokens.
 
-   We recommend service tokens over personal access tokens because they are not tied to individual users. The integration keeps working when team members leave. See the [LaunchDarkly docs](https://launchdarkly.com/docs/home/account/api-create) for more on API access tokens.
+## Connect LaunchDarkly
 
-2. Click "Connect LaunchDarkly" from the [integrations page](https://app.gopromptless.ai/integrations).
+<LaunchDarklyConnect />
 
-3. Paste your service token in the modal and click Connect.
+Promptless authenticates to LaunchDarkly with the service token. It verifies each webhook delivery with an HMAC-SHA256 signature, using a signing secret unique to your connection.
 
-4. Verify that LaunchDarkly shows as connected in the integrations page.
+## Disconnect LaunchDarkly
 
-## Authentication model
+- On the [Integrations](https://app.gopromptless.ai/integrations) page, on the LaunchDarkly card, select **Disconnect LaunchDarkly**.
 
-Promptless uses API token authentication for LaunchDarkly integrations. When you connect, Promptless validates your service token and automatically creates a webhook in your LaunchDarkly account. This ensures:
+Promptless removes its webhook from your LaunchDarkly account, and flag changes stop reaching Promptless. To revoke the service token too, delete it in LaunchDarkly's [Authorization settings](https://app.launchdarkly.com/settings/authorization).
 
-- Secure webhook delivery with HMAC-SHA256 signature verification
-- A unique signing secret for each integration
-- Ability to revoke access at any time
+## See also
 
-To disconnect, click the LaunchDarkly card on the integrations page and select Disconnect. This removes the webhook from your LaunchDarkly account.
-
-If a configured flag trigger stops starting documentation work after a disconnect, a revoked token, or a failed webhook signature check, see [Connection health](/docs/for-docs/connect/connection-health).
+- [LaunchDarkly flag trigger](/docs/for-docs/connect/triggers/launchdarkly), to choose which flag changes start documentation work
+- [Connection health](/docs/for-docs/connect/connection-health), if a flag trigger stops starting documentation work after a disconnect, a revoked token, or a failed webhook signature check
