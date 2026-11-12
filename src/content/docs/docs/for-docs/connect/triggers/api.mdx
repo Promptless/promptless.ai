@@ -1,66 +1,112 @@
 ---
 title: API triggers
 description: Request documentation updates from your CI/CD pipeline or any system that can make an HTTP request, using a Promptless API trigger.
+id: for-docs-connect-triggers-api
 slug: docs/for-docs/connect/triggers/api
-type: reference
+type: how-to
 tags:
   - connect
   - triggers
   - reference
+keywords:
+  - API trigger
+  - POST /v1/triggers
+  - Promptless API key
+  - Idempotency-Key
+  - suggestions feed
+  - task status API
+  - CI/CD documentation updates
+language: en
+audiences:
+  - aud-devrel-devex
+  - aud-engineer-owned-docs
+  - aud-enterprise-docs-team
+intent: create a Promptless API key and call the API to submit documentation tasks, poll suggestions, and follow task status from CI or other systems
+lifecycle: published
+last-updated: 2026-10-20
+applies-to:
+  - promptless-for-docs
+concepts:
+  - api
+  - trigger
+  - suggestion
+related-pages:
+  - for-docs-connect-triggers-mcp
+  - for-docs-get-the-most-out-zapier-recipes
+  - for-docs-connect-triggers-jira-automation
+  - for-docs-reference-configuration-reference
+risks:
+  - privileged
+  - destructive
+  - irreversible
+sample-questions:
+  - How do I trigger a Promptless documentation update from a CI/CD pipeline?
+  - How do I make API trigger submissions safe to retry?
+  - How do I poll the Promptless API for merged or closed suggestions?
+  - Can I restore a revoked Promptless API key?
 sidebar:
   hidden: false
   order: 14
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside, Steps } from '@astrojs/starlight/components';
 
-API triggers let external systems request documentation updates from Promptless. Connect your CI/CD pipelines, custom automation tools, or any system that can make HTTP requests.
+## Overview
 
-<Aside type="tip">
-  For interactive editor use without managing an API key, connect over MCP instead. Choose by caller. An API key suits server-to-server and CI callers. [MCP triggers](/docs/for-docs/connect/triggers/mcp) suit your editor, with no key to create or paste.
-</Aside>
+An API trigger lets your CI/CD pipeline, automation tools, or any system that can make an HTTP request ask Promptless for a documentation update. Use it to:
 
-## Use cases
+- Request documentation updates from a CI/CD pipeline, for example after a deployment.
+- Connect ticketing, project management, or internal tools to Promptless.
+- Build automations, such as [Zapier recipes](/docs/for-docs/get-the-most-out/zapier-recipes) or a [Jira Automation flow](/docs/for-docs/connect/triggers/jira-automation).
+- Poll for the suggestions and finished tasks Promptless produces, so another system can act on them.
 
-API triggers work well when you want to:
+An API request runs through the same pipeline as every other trigger. Promptless checks your API key and request, routes the request to your configured doc collections, and works from your instructions and connected context sources. When the docs need an update, it creates suggestions that follow your [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
 
-- Integrate Promptless into CI/CD pipelines that run after deployments
-- Build custom automation workflows that trigger documentation updates
-- Connect external systems (ticketing, project management, custom tools) to Promptless
-- Programmatically request documentation updates without using Slack or the dashboard
+This guide covers creating an API key, submitting a task, polling the read endpoints, and following a task's status and conversation.
 
 <Aside type="tip">
-  For Zapier automations built on this trigger, see [Zapier recipes](/docs/for-docs/get-the-most-out/zapier-recipes).
+  Choose by caller. An API key suits server-to-server and CI callers. [MCP triggers](/docs/for-docs/connect/triggers/mcp) suit your editor, with no key to create or paste.
 </Aside>
 
 ## Set up API triggers
 
-API triggers are a built-in trigger type that's always active when an API key exists, no YAML configuration required.
+API triggers need no YAML configuration. They're active whenever your organization has an API key.
 
 ### Create an API key
 
-You create API keys from your dashboard, and each key authorizes requests for your whole organization. Only organization admins can create or revoke keys.
+Each API key authorizes requests for your whole organization. Only organization admins can create or revoke keys.
 
-1. Go to [**Settings > API Access**](https://app.gopromptless.ai/settings/api).
-2. In the **Create API key** section, enter a **Name** that says what the key is for. A clear name lets you tell your keys apart when you revoke one later.
-3. Select **Create key**.
-4. Copy the secret from the **Copy this key now** section as soon as it appears. Promptless shows it only once.
+<Steps>
+  1. Go to [**Settings > API Access**](https://app.gopromptless.ai/settings/api).
+
+  2. In the **Create API key** section, enter a **Name** that says what the key is for. A clear name tells your keys apart when you revoke one later.
+
+  3. Select **Create key**.
+
+  4. Copy the secret from the **Copy this key now** section as soon as it appears. Promptless shows it only once.
+</Steps>
 
 <Aside type="caution">
   Store your API key securely. Promptless stores only a hash of the key for validation.
 </Aside>
 
-### Key management
+### Manage and rotate keys
 
-- **No single active key**: An organization can hold many API keys at once, each named for the integration that uses it.
-- **Existing keys carry forward**: If your organization already had an API key, it keeps working and appears in the list under the name `Default`.
-- **Purpose-based names**: Give each key a name that describes what it's for, such as a CI pipeline, a Zapier connection, or a script. A separate key per integration lets you revoke or rotate that one key without touching the others. Do that after you retire that integration, or after a leak. Each active key needs a distinct name within your organization.
-- **Independent revocation**: Revoking or creating a key affects only that key; the others keep working. This replaces the earlier behavior, where regenerating the key logged out every other caller. Revoking is permanent. A revoked key can't be restored, so move any caller still using it to another key first.
-- **At-a-glance status**: Each key in the list shows its **Name** and its key prefix (`sk-pl-...`, under the **Key** column). It also shows when it was **Created** and when it was **Last used**. Each key row has its own **Revoke** control; select it and confirm on that row to remove the key.
+- An organization can hold many API keys at once. Each active key needs a distinct name within your organization.
+- Give each integration its own key, named for what uses it, such as a CI pipeline, a Zapier connection, or a script. You can then revoke or rotate one integration's key, after you retire the integration or after a leak, without touching the others.
+- A key your organization created before keys had names keeps working and appears in the list as `Default`.
+- The key list shows each key's **Name**, its `sk-pl-...` prefix in the **Key** column, and when it was **Created** and **Last used**.
+- Creating or revoking a key affects only that key. To revoke one, select **Revoke** on its row and confirm. Revoking is permanent, and a revoked key can't be restored, so move any caller still using it to another key first.
 
-<Aside type="tip">
-  To rotate a key, create a new one, move your integrations over to it, then revoke the old one. Because both keys work at the same time, there's no forced break and no need to cut every consumer over at once.
-</Aside>
+To rotate a key without a break in service:
+
+<Steps>
+  1. Create a new key.
+
+  2. Move your integrations to the new key. Both keys work at the same time, so you can move callers one at a time.
+
+  3. Revoke the old key.
+</Steps>
 
 ## Use the API
 
@@ -68,7 +114,7 @@ For the full request and response schemas, status codes, and an interactive expl
 
 ### Base URL and versioning
 
-All requests use the base URL `https://api.gopromptless.ai`. The current API version is `/v1`. New integrations should use `POST /v1/triggers`; the unversioned `POST /triggers` is retained for callers built before versioning existed and runs the same operation through the same handler.
+All requests use the base URL `https://api.gopromptless.ai`. The current API version is `/v1`. Use `POST /v1/triggers`. The unversioned `POST /triggers` path runs the same operation, for callers built before versioning.
 
 ### Endpoint
 
@@ -78,13 +124,13 @@ POST /v1/triggers
 
 ### Authentication
 
-Include your API key as a Bearer token in the Authorization header:
+Include your API key as a Bearer token in the `Authorization` header:
 
-```
+```http
 Authorization: Bearer sk-pl-your-api-key
 ```
 
-The bearer token determines which organization receives the trigger. There is no need to specify an organization ID in the URL.
+The bearer token determines which organization receives the trigger, so the URL carries no organization ID.
 
 ### Request format
 
@@ -178,7 +224,7 @@ A repeat with the same key returns the original trigger event:
 | 500    | `enqueue_failed`             | The trigger could not be enqueued for processing.                    |
 | 503    | `runtime_store_unavailable`  | Trigger intake is temporarily unavailable.                           |
 
-`invalid_since` and `invalid_filter` come from the [suggestions endpoint](#suggestions). The API enforces no rate limits today, so it never returns a `429`.
+`invalid_since` and `invalid_filter` come from the [suggestions endpoint](#suggestions). The API enforces no rate limits and returns no `429` status.
 
 ## Read endpoints
 
@@ -308,12 +354,12 @@ Narrow the feed with these query parameters, all optional:
 
 Results come back newest-first, ordered by the selected `event`'s timestamp in descending order. Build an incremental loop against that order:
 
-- Track the newest event timestamp you have seen and pass it as `since` on the next poll, rather than a wall-clock "now". Because `since` is an inclusive lower limit, this returns an event that committed a moment after your last poll instead of skipping it.
-- Since `since` is inclusive, a row whose event timestamp equals `since` is returned again. Deduplicate results by `id`.
+- Track the newest event timestamp you have seen, and pass it as `since` on the next poll. Because `since` is an inclusive lower limit, the next poll returns an event that committed a moment after your last one.
+- A row whose event timestamp equals `since` comes back again, so deduplicate results by `id`.
 - Omitting `since` returns from the start of the available history.
 - Page through a large result set with `limit` and `offset`. A response that returns fewer than `limit` suggestions means you have reached the end of the current set.
 - `event` accepts only one value per request and cannot be combined with `status`. The full lifecycle covers created, merged, and closed-without-merge. Track it by running a separate polling loop with its own `since` cursor for each `event` value.
-- There is no cursor token; polling is driven entirely by `since`, `limit`, and `offset`.
+- Polling uses only `since`, `limit`, and `offset`, with no cursor token.
 
 A minimal incremental loop for one `event` value:
 
@@ -416,7 +462,7 @@ Poll this feed the way you poll the [Suggestions](#suggestions) feed, ordered by
 
 - Results come back newest-completion-first, ordered by completion timestamp and then by `id`.
 - Track the newest `finished_at` you have seen and pass it as `since` on the next poll. Because `since` is an inclusive lower limit, a task that finishes a moment after your last poll comes back on the next one.
-- Since `since` is inclusive, a task whose `finished_at` equals `since` comes back again. Deduplicate by `trigger_event_id` and `finished_at` together. A reopened task that finishes again keeps its `trigger_event_id` but carries a new `finished_at`, so deduplicating on the pair keeps its latest outcome instead of discarding it.
+- A task whose `finished_at` equals `since` comes back again. Deduplicate by `trigger_event_id` and `finished_at` together. A reopened task that finishes again keeps its `trigger_event_id` but carries a new `finished_at`, so deduplicating on the pair keeps its latest outcome instead of discarding it.
 - Page through a large result set with `limit` and `offset`. A response with fewer than `limit` tasks means you have reached the end of the current set.
 - A task finishing mid-poll moves rows to a higher offset, so a walk by `offset` returns it on a later page.
 
@@ -607,15 +653,10 @@ View all API triggers on the [Triggers page](https://app.gopromptless.ai/trigger
 
 Set the **Trigger source** filter to "API" on the [Suggestions list](https://app.gopromptless.ai/suggestions) to see documentation suggestions that came from API requests.
 
-## How it works
+## See also
 
-When you submit an API request:
-
-1. **Validation**: Promptless validates your API key and request format.
-2. **Routing**: The request is routed to your configured doc collections.
-3. **Processing**: Promptless analyzes your instructions along with configured context sources.
-4. **Suggestion Creation**: If documentation updates are needed, Promptless creates suggestions.
-
-<Aside type="note">
-  API triggers use the same processing pipeline as other trigger types. The suggestions appear in your dashboard and follow your configured [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
-</Aside>
+- [API Reference](/docs/for-docs/api/operations/submitapitriggerv1/), for full request and response schemas and an interactive explorer
+- [MCP triggers](/docs/for-docs/connect/triggers/mcp), to start and follow documentation tasks from your editor
+- [Trigger Promptless from Jira Automation](/docs/for-docs/connect/triggers/jira-automation), to call the API trigger from a Jira flow
+- [Zapier recipes](/docs/for-docs/get-the-most-out/zapier-recipes), for Zapier automations built on the API trigger
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#policies), for the publishing policies API suggestions follow

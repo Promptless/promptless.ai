@@ -1,0 +1,159 @@
+---
+/**
+ * Agent Score report for one site: /agent-score/<host>[/<path>].
+ *
+ * Rendered on demand (Vercel adapter) from GET {api}/sites/<slug>, so every
+ * site gets real per-site <title>, description, and social cards. Unscored
+ * sites render a friendly 404 with the scan form prefilled.
+ */
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import PageAssets from '@components/agent-score/PageAssets.astro';
+import ReportHeader from '@components/agent-score/ReportHeader.astro';
+import ScoreHistory from '@components/agent-score/ScoreHistory.astro';
+import CategoryList from '@components/agent-score/CategoryList.astro';
+import ReportFooter from '@components/agent-score/ReportFooter.astro';
+import CreditLine from '@components/agent-score/CreditLine.astro';
+import ReportState from '@components/agent-score/ReportState.astro';
+import ReportClient from '@components/agent-score/ReportClient.astro';
+import { fetchSite, getSiteJsonUrl } from '@lib/agent-score/api';
+import { PUBLIC_AGENT_SCORE_API_BASE, getAgentScoreApiBase } from '@lib/agent-score/config';
+import { actionableChecks, buildFixPrompt, summarySentence } from '@lib/agent-score/report';
+import { parseSlug, scorePagePath } from '@lib/agent-score/slug';
+import type { SiteResponse } from '@lib/agent-score/types';
+
+export const prerender = false;
+
+const siteOrigin = (Astro.site?.href ?? 'https://promptless.ai/').replace(/\/+$/, '');
+const rawParam = Astro.params.site ?? '';
+const parsed = parseSlug(rawParam);
+
+// Canonicalize: lowercase host, no empty segments or trailing slash.
+if (parsed.ok && parsed.slug !== rawParam) {
+  return Astro.redirect(scorePagePath(parsed.slug), 301);
+}
+
+type View =
+  | { kind: 'report'; site: SiteResponse }
+  | { kind: 'not_found'; slug: string }
+  | { kind: 'invalid'; message: string }
+  | { kind: 'error'; slug: string; message: string };
+
+let view: View;
+if (!parsed.ok) {
+  view = { kind: 'invalid', message: parsed.reason };
+} else {
+  const result = await fetchSite(parsed.slug);
+  view =
+    result.kind === 'ok'
+      ? { kind: 'report', site: result.site }
+      : result.kind === 'not_found'
+        ? { kind: 'not_found', slug: parsed.slug }
+        : { kind: 'error', slug: parsed.slug, message: result.message };
+}
+
+const fallbackCard = `${siteOrigin}/og/agent-score.png`;
+let title: string;
+let description: string;
+let ogTitle: string;
+let ogImage = fallbackCard;
+const extraHead: Array<{ tag: 'meta' | 'link'; attrs: Record<string, string> }> = [];
+
+if (view.kind === 'report') {
+  const { site } = view;
+  const { latest } = site;
+  title = `${site.displayName} Agent Score: ${latest.overall}/100 (${latest.grade})`;
+  description = `${summarySentence(site.displayName, latest)} See every afdocs check, the fixes, and score history.`;
+  ogTitle = `${site.displayName} scored ${latest.overall}/100 (Grade ${latest.grade}) on Agent Score`;
+  ogImage = `${siteOrigin}${scorePagePath(site.slug)}/og.png?v=${encodeURIComponent(latest.scanId.slice(0, 12))}`;
+  extraHead.push(
+    { tag: 'link', attrs: { rel: 'alternate', type: 'text/markdown', href: `${scorePagePath(site.slug)}.md` } },
+    { tag: 'link', attrs: { rel: 'alternate', type: 'application/json', href: getSiteJsonUrl(site.slug, PUBLIC_AGENT_SCORE_API_BASE) } },
+  );
+  Astro.response.headers.set('Cache-Control', 'public, max-age=0, s-maxage=60, stale-while-revalidate=300');
+} else {
+  const label = view.kind === 'invalid' ? 'Agent Score' : view.slug;
+  title = view.kind === 'not_found' ? `Score ${label} on Agent Score` : view.kind === 'error' ? `${label} on Agent Score` : 'Agent Score: site not found';
+  description = 'Agent Score grades how well AI agents can read a docs site, using the open-source afdocs checks.';
+  ogTitle = title;
+  extraHead.push({ tag: 'meta', attrs: { name: 'robots', content: 'noindex' } });
+  Astro.response.status = view.kind === 'error' ? 503 : 404;
+  Astro.response.headers.set('Cache-Control', 'no-store');
+}
+
+const head = [
+  { tag: 'meta' as const, attrs: { property: 'og:title', content: ogTitle } },
+  { tag: 'meta' as const, attrs: { property: 'og:description', content: description } },
+  { tag: 'meta' as const, attrs: { property: 'og:image', content: ogImage } },
+  { tag: 'meta' as const, attrs: { property: 'og:image:width', content: '1200' } },
+  { tag: 'meta' as const, attrs: { property: 'og:image:height', content: '630' } },
+  { tag: 'meta' as const, attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+  { tag: 'meta' as const, attrs: { name: 'twitter:title', content: ogTitle } },
+  { tag: 'meta' as const, attrs: { name: 'twitter:description', content: description } },
+  { tag: 'meta' as const, attrs: { name: 'twitter:image', content: ogImage } },
+  ...extraHead,
+];
+
+const apiBase = getAgentScoreApiBase();
+const report =
+  view.kind === 'report'
+    ? (() => {
+        const { site } = view;
+        const pageUrl = `${siteOrigin}${scorePagePath(site.slug)}`;
+        return {
+          site,
+          pageUrl,
+          jsonUrl: getSiteJsonUrl(site.slug, apiBase),
+          mdPath: `${scorePagePath(site.slug)}.md`,
+          shareText: `${site.displayName} scores ${site.latest.overall}/100 (Grade ${site.latest.grade}) on Agent Score, the AI-agent readiness check for docs.`,
+          fixPrompt: buildFixPrompt(site, pageUrl),
+          hasIssues: actionableChecks(site.latest).length > 0 || site.latest.diagnostics.length > 0,
+        };
+      })()
+    : null;
+---
+
+<StarlightPage
+  hasSidebar={false}
+  frontmatter={{
+    title,
+    description,
+    template: 'doc',
+    tableOfContents: false,
+    editUrl: false,
+    pagefind: false,
+    head,
+  }}
+>
+  <div class="pl-site-page pl-as-page not-content">
+    <PageAssets />
+    {
+      report ? (
+        <div class="pl-as-report">
+          <ReportHeader
+            site={report.site}
+            pageUrl={report.pageUrl}
+            jsonUrl={report.jsonUrl}
+            mdPath={report.mdPath}
+            apiBase={apiBase}
+            shareText={report.shareText}
+            fixPrompt={report.fixPrompt}
+            hasIssues={report.hasIssues}
+          />
+          <ScoreHistory site={report.site} />
+          <CategoryList latest={report.site.latest} />
+          <ReportFooter latest={report.site.latest} />
+          <ReportClient />
+        </div>
+      ) : view.kind === 'invalid' ? (
+        <ReportState kind="invalid" message={view.message} />
+      ) : view.kind === 'not_found' ? (
+        <>
+          <ReportState kind="not_found" slug={view.slug} />
+          <CreditLine />
+        </>
+      ) : view.kind === 'error' ? (
+        <ReportState kind="error" slug={view.slug} message={view.message} />
+      ) : null
+    }
+  </div>
+</StarlightPage>

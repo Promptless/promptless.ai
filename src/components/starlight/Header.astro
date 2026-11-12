@@ -6,6 +6,12 @@ import AnalyticsClickTracker from '@components/shared/AnalyticsClickTracker.astr
 import PostHog from '@components/posthog.astro';
 
 const showHomeAnnouncement = Astro.url.pathname === '/';
+
+// LavaCon 2026 takes over the homepage announcement slot until the booth closes
+// (Wednesday, October 28, 12:30 PM in Charlotte). The site is static, so both
+// announcements are rendered and an inline script swaps back to the product
+// announcement once this time passes; without JS the LavaCon link stays.
+const LAVACON_ANNOUNCEMENT_UNTIL = '2026-10-28T12:30:00-04:00';
 ---
 
 <p class="sr-only">
@@ -18,18 +24,47 @@ const showHomeAnnouncement = Astro.url.pathname === '/';
   <Fragment slot="nav-tools">
     {
       showHomeAnnouncement ? (
-        <a
-          class="pl-header-announcement"
-          href="/blog/product-updates/introducing-promptless-for-agent-instructions"
-          data-track-action="read_product_announcement"
-          data-track-funnel="education"
-          data-track-location="nav"
-          data-track-campaign="agent_instructions_launch"
-        >
-          <span class="pl-header-announcement-badge">New</span>
-          <span>Promptless for your AI workforce</span>
-          <span aria-hidden="true">→</span>
-        </a>
+        <>
+          <a
+            class="pl-header-announcement pl-header-announcement-wide"
+            id="pl-header-announcement-lavacon"
+            href="/lavacon"
+            data-until={LAVACON_ANNOUNCEMENT_UNTIL}
+            data-track-action="view_event"
+            data-track-funnel="evaluation"
+            data-track-location="nav"
+            data-track-campaign="lavacon-2026"
+          >
+            <span class="pl-header-announcement-badge">Oct 25–28</span>
+            <span class="pl-header-announcement-text">Meet us at the LavaCon Content Strategy Conference</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <a
+            class="pl-header-announcement"
+            id="pl-header-announcement-product"
+            href="/blog/product-updates/introducing-promptless-for-agent-instructions"
+            data-track-action="read_product_announcement"
+            data-track-funnel="education"
+            data-track-location="nav"
+            data-track-campaign="agent_instructions_launch"
+            hidden
+          >
+            <span class="pl-header-announcement-badge">New</span>
+            <span>Promptless for your AI workforce</span>
+            <span aria-hidden="true">→</span>
+          </a>
+          <script is:inline>
+            (() => {
+              const lavacon = document.getElementById('pl-header-announcement-lavacon');
+              const product = document.getElementById('pl-header-announcement-product');
+              if (!lavacon || !product) return;
+              if (Date.now() >= Date.parse(lavacon.dataset.until)) {
+                lavacon.hidden = true;
+                product.hidden = false;
+              }
+            })();
+          </script>
+        </>
       ) : (
         <Search />
       )
@@ -69,6 +104,21 @@ const showHomeAnnouncement = Astro.url.pathname === '/';
       width: 100%;
     }
 
+    .pl-header-announcement[hidden] {
+      display: none;
+    }
+
+    .pl-header-announcement-wide {
+      max-width: 31rem;
+    }
+
+    .pl-header-announcement-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .pl-header-announcement:hover {
       background: linear-gradient(135deg, rgba(105, 119, 247, 0.18), rgba(255, 255, 255, 0.055));
       border-color: rgba(148, 159, 255, 0.38);
@@ -86,6 +136,7 @@ const showHomeAnnouncement = Astro.url.pathname === '/';
       margin-inline-end: 0.2rem;
       padding: 0.22rem 0.4rem;
       text-transform: uppercase;
+      white-space: nowrap;
       box-shadow: 0 4px 12px rgba(84, 98, 235, 0.28);
     }
   }

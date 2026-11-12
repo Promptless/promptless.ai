@@ -1,0 +1,114 @@
+---
+/** Client behavior for the score page: rescan and active-scan polling. */
+---
+
+<script>
+  import { capture, gaCtaClick } from '@lib/agent-score/client/analytics';
+  import { getProgressElements, pollScan, renderProgress, ScanRequestError, startScan } from '@lib/agent-score/client/scan';
+
+  // Drop the cache-busting ?scan= param a fresh scan redirect adds.
+  const current = new URL(window.location.href);
+  if (current.searchParams.has('scan')) {
+    current.searchParams.delete('scan');
+    history.replaceState(history.state, '', current.pathname + current.search + current.hash);
+  }
+
+  // --- Rescan --------------------------------------------------------------
+  const rescan = document.querySelector<HTMLButtonElement>('[data-as-rescan]');
+  const progressRoot = document.querySelector<HTMLElement>('[data-rescan-progress]');
+  const status = document.querySelector<HTMLElement>('[data-rescan-status]');
+  const cancel = progressRoot?.querySelector<HTMLButtonElement>('[data-progress-cancel]');
+  if (rescan && progressRoot && status && cancel) {
+    const apiBase = rescan.dataset.apiBase ?? '';
+    const slug = rescan.dataset.slug ?? '';
+    const latestScan = rescan.dataset.latestScan ?? '';
+    const label = rescan.querySelector<HTMLElement>('[data-rescan-label]');
+    const progress = getProgressElements(progressRoot);
+    let active: { controller: AbortController; startedAt: number } | null = null;
+
+    const setStatus = (message: string, tone: 'neutral' | 'error' = 'neutral') => {
+      status.textContent = message;
+      status.dataset.tone = tone;
+    };
+    const setBusy = (busy: boolean) => {
+      rescan.disabled = busy;
+      if (label) label.textContent = busy ? 'Scanning…' : 'Rescan';
+    };
+    const reloadWith = (scanId: string) => {
+      window.location.replace(`${window.location.pathname}?scan=${encodeURIComponent(scanId)}`);
+    };
+
+    const begin = () => {
+      const controller = new AbortController();
+      active = { controller, startedAt: Date.now() };
+      return controller.signal;
+    };
+
+    // Stops following the scan. It finishes on the backend regardless.
+    cancel.addEventListener('click', () => {
+      if (!active) return;
+      capture('agent_score_scan_cancelled', {
+        slug,
+        location: 'agent_score_report',
+        elapsed_seconds: Math.round((Date.now() - active.startedAt) / 1000),
+      });
+      active.controller.abort();
+      active = null;
+      progressRoot.hidden = true;
+      setBusy(false);
+      rescan.focus();
+    });
+
+    const follow = async (scanId: string, signal: AbortSignal) => {
+      setBusy(true);
+      const startedAt = Date.now();
+      try {
+        const final = await pollScan(apiBase, scanId, (update) => renderProgress(progress, update, startedAt), signal);
+        active = null;
+        if (final.status === 'complete') {
+          reloadWith(final.scanId);
+          return;
+        }
+      } catch (error) {
+        if (signal.aborted) return;
+        active = null;
+        progressRoot.hidden = true;
+        setStatus(error instanceof ScanRequestError ? error.message : 'Lost track of the scan. Reload to check on it.', 'error');
+      }
+      setBusy(false);
+    };
+
+    rescan.addEventListener('click', async () => {
+      setStatus('');
+      capture('agent_score_rescan_requested', { slug, location: 'agent_score_report' });
+      gaCtaClick('agent_score_rescan', 'agent_score_report', window.location.pathname);
+      setBusy(true);
+      const signal = begin();
+      renderProgress(progress, { status: 'queued', progress: null, error: null, slug }, Date.now());
+      try {
+        const created = await startScan(apiBase, rescan.dataset.scanUrl ?? '', '', signal);
+        if (created.cached) {
+          active = null;
+          progressRoot.hidden = true;
+          setBusy(false);
+          if (created.scanId !== latestScan) {
+            reloadWith(created.scanId);
+            return;
+          }
+          setStatus('This site was scanned less than 10 minutes ago, so this is already the latest result. Try again later.');
+          return;
+        }
+        await follow(created.scanId, signal);
+      } catch (error) {
+        if (signal.aborted) return;
+        active = null;
+        progressRoot.hidden = true;
+        setBusy(false);
+        setStatus(error instanceof ScanRequestError ? error.message : 'Could not start the scan. Please try again.', 'error');
+      }
+    });
+
+    // Someone else's scan of this site is already running: show it.
+    if (rescan.dataset.activeScan) follow(rescan.dataset.activeScan, begin());
+  }
+</script>
