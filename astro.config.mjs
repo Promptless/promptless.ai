@@ -180,7 +180,10 @@ export default defineConfig({
         // e.g. "context-sources"). Section index pages that sit beside a
         // like-named directory (Triggers, Context sources, Integrations) are
         // listed explicitly so they stay the first item in their group, matching
-        // the previous Promptless for Docs output. The Sidebar override renders a
+        // the previous Promptless for Docs output. A group's first page is
+        // labeled "Overview" in the nav rather than repeating the group label;
+        // the page keeps its own title (for example, Connect > Triggers > Overview
+        // opens the page titled "Triggers"). The Sidebar override renders a
         // compact product switcher from the plugin's route data above each topic's
         // own sidebar. Promptless for Agent Instructions starts with one overview.
         starlightSidebarTopics(
@@ -199,7 +202,7 @@ export default defineConfig({
                       label: 'Triggers',
                       collapsed: true,
                       items: [
-                        { label: 'Triggers', slug: 'docs/for-docs/connect/triggers' },
+                        { label: 'Overview', slug: 'docs/for-docs/connect/triggers' },
                         { autogenerate: { directory: 'docs/for-docs/connect/triggers', collapsed: true } },
                       ],
                     },
@@ -207,7 +210,7 @@ export default defineConfig({
                       label: 'Context sources',
                       collapsed: true,
                       items: [
-                        { label: 'Context sources', slug: 'docs/for-docs/connect/context-sources' },
+                        { label: 'Overview', slug: 'docs/for-docs/connect/context-sources' },
                         { autogenerate: { directory: 'docs/for-docs/connect/context-sources', collapsed: true } },
                       ],
                     },
@@ -239,7 +242,7 @@ export default defineConfig({
                       label: 'Teach a custom task',
                       collapsed: true,
                       items: [
-                        { label: 'Teach a custom task', slug: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task' },
+                        { label: 'Overview', slug: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task' },
                         { autogenerate: { directory: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
                       ],
                     },
