@@ -8,7 +8,7 @@ skills and resources each server path serves. Nobody writes those sections by ha
 
 | File | Role |
 | --- | --- |
-| `export-catalog.py` | Imports the definitions from a Promptless/promptless checkout and writes what `tools/list`, `skills/list`, and `resources/list` return on each server path to `src/data/mcp/catalog.json`. |
+| `export-catalog.py` | Imports the definitions from a Promptless/promptless checkout and writes what `tools/list`, `skills/list`, and `resources/list` return on each documented server path to `src/data/mcp/catalog.json`. `DOCUMENTED_SURFACES` lists those paths by profile key; a server path missing from it isn't exported. |
 | `src/data/mcp/catalog.json` | The committed catalog snapshot. It records the source commit it came from. |
 | `generate.ts` | Renders the catalog into MDX partials under `src/partials/generated/mcp/`. With `--check`, it fails when the partials are stale or the page's tool headings don't match the catalog. |
 | `src/partials/generated/mcp/` | Generated partials. Don't edit them by hand. |

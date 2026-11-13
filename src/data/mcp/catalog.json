@@ -1,7 +1,7 @@
 {
   "source": {
     "repository": "Promptless/promptless",
-    "commit": "ae3b0a25d6b49ca864e0c2b4ee8eb0cf9d84105a"
+    "commit": "09a73166254726de1858500fd37e080fa21cd022"
   },
   "surfaces": [
     {
@@ -71,13 +71,13 @@
     {
       "name": "submit_documentation_task",
       "title": "Submit a documentation task",
-      "description": "Ask Promptless to update your documentation. Promptless researches the affected docs and proposes changes when needed. Returns a trigger_event_id right away, but the work itself takes several minutes. The response includes the next_call for following the submitted work with wait_for_task_update. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#submit_documentation_task",
+      "description": "Call this to have Promptless update documentation, set up a doc collection, or change its configuration. The task starts a Promptless agent with its own workflows. It returns a trigger_event_id at once. The work takes several minutes. Follow it with next_call and relay its questions here. Give the person conversation_url to watch the task and reply. For setup, omit doc_collection_id. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#submit_documentation_task",
       "inputSchema": {
         "type": "object",
         "properties": {
           "instructions": {
             "type": "string",
-            "description": "What changed and what the documentation should say about it. Include the detail a technical writer would need: behavior before and after, affected surfaces, and any naming or terminology to use."
+            "description": "What Promptless should do, in the person's words. For a documentation change, include what changed, the behavior before and after, and any terms to use. For setup, include the repository or content library that holds the docs if the person named one."
           },
           "context": {
             "type": "object",
@@ -130,6 +130,10 @@
           },
           "next_call": {
             "$ref": "#/$defs/WaitNextCall"
+          },
+          "conversation_url": {
+            "type": "string",
+            "description": "The dashboard page for this task's conversation, where the person can watch the task and reply."
           }
         },
         "$defs": {
@@ -190,7 +194,8 @@
           "trigger_event_id",
           "status",
           "message",
-          "next_call"
+          "next_call",
+          "conversation_url"
         ],
         "additionalProperties": false
       },
@@ -243,6 +248,10 @@
           },
           "next_call": {
             "$ref": "#/$defs/WaitNextCall"
+          },
+          "conversation_url": {
+            "type": "string",
+            "description": "The dashboard page for this task's conversation, where the person can watch the task and reply."
           }
         },
         "$defs": {
@@ -304,7 +313,8 @@
           "suggestion_id",
           "status",
           "message",
-          "next_call"
+          "next_call",
+          "conversation_url"
         ],
         "additionalProperties": false
       },
@@ -378,7 +388,15 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Person ids of the suggestion's assignees after this call."
+          },
+          "assignee_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Display name of each assignee, in the order of assignees. Check these against the people the call meant to assign."
           },
           "docs_pr_url": {
             "type": [
@@ -400,6 +418,7 @@
           "title",
           "labels",
           "assignees",
+          "assignee_names",
           "docs_pr_url",
           "pull_request_opened",
           "message"
@@ -781,6 +800,13 @@
                 "title": "Assignees",
                 "type": "array"
               },
+              "assignee_names": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Assignee Names",
+                "type": "array"
+              },
               "created_at": {
                 "title": "Created At",
                 "type": "string"
@@ -796,6 +822,7 @@
               "branch_name",
               "labels",
               "assignees",
+              "assignee_names",
               "created_at"
             ],
             "title": "TaskSuggestionResult",
@@ -1156,7 +1183,14 @@
                   "items": {
                     "type": "string"
                   },
-                  "description": "Assignees on the suggestion. Read these before replacing them with update_suggestion."
+                  "description": "Person ids of the suggestion's assignees. Read these before replacing them with update_suggestion."
+                },
+                "assignee_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Display name of each assignee, in the order of assignees."
                 },
                 "created_at": {
                   "type": "string",
@@ -1173,6 +1207,7 @@
                 "branch_name",
                 "labels",
                 "assignees",
+                "assignee_names",
                 "created_at"
               ],
               "additionalProperties": false
@@ -1752,7 +1787,7 @@
     {
       "name": "search_suggestions",
       "title": "Search documentation suggestions",
-      "description": "Search this organization's documentation suggestions by keyword, review status, and label. Use it to check whether a suggestion for a change already exists before submitting a new task, to find a suggestion id to request changes on, to pull a labelled queue such as the P0 suggestions, or to review past suggestions. Results are capped; when truncated is true, narrow the query. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#search_suggestions",
+      "description": "Search this organization's documentation suggestions by keyword, review status, and label. Returns newest first, with a default limit of 25 and a maximum of 100. `truncated` indicates omitted matches. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/#search_suggestions",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1854,7 +1889,14 @@
                   "items": {
                     "type": "string"
                   },
-                  "description": "Assignees on the suggestion. Read these before replacing them with update_suggestion."
+                  "description": "Person ids of the suggestion's assignees. Read these before replacing them with update_suggestion."
+                },
+                "assignee_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Display name of each assignee, in the order of assignees."
                 },
                 "created_at": {
                   "type": "string",
@@ -1871,6 +1913,7 @@
                 "branch_name",
                 "labels",
                 "assignees",
+                "assignee_names",
                 "created_at"
               ],
               "additionalProperties": false
@@ -2087,7 +2130,7 @@
     {
       "name": "get_account_status",
       "title": "Get account status",
-      "description": "Report this Promptless organization's name, whether a person has claimed it, when an unclaimed agent-created organization expires, which integrations are connected, and the next setup steps. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "description": "Call this before you answer the first question about Promptless. Use next_steps to give the person one next action. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
       "inputSchema": {
         "type": "object",
         "properties": {},
@@ -2139,6 +2182,50 @@
               "additionalProperties": false
             }
           },
+          "doc_collections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "pending_github_installs": {
+            "type": "array",
+            "description": "GitHub App installs that wait for an owner of the GitHub organization to approve them. The organization has no source control until an owner approves.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "github_org_login": {
+                  "type": "string"
+                },
+                "approval_url": {
+                  "type": "string",
+                  "description": "The GitHub page where an owner approves the install."
+                }
+              },
+              "required": [
+                "github_org_login",
+                "approval_url"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "setup_url": {
+            "type": "string",
+            "description": "Organization-specific dashboard link for connecting documentation."
+          },
           "next_steps": {
             "type": "array",
             "items": {
@@ -2152,6 +2239,9 @@
           "claimed",
           "expires_at",
           "integrations",
+          "doc_collections",
+          "pending_github_installs",
+          "setup_url",
           "next_steps"
         ],
         "additionalProperties": false
@@ -2167,7 +2257,7 @@
     {
       "name": "connect_integration",
       "title": "Connect an integration",
-      "description": "Create a link that lets a person connect one integration to this organization in their browser. Send connect_url to someone who administers that tool. They sign in to Promptless and must be a member of this organization; the first person to open a link for an unclaimed organization claims it and becomes its owner. Call get_account_status after they finish to confirm the connection. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
+      "description": "Call this when an app is missing or disconnected. It returns a deeplink that starts the connection flow for that app and returns the person to Promptless. The flow assumes the person can grant Promptless access to that app. If they cannot, some apps let them request approval from an admin, and others need an API key from an admin. After they finish, call get_account_status to confirm. Documentation: https://promptless.ai/docs/for-docs/connect/triggers/mcp/",
       "inputSchema": {
         "type": "object",
         "properties": {

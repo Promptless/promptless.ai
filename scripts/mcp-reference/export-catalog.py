@@ -2,7 +2,8 @@
 
 Reads the tool, skill, and resource definitions from a checkout of
 Promptless/promptless and writes what each MCP surface lists: `tools/list`,
-`skills/list`, and `resources/list`, as an org member sees them. The output is
+`skills/list`, and `resources/list`, as an org member sees them, for each server path listed in
+`DOCUMENTED_SURFACES`. The output is
 the input to `scripts/mcp-reference/generate.ts`, which renders the MCP tools
 reference partials.
 
@@ -25,6 +26,11 @@ import sys
 from pathlib import Path
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "src" / "data" / "mcp" / "catalog.json"
+
+# The server paths the MCP tools reference documents, by profile key. A profile the
+# server adds isn't exported until the docs cover it, so a new surface can't appear in
+# the reference unreviewed.
+DOCUMENTED_SURFACES = ("developer", "with_direct_edits")
 
 
 def _source_commit(source: Path) -> str | None:
@@ -49,6 +55,8 @@ def build_catalog(source: Path) -> dict:
     resources: dict[str, dict] = {}
     surfaces = []
     for profile in PROFILES:
+        if profile.key not in DOCUMENTED_SURFACES:
+            continue
         for mounted in profile.tools:
             definition = mounted.definition.model_dump(by_alias=True, mode="json", exclude_none=True)
             # Mirrors MountedTool.serves(): a members-only tool is hidden from the
