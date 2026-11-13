@@ -23,6 +23,7 @@ export const config = {
     '/',
     '/demo',
     '/pricing',
+    '/wall-of-love',
     '/free-tools',
     '/free-tools/:path*',
     '/agent-score',
