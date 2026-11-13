@@ -9,7 +9,6 @@
 
 const HOST_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 const PATH_SEGMENT_PATTERN = /^[A-Za-z0-9._~-]+$/;
-const MAX_PATH_SEGMENTS = 4;
 const MAX_SLUG_LENGTH = 200;
 const BLOCKED_SUFFIXES = ['.local', '.internal', '.localhost'];
 
@@ -43,9 +42,6 @@ function validateParts(host: string, segments: string[]): SlugParseResult {
   }
   if (BLOCKED_SUFFIXES.some((suffix) => host.endsWith(suffix))) {
     return { ok: false, reason: 'Enter a public hostname, like docs.example.com.' };
-  }
-  if (segments.length > MAX_PATH_SEGMENTS) {
-    return { ok: false, reason: `Paths can have at most ${MAX_PATH_SEGMENTS} segments.` };
   }
   if (segments.some((segment) => !PATH_SEGMENT_PATTERN.test(segment) || segment === '.' || segment === '..')) {
     return { ok: false, reason: 'The path can only use letters, numbers, and . _ ~ -' };
