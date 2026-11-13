@@ -146,10 +146,7 @@ Send a JSON body with your documentation instructions:
 }
 ```
 
-| Field          | Type   | Required | Description                                                                                                                                                 |
-| -------------- | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `instructions` | string | Yes      | What you want Promptless to document. Be specific about which docs to update and what changes to make.                                                      |
-| `context`      | object | No       | Additional metadata to include with the request. This appears in trigger history for reference and is passed through to the workflow as additional context. |
+`instructions` is required: say which docs to update and what to change. `context` is optional metadata that appears in trigger history and reaches the task as extra context. For the full request schema, see [Submit a task](/docs/for-docs/api/operations/submitapitriggerv1/).
 
 ### Example request
 
@@ -212,19 +209,9 @@ A repeat with the same key returns the original trigger event:
 
 ### Error responses
 
-| Status | Error                        | Description                                                          |
-| ------ | ---------------------------- | -------------------------------------------------------------------- |
-| 400    | `invalid_idempotency_key`    | The `Idempotency-Key` header is blank or longer than 255 characters. |
-| 400    | `invalid_since`              | The `since` parameter is not a valid ISO 8601 timestamp.             |
-| 400    | `invalid_filter`             | `event` and `status` were combined in the same request.              |
-| 401    | `authentication_failed`      | The API key is missing, invalid, or revoked.                         |
-| 409    | `org_not_configured`         | Your organization hasn't finished setting up Promptless.             |
-| 409    | `no_eligible_doc_collection` | No configured doc collection is eligible to receive the request.     |
-| 422    | Validation error             | The request body is invalid.                                         |
-| 500    | `enqueue_failed`             | The trigger could not be enqueued for processing.                    |
-| 503    | `runtime_store_unavailable`  | Trigger intake is temporarily unavailable.                           |
+Each [API Reference](/docs/for-docs/api/operations/submitapitriggerv1/) operation lists the status codes and `error` values it returns.
 
-`invalid_since` and `invalid_filter` come from the [suggestions endpoint](#suggestions). The API enforces no rate limits and returns no `429` status.
+The API enforces no rate limits and returns no `429` status.
 
 ## Read endpoints
 
@@ -314,39 +301,11 @@ curl "https://api.gopromptless.ai/v1/suggestions?event=merged&limit=50" \
 }
 ```
 
-Each suggestion carries these fields:
-
-| Field                  | Type                  | Description                                                                                                                                                                                                                                                                                  |
-| ---------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | string (UUID)         | Stable identifier for the suggestion. Deduplicate a feed on this value.                                                                                                                                                                                                                      |
-| `title`                | string \| null        | Short summary of the documentation change.                                                                                                                                                                                                                                                   |
-| `description`          | string \| null        | Longer explanation of the change.                                                                                                                                                                                                                                                            |
-| `status`               | string \| null        | Mirrors the docs pull request's state: `open`, `draft`, `merged`, or `closed`. `null` when the suggestion is drafted but no docs PR has been opened yet; `draft` when a *draft* docs PR is open.                                                                                             |
-| `trigger_event_id`     | string (UUID) \| null | Identifier of the task that created the suggestion, the same id `POST /v1/triggers` returned. `null` for suggestions created before tasks were recorded.                                                                                                                                     |
-| `url`                  | string                | Dashboard link to the suggestion.                                                                                                                                                                                                                                                            |
-| `docs_pr_url`          | string \| null        | Link to the documentation pull request, or `null` before a docs PR exists.                                                                                                                                                                                                                   |
-| `doc_collection_id`    | string \| null        | Identifier of the collection the suggestion targets.                                                                                                                                                                                                                                         |
-| `doc_collection_name`  | string \| null        | Name of that collection.                                                                                                                                                                                                                                                                     |
-| `impacted_file_paths`  | array of string       | Paths the suggestion changes.                                                                                                                                                                                                                                                                |
-| `impacted_file_count`  | integer               | Number of impacted files.                                                                                                                                                                                                                                                                    |
-| `created_at`           | string                | ISO 8601 time the suggestion was created.                                                                                                                                                                                                                                                    |
-| `merged_at`            | string \| null        | ISO 8601 time the docs PR merged, or `null`.                                                                                                                                                                                                                                                 |
-| `closed_at`            | string \| null        | ISO 8601 time the suggestion closed, or `null`.                                                                                                                                                                                                                                              |
-| `closed_without_merge` | boolean               | `true` when the suggestion closed without merging. Use this field to distinguish suggestions that shipped from ones that were rejected.                                                                                                                                                      |
-| `close_reason`         | string \| null        | Supplementary machine-readable label for why the suggestion closed (for example, `dashboard_review`), or `null`. This set may expand over time and includes a catch-all such as `unknown_legacy`, so branch on `closed_without_merge` rather than hard-coding against `close_reason` values. |
+For each field, see [List suggestions](/docs/for-docs/api/operations/listsuggestions/). To tell suggestions that shipped from ones that were rejected, branch on `closed_without_merge`. `close_reason` is a supplementary label whose values can expand, so don't hard-code against it.
 
 #### Filtering
 
-Narrow the feed with these query parameters, all optional:
-
-| Parameter | Values                              | Notes                                                                        |
-| --------- | ----------------------------------- | ---------------------------------------------------------------------------- |
-| `event`   | `created`, `merged`, `closed`       | Selects suggestions by lifecycle event and orders by that event's timestamp. |
-| `status`  | `open`, `draft`, `merged`, `closed` | Selects suggestions by current status.                                       |
-| `query`   | free text                           | Matches against the title and description.                                   |
-| `since`   | ISO 8601 timestamp                  | Inclusive lower limit on the event timestamp.                                |
-| `limit`   | 1–100                               | Number of suggestions to return. Defaults to 50.                             |
-| `offset`  | 0 or greater                        | Number of suggestions to skip. Defaults to 0.                                |
+Narrow the feed with optional query parameters, such as `event`, `status`, `query`, and `since`, and page through it with `limit` and `offset`. For each parameter, see [List suggestions](/docs/for-docs/api/operations/listsuggestions/).
 
 `event` and `status` cannot be combined in the same request; sending both returns `400 invalid_filter`. Use `event` to poll a lifecycle feed and `status` to search by current state.
 
@@ -416,28 +375,11 @@ curl "https://api.gopromptless.ai/v1/triggers?source=api&limit=50" \
 }
 ```
 
-Each task carries these fields:
-
-| Field              | Type           | Description                                              |
-| ------------------ | -------------- | -------------------------------------------------------- |
-| `trigger_event_id` | string (UUID)  | The task's id, the same id `POST /v1/triggers` returned. |
-| `source`           | string         | The task's origin, such as `api`.                        |
-| `request`          | string \| null | A one-line summary of the submitted request.             |
-| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes).           |
-| `resolution`       | string \| null | A note that explains how the task ended.                 |
-| `submitted_at`     | string         | ISO 8601 time the task was submitted.                    |
-| `finished_at`      | string         | ISO 8601 time the task finished.                         |
+For each field, see [List finished tasks](/docs/for-docs/api/operations/listfinishedtasks/).
 
 #### Outcomes
 
-`outcome` is one of these values:
-
-| Value                 | Meaning                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `suggestions_created` | The task produced at least one suggestion.                                                                 |
-| `no_change_needed`    | The task produced none because the docs already cover the change.                                          |
-| `needs_input`         | The task produced none and ended on a question the customer must answer. A later answer starts a new task. |
-| `failed`              | Promptless could not finish the work.                                                                      |
+`outcome` says how the task ended, such as `suggestions_created`, `no_change_needed`, or `needs_input`. A `needs_input` task ended on a question you must answer, and a later answer starts a new task. For every value, see [List finished tasks](/docs/for-docs/api/operations/listfinishedtasks/).
 
 `outcome` is `null` for tasks that finished before Promptless added the field and for tasks from sources other than the API or MCP. Promptless may add values later, so handle values not listed here.
 
@@ -445,14 +387,7 @@ This feed omits the suggestions a task produced. Each suggestion in the [Suggest
 
 #### Filtering
 
-Narrow the feed with these query parameters, all optional:
-
-| Parameter | Values             | Notes                                                                                                                         |
-| --------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `since`   | ISO 8601 timestamp | Inclusive lower limit on the completion timestamp. A trailing `Z` is accepted, and a value without a timezone is read as UTC. |
-| `source`  | trigger source     | Exact source to return, such as `api`. Omit to return every source.                                                           |
-| `limit`   | 1–100              | Number of tasks to return. Defaults to 50.                                                                                    |
-| `offset`  | 0 or greater       | Number of tasks to skip. Defaults to 0.                                                                                       |
+Narrow the feed with optional `since` and `source` query parameters, and page through it with `limit` and `offset`. For each parameter, see [List finished tasks](/docs/for-docs/api/operations/listfinishedtasks/).
 
 An invalid `since` returns `400 invalid_since`.
 
@@ -476,50 +411,9 @@ After you submit a task, follow its progress and continue the conversation on th
 GET /v1/triggers/{trigger_event_id}
 ```
 
-`trigger_event_id` is the id returned by `POST /v1/triggers`. A successful request returns `200 OK` with the task's current state:
+`trigger_event_id` is the id returned by `POST /v1/triggers`. A successful request returns `200 OK` with the task's current state, the suggestions it produced, and its latest 100 conversation messages, oldest first. To detect completion, branch on the `finished` boolean. The `status` string and `status_guidance` text can change, so don't parse them in code. For each field, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/).
 
-| Field              | Type           | Description                                                                                                                                                                  |
-| ------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `trigger_event_id` | string (UUID)  | The task's id.                                                                                                                                                               |
-| `status`           | string         | The task's current status. The `status` string can change over time, so branch on `finished` to detect completion.                                                           |
-| `finished`         | boolean        | `true` when the task has completed or been skipped.                                                                                                                          |
-| `submitted_at`     | string         | ISO 8601 time the task was submitted.                                                                                                                                        |
-| `source`           | string         | The task's origin.                                                                                                                                                           |
-| `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                 |
-| `resolution`       | string \| null | A note that explains how the task ended. Read it after `finished` is `true`.                                                                                                 |
-| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes) for the values. `null` until the task finishes, and for tasks from sources other than the API or MCP.                          |
-| `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                   |
-| `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code. |
-| `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                            |
-
-Each entry in `suggestions` carries these fields:
-
-| Field               | Type                  | Description                                                                                            |
-| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------ |
-| `id`                | string (UUID)         | Stable identifier for the suggestion.                                                                  |
-| `title`             | string \| null        | Short summary of the documentation change.                                                             |
-| `description`       | string \| null        | Longer explanation of the change.                                                                      |
-| `status`            | string \| null        | The docs pull request's state: `open`, `draft`, `merged`, or `closed`. `null` before a docs PR exists. |
-| `doc_collection_id` | string (UUID) \| null | Identifier of the collection the suggestion targets.                                                   |
-| `docs_pr_url`       | string \| null        | Link to the documentation pull request, or `null` before a docs PR exists.                             |
-| `branch_name`       | string                | The git branch in the documentation repository.                                                        |
-| `labels`            | array of string       | Labels on the suggestion.                                                                              |
-| `assignees`         | array of string       | The ID of each person assigned to the suggestion.                                                      |
-| `assignee_names`    | array of string       | The display name of each assignee, in the same order as `assignees`.                                   |
-| `created_at`        | string                | ISO 8601 time the suggestion was created.                                                              |
-
-The `suggestions` array lists the suggestions this task produced with their current `status` and docs pull request link. To track a suggestion's full lifecycle, including whether it merged or closed without merging, use the [Suggestions](#suggestions) feed and its `closed_without_merge` field.
-
-Each entry in `messages` has the `TaskMessage` shape below. The send endpoint returns the same shape.
-
-| Field              | Type          | Description                                                                                          |
-| ------------------ | ------------- | ---------------------------------------------------------------------------------------------------- |
-| `id`               | string (UUID) | Stable, immutable identifier. Deduplicate on it.                                                     |
-| `trigger_event_id` | string (UUID) | The task this message belongs to.                                                                    |
-| `sequence`         | integer       | The message's order within the task.                                                                 |
-| `author`           | object        | `type` is `promptless` or `customer`. `name` is the customer's email when available, otherwise null. |
-| `created_at`       | string        | ISO 8601 time the message was created.                                                               |
-| `message`          | string        | The message text.                                                                                    |
+The `suggestions` array is a lighter summary than the [Suggestions](#suggestions) feed. To track a suggestion's full lifecycle, including whether it merged or closed without merging, use the [Suggestions](#suggestions) feed and its `closed_without_merge` field.
 
 Reading status works for any task source. Promptless populates the `messages` array for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`. A task you submit over the API is eligible for a conversation. An empty `messages` array on your own API task means the task has no messages yet. Tasks from other sources, such as Slack, a GitHub pull request, or the dashboard, carry no conversation, so their `messages` array is empty.
 
@@ -579,13 +473,11 @@ POST /v1/triggers/{trigger_event_id}/messages
 
 Promptless appends the message to the original task named by `trigger_event_id`. The reply stays on that task's conversation, and no new task is created.
 
-| Field     | Type   | Required | Description                                                                |
-| --------- | ------ | -------- | -------------------------------------------------------------------------- |
-| `message` | string | Yes      | The instruction to add. Non-empty after trimming, up to 20,000 characters. |
+Send a JSON body with a `message` string, up to 20,000 characters after trimming.
 
 Send an optional `Idempotency-Key` request header, up to 255 characters, to retry safely. The same key with the same text returns the original stored message with `deduplicated` set to `true`. The same key with different text returns `409 idempotency_conflict`. The key is scoped to the task and your API key, so the same key value used on a different task is independent.
 
-A new message returns `201 Created` with body `{ "message": <TaskMessage>, "deduplicated": false }`. An idempotent replay returns `200 OK` with body `{ "message": <original TaskMessage>, "deduplicated": true }`.
+A new message returns `201 Created` with the stored message and `deduplicated` set to `false`. An idempotent replay returns `200 OK` with the original message and `deduplicated` set to `true`.
 
 ```bash
 curl -X POST "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-446655440000/messages" \
@@ -632,16 +524,7 @@ For the full schema, see the [Send a task message reference](/docs/for-docs/api/
 
 Both operations return `401 authentication_failed` when the key is missing, invalid, or revoked. Both return `404 task_not_found` for an unknown task or one in another organization. Both return `503 runtime_store_unavailable` when the read store is temporarily unavailable.
 
-| Status | Error                       | Description                                                                                                                                                                                                                                                             | Applies to |
-| ------ | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 404    | `task_not_found`            | Unknown task, or a task in another organization.                                                                                                                                                                                                                        | both       |
-| 422    | Validation error            | The `trigger_event_id` in the path isn't a valid UUID, or the request body is malformed.                                                                                                                                                                                | both       |
-| 409    | `task_finished`             | The task has finished and stops accepting messages. A task that finished by reporting a blocker or a clarification request has still finished. To continue the work, submit a new trigger with `POST /v1/triggers`.                                                     | send       |
-| 400    | `unsupported_task_source`   | Task messages are available for tasks submitted over the API or MCP and for MCP `request_changes` tasks. Read the task's status with `GET /v1/triggers/{trigger_event_id}` (status is available for every source), or submit the work as a new API trigger to converse. | send       |
-| 400    | `invalid_message`           | The message is empty or longer than 20,000 characters after trimming, or an `Idempotency-Key` that is blank or longer than 255 characters.                                                                                                                              | send       |
-| 409    | `idempotency_conflict`      | The same `Idempotency-Key` was reused with different text.                                                                                                                                                                                                              | send       |
-| 401    | `authentication_failed`     | The API key is missing, invalid, or revoked.                                                                                                                                                                                                                            | both       |
-| 503    | `runtime_store_unavailable` | Task intake or lookup is temporarily unavailable.                                                                                                                                                                                                                       | both       |
+Sending to a task that has finished returns `409 task_finished`. To continue the work, submit a new task with `POST /v1/triggers`. Sending to a task from a source other than the API or MCP returns `400 unsupported_task_source`. For every error, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/) and [Send a task message](/docs/for-docs/api/operations/sendtaskmessage/).
 
 ## View API triggers
 
