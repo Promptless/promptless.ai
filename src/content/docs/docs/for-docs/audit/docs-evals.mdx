@@ -1,0 +1,144 @@
+---
+title: Test whether your docs answer readers' questions
+description: Write the questions readers ask about a doc collection, have a model of your choice answer them from your docs, and see which answers pass, what they missed, and how each question scores over time
+id: for-docs-audit-docs-evals
+slug: docs/for-docs/audit/docs-evals
+type: how-to
+tags:
+  - audit
+keywords:
+  - docs evals
+  - documentation evaluation
+  - eval questions
+  - expected facts
+  - judge model
+  - AI answer quality
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-enterprise-docs-team
+  - aud-devrel-devex
+intent: write docs eval questions for a doc collection, run them with a chosen model, read the results, and track each question across runs
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+concepts:
+  - docs evals
+  - doc collection
+  - model providers
+related-pages:
+  - for-docs-audit-keep-docs-healthy
+  - for-docs-scale-model-provider-keys
+sample-questions:
+  - How do I check whether an AI assistant can answer questions from my docs?
+  - Which questions do my docs fail to answer, and what is missing?
+  - Can Promptless open a task to fix the docs when an eval question fails?
+sidebar:
+  hidden: false
+  order: 37
+  label: Docs evals
+last-updated: 2026-11-13
+---
+
+import { Steps } from '@astrojs/starlight/components';
+
+## Overview
+
+Readers and AI assistants come to your docs with questions. Docs evals test whether your docs answer them. For each doc collection, you write the questions readers ask and the facts a correct answer has to state. A model you pick answers each question from your docs, and a judge model grades the answer against those facts.
+
+The results show which questions your docs support, which facts each answer missed and why, and which pages the model read. When a question fails, Promptless can open a docs task to fix the gap. A trend table shows how each question scores across models, modes, and runs, so you can see whether a docs change fixed an answer.
+
+Docs evals live on the [**Docs evals**](https://app.gopromptless.ai/content-strategy/docs-evals) page in the Content Strategy area of the dashboard. Select the collection to work on from **Doc collection** at the top of the page.
+
+## Before you start
+
+- An admin role in your Promptless organization to add questions and start runs. Other members can view questions, runs, and results, and can export questions.
+- A verified model provider key. Runs use your organization's own keys, and only models whose provider has passed a test call appear in the run options. See [Add your own model provider keys](/docs/for-docs/scale/model-provider-keys).
+
+## Write a question
+
+Write each question the way a reader would ask it. Then list what a correct answer has to contain.
+
+<Steps>
+  1. On the **Docs evals** page, select **Add question**.
+
+  2. Enter a **Display name** and a **Slug** of lowercase letters and digits joined by single hyphens, up to 64 characters. Trends and the YAML export name the question by its slug.
+
+  3. Enter the **Question**.
+
+  4. Under **Expected facts**, add each fact a correct answer states. The judge grades the answer against every fact. A question needs at least one.
+
+  5. Optional. Under **Expected pages**, add part of the URL or path of each page the model should read, such as `configuration-reference`.
+
+  6. Select **Save question**.
+</Steps>
+
+Runs ask only questions that are **Enabled**. Clear **Enabled** on a question to keep it out of runs without deleting it.
+
+## Start a run
+
+A run asks every enabled question once with one model in one mode, then grades each answer.
+
+<Steps>
+  1. Under **Start a run**, select the **Model** that answers the questions. Each option shows its price per million input and output tokens.
+
+  2. Under **Mode**, select how the model reads your docs:
+     - **HTTP** reads your published docs site, the way a reader or an AI assistant does. The collection needs a `docs_root_url` in its [configuration](/docs/for-docs/reference/configuration-reference).
+     - **Raw docs** reads the docs repository with a read-only shell, without the published site.
+
+  3. Optional. Under **Judge model**, select a different model to grade the answers. By default, the run's own model grades them.
+
+  4. Optional. Clear **Open a docs task for each failed question** if you only want the results.
+
+  5. Read the cost summary, then select **Start run**.
+</Steps>
+
+Each answer is capped at $2.00 and each grade at $0.50, and your provider keys pay for both. The run appears under **Runs** as **Queued**, then **Running**. The page refreshes the run while it works. To stop an unfinished run, select **Cancel** on its row.
+
+## Read the results
+
+Select **Results** on a run's row to see one row per question. The results header names the model that judged the answers.
+
+An answer passes when it states every expected fact and the model read every expected page. A page counts only when the model opened it during the run. A URL the answer cites without reading it doesn't count.
+
+| Verdict     | Meaning                                                                        |
+| ----------- | ------------------------------------------------------------------------------ |
+| **Pass**    | The answer states every expected fact, and the model read every expected page. |
+| **Fail**    | The answer missed at least one expected fact or page.                          |
+| **Error**   | The question couldn't be answered or graded.                                   |
+| **Stopped** | The run ended before this question finished.                                   |
+
+Each result also shows:
+
+| Column                 | What it shows                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------- |
+| **Unmet expectations** | Each missed fact with the judge's reason, then each expected page the model didn't read. |
+| **Pages visited**      | The pages or files the model read.                                                       |
+| **Cost**               | What answering and grading the question cost.                                            |
+| **Docs task**          | A link to the task Promptless opened to fix the gap.                                     |
+
+When a failed question's task from an earlier run is still open, the run reuses that task. The result then shows **Still open from an earlier run**.
+
+## Track questions across runs
+
+The **Trends** table has one row per question and one column per run, newest first, grouped by model and mode. Each mark shows a run's verdict for the question. Hover a mark to see what the question cost in that run. Trends appear once a run finishes.
+
+Compare columns to see whether a docs change fixed a failing question, or whether a cheaper model or the other mode answers as well.
+
+## Export questions
+
+Select **Export YAML** to download the collection's questions. Each question becomes one case with these keys:
+
+| Key            | Value               |
+| -------------- | ------------------- |
+| `id`           | The question's slug |
+| `display_name` | The question's name |
+| `enabled`      | Whether runs ask it |
+| `question`     | The question text   |
+| `expect`       | The expected facts  |
+| `expect_urls`  | The expected pages  |
+
+## See also
+
+- [Add your own model provider keys](/docs/for-docs/scale/model-provider-keys), for the keys and models runs use
+- [Audit and keep your docs healthy](/docs/for-docs/audit/keep-docs-healthy), for the other ways Promptless finds and fixes stale pages
