@@ -50,15 +50,9 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-Connect Claude Code, Cursor, Claude, or another MCP client to Promptless. From the conversation you already have open, start a documentation task and get back its outcome and docs pull request link. You can also send a running task more instructions, ask Promptless to revise a suggestion, and label, assign, retitle, open, or close a suggestion. You authorize once in a browser, with no API key to manage.
+Ask for documentation updates from the AI editor you already work in. When you finish a code change in Claude Code or Cursor, ask Promptless to document it. Promptless drafts the docs change, and your editor reports back in the same conversation with the outcome and the docs pull request link. You review and approve the change. From the same conversation, you can also check on a task, ask Promptless to revise a suggestion, or triage your open suggestions.
 
-[MCP](https://modelcontextprotocol.io) is an open protocol that editors use to connect to external tools. Any editor with an "MCP servers" setting can connect to Promptless. The Promptless MCP server is built in and always available, with no `promptless.yaml` `triggers:` entry and no setup on the Configuration page.
-
-<Aside type="tip">
-  MCP is the no-key, interactive editor path. The [API trigger](/docs/for-docs/connect/triggers/api) is the server-to-server and CI path: an API key plus `POST /v1/triggers`. Both dispatch through the same pipeline, so a task behaves identically whichever way you start it.
-</Aside>
-
-To connect Promptless to Claude or ChatGPT, see [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude) or [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt).
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is the open protocol that AI editors use to connect to tools. The Promptless MCP server is always on. It needs no API key and no `promptless.yaml` entry, and you authorize once in the browser. To start tasks from CI or a script, use the [API trigger](/docs/for-docs/connect/triggers/api). To connect Claude or ChatGPT, see [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude) or [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt).
 
 ## Before you start
 
@@ -155,16 +149,7 @@ Your editor handles authorization automatically over OAuth. You approve the conn
 </Steps>
 
 <Aside type="note">
-  An approved client acts with the same access as the member who approved it. The consent page has no permission picker. An approved connection can:
-
-  - Start tasks, and send an additional instruction into a running task.
-  - List your collections and your recent tasks, and search suggestions.
-  - Read the status of any task in your organization, and follow a running one to its outcome. This includes tasks started from Slack, a GitHub pull request, the dashboard, or the API.
-  - Revise a suggestion Promptless already produced.
-  - Update a suggestion's labels, assignees, and title, and open its docs pull request.
-  - Close a suggestion, which also closes its docs pull request.
-
-  The write actions (revise, update, and close) act on any suggestion in your organization, like the read tools, including suggestions other members created. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions), and MCP access can't be limited to specific members or roles. To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
+  An approved client acts with the same access as the member who approved it. It can read any task and change any suggestion in your organization, including ones other members started. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions). To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
 A token is tied to one organization. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
@@ -179,18 +164,7 @@ Your editor lists the Promptless tools when it connects. Each tool's MCP annotat
 
 ## Answer a clarifying question
 
-A task can finish by marking one clarifying question in your editor. This applies to a task you started over MCP. Answering it starts a new continuation task. That task carries the original request, the original context, the clarification history, and links to any results already produced. You pick up directly from the clarification.
-
-To answer through the native form, you need an MCP client that negotiates a recent protocol version and declares an elicitation capability. That capability is the MCP feature that lets a server show an input form inside your editor.
-
-A clarifying question reaches you through the same task-following loop this page documents. As your editor follows the task with `wait_for_task_update`, or as you check it with `get_task_status`, the response carries the marked `question` and a `next_call` pointing at `answer_task_question`. Your editor follows that `next_call` the same way it follows any other task.
-
-How you answer depends on your MCP client:
-
-- A client that declares an elicitation capability shows a native single free-text field titled **Your answer**, with the question as its prompt. The answer runs 1–8000 characters.
-- A client without that capability receives `outcome: unavailable`. Your editor posts the question as a chat message. Reply in the same conversation, and your editor relays your answer by calling `answer_task_question` again.
-
-Your editor follows the accepted answer via its `next_call`, which points at the new continuation task. The first committed answer wins. Answering the same question again returns `already_answered`, and a matching answer comes back unchanged. If a different answer won first, yours isn't submitted. You follow the task the response names, the continuation already created, to pick up the committed one. If you decline or cancel the question, no continuation is created and following stops. The original finished task and anything it already produced, such as suggestions, remain. To pursue the change, start a new task with `submit_documentation_task`.
+A task you started over MCP can finish by asking you one clarifying question. Your editor shows the question as it follows the task. If your editor supports MCP forms (elicitation), it shows a **Your answer** field. Otherwise, it asks in chat, and you reply in the same conversation. Promptless continues the work in a new task that carries your original request and your answer, and your editor follows that task too.
 
 ## Workflow skills
 
@@ -206,27 +180,11 @@ A client that doesn't support the extension, or ignores it, sees the same tools 
 
 ## Ask your editor
 
-Ask in plain language. For example: "List my Promptless doc collections, then start a task to document the new authentication flow in the API docs collection." Your editor maps that to `list_doc_collections`, then `submit_documentation_task`. It follows the task automatically in the same conversation, using the `next_call` it gets back. It reports the outcome and docs pull request link back to you, without you checking status by hand.
+Ask in plain language, and your editor picks the tools. For example: "Document the new authentication flow in the API docs collection." Your editor starts the task, follows it in the same conversation, and reports the outcome and docs pull request link back to you.
 
-To avoid duplicating work, search before you submit. Your editor runs `search_suggestions` first, and if nothing live comes back, submits the task. For example: "Before I ask Promptless to document the new webhook retries, search existing suggestions for 'webhook retries.'"
+To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." The tools that change work still prompt before they run, so you stay in control of what changes.
 
-To check a task at a point in time, ask by its ID: "What's the status of Promptless task `<id>`?" Your editor calls `get_task_status` and reports the outcome and any docs pull request link. This is the on-request check, not the primary way you get an outcome. Reach for it for a task you didn't follow to completion, or to look in again later or from another session. It works for any task.
-
-To read a task's conversation, ask for it: "What has Promptless said so far about task `<id>`?" Your editor calls `get_task_status` and reports the conversation.
-
-To add to a task that's still running, tell Promptless what else to cover: "Tell Promptless task `<id>` to also cover the error responses." Your editor maps that to `send_task_message`, and the instruction folds into the running task. This works for tasks you started over the API or MCP, or created with `request_changes` over MCP. Check back with `get_task_status` to see the message added to the conversation.
-
-A task can finish by marking one clarifying question. Answer it in plain language: "Answer Promptless task `<id>`'s clarifying question: yes, cover the deprecation notice." Your editor calls `answer_task_question`, and Promptless picks up your answer in a new task. Your editor follows that task via its `next_call`.
-
-To change a suggestion Promptless already made, ask for a revision: "Revise Promptless suggestion `<id>` to also cover single sign-on." Your editor calls `request_changes`, and Promptless updates that suggestion's existing pull request instead of opening a new one. Your editor follows the revision task via `next_call` until it's done, the same way it follows a new task.
-
-To set a suggestion's labels, assignees, or title, or open its docs pull request yourself, ask for that. For example: "Assign Promptless suggestion `<id>` to @alex, retitle it 'SSO setup,' and open its docs PR." Your editor calls `update_suggestion`, which applies the change and opens the pull request in the same step. To just retitle it without opening a pull request, leave that part out: "Retitle Promptless suggestion `<id>` to 'SSO setup.'"
-
-To close a suggestion you won't ship, ask for that: "Close Promptless suggestion `<id>`. We decided not to document this." Your editor calls `close_suggestion` and saves your reason with the close. Closing also closes the suggestion's docs pull request.
-
-If you've lost track of a task's ID, ask for your recent ones: "What are my recent Promptless tasks?" Your editor calls `list_recent_tasks` and lists them newest first, so you can pick the ID to check.
-
-To work through a backlog, ask for a triage pass: "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against." If your editor supports [workflow skills](#workflow-skills), it can follow the Promptless triage workflow. If not, it calls the same tools directly. Either way the work-changing tools still prompt before they run, so you stay in control of what changes.
+For what each tool does, see the [MCP tools reference](/docs/for-docs/reference/mcp-tools).
 
 ## See your MCP tasks in the dashboard
 
