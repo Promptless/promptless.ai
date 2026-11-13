@@ -34,6 +34,6 @@ The hosted scanner runs `afdocs check <url> --format json --score --sampling det
 
 ## Auditing the content itself
 
-Agent Score checks plumbing, not content. It cannot tell you whether your docs answer the questions agents get asked. For that, [sign up for Promptless](https://accounts.gopromptless.ai/sign-up) and run a content strategy audit on your docs. Free 14-day trial, no credit card. See also [how we scored 100 on agent-friendly docs](https://promptless.ai/blog/technical/agent-friendly-docs-necessary-not-sufficient.md).
+Agent Score checks plumbing, not content. It cannot tell you whether your docs answer the questions agents get asked. For that, [sign up for Promptless](https://app.gopromptless.ai/sign-up) and run a content strategy audit on your docs. Free 14-day trial, no credit card. See also [how we scored 100 on agent-friendly docs](https://promptless.ai/blog/technical/agent-friendly-docs-necessary-not-sufficient.md).
 
 Built by Promptless. Powered by afdocs.
