@@ -4,6 +4,7 @@ import { Copy, ExternalLink, RefreshCw } from '@lucide/astro';
 import ScoreRing from './ScoreRing.astro';
 import ShareMenu from './ShareMenu.astro';
 import { checkName } from '@lib/agent-score/meta';
+import { MIN_PAGES_FOR_SCORING } from '@lib/agent-score/discovery';
 import { formatDate } from '@lib/agent-score/report';
 import type { SiteResponse } from '@lib/agent-score/types';
 
@@ -21,6 +22,7 @@ interface Props {
 
 const { site, pageUrl, jsonUrl, mdPath, apiBase, shareText, fixPrompt, hasIssues } = Astro.props;
 const { latest } = site;
+const partial = latest.testedPages !== undefined && latest.testedPages < MIN_PAGES_FOR_SCORING;
 ---
 
 <header class="pl-as-report-head">
@@ -33,6 +35,13 @@ const { latest } = site;
       </a>
     </h1>
     <p>{latest.summary.pass} of {latest.summary.total} checks passed</p>
+    {
+      partial && (
+        <p class="pl-as-report-partial">
+          Partial score: afdocs tested {latest.testedPages === 1 ? '1 page' : `${latest.testedPages} pages`}.
+        </p>
+      )
+    }
     <p class="pl-as-muted">Scanned <time datetime={latest.scannedAt}>{formatDate(latest.scannedAt)}</time></p>
     {
       latest.cap && (
