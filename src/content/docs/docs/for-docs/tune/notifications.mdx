@@ -125,9 +125,12 @@ See the [Configuration Reference](/docs/for-docs/reference/configuration-referen
 
 ## Escalation channel
 
-Escalations tell you about configuration and operational problems that block Promptless, separate from notifications about suggestions. For example, a test account lacks the feature flags to reach a screen Promptless needs to screenshot. Or a PR references a Jira issue that Promptless can't read, because the Jira integration isn't connected or the project isn't accessible.
+Escalation channels receive problem reports, which describe configuration and operational problems that someone on your team needs to fix. Promptless sends two kinds:
 
-Route escalations to a dedicated channel on Slack, Teams, or both, with an `escalation` section next to `notification`. It takes the same channel fields, plus `email`:
+- A trigger problem is one Promptless hits while working on a trigger. For example, a PR references a Jira issue Promptless can't read because the Jira integration isn't connected. Or the test account lacks the feature flags to reach a screen Promptless needs to screenshot.
+- A connection alert comes from the daily [connection check](/docs/for-docs/reference/integrations#proactive-notifications), such as an integration that needs reconnecting.
+
+Route problem reports to a dedicated channel on Slack, Teams, or both, with an `escalation` section next to `notification`. It takes the same channel fields, plus `email`:
 
 ```yaml
 policies:
@@ -142,11 +145,50 @@ policies:
         - docs-team@example.com
 ```
 
-Escalations reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes escalations to Slack, and `msteams_channel` routes them to Teams, independently. When a platform has no escalation channel, Promptless sends escalations through your suggestion-notification routing on that platform.
+Problem reports reach these channels even when suggestion notifications are off or no notification channel is set. `slack_channel` routes them to Slack; `msteams_channel` routes them to Teams.
 
-To also escalate by email, list one or more addresses under `escalation.email`. Promptless emails only the addresses you list, and only for escalations. Suggestion notifications don't use email. Email escalation requires email delivery for your deployment. It's on by default for Promptless-hosted deployments, and self-hosted deployments must configure it.
+If `escalation` leaves out a platform's channel, trigger problems go to your `notification` channel on that platform instead. Connection alerts never do. The next section spells out the rules.
 
-Escalations cover blockers such as these:
+### When problem reports go to the notification channel
+
+Promptless picks the destination for Slack and for Teams separately. On each platform, a problem report goes to the `notification` channel only when all three of these are true:
+
+1. It's a trigger problem. Connection alerts never go to a `notification` channel.
+2. `escalation` leaves out that platform's field: `slack_channel` for Slack, `msteams_channel` for Teams. If the field names a channel, the report goes there. If the field is `null`, the report goes nowhere on that platform.
+3. A `notification` channel is set for that platform for the trigger.
+
+Promptless resolves both sections for a trigger problem from `policies.default` plus the rules that match the trigger. Connection alerts use only the `escalation` channels in `policies.default`; rules don't change where they go.
+
+When someone asks Promptless for the work by tagging it in a Slack or Teams thread, Promptless reports a trigger problem in that thread instead.
+
+For example, this policy sets an escalation channel for Slack and leaves Teams out:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+      msteams_channel: "19:0a1b2c3d@thread.tacv2"
+    escalation:
+      slack_channel: docs-escalations
+```
+
+| Problem report                                       | Slack              | Teams                                             |
+| ---------------------------------------------------- | ------------------ | ------------------------------------------------- |
+| A PR references a Jira issue Promptless can't read   | `docs-escalations` | `19:0a1b2c3d@thread.tacv2` (notification channel) |
+| The connection check finds GitHub needs reconnecting | `docs-escalations` | Nothing                                           |
+
+To keep the Jira problem out of Teams, add `msteams_channel: null` under `escalation`.
+
+<Aside type="caution">
+  If you set only a `notification` channel, connection alerts reach no channel. A broken integration then shows up only on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+  To receive these alerts, set at least one of `slack_channel`, `msteams_channel`, or `email` under `escalation` in `policies.default`.
+</Aside>
+
+To also escalate by email, list one or more addresses under `escalation.email`. Promptless emails only the addresses you list, and only for escalations. Suggestion notifications don't use email, and `notification` has no email setting, so Promptless emails escalations only when you set `escalation.email`. Email escalation requires email delivery for your deployment. It's on by default for Promptless-hosted deployments, and self-hosted deployments must configure it.
+
+Trigger problems include blockers such as these:
 
 - A test or staging account that can't reach a needed screen
 - An unreachable or unconfigured integration
