@@ -15,7 +15,9 @@ import ReportFooter from '@components/agent-score/ReportFooter.astro';
 import CreditLine from '@components/agent-score/CreditLine.astro';
 import ReportState from '@components/agent-score/ReportState.astro';
 import ReportClient from '@components/agent-score/ReportClient.astro';
+import PartialScanNotice from '@components/agent-score/PartialScanNotice.astro';
 import { fetchSite, getSiteJsonUrl } from '@lib/agent-score/api';
+import { partialScan } from '@lib/agent-score/discovery';
 import { PUBLIC_AGENT_SCORE_API_BASE, getAgentScoreApiBase } from '@lib/agent-score/config';
 import { actionableChecks, buildFixPrompt, summarySentence } from '@lib/agent-score/report';
 import { parseSlug, scorePagePath } from '@lib/agent-score/slug';
@@ -107,6 +109,7 @@ const report =
           shareText: `${site.displayName} scores ${site.latest.overall}/100 (Grade ${site.latest.grade}) on Agent Score, the AI-agent readiness check for docs.`,
           fixPrompt: buildFixPrompt(site, pageUrl),
           hasIssues: actionableChecks(site.latest).length > 0 || site.latest.diagnostics.length > 0,
+          partial: partialScan(site.latest),
         };
       })()
     : null;
@@ -139,6 +142,7 @@ const report =
             fixPrompt={report.fixPrompt}
             hasIssues={report.hasIssues}
           />
+          {report.partial && <PartialScanNotice partial={report.partial} />}
           <ScoreHistory site={report.site} />
           <CategoryList latest={report.site.latest} />
           <ReportFooter latest={report.site.latest} />
