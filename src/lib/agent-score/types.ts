@@ -187,6 +187,11 @@ export interface LeaderboardEntry {
   grade: Grade;
   scannedAt: string;
   scanCount: number;
+  /**
+   * afdocs tested fewer than 5 pages. The backend lists a partial scan only
+   * for 7 days, and only while no scan of the same host tested more.
+   */
+  partial: boolean;
 }
 
 /** `GET /leaderboard` response. */
