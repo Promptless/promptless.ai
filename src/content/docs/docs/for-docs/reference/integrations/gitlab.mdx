@@ -48,7 +48,7 @@ sidebar:
   order: 54
 ---
 
-import GitLabConnect from '@partials/integrations/gitlab-connect.mdx';
+import GitLabConnect from "@partials/integrations/gitlab-connect.mdx";
 
 ## Overview
 
@@ -87,7 +87,15 @@ The GitLab integration authenticates with a group access token that meets these 
 
 The token needs the `api` scope. GitLab has no read-only option that works with Promptless. Promptless checks the scope when you connect and rejects a `read_api` token, because that token can't open merge requests or install webhooks. Promptless offers a [GitHub (read-only) app](/docs/for-docs/reference/integrations/github-read-only), but GitLab has no equivalent. Even a setup that uses GitLab only for triggers and context needs the write-capable `api` scope.
 
-The Maintainer role controls webhooks for each project. Promptless checks the token's access project by project, so a token with a low group role still connects. Direct project memberships can give it more access than its group role. Promptless installs merge-request webhooks on each project where the token has the Maintainer role. Projects below Maintainer still work for context. They also work for publishing when the token has at least the Developer role. To get merge request triggers from such a project, raise the token's role there to Maintainer. You can also add the webhook in GitLab by hand.
+The token's role on each project decides what Promptless can do in that project. The token connects whatever its role in the group is, because Promptless checks its role on each project separately. A direct membership on a project counts, so the token can have a higher role on a project than in its group.
+
+| Token's role on the project | What works there                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| Maintainer or Owner         | Merge request triggers, context, and publishing. Promptless adds the webhook itself. |
+| Developer                   | Context and publishing                                                               |
+| Reporter                    | Context                                                                              |
+
+Merge request triggers need a webhook on the project. Where the token's role is below Maintainer, raise it to Maintainer on that project, or add the webhook in GitLab yourself.
 
 Two layers limit what Promptless can reach:
 
