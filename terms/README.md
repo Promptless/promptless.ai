@@ -79,4 +79,4 @@ identifiers like `for-docs-connect-triggers-jira` are correct. The workflow's
 error filter reads each rule's own level, which the generated files set to
 `error`, so it excludes the `Terms.` rules by name. Run Vale locally to see
 their warnings. See
-[ADR 0009](../adrs/0009-adopt-manni-term.md).
+[ADR 0010](../adrs/0010-adopt-manni-term.md).
