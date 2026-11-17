@@ -263,7 +263,7 @@ function toolPartial(tool: Tool): string {
 
 function groupKey(toolName: string): string {
   const keys = catalog.surfaces.filter((surface) => surface.tools.includes(toolName)).map((surface) => surface.key);
-  return keys.length === catalog.surfaces.length ? 'every-surface' : `only-on-${keys.join('-and-')}`;
+  return keys.length === catalog.surfaces.length ? 'every-path' : `only-on-${keys.join('-and-')}`;
 }
 
 /** Tables written into the page itself, because `manni lint structure` counts only tables on the page. */
@@ -276,7 +276,7 @@ function regions(): Map<string, string> {
   const result = new Map<string, string>();
   for (const [key, tools] of groups) {
     result.set(
-      `tools-${key.replace(/^every-surface$/, 'on-every-surface')}`,
+      `tools-${key.replace(/^every-path$/, 'on-every-path')}`,
       table(
         ['Tool', 'Annotation'],
         tools.map((tool) => [`[${code(tool.name)}](#${tool.name})`, annotation(tool)]),
