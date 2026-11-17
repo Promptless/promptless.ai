@@ -41,23 +41,52 @@ sidebar:
   order: 37
 ---
 
-Promptless keeps one Vale rule set for your organization and lints every doc collection with it. This page covers how the rule set gets created, where it lives, and how it changes.
+[Vale](https://vale.sh/) is an open-source linter for prose. It checks text against rules the way a code linter checks code. Each rule is a YAML file, and Vale reports the same finding every time it runs. Many style guide rules can be Vale rules, such as terminology, capitalization, banned phrases, and sentence length.
+
+Promptless writes Vale rules for you from your existing style guide. It keeps them as one rule set for your organization and lints every doc collection with it. This page covers how the rule set gets created, where it lives, and how it changes.
 
 For how Promptless runs Vale on a suggestion, see [Vale integration](/docs/for-docs/audit/standards-enforcement).
 
 ## Use cases
 
-| Problem                                                            | What to do                                                                                |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| You have a style guide but no Vale rules.                          | Share the style guide. Promptless [writes the rules](#how-the-rules-get-created) from it. |
-| Your organization keeps its Vale rules in a Git repository.        | Set the repository as your [rules collection](#where-the-rules-live).                     |
-| Reviewers repeat the same style comment on Promptless suggestions. | Give the feedback once. Promptless [adds a rule](#how-the-rules-change) for it.           |
+| Your situation                                                           | How the rule set helps                                                                                        |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Reviewers enforce your style guide by hand.                              | Promptless writes Vale rules from your style guide. Vale then checks every suggestion, so reviewers stop checking those rules by hand. |
+| Reviewers repeat the same style comment on suggestions.                  | Promptless adds a rule for the preference, so later suggestions follow it before they reach review.           |
+| Your doc collections follow different conventions.                       | One rule set applies to every doc collection in your organization.                                            |
+| Your organization already keeps its Vale rules in a Git repository.      | Promptless uses that repository as the source of the rule set and proposes its rule changes there for review. |
+
+## From a style guide rule to a Vale rule
+
+Your style guide states a rule in prose:
+
+> Write "Acme CLI". Don't write "Acme cli" or "acme-cli".
+
+Promptless writes the Vale rule that checks it:
+
+```yaml
+# styles/StyleGuide/Terms.yml
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+swap:
+  'Acme cli|acme-cli': Acme CLI
+```
+
+Vale then reports each place where a page breaks the rule:
+
+```text
+docs/install.md
+ 3:1  error  Use 'Acme CLI' instead of 'Acme cli'.  StyleGuide.Terms
+```
+
+Some style guide rules need judgment, such as a rule about tone. Promptless keeps those in your style guide and applies them as it writes.
 
 ## How the rules get created
 
 During your [pilot](/docs/for-docs/start-here/run-a-pilot), the Promptless team works with your technical writers to turn your style guidance into Vale rules. Share your style guide and your Vale configuration, if you have one, before the pilot starts.
 
-Promptless also writes rules on its own. When it analyzes a doc collection, it reads the collection's style guidance and writes a Vale rule for each rule that Vale can check.
+Promptless also writes rules on its own. When it analyzes a doc collection, it reads the collection's style guidance and writes Vale rules from it.
 
 The source of a rule sets its severity:
 
