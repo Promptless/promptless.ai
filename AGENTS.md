@@ -48,7 +48,7 @@ packages/
 scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
 tests/smoke/            # Smoke tests
 tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
-terms/                  # Termbase: one manni term page per concept (see terms/README.md, ADR adrs/0009)
+terms/                  # Termbase: one manni term page per concept (see terms/README.md, ADR adrs/0010)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
