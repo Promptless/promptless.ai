@@ -125,9 +125,17 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   push to `main` that touches it, and other Promptless repos sync it from
   there. The site consumes the same package (`Packages = ./vale/Promptless`),
   so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
-  synced output and is gitignored. Styles: `Promptless` (house terminology,
-  sentence-case headings) plus `Voices`, `Direct`, and `Moose` vendored from
-  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
+  synced output and is gitignored. Styles: `Promptless` (the organization's
+  house rules: terminology, sentence-case headings, present tense, set
+  counts, semicolons) plus `Voices`, `Direct`, and `Moose` vendored from
+  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). `Promptless` is the
+  one home for house rules; add new ones there, not in a second style. The
+  root `.vale.ini` turns off three rules for this site:
+  `Voices.BinaryContrast` (`Promptless.NegationContrast` replaces it),
+  `Promptless.PassiveVoice` (too noisy on the docs), and
+  `Promptless.BlogReadingGrade` (blog-only; Vale doesn't lint the blog).
+  `Promptless.Semicolons` and `Promptless.CurrentState` run at warning. Any
+  error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI runs the repair (`--output` full
