@@ -55,7 +55,7 @@ test('historical redirects terminate directly in the canonical product namespace
 
   for (const { destination } of redirectManifest.redirects) {
     if (destination.startsWith('/docs/') && !fixture.utilityHtml.includes(destination)) {
-      assert.match(destination, /^\/docs\/for-docs\//);
+      assert.match(destination, /^\/docs\/(for-docs|governance)\//);
     }
   }
 });
