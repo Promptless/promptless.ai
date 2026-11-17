@@ -24,6 +24,10 @@ setup, the event catalog, known gaps, and recommendations.
 | `demo_requested` | `location` (hero / demo_page), `$set.email` | Hero.astro, DemoBooking.astro |
 | `blog_demo_requested` | `location` (blog), `$set.email` | BlogRequestDemo.astro |
 | `broken_link_report_submitted` | `target_url`, `check_external`, `check_anchors`, `max_pages`, `$set.email` | BrokenLinkReportForm.astro |
+| `agent_score_scan_requested` | `target_url`, `location` | agent-score/ScanForm.astro |
+| `agent_score_rescan_requested` | `slug`, `location` | agent-score/ReportClient.astro |
+| `agent_score_fix_prompt_copied` | `slug`, `location` | agent-score/ReportSummary.astro |
+| `agent_score_badge_copied` | `slug`, `location` | agent-score/ReportHeader.astro |
 | `site_searched` | `query`, `page_url` | posthog.astro (Starport search event bridge) |
 | `site_search_result_clicked` | `query`, `url`, `position`, `source`, `page_url` | posthog.astro (Starport search event bridge) |
 
@@ -71,6 +75,11 @@ sends a parallel `gtag` event for Google Analytics.
 - `view_commits` -- demo_social_proof
 - `ask_ai` -- homepage_ask_ai (AI provider in `campaign`)
 - `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
+- `view_dogbench` -- footer (Content column link), footer_card (homepage only)
+- `share_agent_score`, `view_agent_score_json`, `view_agent_score_markdown` -- agent_score_report
+- `view_agent_score_report` -- agent_score_leaderboard
+- `view_afdocs`, `view_afdocs_author`, `view_agent_docs_spec` -- agent_score_diy, agent_score_credit
+- `read_blog_post`, `book_demo` -- agent_score_landing, agent_score_report (Promptless block)
 
 ## Design Decisions
 

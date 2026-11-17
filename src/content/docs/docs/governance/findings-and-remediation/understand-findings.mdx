@@ -1,51 +1,142 @@
 ---
 title: Understand findings
-description: How the Friction Analyzer produces findings, the fields a finding object carries, and how a finding becomes a GitHub issue.
+description: Read instruction-governance findings, distinguish severity from confidence, and decide who owns the next action.
+id: governance-findings-and-remediation-understand-findings
 slug: docs/governance/findings-and-remediation/understand-findings
-type: reference
+type: concept
 tags:
   - agent-instructions
   - governance
-  - reference
-timestamp: "2026-08-20T00:00:00Z"
+  - guide
+keywords:
+  - PIG findings
+  - finding severity
+  - finding confidence
+  - instruction failure
+  - GitHub issue for finding
+  - instruction sources
+language: en
+audiences:
+  - aud-agent-governance
+intent: read a PIG finding's severity, confidence, and evidence, route its GitHub issue to the right repository, and decide who owns the next action
+lifecycle: published
+applies-to:
+  - promptless-for-agent-instructions
+  - integration:github
+concepts:
+  - finding
+  - trace
+  - remediation
+  - instruction hub
+prerequisites:
+  - governance-deploy-the-worker-verify-your-deployment
+next-steps:
+  - governance-findings-and-remediation-remediate-findings
+related-pages:
+  - governance-start-here-trust-and-data-model
+risks:
+  - read-only
+sample-questions:
+  - What is the difference between severity and confidence on a PIG finding?
+  - Why does a finding ask me to select a repository for its GitHub issue?
+  - Why did an analysis run complete with zero findings?
+  - Does every finding need a change to the Instruction Hub?
 sidebar:
   hidden: false
   order: 1
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
-A finding is the unit of output the [Friction Analyzer](/docs/governance/start-here/key-concepts) produces: a specific instruction failure, backed by evidence from real sessions. This page covers how findings are produced and what a finding object contains.
+A finding describes an instruction problem supported by evidence from real agent sessions. It helps your team decide what to change, why the change matters, and who should own it.
 
-## How findings are produced
+For example, Acme's documentation skill might tell an agent to verify every example but omit how to choose the correct product version. A finding can connect repeated incorrect examples to that missing guidance. A failed API request caused by an expired credential may instead belong to the team that manages the credential.
 
-The Friction Analyzer (identifier `friction_analyzer`, version 0.0.25) analyzes one parent session per run, reading the raw session rather than a summary. It dispatches investigators across the session; each investigator reads only the ranges it cites and either creates a new finding or refines an existing one. Evidence is append-only: when new evidence establishes negative impact, an investigator promotes a finding from low to high confidence rather than rewriting its history. Findings accumulate across runs, so a recurring failure gathers more evidence over time.
+Findings appear after an operator has [verified completed analysis](/docs/governance/deploy-the-worker/verify-your-deployment). To work with one, you need access to your connected Instruction Hub. You also need the finding's GitHub issue or its page in the Promptless Dashboard.
 
-## The finding object
+## Use cases
 
-An investigator authors these fields on a finding:
+- A finding is high severity but low confidence, and you must decide whether to act now. [Read the evidence before choosing a fix](#read-the-evidence-before-choosing-a-fix) explains what each field measures.
+- A finding waits for a repository before Promptless opens its GitHub issue. [Follow the finding into your repository](#follow-the-finding-into-your-repository) explains how Promptless picks a destination and when an administrator chooses one.
+- A finding points at a failure the hub doesn't own, such as an expired credential. [Decide the next action](#decide-the-next-action) helps you route it to the right owner.
+- An analysis run completes with zero findings. That is a valid result, and [Troubleshooting](#troubleshooting) lists what to confirm.
 
-| Field                 | Type                                | Description                                                                                   |
-| --------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| `title`               | string                              | A short statement of the instruction failure.                                                 |
-| `severity`            | `low`, `medium`, `high`, `critical` | How serious the failure is.                                                                   |
-| `confidence`          | `low` or `high`                     | How well the evidence supports the finding. There are only these two levels.                  |
-| `evidence`            | list (at least one)                 | Supporting occurrences, each a `digest_range` and an `occurrence_summary`. Ranges are unique. |
-| `summary`             | string                              | What the finding is.                                                                          |
-| `impact`              | string                              | Why it matters.                                                                               |
-| `instruction_failure` | string                              | The underlying instruction failure the evidence points to.                                    |
-| `notes`               | string                              | Additional context.                                                                           |
+## Read the evidence before choosing a fix
 
-When a finding is read back for reconciliation, it also carries an `id`, a `version` for optimistic concurrency, and an `evidence_count`. It carries up to three `latest_evidence` summaries and a `github_status` with an optional `github_issue_url`.
+Start with the summary, impact, and cited occurrences. Check that the described behavior happened and that the instruction failure explains it. A finding carries these fields:
 
-A `digest_range` cites a range of the session digest the analyzer built for the run. It is a location within that digest, not the SHA-256 digest used to verify trace integrity elsewhere.
+| Field                                         | What it tells you                                              | How to use it                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Severity: `low`, `medium`, `high`, `critical` | How serious the observed problem is.                           | Prioritize the effect on users and your systems.                                         |
+| Confidence: `low` or `high`                   | How strongly the evidence supports the finding.                | Separate a suspected problem from one supported well enough for remediation.             |
+| Instruction failure                           | The gap, conflict, or misleading guidance behind the behavior. | Locate the instruction that needs attention, or question whether the hub owns the cause. |
+| Evidence                                      | Cited occurrences and a summary of what happened.              | Compare the claim with the session details.                                              |
+| Notes                                         | Additional context, uncertainty, or an external owner.         | Check whether action belongs outside the hub.                                            |
 
-<Aside type="note">
-  A finding has no `category` field and no `proposed_remediation` field. Severity, confidence, evidence, and the `instruction_failure` narrative are what a finding carries; remediation is a separate flow.
-</Aside>
+Severity and confidence answer different questions. A high-severity finding can still have low confidence and need more evidence. Later analysis can add occurrences to an existing finding and promote its confidence when the evidence supports that change.
 
-## From finding to GitHub issue
+The analyzer cites evidence from a readable session digest. A `digest_range` identifies a location in that digest. It is unrelated to the cryptographic hashes that verify stored traces.
 
-The worker never creates GitHub issues itself. It sends each finding as a mutation to the hosted Promptless Runtime. The Runtime projects the finding to a GitHub issue on the Runtime side, in your Instruction Hub repository. The issue carries managed labels for the finding, its severity, and its confidence. The projected issue reflects the finding's title, summary, impact, `instruction_failure`, and cited evidence.
+## Follow the finding into your repository
 
-In the issue body, evidence stays expanded through three occurrences and collapses into a details block once a finding gathers four or more. The finding's `github_status` and `github_issue_url` track that projection, so you can tell whether an issue exists and open it. From there, high-confidence findings can move into remediation. See [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings).
+PIG analyzes every instruction repository your organization selects in PIG Settings. Each finding records the instruction source it came from: the repository and the exact commit the analyzer read. The finding lists these sources under **Instruction sources**, each linked to that commit.
+
+The analyzer sends finding updates to Promptless. Promptless creates or updates a GitHub issue for the finding in its destination repository. The issue carries the finding's title, impact, instruction failure, severity, confidence, and evidence. A destination repository must have **Create Repo Issues** enabled in PIG Settings.
+
+Promptless creates the issue automatically when the finding's recorded sources resolve to one selected repository that has Create Repo Issues enabled. A finding needs a destination first in either of these cases:
+
+- Its sources span more than one selected repository.
+- It records no source, and your organization has more than one repository selected.
+
+Removing an instruction repository in PIG Settings stops future analysis and issue automation for that source. Findings already recorded against it keep their instruction sources, issues, and pull requests.
+
+As the analyzer processes more sessions, recurring evidence can update an existing finding and its issue. Use the finding identity and the linked issue to follow that history. Creating the issue is a separate step from analysis, so a completed run alone doesn't prove that GitHub access works.
+
+Finding text and evidence summaries can include session details. Make sure the destination repository's access matches your intended audience, as described in [Trust and data model](/docs/governance/start-here/trust-and-data-model).
+
+### Choose a destination repository
+
+An organization administrator sets the destination once per finding, while the finding is open:
+
+<Steps>
+  1. On the **Findings** page of the Promptless Dashboard, open the finding.
+
+  2. Select **Instruction sources and fix destination**.
+
+  3. Select a repository from the list. The list shows only repositories that have Create Repo Issues enabled.
+
+  4. Select **Use repository**.
+</Steps>
+
+Promptless then creates the issue, and any proposed fix, in that repository.
+
+## Decide the next action
+
+<Steps>
+  1. **Confirm the observed problem.** Read the impact and evidence, including enough surrounding context to avoid correcting intentional behavior.
+
+  2. **Identify the owner.** Shared hub instructions, a repository-local instruction, a tool bug, and a missing permission have different owners.
+
+  3. **Check for an existing response.** Read the finding notes, linked pull request, and current hub instructions before proposing a duplicate fix.
+
+  4. **Review the remediation outcome.** High-confidence findings can enter the [remediation workflow](/docs/governance/findings-and-remediation/remediate-findings). That workflow may propose a hub change, ask for a policy decision, or identify an external action.
+</Steps>
+
+The expected outcome is a clear owner and a justified next action. Not every finding needs a new instruction or a pull request.
+
+## Troubleshooting
+
+| Situation                                                        | What to check                                                                                                                                                                                                            |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The run succeeded, but no finding appeared                       | Zero findings is valid. Confirm the run belongs to the session you intended to analyze.                                                                                                                                  |
+| A local finding has no GitHub issue                              | Ask the operator to check hosted synchronization and the repository connection.                                                                                                                                          |
+| The finding asks you to select a repository for its GitHub issue | Its recorded sources map to more than one selected repository, or to none. An organization administrator opens the finding and, under **Instruction sources**, selects a repository that has Create Repo Issues enabled. |
+| Evidence seems inconsistent with the current hub                 | Compare the analyzed repository revision with the current instructions and the session's installed plugin version.                                                                                                       |
+| No remediation pull request opened                               | Check confidence, ownership notes, pending decisions, repository access, and the remediation outcome.                                                                                                                    |
+| Similar issues appear to overlap                                 | Compare their failure mechanism and evidence before treating them as duplicates; different symptoms can have one cause, and similar symptoms can have different causes.                                                  |
+
+## Related resources
+
+- [Remediate findings](/docs/governance/findings-and-remediation/remediate-findings), to review and ship a proposed fix
+- [Trust and data model](/docs/governance/start-here/trust-and-data-model), for who can see finding text and evidence
+- [Verify your deployment](/docs/governance/deploy-the-worker/verify-your-deployment), to confirm that analysis completed for a session

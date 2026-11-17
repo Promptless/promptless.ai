@@ -1,60 +1,31 @@
 /**
- * Preserve the trailing-slash forms of the legacy /api routes on Vercel.
+ * Make every generated redirect match its source with or without a trailing slash.
  *
- * Astro correctly turns the configured `/api/[...slug]` redirect into a Vercel
- * catch-all, but @astrojs/vercel currently serializes redirect regexes without
- * Astro's default optional trailing slash. The old API reference published
- * trailing-slash URLs, so make only those generated rules slash-tolerant after
- * the adapter writes `.vercel/output/config.json`.
- *
- * The redirect destinations remain sourced exclusively from astro.config.mjs;
- * this script changes only how the adapter's generated source regex matches.
+ * Runs after `astro build` and rewrites the redirect routes the Vercel adapter
+ * wrote to `.vercel/output/config.json`; src/lib/vercel-redirect-routes.ts
+ * explains why. The redirect destinations remain sourced exclusively from
+ * astro.config.mjs and src/lib/generated/redirects.json; this script changes
+ * only how the generated source regex matches, plus the trailing slash on the
+ * dynamic /api destination.
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { normalizeRedirectRoutes, type VercelRoute } from '../src/lib/vercel-redirect-routes';
 
-if (process.env.MCP_ENABLED === 'false') {
+// Mirrors the adapter condition in astro.config.mjs: without the adapter, the
+// build writes Astro's redirect stub pages to dist/ instead of Vercel routes.
+if (process.env.MCP_ENABLED === 'false' && !process.env.ANTHROPIC_API_KEY) {
   process.exit(0);
 }
 
 const configPath = path.join(process.cwd(), '.vercel', 'output', 'config.json');
-const config = JSON.parse(await readFile(configPath, 'utf8')) as {
-  routes?: Array<{
-    src?: string;
-    headers?: Record<string, string>;
-  }>;
-};
+const config = JSON.parse(await readFile(configPath, 'utf8')) as { routes?: VercelRoute[] };
 
-let patchedRules = 0;
-
-for (const route of config.routes ?? []) {
-  const location = route.headers?.Location;
-  if (!route.src || !location?.startsWith('/docs/for-docs/api/')) continue;
-
-  if (route.src === '^/api$' || route.src === '^/api/?$') {
-    route.src = '^/api/?$';
-    patchedRules += 1;
-    continue;
-  }
-
-  if (route.src.startsWith('^/api(?:') && route.src.endsWith('$')) {
-    if (!route.src.endsWith('/?$')) {
-      route.src = `${route.src.slice(0, -1)}/?$`;
-    }
-    // Starlight's generated OpenAPI pages declare slash-terminated canonicals.
-    // The adapter also removes this trailing slash from dynamic destinations.
-    if (!location.endsWith('/')) {
-      route.headers!.Location = `${location}/`;
-    }
-    patchedRules += 1;
-  }
-}
-
-if (patchedRules !== 2) {
-  throw new Error(
-    `Expected to normalize exactly two generated /api redirects, normalized ${patchedRules}.`
-  );
+// No redirect routes means the adapter changed its output format, and the
+// trailing-slash forms would quietly 404 again.
+if (normalizeRedirectRoutes(config.routes ?? []) === 0) {
+  throw new Error(`Found no redirect routes to normalize in ${configPath}.`);
 }
 
 await writeFile(configPath, `${JSON.stringify(config, null, '\t')}\n`);

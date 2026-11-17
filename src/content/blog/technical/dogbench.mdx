@@ -1,0 +1,110 @@
+---
+title: 'DoGBench: Can agents meet expert standards for user-facing documentation?'
+subtitle: Published October 2026
+description: >-
+  DoGBench evaluates whether AI agents can recognize when documentation needs
+  updating and produce changes that meet expert review standards. The best
+  agent in the paper reached a composite score of 47.3 out of 100.
+author: Manny
+date: '2026-10-01T00:00:00.000Z'
+tag: Technical
+section: Featured
+hidden: false
+---
+import BlogNewsletterCTA from '@components/site/BlogNewsletterCTA.astro';
+
+The agent ecosystem is speedrunning every documentation mistake the software industry already made. Teams hand more of their documentation to AI agents, and people increasingly rely on agents to find and use products. To our knowledge, no benchmark had measured whether agents can write user-facing documentation that holds up in review.
+
+So we called the tech writers. We're releasing [DoGBench](https://dogbench.ai), the Documentation Generation Benchmark, which asks if agents can independently produce user-facing documentation that an experienced technical writer would accept in review.
+
+Not yet. AI agents can write polished documentation, but they often miss what readers need to complete a task. They also struggle to decide whether a change needs documentation at all.
+
+## Who built it
+
+Frances Liu led the research, and I co-authored it. Three other open source maintainers co-authored it with us: Paige Calvert from Helm, Ayu Adiati from Mautic, and Sarah Sanders from PostHog. They validated the scoring rubrics against what their projects need.
+
+## How it works
+
+The benchmark contains 292 items drawn from real open source projects, including Helm, PostHog, Mautic, and Doc Detective. Of these, 205 require a documentation change, and 87 require leaving the documentation unchanged. The required changes include new documentation, updates to existing guidance, and deletions of stale or redundant content.
+
+The paper evaluates seven agents on a random, stratified 117-item held-out split: 82 items that need an update and 35 that don't. Each agent pairs a model with the harness that runs it. For example, one agent is Claude Opus 4.8 in Claude Code.
+
+Each agent receives the repository as it existed before the change. It also receives a triggering signal, such as a code pull request or a reported documentation gap. We withhold the merged documentation so it's not available to the agents. Each agent works in a fresh Docker container with the repository's identity masked. It has no network access except to its model provider, so it can't look up the merged answer.
+
+The agent's first job is to decide if the change affects users and requires a change to the documentation. Knowing when to leave the docs alone is part of the job, and we wanted to know how well agents made that judgment call.
+
+Task-specific rubrics, validated with project maintainers, assess accuracy, completeness, reader guidance, placement, style, and repository conventions. Across the 205 documentation-needed items, the rubrics contain 3,273 criteria, including 798 P0 criteria for critical defects. Each criterion has equal weight, but failing any P0 criterion caps the patch's score at 60 out of 100. Strengths on secondary criteria can't average away a critical defect.
+
+DoGBench reports update decisions and patch quality separately, then combines them:
+
+- **Delivered patch quality** averages rubric scores across the 82 held-out items that need an update. Missed or empty patches score zero.
+- **Correct abstention** measures how often the agent leaves the documentation unchanged across the 35 held-out items that need no update.
+- **The composite score** is the harmonic mean of the two. Strong performance on one can't fully make up for weak performance on the other.
+
+## What we found
+
+### The best agent scored 47.3 out of 100
+
+Qwen3.8 Max with OpenCode had the highest composite score among the paper's seven agents, at 47.3 out of 100. A score of 100 means an agent meets every requirement for the item. The score isn't a percentage of an expert's capability.
+
+### Agents struggle to decide when documentation needs updating
+
+Agents make mistakes in both directions. Some document internal refactors or performance optimizations that require no new user guidance. Others overlook necessary updates because they find no existing page about the feature. In those cases, the missing coverage is the problem they need to solve. Across the seven agents, correct abstention ranged from 28.6% to 85.7% of the 35 items that needed no change.
+
+### Polished writing can still leave readers unable to finish a task
+
+A patch can sound clear and contain correct facts while omitting a prerequisite, decision point, or essential step. It can also appear on a page readers are unlikely to find, or contradict guidance elsewhere.
+
+In a broad audit of 1,267 submissions:
+
+- 45.5% had a task-completion gap, such as a missing prerequisite, procedural step, verification step, or recovery path.
+- 36.6% contained technical inaccuracies.
+- 32.5% omitted part of the central concept or reference information.
+
+These categories overlap. Fabricated content, such as invented classes, flags, or endpoints, appeared in 6.1% of submissions. With frontier agents, hallucinations also take subtler forms, like extending a real feature's scope, misstating a default, or presenting conditional behavior as universally true. Our audit classified these distortions as technical inaccuracies. A reviewer who skims can miss them.
+
+### The failures start in the investigation
+
+A trajectory is the record of an agent's work on an item. The trajectory analysis found that agents frequently missed decisive evidence or stopped investigating after finding the first plausible page to edit. Three patterns stood out:
+
+- In 36.0% of submissions, the agent described an interface without checking how readers use it.
+- In 33.1%, the agent missed decisive evidence and filled the gap with a plausible assumption.
+- In 30.1%, the agent stopped at the first plausible page and left other affected pages stale.
+
+Prompts that ask agents to consider the reader's goal, skills that emphasize task completion and findability, and explicit verification could help. We explored these informally but haven't compared them against a baseline, so we can't yet say whether they improve documentation quality.
+
+### Expert review remains necessary
+
+A patch is P0-clean when it has no critical failures under the rubric. Among the paper's seven agents, the highest P0-clean delivery rate was 39.0%. GPT-5.6 Sol with Codex delivered a P0-clean patch for 32 of the 82 held-out items that needed an update.
+
+Documentation owners bring context that a code change alone may not reveal. They know who the readers are, what those readers are trying to accomplish, and how the change affects the readers' workflow. That context helps determine whether an update is needed and what it must cover.
+
+## What this means if you own docs
+
+When leadership asks whether agents can take over the docs, DoGBench gives you evidence. It shows what good looks like and where today's agents fall short. We prepared a concise [slide deck for documentation owners](https://dogbench.ai/for-tw-deck.pdf) to use in that discussion with your teams or leadership.
+
+Review an agent's draft against the reader's workflow:
+
+- Check that the reader can find the guidance, complete the steps, and verify the result.
+- Confirm the conditions behind each technical claim.
+- Check related pages for contradictions or stale instructions.
+
+## Where Promptless fits
+
+Promptless builds documentation agents, so here's our disclosure. The paper's ranking doesn't include our agent. It reports only the seven model-and-harness agents.
+
+On [dogbench.ai](https://dogbench.ai), selecting **Cloud agents** adds commercial agents, including ours, scored on the same held-out split. We tested the same production agent available to all Promptless customers, and we made no specific agent improvements based on the DoGBench work. The cloud agents were instructed not to use the internet. We verified that our agent didn't browse the internet for contaminating information, but we couldn't verify that for the other cloud agents.
+
+## Run it yourself
+
+The DoGBench release includes:
+
+- The paper, at [dogbench.ai/paper](https://dogbench.ai/paper).
+- The leaderboard and a sample of scored items, at [dogbench.ai](https://dogbench.ai). Each item shows its inputs, every agent's patch, and the rubric verdicts.
+- The harness, at [github.com/Promptless/dogbench](https://github.com/Promptless/dogbench).
+- The 175-item development split, on [Hugging Face](https://huggingface.co/datasets/promptless-research/dogbench-dev).
+- The [735 saved trajectories](https://github.com/Promptless/dogbench/blob/main/historical-trajectories/README.md) from the seven agents, on 105 development items.
+
+If you build agents, develop on the development split. The held-out split stays private, and the [leaderboard submission guide](https://github.com/Promptless/dogbench/blob/main/docs/leaderboard-submission.md) explains how to request a held-out evaluation. If you maintain an open source project and want its docs in a future version, [open an issue](https://github.com/Promptless/dogbench/issues) in the DoGBench repository.
+
+<BlogNewsletterCTA />
