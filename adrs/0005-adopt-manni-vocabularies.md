@@ -1,6 +1,6 @@
 # Adopt manni and its strict metadata vocabularies
 
-- Status: accepted
+- Status: accepted; partially superseded by [ADR 0009](0009-drop-last-updated-frontmatter.md), which drops `last-updated`
 - Date: 2026-10-16
 - Deciders: Promptless docs team (requested through a Promptless dashboard task, 2026-10-16)
 - Context source: [manni vocabularies reference](https://hawkeyexl.github.io/manni/meta/reference/schemas/manni-vocabularies/)
