@@ -33,6 +33,7 @@ concepts:
 prerequisites:
   - for-docs-reference-integrations-gitlab
 related-pages:
+  - for-docs-work-the-queue-reviewing-prs
   - for-docs-reference-configuration-reference
   - for-docs-connect-doc-locations-github-repos
   - for-docs-get-the-most-out-ask-promptless-to-update-config
@@ -52,20 +53,18 @@ sidebar:
 import { Aside, Steps } from '@astrojs/starlight/components';
 import GitLabConnect from '@partials/integrations/gitlab-connect.mdx';
 
-<Aside type="tip">
-  You can set up a doc collection by hand as this page describes. You can also ask Promptless in Slack or Microsoft Teams to do it for you. For example, "@Promptless add my acme/docs GitLab project as a doc collection." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
-</Aside>
-
 ## Overview
 
-A GitLab doc collection is the GitLab project where your documentation lives and where Promptless opens merge requests with documentation updates. Your docs platform publishes from that project, so your documentation stays under version control alongside the rest of your work. GitLab doc collections work on both gitlab.com and self-hosted GitLab.
+In Promptless, a doc collection is a place where your documentation lives. When your docs are in GitLab, on gitlab.com or self-hosted, the doc collection is a GitLab project. You can limit Promptless to specific paths in that project.
 
-Promptless reaches the project using your connected GitLab group access token, which needs the `api` scope. When your documentation needs an update, Promptless pushes a branch directly to your docs project and opens a merge request. Your documentation platform then syncs the changes from GitLab.
+To set this up, connect the GitLab group that holds the project, then select the project on the Configuration page.
+
+You can also ask Promptless in Slack or Microsoft Teams to add the doc collection for you. For example, "@Promptless add my acme/docs GitLab project as a doc collection." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
 
 ## Before you start
 
-- An admin role in your Promptless organization, to connect GitLab and create doc collections.
-- A connected GitLab group whose access token reaches your docs project. The connected group access token must have the write-capable `api` scope so Promptless can push a branch and open a merge request. To connect a group, see [Connect GitLab](#connect-gitlab).
+- An admin role in your Promptless organization.
+- A [connected GitLab group](#connect-gitlab) that holds your docs project.
 
 ## Connect GitLab
 
@@ -80,18 +79,16 @@ Skip this section if the group that holds your docs project already has a card o
 
   2. Under **Which repository should Promptless document?**, select your GitLab project. To list only your GitLab projects, search for `gitlab`.
 
-  3. Set the docs framework, published URL, and the directories Promptless can modify. These settings work the same as for a [GitHub doc collection](/docs/for-docs/connect/doc-locations/github-repos#configuration).
+  3. Set the docs framework, published URL, and [path scope](/docs/for-docs/connect/doc-locations/github-repos#path-scope-documentation-directories). These settings work the same as for a [GitHub doc collection](/docs/for-docs/connect/doc-locations/github-repos#configuration).
 
   4. Select **Add collection**.
 </Steps>
 
-The picker lists every connected GitLab project, on gitlab.com and self-hosted GitLab alike, by its full path including every namespace segment, such as `acme/platform/developer-docs`. Promptless sets the platform and the **GitLab host** from the connection that reaches the project. **GitLab host** is blank for gitlab.com, and holds the bare hostname, such as `gitlab.acme.com`, for self-hosted GitLab.
-
-If the picker lists none of your GitLab projects, GitLab isn't connected yet. If it lists other projects but not yours, the connected group token's project inventory doesn't include that project. To connect a group, see [Connect GitLab](#connect-gitlab). To scope the token to the right group, see [Token scope considerations](/docs/for-docs/reference/integrations/gitlab#token-scope-considerations).
+If the picker doesn't list your project, [connect the group](#connect-gitlab) that holds it.
 
 ### Configure a GitLab doc collection in YAML
 
-In YAML, a GitLab collection sets `platform: gitlab` and is keyed by the project's full path, including every namespace segment. A self-hosted project also sets `host`:
+Set `platform: gitlab` and use the project's full path as the key. For a self-hosted project, also set `host`:
 
 ```yaml
 doc_collections:
@@ -108,31 +105,19 @@ See the [configuration reference](/docs/for-docs/reference/configuration-referen
 
 ## Automatic merge request creation
 
-When automatic PR creation (`auto_create_pr`) is on in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies), Promptless opens a merge request in your documentation project with the suggested changes. Promptless tracks merge request status the same way it tracks GitHub pull request status. GitLab has no draft flag at creation time, so Promptless marks a draft merge request with a `Draft:` title prefix.
+Onboarding turns on automatic PR creation (`publishing.auto_create_pr`), so Promptless opens a merge request for each suggestion. Keep it on. Reviewers then get suggestions in GitLab with their other merge requests.
 
-When Promptless opens or updates a merge request, it posts one discussion for each changed file that lists the sources behind that file's changes. The discussion names the file and lists, under a **Sources** heading, each source link with the claim it supports. These discussions appear in the merge request's activity. As the suggestion changes, Promptless updates each file's discussion to match.
+With it off, suggestions stay in the Promptless dashboard until someone opens a merge request for each one by hand.
 
-Shortly after it posts a sources discussion, Promptless resolves it, so projects that require all discussions resolved can still merge. Promptless leaves a discussion alone after you reply to it or reopen it. This behavior applies to every organization, with no setting to configure.
-
-To have Promptless merge its documentation changes automatically, turn on automatic merging (`auto_merge`) in your publishing policies. On GitLab, Promptless attempts an immediate squash merge as soon as it opens the merge request. See [Policies](/docs/for-docs/reference/configuration-reference#policies) for how publishing rules resolve.
+Change the setting in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
 
 <Aside type="caution" title="GitLab auto-merge does not wait for pipelines">
-  On GitLab, Promptless attempts the merge once, right when it opens the merge request. It doesn't use GitLab's "merge when pipeline succeeds", doesn't wait for a pipeline, and doesn't retry later. If the merge request can't merge at that moment, GitLab reports a failure. Promptless then leaves the merge request open for you to merge manually. For example, a required pipeline hasn't passed, approvals are pending, or the branch has conflicts.
+  With auto-merge (`publishing.auto_merge`) on, Promptless attempts one squash merge when it opens the merge request. It doesn't wait for a pipeline, and it doesn't retry. If the merge fails, the merge request stays open for you to merge.
 </Aside>
-
-Merge request bodies carry the same generated extras as GitHub pull requests. These are the "Open in Promptless" link, the trigger events that prompted the update, and a tip. To omit them, set `publishing.suppress_pr_description_extras: true` in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies). The body then contains only the suggestion's own description. See [Trigger events in pull request descriptions](/docs/for-docs/connect/doc-locations/github-repos#trigger-events-in-pull-request-descriptions) for what this content covers.
-
-## Path scope (documentation directories)
-
-Path scope sets which files Promptless can modify in your documentation project, the same way it does for GitHub repositories. Set it with the directories you specify during doc collection setup:
-
-- With no directories, Promptless can create and modify files anywhere in the project.
-- With directories, Promptless can modify only files that match one of those paths exactly or sit inside one of those directories.
-
-A scope entry can be a directory or a single file. An entry such as `CHANGELOG.md` allows only that file, and `docs/` allows any file under that directory. Promptless rejects a suggestion that changes files outside the configured scope, with an error that lists those files. For examples, see [Path scope](/docs/for-docs/connect/doc-locations/github-repos#path-scope-documentation-directories).
 
 ## See also
 
 - [GitLab integration](/docs/for-docs/reference/integrations/gitlab), for token requirements, webhooks, and connecting more groups
 - [GitLab merge requests](/docs/for-docs/connect/triggers/gitlab-merge-requests), to start documentation work from merge requests in your code projects
 - [Source control and access scope](/docs/for-docs/connect/source-control), to compare what GitHub and GitLab connections can access
+- [Review and edit Promptless PRs](/docs/for-docs/work-the-queue/reviewing-prs), to review and steer the merge requests Promptless opens
