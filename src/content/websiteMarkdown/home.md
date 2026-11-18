@@ -81,7 +81,7 @@ The page links to Claude, ChatGPT, Gemini, and Perplexity with this prompt: "Wha
 Find silent failures in agent sessions and the instructions behind them. PIG proposes a fix your team can review and share.
 
 - **Real session evidence:** See where agents get stuck.
-- **Focused fixes:** Review changes to the instructions behind it.
+- **Focused fixes:** Review changes to the instructions behind each failure.
 - **One shared hub:** Publish improvements for your team's agents.
 
 [Get a demo](https://promptless.ai/meet?content=agent-instructions#book) with your work email. Documentation starts at the [Promptless for Agent Instructions overview](https://promptless.ai/docs/governance.md).
@@ -161,10 +161,10 @@ We ran PIG on Promptless's own engineering, GTM, and ops agent sessions and comp
 
 ### Keep control of your data and changes.
 
-- **Raw traces (your infrastructure).** Native transcripts and canonical trace objects are stored in customer-owned storage that your analyzer writes to.
+- **Raw traces (your infrastructure).** Your analyzer writes native transcripts and canonical trace objects to customer-owned storage.
 - **Analysis input (your model provider).** The analyzer sends session-derived input to the provider you configure: OpenAI, Azure OpenAI, or AWS Bedrock.
 - **Status and findings (Promptless).** Promptless receives trace status and counts, plus findings. Finding text is model-written and can describe session details.
-- **Review rules (your repository).** Fixes arrive as pull requests. CODEOWNERS, required reviews, and branch protection stay yours. PIG does not merge for you.
+- **Review rules (your repository).** Fixes arrive as pull requests. CODEOWNERS, required reviews, and branch protection stay yours. Your team approves and merges each fix.
 
 See the [trust and data model](https://promptless.ai/docs/governance/start-here/trust-and-data-model.md).
 
@@ -172,7 +172,7 @@ See the [trust and data model](https://promptless.ai/docs/governance/start-here/
 
 **What counts as an agent instruction?** Anything your Instruction Hub stores: skills, MCP configurations, rules, agent definitions, commands, and hooks. Skills and MCP configurations reach all four targets by default; the others reach a target once you declare support for it.
 
-**Which agents does PIG support?** PIG distributes instructions to Claude Code, Codex, Cursor, and Gemini CLI. Native trace collection is opt-in and currently covers Claude Code and Codex, so an agent can use your hub without sending traces.
+**Which agents does PIG support?** PIG distributes instructions to Claude Code, Codex, Cursor, and Gemini CLI. Native trace collection is opt-in and covers Claude Code, Codex, and Cursor desktop Agent sessions, so an agent can use your hub without sending traces.
 
 **Does PIG change our instructions automatically?** No. A proposed fix is a pull request. Your team reviews and merges it under your repository rules, then publishes a new release through the hub's workflow.
 
