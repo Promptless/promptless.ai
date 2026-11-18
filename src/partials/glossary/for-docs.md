@@ -39,6 +39,10 @@ docs-as-tests
 docs debt
 :   The backlog of stale steps, off-style prose, duplicate pages, and outdated structure that builds up in a large docs set.
 
+docs evals
+docs eval
+:   Tests of whether a doc collection answers the questions readers ask. A model answers each question from the docs, and a judge model grades the answer against the facts it must state.
+
 docs migration
 :   A one-time project that moves documentation off a hosted platform and onto a Git-backed docs-as-code platform, with redirects from old URLs.
 
@@ -80,6 +84,9 @@ open-source program
 
 path scope
 :   The directories and files Promptless can change in a doc collection, set by its filter setting. Promptless rejects a suggestion that changes files outside the scope.
+
+people directory
+:   The records Promptless keeps of the accounts each teammate, AI agent, and service account uses in each connected tool. Routing preferences use it to find the same person across tools.
 
 pilot
 pilots

@@ -67,7 +67,7 @@ marketplace
 
 model provider
 model providers
-:   The service that hosts the language models Promptless uses. Promptless for Docs has a default provider, and the PIG trace analyzer calls the provider you configure in your own account.
+:   The service that hosts the language models Promptless uses. Docs evals run on the provider keys or endpoints your organization adds. The PIG trace analyzer calls the provider you configure in your own account.
 
 object storage
 :   Private cloud storage where the PIG trace analyzer keeps raw uploads and canonical trace objects. Each deployment uses one storage location from a supported cloud provider.

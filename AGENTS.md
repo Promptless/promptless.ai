@@ -125,7 +125,8 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   push to `main` that touches it, and other Promptless repos sync it from
   there. The site consumes the same package (`Packages = ./vale/Promptless`),
   so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
-  synced output and is gitignored. Styles: `Promptless` (the organization's
+  synced output and is gitignored, except the generated `Terms` style in
+  `.vale/styles/Terms/` (see **manni term** below). Styles: `Promptless` (the organization's
   house rules: terminology, sentence-case headings, present tense, set
   counts, semicolons) plus `Voices`, `Direct`, and `Moose` vendored from
   hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). `Promptless` is the
