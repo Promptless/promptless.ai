@@ -37,6 +37,10 @@ const apiBase = getAgentScoreApiBase();
     />
     <button class="pl-as-btn pl-as-btn-primary" type="submit">{buttonLabel}</button>
   </div>
+  <p class="pl-as-form-hint" data-as-form-hint hidden>
+    Agent Score tests the pages under the URL you enter. To score the whole site, enter the root of the docs site, like
+    docs.example.com.
+  </p>
   <div class="pl-free-tools-honeypot" aria-hidden="true">
     <label for={`${id}-website`}>Website</label>
     <input id={`${id}-website`} name="website" type="text" tabindex="-1" autocomplete="off" />
@@ -58,6 +62,7 @@ const apiBase = getAgentScoreApiBase();
 <script>
   import { capture, gaCtaClick } from '@lib/agent-score/client/analytics';
   import { getProgressElements, pollScan, renderProgress, ScanRequestError, startScan } from '@lib/agent-score/client/scan';
+  import { looksLikeSinglePage } from '@lib/agent-score/discovery';
   import { CUSTOM_PORT_REASON, normalizeTargetUrl, scorePagePath } from '@lib/agent-score/slug';
 
   const CUSTOM_PORT_HELP = `${CUSTOM_PORT_REASON} Letting a public tool open any port a visitor names is too risky, so this is not something we plan to support. For a site on another port, <a href="/agent-score#run-it-yourself">run afdocs yourself</a> or <a href="mailto:help@gopromptless.ai">email us</a> and we can run the scan for you.`;
@@ -71,7 +76,8 @@ const apiBase = getAgentScoreApiBase();
     const status = form.querySelector<HTMLElement>('[data-as-form-status]');
     const progressRoot = form.querySelector<HTMLElement>('[data-as-progress]');
     const cancel = form.querySelector<HTMLButtonElement>('[data-progress-cancel]');
-    if (!input || !button || !status || !progressRoot || !cancel) return;
+    const hint = form.querySelector<HTMLElement>('[data-as-form-hint]');
+    if (!input || !button || !status || !progressRoot || !cancel || !hint) return;
     const progress = getProgressElements(progressRoot);
     const label = button.textContent ?? '';
     let active: { controller: AbortController; slug: string; startedAt: number } | null = null;
@@ -90,6 +96,13 @@ const apiBase = getAgentScoreApiBase();
       input.readOnly = busy;
       button.textContent = busy ? 'Scanning…' : label;
     };
+
+    // The hint never blocks a scan: a deep path can be a real docs root.
+    const updateHint = () => {
+      hint.hidden = !looksLikeSinglePage(input.value);
+    };
+    input.addEventListener('input', updateHint);
+    updateHint();
 
     // Stops following the scan and frees the form. The scan finishes on the
     // backend regardless, so a resubmit within 10 minutes opens the cached result.
