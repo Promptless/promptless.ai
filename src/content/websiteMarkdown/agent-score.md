@@ -21,7 +21,7 @@ The public JSON API lives at `https://api.gopromptless.ai/public/free-tools/agen
 
 ## Score a private site
 
-Agent Score is a hosted run of afdocs and nothing more. The same command on a staging site, a localhost build, or docs on your VPN gives the same score. afdocs is MIT-licensed, written by [Dachary Carey](https://github.com/dacharyc), and implements the [Agent-Friendly Docs Spec](https://agentdocsspec.com/spec/web/). Promptless adds no checks and changes no weights; it skips the `llms-txt-coverage` check, which expects llms.txt to list every sitemap URL. Pass the same `--skip-checks` flag locally to match a hosted score. Needs Node 22 or later:
+Agent Score is a hosted run of afdocs and nothing more. The same command on a staging site, a localhost build, or docs on your VPN gives the same score. afdocs is MIT-licensed, written by [Dachary Carey](https://github.com/dacharyc), and implements the [Agent-Friendly Docs Spec](https://agentdocsspec.com/spec/web/). Promptless adds no checks and changes no weights. The hosted scanner skips the `llms-txt-coverage` check, which expects llms.txt to list every sitemap URL. Pass the same `--skip-checks` flag to match a hosted score. Needs Node 22 or later:
 
 ```bash
 npx afdocs@latest check https://docs.example.com --skip-checks llms-txt-coverage --format scorecard
