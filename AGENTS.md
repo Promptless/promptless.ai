@@ -107,7 +107,7 @@ npm run lint:md:fix      # remark-lint auto-repair (full reflow via --output)
 npm run lint:frontmatter # manni: frontmatter validation (needs Node >= 24)
 npm run lint:structure   # manni: page structure by `type:` (advisory in CI)
 npm run lint:a11y        # manni: axe-core accessibility crawl (needs `npm run build && npm run preview` running)
-npx manni meta derive    # restamp created / last-updated / owner after editing a docs page
+npx manni meta derive    # stamp created / owner after adding or moving a docs page
 npx manni check          # run every manni check set up here (or pass pages); never restamps
 ```
 
@@ -122,14 +122,24 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   push to `main` that touches it, and other Promptless repos sync it from
   there. The site consumes the same package (`Packages = ./vale/Promptless`),
   so run `vale sync` once locally, then `vale <file>`; `.vale/styles/` is the
-  synced output and is gitignored. Styles: `Promptless` (house terminology,
-  sentence-case headings) plus `Voices`, `Direct`, and `Moose` vendored from
-  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). Any error fails CI.
+  synced output and is gitignored. Styles: `Promptless` (the organization's
+  house rules: terminology, sentence-case headings, present tense, set
+  counts, semicolons) plus `Voices`, `Direct`, and `Moose` vendored from
+  hawkeyexl/moose-vale (see `vale/Promptless/NOTICE`). `Promptless` is the
+  one home for house rules; add new ones there, not in a second style. The
+  root `.vale.ini` turns off three rules for this site:
+  `Voices.BinaryContrast` (`Promptless.NegationContrast` replaces it),
+  `Promptless.PassiveVoice` (too noisy on the docs), and
+  `Promptless.BlogReadingGrade` (blog-only; Vale doesn't lint the blog).
+  `Promptless.Semicolons` and `Promptless.CurrentState` run at warning. Any
+  error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
-  references, trailing whitespace). CI auto-repairs (`--output` full reflow),
-  commits the fix on same-repo PRs, and blocks on anything left. Run
-  `npm run lint:md:fix` locally and commit if CI reports uncommitted fixes.
+  references, trailing whitespace). CI runs the repair (`--output` full
+  reflow) but doesn't push it: the job fails, and on same-repo PRs a
+  `github-actions[bot]` comment shows the diff (edited on each run, deleted
+  once clean). Apply that diff, or run `npm run lint:md:fix` locally, and
+  commit the result.
   Files using MDX syntax (`import`/`export`/JSX) must be `.mdx`, never `.md` —
   a CI guard enforces this. See Starport ADR 0005.
 - **manni** (`manni.config.yaml`, `docs.metadata.yaml`, `manni.yml`) —
@@ -147,13 +157,15 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   under the page's `id`, so a page with no `id` fails `derived:stale`, and an
   entry whose page lost its `id` fails as an orphan. Reader-facing fields (`keywords`, `audiences`, `intent`,
   `lifecycle`, `applies-to`, `concepts`, `prerequisites`, `next-steps`,
-  `related-pages`, `risks`, `sample-questions`, `last-updated`) live in
+  `related-pages`, `risks`, `sample-questions`) live in
   frontmatter. Maintainer fields (`owner`, `created`, `personas`, `journeys`,
   `visibility`, `source-of-truth`, `meta-provenance`) live in
   `docs.metadata.yaml`, keyed by `id`; never put them in a page.
-  `created`, `last-updated`, and `owner` are stamped from git and CODEOWNERS:
-  after you commit a change to a page's body, run `npx manni meta derive` and
-  commit the result, or CI fails with `derived:stale`. Then run
+  `created` and `owner` are stamped from git and CODEOWNERS: after you commit
+  a new or moved page, run `npx manni meta derive` and commit the result, or
+  CI fails with `derived:stale`. Pages have no `last-updated` field; git
+  records when a page changed (see
+  [ADR 0009](adrs/0009-drop-last-updated-frontmatter.md)). Then run
   `npx manni check` to verify (pass page paths to check only those): it runs
   every manni check this repo has set up, including the `meta validate` CI
   runs, and reports a stale stamp, but it doesn't restamp, so `derive` is

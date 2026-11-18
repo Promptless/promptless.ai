@@ -1,0 +1,135 @@
+---
+title: Vale rules
+description: How Promptless creates your organization's Vale rule set from your style guidance, where the rules live, and how they change as you give feedback.
+id: for-docs-audit-vale-rules
+slug: docs/for-docs/audit/vale-rules
+type: concept
+tags:
+  - audit
+  - concept
+keywords:
+  - Vale rules
+  - Vale rules from style guide
+  - style rules
+  - rules collection
+  - style.rules_collection
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-brownfield-docs-team
+  - aud-devrel-devex
+intent: understand how Promptless creates, stores, and maintains the Vale rules for an organization
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+concepts:
+  - vale
+  - style guide
+  - knowledge base
+  - doc collection
+related-pages:
+  - for-docs-audit-standards-enforcement
+  - for-docs-get-the-most-out-agent-knowledge-base
+  - for-docs-start-here-run-a-pilot
+sample-questions:
+  - Can Promptless propose Vale rules from my style guide?
+  - Where does Promptless keep my organization's Vale rules?
+  - How do I make Promptless use the Vale rules in my own repository?
+  - How do Vale rules change when I give Promptless feedback?
+sidebar:
+  hidden: false
+  order: 37
+---
+
+[Vale](https://vale.sh/) is an open-source linter for prose. It checks text against rules the way a code linter checks code. Each rule is a YAML file, and Vale reports the same finding every time it runs. Many style guide rules can be Vale rules, such as terminology, capitalization, banned phrases, and sentence length.
+
+Promptless writes Vale rules for you from your existing style guide. It keeps them as one rule set for your organization and lints every doc collection with it. This page covers how the rule set gets created, where it lives, and how it changes.
+
+For how Promptless runs Vale on a suggestion, see [Vale integration](/docs/for-docs/audit/standards-enforcement).
+
+## Use cases
+
+| Your situation                                                      | How the rule set helps                                                                                                                 |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Reviewers enforce your style guide by hand.                         | Promptless writes Vale rules from your style guide. Vale then checks every suggestion, so reviewers stop checking those rules by hand. |
+| Reviewers repeat the same style comment on suggestions.             | Promptless adds a rule for the preference, so later suggestions follow it before they reach review.                                    |
+| Your doc collections follow different conventions.                  | One rule set applies to every doc collection in your organization.                                                                     |
+| Your organization already keeps its Vale rules in a Git repository. | Promptless uses that repository as the source of the rule set and proposes its rule changes there for review.                          |
+
+## From a style guide rule to a Vale rule
+
+Your style guide states a rule in prose:
+
+> Write "Acme CLI". Don't write "Acme cli" or "acme-cli".
+
+Promptless writes the Vale rule that checks it:
+
+```yaml
+# styles/StyleGuide/Terms.yml
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+swap:
+  'Acme cli|acme-cli': Acme CLI
+```
+
+Vale then reports each place where a page breaks the rule:
+
+```text
+docs/install.md
+ 3:1  error  Use 'Acme CLI' instead of 'Acme cli'.  StyleGuide.Terms
+```
+
+Some style guide rules need judgment, such as a rule about tone. Promptless keeps those in your style guide and applies them as it writes.
+
+## How the rules get created
+
+During your [pilot](/docs/for-docs/start-here/run-a-pilot), the Promptless team works with your technical writers to turn your style guidance into Vale rules. Share your style guide and your Vale configuration, if you have one, before the pilot starts.
+
+Promptless also writes rules on its own. When it analyzes a doc collection, it reads the collection's style guidance and writes Vale rules from it.
+
+The source of a rule sets its severity:
+
+| Source                                        | Severity         |
+| --------------------------------------------- | ---------------- |
+| A rule your style guide states                | error or warning |
+| A strong convention observed across your docs | suggestion       |
+
+To enforce an observed convention, add it to your style guide. Promptless then raises the rule to error or warning.
+
+## Where the rules live
+
+Promptless records the rule set under `style/rules/` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base).
+
+If your organization keeps its Vale rules in a Git repository, add the repository as a doc collection and set it as the rules collection:
+
+```yaml
+style:
+  rules_collection: acme/style-rules
+```
+
+Promptless then syncs the rule set from that repository before each update. When it writes or changes a rule, it proposes the change to the repository as a suggestion.
+
+Without a rules collection, Promptless proposes the rules to your documentation repository as a suggestion when it can place them there:
+
+- When the repository has a Vale configuration, the suggestion adds the rules to it.
+- When the repository has no Vale configuration, the suggestion can add one.
+
+Promptless checks each rule against the Vale version your CI pins. When a rule needs a newer version, the suggestion raises your pin or rewrites the rule for the pinned version.
+
+## How the rules change
+
+Promptless updates the rule set when your style guidance changes:
+
+- **You give feedback.** Promptless adds the style preferences it learns from your feedback to `style/client_style_guide.md` in your Agent Knowledge Base. It then writes or extends the Vale rules that enforce them.
+- **You change your style guide.** Promptless updates the rules that came from the changed guidance.
+- **A rule flags correct text.** Promptless narrows the rule.
+
+A new or changed rule takes effect when Promptless writes it to your Agent Knowledge Base. Promptless lints its next suggestion with the rule. Promptless also proposes the change to your repository as a suggestion. See [Where the rules live](#where-the-rules-live).
+
+## See also
+
+- [Vale integration](/docs/for-docs/audit/standards-enforcement), for how Promptless runs Vale and which findings it fixes
+- [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), where Promptless records the rule set and your style guide
+- [Give feedback](/docs/for-docs/work-the-queue/giving-feedback), for the ways to tell Promptless about a style preference
+- [Run a pilot](/docs/for-docs/start-here/run-a-pilot), for what to share before your pilot starts
