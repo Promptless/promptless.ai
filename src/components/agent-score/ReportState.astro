@@ -1,0 +1,59 @@
+---
+/** Not-scored, invalid, and unavailable states for /agent-score/<site>. */
+import ScanForm from './ScanForm.astro';
+
+interface Props {
+  kind: 'not_found' | 'invalid' | 'error';
+  slug?: string;
+  message?: string;
+}
+
+const { kind, slug, message } = Astro.props;
+const prefill = kind === 'not_found' && slug ? `https://${slug}` : '';
+---
+
+<nav class="pl-as-crumbs" aria-label="Breadcrumb">
+  <a href="/agent-score">Agent Score</a><span aria-hidden="true">/</span><span>{slug ?? 'unknown'}</span>
+</nav>
+
+<div class="pl-as-panel pl-as-state">
+  {
+    kind === 'not_found' && (
+      <>
+        <span class="pl-as-mono-label">Not scored yet</span>
+        <h1>{slug} hasn't been scored yet</h1>
+        <p>
+          Run the first scan now. It takes about a minute, and the report will live at this address so you can share
+          it and come back to see trends.
+        </p>
+        <ScanForm id="agent-score-state-form" location="agent_score_not_found" prefill={prefill} buttonLabel="Score it now" />
+        <p class="pl-as-form-hint">
+          Prefer your terminal? Run <code class="pl-as-inline-code">npx afdocs@latest check {prefill} --format scorecard</code>.{' '}
+          <a href="/agent-score#run-it-yourself">How it works</a>
+        </p>
+      </>
+    )
+  }
+  {
+    kind === 'invalid' && (
+      <>
+        <span class="pl-as-mono-label">Not a docs address</span>
+        <h1>That doesn't look like a public docs site</h1>
+        <p>{message ?? 'Agent Score pages use a hostname and optional path, like /agent-score/docs.example.com.'} Enter the URL of the docs you want to score.</p>
+        <ScanForm id="agent-score-state-form" location="agent_score_not_found" />
+      </>
+    )
+  }
+  {
+    kind === 'error' && (
+      <>
+        <span class="pl-as-mono-label">Temporarily unavailable</span>
+        <h1>We couldn't load the report for {slug}</h1>
+        <p>{message} Try again in a minute.</p>
+        <p>
+          <a class="pl-as-btn pl-as-btn-primary" href="">Reload</a>
+        </p>
+      </>
+    )
+  }
+</div>

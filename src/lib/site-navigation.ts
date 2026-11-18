@@ -53,6 +53,12 @@ export function getActiveSection(pathname: string): SiteSection {
   if (normalized.startsWith('/blog')) return 'blog';
   if (normalized.startsWith('/changelog')) return 'changelog';
   if (normalized.startsWith('/free-tools')) return 'free_tools';
+  // Agent Score is a free tool with its own top-level URL (/agent-score/<site>).
+  if (normalized === '/agent-score' || normalized.startsWith('/agent-score/')) return 'free_tools';
   if (normalized === '/meet') return 'none';
+  if (normalized === '/lavacon') return 'none';
+  // Campaign landing pages share the top bar but carry their own footer and
+  // don't belong to any primary section.
+  if (normalized.startsWith('/campaign')) return 'none';
   return 'website';
 }
