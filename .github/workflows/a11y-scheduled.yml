@@ -1,0 +1,156 @@
+# Weekly accessibility check of the built site (`manni a11y check`).
+#
+# Builds main, serves it, crawls every page, and runs axe-core on each, with
+# the seed URL, severity floor, and exclusions from the `a11y:` section of
+# manni.config.yaml. It runs on a schedule rather than on pull requests
+# because the crawl takes about 10 minutes. See adrs/0008-adopt-manni-a11y.md.
+#
+# When the check finds serious or critical violations, the job sends them to
+# the Promptless API (POST /v1/triggers) so Promptless opens a fix, then fails.
+# Requires the repository secret PROMPTLESS_API_KEY: a Promptless API key from
+# https://app.gopromptless.ai/settings/api.
+#
+# Separate from check.yml because manni requires Node >= 24 while the rest of
+# the toolchain runs Node 22.
+name: a11y (scheduled)
+
+on:
+  schedule:
+    - cron: "17 15 * * 1" # Mondays, 15:17 UTC (8:17am PT, PDT)
+  workflow_dispatch:
+
+# Read-only: the job reads the repo and calls an external API. Actions are
+# pinned to commit SHAs to match the repo's workflow hardening convention.
+permissions:
+  contents: read
+
+concurrency:
+  group: a11y-scheduled
+  cancel-in-progress: false
+
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+    # The build takes about 2 minutes and the crawl about 10.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Build site
+        run: npm run build
+
+      # `manni site preview` would run `astro preview`, which the Vercel
+      # adapter doesn't support. `npm run preview` serves the build output
+      # with its redirects on http://127.0.0.1:4321, the seed URL in
+      # manni.config.yaml.
+      - name: Serve build
+        run: |
+          nohup npm run preview > preview.log 2>&1 &
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null http://127.0.0.1:4321/; then exit 0; fi
+            sleep 2
+          done
+          cat preview.log
+          exit 1
+
+      # GitHub-hosted runners include Chrome, which manni uses. The step
+      # records the exit code instead of failing, so the report can be
+      # summarized and sent first: 0 = clean, 1 = violations or pages that
+      # failed to load, 2 = the seed URL didn't load (nothing was checked).
+      - name: Check accessibility
+        id: check
+        run: |
+          set +e
+          npx manni a11y check --format json --progress > a11y-report.json
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          jq '.summary' a11y-report.json || true
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: a11y-report
+          path: a11y-report.json
+          retention-days: 30
+
+      # One line per failing page and rule, plus pages that failed to load.
+      # Capped so the step summary and the API request stay a manageable size;
+      # the uploaded artifact has the full report.
+      - name: Summarize findings
+        if: steps.check.outputs.exit_code == '1'
+        run: |
+          jq -r '
+            [ .results[]
+              | .url as $url
+              | ( .violations[]?
+                  | "- \($url | sub("^https?://[^/]+"; "")) — `\(.id)` (\(.impact), \(.nodes | length) element(s)): \(.help). First element: `\(.nodes[0].target // "n/a")`. Rule: \(.helpUrl)"
+                ),
+                ( select(.error != null) | "- \($url | sub("^https?://[^/]+"; "")) — page failed to load: \(.error)" )
+            ] as $lines
+            | ($lines[:100] | join("\n"))
+              + (if ($lines | length) > 100 then "\n- …and \(($lines | length) - 100) more; see the a11y-report artifact." else "" end)
+          ' a11y-report.json > findings.md
+          {
+            echo "## manni a11y: violations found"
+            echo
+            jq -r '.summary | "Checked \(.checked) pages: \(.failed) failed, \(.violations) violations."' a11y-report.json
+            echo
+            cat findings.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Request remediation from Promptless
+        if: steps.check.outputs.exit_code == '1'
+        env:
+          PROMPTLESS_API_KEY: ${{ secrets.PROMPTLESS_API_KEY }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$PROMPTLESS_API_KEY" ]; then
+            echo "::error::PROMPTLESS_API_KEY secret is not set; can't request remediation."
+            exit 1
+          fi
+          summary=$(jq -r '.summary | "\(.checked) pages checked, \(.failed) failed, \(.violations) violations"' a11y-report.json)
+          instructions=$(cat <<MSG
+          The weekly accessibility check (manni a11y check) failed on main of ${GITHUB_REPOSITORY} at ${GITHUB_SHA}: ${summary}.
+
+          Fix every finding below in ${GITHUB_REPOSITORY}, then confirm the fix with npm run build, npm run preview, and npm run lint:a11y (see the a11y section of manni.config.yaml and adrs/0008-adopt-manni-a11y.md). Fix the cause in the shared component, stylesheet, or page source rather than excluding the page. If an open suggestion already covers these findings, update it instead of opening a new one. If a finding comes from a third-party embed or upstream markup this repo can't change, say so in the suggestion instead of excluding it.
+
+          Findings (page — axe rule):
+          $(cat findings.md)
+
+          Workflow run with the full JSON report (a11y-report artifact): ${RUN_URL}
+          MSG
+          )
+          jq -n \
+            --arg instructions "$instructions" \
+            --arg run_url "$RUN_URL" \
+            --arg sha "$GITHUB_SHA" \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --slurpfile report a11y-report.json \
+            '{instructions: $instructions,
+              context: {source: "github-actions", workflow: "a11y (scheduled)",
+                        repository: $repo, commit: $sha, run_url: $run_url,
+                        summary: $report[0].summary}}' > request.json
+          # One request per run attempt; curl's retries reuse the key, so a
+          # retried request can't open a second task.
+          curl -fsS --retry 3 --retry-all-errors -X POST "https://api.gopromptless.ai/v1/triggers" \
+            -H "Authorization: Bearer $PROMPTLESS_API_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Idempotency-Key: a11y-scheduled-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --data @request.json
+
+      # Fail the run on any non-zero exit, so a failing check, or a seed URL
+      # that didn't load (exit 2, not sent to Promptless), shows as failed.
+      - name: Fail on findings
+        if: steps.check.outputs.exit_code != '0'
+        run: |
+          echo "::error::manni a11y check exited ${{ steps.check.outputs.exit_code }}. See the step summary and the a11y-report artifact."
+          exit 1

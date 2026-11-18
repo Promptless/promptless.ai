@@ -30,6 +30,8 @@ export interface BuildIndexOptions {
   base?: string;
   /** Starlight locales, normalized. */
   locales: LocaleDef[];
+  /** Optional rewrite of each page's raw body (after frontmatter) before indexing. */
+  transformContent?: (content: string, file: string) => string;
 }
 
 const DOC_EXTENSIONS = new Set(['.md', '.mdx', '.markdown']);
@@ -98,7 +100,7 @@ function slugifySegment(seg: string): string {
 }
 
 export function buildDocsIndex(opts: BuildIndexOptions): DocEntry[] {
-  const { docsDir, site, base = '/', locales } = opts;
+  const { docsDir, site, base = '/', locales, transformContent } = opts;
   const rootLocale = locales.find((l) => l.isRoot);
   const localeByKey = new Map(locales.filter((l) => !l.isRoot).map((l) => [l.key, l]));
   const basePrefix = base === '/' ? '' : base.replace(/\/+$/, '');
@@ -120,6 +122,7 @@ export function buildDocsIndex(opts: BuildIndexOptions): DocEntry[] {
       continue;
     }
     if (data.draft === true) continue;
+    if (transformContent) content = transformContent(content, file);
 
     // A frontmatter `slug` replaces the file-derived route entirely (Starlight
     // uses it verbatim, no slugification). Locale detection runs on the route

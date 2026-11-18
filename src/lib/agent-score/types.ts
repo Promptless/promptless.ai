@@ -161,7 +161,18 @@ export interface SiteResponse {
   lastScannedAt: string;
   scanCount: number;
   latest: ScanResult;
-  previous: { scanId: string; scannedAt: string; overall: number; grade: Grade } | null;
+  /**
+   * `comparable` is false when the two scans used different afdocs scoring
+   * versions; `changes` is then empty because the scores say nothing about the site.
+   */
+  previous: {
+    scanId: string;
+    scannedAt: string;
+    overall: number;
+    grade: Grade;
+    scoringVersion: string | null;
+    comparable: boolean;
+  } | null;
   changes: CheckChange[];
   /** Newest first, completed scans only. */
   history: HistoryEntry[];
@@ -176,6 +187,11 @@ export interface LeaderboardEntry {
   grade: Grade;
   scannedAt: string;
   scanCount: number;
+  /**
+   * afdocs tested fewer than 5 pages. The backend lists a partial scan only
+   * for 7 days, and only while no scan of the same host tested more.
+   */
+  partial: boolean;
 }
 
 /** `GET /leaderboard` response. */

@@ -21,6 +21,7 @@ Fires every time a visitor gives us their email, regardless of context.
 | `intent` | string | Why they gave it: `demo`, `newsletter`, `free_tool` |
 | `location` | string | Where: `hero`, `demo_page`, `blog`, `free_tools` |
 | `campaign` | string | Campaign slug or empty |
+| `meeting` | string | `/lavacon` only: `follow_up`, the follow-up call tile that opens the form. Events before 2026-10-27 can also carry `booth`. |
 | `$set: { email }` | string | Always set to identify the person |
 
 **Sources**: HeroV2.astro, DemoBooking.astro, BlogRequestDemo.astro,
@@ -60,11 +61,11 @@ Current `action` values:
 | `wtd_sign_up` | `hero_callout` |
 | `banner_cta` | `announcement_banner` |
 | `view_event` | `nav` (homepage announcement slot; event slug in `campaign`, e.g. `lavacon-2026`) |
+| `choose_meeting` | `lavacon_hero_follow_up` (the `/lavacon` tile that opens the booking form for a follow-up call; events before 2026-10-27 can also carry `lavacon_hero_booth`) |
 | `view_dogbench` | `footer` (Content column link), `footer_card` (homepage-only card); both open dogbench.ai |
 | `select_docs_product` | `nav`, `mobile_menu`, `docs_sidebar`, `footer` (product ID in `campaign`: `for_docs` or `agent_instructions`) |
 | `book_demo` (Agent Score) | `agent_score_landing`, `agent_score_report` (the Promptless block at the end of each Agent Score page) |
 | `read_blog_post` | `agent_score_landing`, `agent_score_report` (links to the "We scored 100" post) |
-| `view_agent_score_example` | `agent_score_hero` (the docs.promptless.ai example link) |
 | `view_agent_score_report` | `agent_score_leaderboard` (a leaderboard entry) |
 | `share_agent_score` | `agent_score_report` (network in `campaign`: `x` or `linkedin`) |
 | `view_agent_score_json` | `agent_score_report` (opens the public JSON for the site) |
@@ -121,9 +122,11 @@ Fires when a visitor starts playing an embedded video.
 | `video_title` | string | Human-readable title |
 | `location` | string | Page where the video appears: `demo`, `homepage` |
 
-**Component**: `VideoEmbed.astro`. The homepage demo now uses YouTube
-(`AONpRsZJkTY`), which exposes the IFrame Player API — `video_played` and
-`video_progress` are unblocked but not yet implemented.
+**Component**: `LoopVideo.astro` on the homepage and `VideoEmbed.astro`
+elsewhere. Not yet implemented. The homepage video is a self-hosted, muted
+loop (`/videos/promptless-explainer.mp4`) that autoplays in view, so count a
+play only when the visitor presses play or unmutes, not on autoplay. Its
+native `<video>` element exposes `play`, `timeupdate`, and `ended` events.
 
 ---
 
@@ -137,8 +140,9 @@ Fires at 25%, 50%, 75%, 100% watch milestones.
 | `percent` | number | `25`, `50`, `75`, `100` |
 | `seconds_watched` | number | Elapsed watch time |
 
-**Component**: `VideoEmbed.astro`. Requires YouTube IFrame Player API.
-Homepage demo switched to YouTube on 2026-04-16, so this is unblocked.
+**Component**: `LoopVideo.astro` (homepage, native `<video>` events) and
+`VideoEmbed.astro` (other pages, YouTube IFrame Player API). Not yet
+implemented.
 
 ---
 
@@ -229,6 +233,19 @@ Fires when a visitor clicks Rescan on a report page.
 | `location` | string | `agent_score_report` |
 
 **Source**: ReportClient.astro
+
+### `agent_score_scan_cancelled`
+
+Fires when a visitor clicks Cancel in a scan progress panel. The page stops
+polling; the scan itself still finishes on the backend.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `slug` | string | Site slug being scanned |
+| `location` | string | `agent_score_hero`, `agent_score_not_found`, or `agent_score_report` |
+| `elapsed_seconds` | number | Seconds since the scan was requested or the page began following it |
+
+**Source**: ScanForm.astro, ReportClient.astro
 
 ### `agent_score_fix_prompt_copied`
 

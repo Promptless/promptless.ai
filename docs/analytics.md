@@ -77,7 +77,7 @@ sends a parallel `gtag` event for Google Analytics.
 - `select_docs_product` -- nav, mobile_menu, docs_sidebar, footer
 - `view_dogbench` -- footer (Content column link), footer_card (homepage only)
 - `share_agent_score`, `view_agent_score_json`, `view_agent_score_markdown` -- agent_score_report
-- `view_agent_score_example` -- agent_score_hero; `view_agent_score_report` -- agent_score_leaderboard
+- `view_agent_score_report` -- agent_score_leaderboard
 - `view_afdocs`, `view_afdocs_author`, `view_agent_docs_spec` -- agent_score_diy, agent_score_credit
 - `read_blog_post`, `book_demo` -- agent_score_landing, agent_score_report (Promptless block)
 
