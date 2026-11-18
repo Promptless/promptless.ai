@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks, or to edit your docs directly. Create an account and connect integrations from your editor. Authorize with OAuth. No API key needed.
+description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks, or to edit your docs directly. Authorize with OAuth. No API key needed.
 id: for-docs-connect-triggers-mcp
 slug: docs/for-docs/connect/triggers/mcp
 type: how-to
@@ -16,6 +16,7 @@ keywords:
   - OAuth editor connection
   - direct edits
   - triage-suggestions
+  - agent sign-up
 language: en
 audiences:
   - aud-devrel-devex
@@ -44,6 +45,7 @@ sample-questions:
   - Which tools does the Promptless MCP server provide?
   - How do I edit documentation files directly from my editor through Promptless?
   - How do I revoke my Promptless MCP connection?
+  - Can a coding agent create a Promptless account for me?
 sidebar:
   hidden: false
   order: 16
@@ -67,7 +69,7 @@ To use Promptless from the Claude.ai or ChatGPT web app, follow [Use Promptless 
 
 - An MCP-capable editor, such as Claude Code or Cursor, or a chat app that accepts custom connectors, such as Claude.
 - Your organization's [Promptless setup](https://app.gopromptless.ai/configuration) finished, to start documentation tasks.
-- An active membership in the organization. MCP needs no API key and no particular organization role. New to Promptless? Create an organization when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
+- An active membership in the organization. MCP needs no API key and no particular organization role. If you don't have an organization yet, create one when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
 
 ## Connect the server
 
@@ -171,14 +173,12 @@ Your editor handles authorization automatically over OAuth; you approve the conn
 <Steps>
   1. A browser tab opens to the Promptless consent page.
 
-  2. Choose the organization to connect. The picker defaults to your active organization.
+  2. Choose the organization to connect. The picker defaults to your active organization. If you don't belong to an organization yet, enter a name for a new one.
 
   3. Check the **Returns to** row. It shows where Promptless sends access when you approve. Promptless doesn't verify the client name, so go by this row. A local editor such as Claude Code or Cursor returns to a local address with a port, like `127.0.0.1:54321`. An app that opens through its own link scheme shows a callback like `myapp://claude.ai/cb`, and any app on your device that handles `myapp://` links receives the access. Cancel if you didn't start this connection from that editor or app.
 
-  4. Select **Authorize as \{your email}**. Your editor stores the token and returns you to the editor.
+  4. Select **Authorize as \{your email}**. For a new organization, the button reads **Create organization and authorize as \{your email}**. Your editor stores the token and returns you to the editor.
 </Steps>
-
-If you don't belong to an organization yet, the consent page asks for an organization name, which defaults to your work email's domain. Select **Create organization and authorize as \{your email}**. The consent page stays valid for 30 minutes, enough time to sign up and verify your email.
 
 <Aside type="note">
   An approved client acts with the same access as the member who approved it. The consent page has no permission picker. An approved connection can:
@@ -189,8 +189,7 @@ If you don't belong to an organization yet, the consent page asks for an organiz
   - Revise a suggestion Promptless already produced.
   - Update a suggestion's labels, assignees, and title, and open its docs pull request.
   - Close a suggestion, which also closes its docs pull request.
-  - Report your organization's setup status and connected integrations.
-  - Create links that let a member connect an integration to your organization.
+  - Check your organization's connected integrations and setup steps, and create links that let a member connect an integration.
   - On the direct-edit URL, read and search your documentation and commit edits to an open suggestion's branch.
 
   The write actions (revise, update, close, and edit) act on any suggestion in your organization, like the read tools, including suggestions other members created. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions), and MCP access can't be limited to specific members or roles. To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
@@ -200,89 +199,61 @@ A token is tied to one organization. When your client names the server URL in it
 
 ## Let a coding agent create your account
 
-A coding agent, such as Claude Code or Codex, can create a Promptless organization and connect to it over MCP before anyone signs in. You then claim the account from a link the agent gives you. Until someone claims it, the agent can only check the account's status and create links for connecting integrations.
+A coding agent, such as Claude Code or Codex, can create a Promptless organization and connect to it before anyone signs in. You then claim the account to become its admin. Until someone claims it, the agent can only check the account's status and [create links for connecting integrations](#connect-integrations-from-your-editor).
 
-### Create the account
+<Steps>
+  1. Create the account. The request needs no authentication, and the organization name is 1–100 characters:
 
-The agent sends one unauthenticated request with an organization name of 1–100 characters:
+     ```bash
+     curl -X POST https://api.gopromptless.ai/agent-signups \
+       -H "Content-Type: application/json" \
+       -d '{"organization_name": "Acme Docs"}'
+     ```
 
-```bash
-curl -X POST https://api.gopromptless.ai/agent-signups \
-  -H "Content-Type: application/json" \
-  -d '{"organization_name": "Acme Docs"}'
-```
+     The response carries an `access_token` for the MCP server and a `claim_url` for the person who claims the account. Save both, because Promptless shows them only once. Keep the token secret, because it acts for the organization until someone claims it.
 
-A successful request returns `201`:
+  2. Connect the agent with the token. In Claude Code, run:
 
-```json
-{
-  "organization_id": "org_…",
-  "organization_name": "Acme Docs",
-  "mcp_url": "https://api.gopromptless.ai/mcp",
-  "access_token": "plagent_at_…",
-  "claim_url": "https://app.gopromptless.ai/claim#token=plagent_ct_…",
-  "expires_at": "…"
-}
-```
+     ```bash
+     claude mcp add --transport http promptless https://api.gopromptless.ai/mcp \
+       --header "Authorization: Bearer <access_token>"
+     ```
 
-`access_token` is a bearer token for the MCP server, and `claim_url` is the link a person opens to claim the account. An unclaimed account is deleted at `expires_at`, 72 hours after sign-up. Promptless returns the token and claim link only in this response, so keep them. Keep the token secret: it acts for the organization until someone claims it.
+     In Codex, set `PROMPTLESS_ACCESS_TOKEN` to the token, then run:
 
-| Status | `error`               | Fix                                                                                                                                      |
-| ------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `422`  | `invalid_payload`     | Correct the listed `fields`, such as an empty or over-length name, and retry.                                                            |
-| `429`  | `signups_paused`      | Too many accounts were created this hour. Wait for the `Retry-After` header, or [sign up in the dashboard](https://app.gopromptless.ai). |
-| `503`  | `signups_unavailable` | Retry in a minute, or sign up in the dashboard.                                                                                          |
+     ```bash
+     codex mcp add promptless --url https://api.gopromptless.ai/mcp \
+       --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN
+     ```
 
-### Connect the agent with the access token
+  3. Within 72 hours, sign in to Promptless or create an account, then open the `claim_url`. Promptless deletes an account that nobody claims in that time.
 
-In Claude Code:
+  4. Select **Claim account**. You become the organization's admin, and the agent's access token stops working.
 
-```bash
-claude mcp add --transport http promptless https://api.gopromptless.ai/mcp \
-  --header "Authorization: Bearer <access_token>"
-```
-
-In Codex, set `PROMPTLESS_ACCESS_TOKEN` to the token in the environment Codex runs in:
-
-```bash
-codex mcp add promptless --url https://api.gopromptless.ai/mcp \
-  --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN
-```
-
-Until the account is claimed, the server lists only [`get_account_status`](#get_account_status) and [`connect_integration`](#connect_integration).
-
-### Claim the account
-
-Sign in to Promptless or create an account, then open either link from the agent:
-
-- The `claim_url` opens the **Claim** page. Select **Claim account**, then finish setup in onboarding.
-- Any `connect_url` from [`connect_integration`](#connect_integration) claims the account for the first person who opens it, then continues to the integration.
-
-The person who claims the account becomes its admin and invites teammates from **Settings**. If a claim fails partway, open the same link again.
-
-Claiming ends the agent's access token. Remove the token-based `promptless` server and [connect the server](#connect-the-server) with OAuth; the new connection acts as you, with every tool.
+  5. Remove the token-based `promptless` server from the agent, and [connect the server](#connect-the-server) with OAuth. The new connection acts as you.
+</Steps>
 
 ## Connect integrations from your editor
 
-Promptless needs integrations, such as GitHub and Slack, to watch for changes and publish suggestions. Each provider requires a person to approve access in a browser. The [`connect_integration`](#connect_integration) tool creates a link that hands that step to someone. It works from any connection, including an [agent-created account](#let-a-coding-agent-create-your-account).
+Promptless needs integrations, such as GitHub and Slack, to watch for changes and publish suggestions. A person approves each connection in a browser, so your editor creates a link for that person with the [`connect_integration`](/docs/for-docs/reference/mcp-tools#connect_integration) tool. This works from any connection, including an [agent-created account](#let-a-coding-agent-create-your-account).
 
 <Steps>
-  1. Ask your editor to connect an integration, for example: "Connect Slack to Promptless." Your editor returns a `connect_url`.
+  1. Ask your editor to connect an integration, for example: "Connect Slack to Promptless." Your editor returns a link.
 
-  2. Send the link to someone who administers that tool. It works for 24 hours.
+  2. Send the link to someone who can grant access to that integration. The link works for 24 hours.
 
-  3. That person signs in to Promptless or creates an account, then opens the link. The page names the organization and the integration, and warns that a coding agent created the link. Continue only if you asked an agent to set up Promptless.
+  3. That person signs in to Promptless, then opens the link.
 
-  4. They select **Continue to \{provider}** and approve access with the provider.
+  4. That person selects **Continue to \{provider}** and approves access with the provider.
 
-  5. Ask your editor to check the connection. `get_account_status` lists the connected integrations.
+  5. Ask your editor to check the connection. It calls [`get_account_status`](/docs/for-docs/reference/mcp-tools#get_account_status), which lists the connected integrations.
 </Steps>
 
-Only a member of the organization can connect an integration. On an unclaimed agent-created account, the first person to open a link claims it.
+Only a member of the organization can connect an integration. On an unclaimed agent-created account, the first person to open a link claims the account and becomes its admin.
 
 ## Available tools
 
-Both server URLs carry these tools. They let you check on your account, collections, tasks, and suggestions, queue and change documentation work, and connect integrations. The direct-edit URL adds more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). These tools are read-only: `get_account_status`, `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. These tools queue or change work, or create links: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, `close_suggestion`, and `connect_integration`. These always ask before they run.
+Both server URLs carry these tools, which let you check on your collections, tasks, and suggestions, or queue and change your documentation work. The direct-edit URL adds more, described in [Read and edit documentation directly](#read-and-edit-documentation-directly). These tools are read-only: `list_doc_collections`, `get_task_status`, `list_recent_tasks`, `search_suggestions`, and `wait_for_task_update`. Your editor can auto-approve them, so routine status checks stop prompting you each time. These tools queue or change work: `submit_documentation_task`, `send_task_message`, `answer_task_question`, `request_changes`, `update_suggestion`, and `close_suggestion`. These always ask before they run.
 
 <Aside type="note">
   If you already have an MCP connection, refresh or reconnect the `promptless` server in your editor. That loads the `send_task_message`, `answer_task_question`, and `wait_for_task_update` tools, the current tool descriptions, and the `next_call` that `submit_documentation_task` and `request_changes` return for following the task. In Claude Code, run `/mcp` and pick **promptless** again, or start a new conversation. In Cursor, remove the `promptless` server and add it again.
@@ -442,22 +413,6 @@ Searches your existing suggestions by keyword and status. Use it to check whethe
 | `limit`  | No       | Caps how many results come back. Defaults to 25, never exceeds 100.                                                                                                                                                                                                                                                                                                                          |
 
 When more suggestions match than were returned, the result sets a `truncated` flag so you know to narrow the query. Filtering by `labels` pulls a labeled queue, such as every `P0` suggestion, in one call. That saves you fetching everything and filtering client-side, and the `triage-suggestions` workflow skill below relies on it. A `draft` or `open` suggestion is still live; a `merged` or `closed` one is already resolved. Each result also carries its `labels` and `assignees`, each a list of strings, and its `branch_name` (the git branch in the documentation repository the suggestion targets, always present). Use them to pick the suggestion to hand to `update_suggestion` or `request_changes`. You can also check out and diff the proposed change locally, even before its docs pull request opens. Once the suggestion's pull request has merged or closed, the branch may no longer exist, since hosts often delete it. So a local checkout applies to a still-open suggestion.
-
-### `get_account_status`
-
-Reports your organization's name and its connected integrations, each with the connected workspace or account when known. For an [agent-created account](#let-a-coding-agent-create-your-account), it also reports whether a person has claimed it and when an unclaimed account expires. It also returns `next_steps`, the setup steps that remain, such as connecting GitHub or claiming the account. It takes no arguments.
-
-### `connect_integration`
-
-Returns a `connect_url` that lets a person connect one integration to your organization from a browser. The result also carries `expires_at`, 24 hours after the call, and `instructions` to pass along. See [Connect integrations from your editor](#connect-integrations-from-your-editor).
-
-| Argument            | Required      | Description                                                                                                        |
-| ------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `provider`          | Yes           | One of `github`, `slack`, `atlassian`, `msteams`, `google`, `linear`, `notion`, `clickup`, `vercel`, or `zendesk`. |
-| `options.products`  | For Atlassian | The Atlassian products to connect: `jira`, `confluence`, or both.                                                  |
-| `options.subdomain` | For Zendesk   | Your Zendesk subdomain, the `acme` in `acme.zendesk.com`.                                                          |
-
-A missing option fails the call itself. Nothing changes until someone opens the link and approves the connection.
 
 ## Read and edit documentation directly
 
@@ -634,11 +589,10 @@ Tool failures come back as errors your editor's model sees, each formatted as `c
 - **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
 - **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
 - **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
-- **A tool call from an unclaimed agent-created account fails**: only `get_account_status` and `connect_integration` work until a person [claims the account](#claim-the-account).
-- **The agent's access token returns `401`**: someone claimed the account, or it expired unclaimed after 72 hours. After a claim, [connect the server](#connect-the-server) with OAuth. After an expiry, have the agent create a new account.
-- **A connect link says you aren't a member**: someone else may have claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
-- **A connect link is invalid or expired**: the link is older than 24 hours or was cut short when copied. Ask your editor to call `connect_integration` again.
-- **A connect or claim link says the account was removed**: nobody claimed it within 72 hours. Ask the agent to create a new account.
+- **A tool call from an unclaimed agent-created account fails**: the agent can only check the account's status and create connect links. [Claim the account](#let-a-coding-agent-create-your-account), then connect with OAuth.
+- **The agent's access token returns `401`**: a person claimed the account, or Promptless deleted it unclaimed after 72 hours. After a claim, [connect with OAuth](#connect-the-server). Otherwise, create a new account.
+- **A connect link says you aren't a member**: another person claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
+- **A connect link says it's invalid or expired**: ask your editor for a new link. A link works for 24 hours, and copying can cut it short.
 - **A read that names no collection in an organization with several**: the tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.
 - **A path outside the paths Promptless maintains**: the read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.
 - **A `search_documentation` query that isn't valid RE2**: the tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.
@@ -648,7 +602,7 @@ Tool failures come back as errors your editor's model sees, each formatted as `c
 - **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
 - **`stale_head`**: the suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.
 - **An `old_text` that matches no place or several places**: `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.
-- **Denied, canceled, or expired consent**: re-run the authorize step. Consent requests expire after 30 minutes. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
+- **Denied, canceled, or expired consent**: re-run the authorize step. A consent request expires after 30 minutes. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
 
