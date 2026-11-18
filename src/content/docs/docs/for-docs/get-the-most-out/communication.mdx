@@ -1,0 +1,183 @@
+---
+title: Shape how Promptless communicates with your team
+description: Decide where Promptless posts, whom it mentions, and what its Slack, Teams, and pull request messages say, so your team reads them and acts on them.
+id: for-docs-get-the-most-out-communication
+slug: docs/for-docs/get-the-most-out/communication
+type: how-to
+tags:
+  - get-the-most-out
+  - guide
+keywords:
+  - Promptless messages
+  - notification preferences
+  - notification_preferences.md
+  - message tone
+  - mentions
+  - status updates
+  - source PR comments
+  - PR description
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-engineer-owned-docs
+  - aud-enterprise-docs-team
+intent: steer where Promptless sends its messages, whom it mentions, and what its notifications, escalations, and pull request comments say
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+  - integration:slack
+  - integration:microsoft-teams
+concepts:
+  - notifications
+  - knowledge base
+  - promptless.yaml
+  - slack
+  - microsoft teams
+related-pages:
+  - for-docs-tune-notifications
+  - for-docs-get-the-most-out-agent-knowledge-base
+  - for-docs-get-the-most-out-teach-promptless-a-custom-task
+  - for-docs-get-the-most-out-ask-promptless-to-update-config
+  - for-docs-tune-teaching-conventions
+  - for-docs-work-the-queue-assignment-and-routing
+risks:
+  - privileged
+sample-questions:
+  - Which messages does Promptless send my team, and where do they go?
+  - How do I change the tone of Promptless messages?
+  - How do I control whom Promptless mentions in Slack?
+  - Can Promptless tell a Slack thread when its docs PR merges?
+  - How do I stop Promptless from commenting on source pull requests?
+sidebar:
+  hidden: false
+  order: 34
+  label: Shape how Promptless communicates
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## Overview
+
+Promptless messages your team throughout its work. It confirms each request and announces each suggestion. When it's blocked, it asks for what it needs. On the pull requests that started the work, it leaves a summary. Those messages are how your team decides what to review and what to fix. Shape them to fit how your team works, so the right people see them and act on them.
+
+You steer Promptless's messages with three files in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base):
+
+- The policies in `promptless.yaml` choose the channels for suggestion notifications and escalations, and turn pull request comments on or off.
+- `doc_workflow/notification_preferences.md` sets when Promptless notifies, whom it mentions, and how its messages read.
+- `PROMPTLESS.md` adds messages for other events, such as a reply in a Slack thread when a suggestion's docs PR merges.
+
+<Aside type="tip">
+  You can also ask Promptless to make these changes. For example, "@Promptless send escalations to #docs-escalations" or "@Promptless from now on, write notifications in a casual tone." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+## Before you start
+
+- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration) and the Agent Knowledge Base.
+- [Slack](/docs/for-docs/connect/triggers/slack-messages#connect-slack) or [Microsoft Teams](/docs/for-docs/work-the-queue/reviewing-from-slack-and-teams#connect-microsoft-teams), connected to Promptless.
+
+## Know the messages Promptless sends
+
+Start from the message you want to change. Each one has its own destination and its own lever:
+
+| Message                 | When Promptless sends it                                                                     | Where it goes                                                                                                                 | Steer it with                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Progress update         | Someone asks Promptless for work in a Slack or Teams thread, or on a dashboard task          | That thread or task. A short acknowledgement comes first, then one line for each milestone that changes what you know.        | Tone and mention rules in the preferences file                                   |
+| Suggestion notification | A suggestion is ready for review, or Promptless updates it                                   | The thread the request came from, or the notification channel in your policies. An MCP submitter gets a Slack direct message. | Notification policies, and the preferences file for timing, format, and tone     |
+| Escalation              | Promptless is blocked on something only your team can fix, or notices something worth a look | The thread the request came from, or the escalation channel or email address in your policies                                 | Escalation policies                                                              |
+| Source PR summary       | A GitHub PR or GitLab MR trigger produces a suggestion                                       | A comment on that PR or MR that links each documentation suggestion                                                           | `publishing.suppress_source_pr_comments`                                         |
+| Docs PR description     | Promptless opens a documentation PR                                                          | The PR body, with the suggestion's description, an "Open in Promptless" link, and the trigger events that led to the change   | `publishing.suppress_pr_description_extras`, and instructions in `PROMPTLESS.md` |
+
+Progress updates go only to a thread where someone asked Promptless for the work or Promptless already posted. Notification channels receive suggestion notifications and escalations.
+
+## Choose where messages go
+
+Set notification and escalation channels in the `policies` section on the [Configuration page](https://app.gopromptless.ai/configuration). A rule can send one doc collection's messages somewhere else:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+    escalation:
+      slack_channel: docs-escalations
+      email:
+        - docs-team@example.com
+
+  rules:
+    - if:
+        doc_collection: acme/api-docs
+      then:
+        notification:
+          slack_channel: api-docs-review
+```
+
+Here, suggestions for `acme/api-docs` go to `api-docs-review`, and every other suggestion goes to `docs-updates`. Problem reports for every collection go to `docs-escalations` and the team's email address.
+
+Keep escalations in their own channel when your notification channel is busy, so a blocker doesn't scroll past unseen. To turn off an inherited channel, route to Microsoft Teams, or see when a problem report falls back to the notification channel, see [Customize notifications](/docs/for-docs/tune/notifications).
+
+To keep Promptless off source pull requests, set `publishing.suppress_source_pr_comments: true`. Teams often do this during a pilot, before Promptless is introduced to the wider engineering team. See [Suppress source PR comments](/docs/for-docs/connect/triggers/github-prs#suppress-source-pr-comments).
+
+## Decide what messages say
+
+Write your preferences in plain language in `doc_workflow/notification_preferences.md`. Promptless reads the file each time it writes a message. Anything you leave out keeps the default behavior.
+
+<Steps>
+  1. In the Promptless dashboard, open **Settings** and select **Agent Knowledge Base**.
+
+  2. Open `doc_workflow/notification_preferences.md`.
+
+  3. Add your preferences. Use the examples below as a starting point.
+
+  4. Select **Save**.
+</Steps>
+
+Promptless applies the preferences from its next message on.
+
+| What you want to change  | Example instruction                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Tone                     | `Don't thank or praise the person you credit. State plainly where the change came from.`               |
+| Whom Promptless mentions | `In Slack notifications, @-mention the person who requested the change. Name reviewers in plain text.` |
+| How links look           | `Write every link as link text, never as a bare URL.`                                                  |
+| When Promptless notifies | `Skip notifications for suggestions that only fix typos.`                                              |
+| Suggestion cards         | `Leave the suggestion preview card off notifications in #docs-firehose.`                               |
+| Message format           | `Format suggestion notifications as: What changed, Review link, Docs PR link.`                         |
+
+By default, Promptless mentions at most one person in a message. It names everyone else in plain text, so crediting or assigning someone doesn't ping them. A mention rule you write replaces that limit and applies to every message Promptless sends.
+
+A format you state replaces the default suggestion notification format completely: Promptless posts the fields you list, in your order, and nothing else. Escalations keep their own format, because a blocker always ends with what Promptless needs from you and what happens next. For the default format and a full custom format, see [Notification preferences file](/docs/for-docs/tune/notifications#notification-preferences-file).
+
+To decide who reviews and owns the work, rather than how messages read, see [Route and assign suggestions to the right people](/docs/for-docs/work-the-queue/assignment-and-routing).
+
+## Add messages for other events
+
+To have Promptless post when something else happens, add an "If, then" instruction to `PROMPTLESS.md`. Promptless reads that file at the start of every session, the same way it picks up the hooks that [activate custom tasks](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task).
+
+For example, to close the loop with the people who asked for a change:
+
+```
+If a suggestion's docs PR merges or closes, or a suggestion is closed or archived,
+then reply in the Slack thread where you announced that suggestion. Say how it
+resolved and link the docs PR.
+```
+
+`PROMPTLESS.md` also shapes the docs PRs Promptless opens. For example, to show reviewers whom to follow up with:
+
+```
+When a docs PR comes from a Slack request, put "Requested by: <Full Name>" on its
+own line near the top of the PR description.
+```
+
+For more on resolution follow-ups, see [Post status updates in Slack threads](/docs/for-docs/tune/notifications#post-status-updates-in-slack-threads).
+
+## Refine messages as you go
+
+The fastest way to fix a message is to reply to it. When a notification misses, reply in its thread with a standing rule. For example: "From now on, don't thank people in notifications." Promptless records the rule in your Knowledge Base, and its next notification links the file it changed on a `Recorded:` line.
+
+Check what Promptless recorded, and correct a rule that's worded too broadly, as [Teach conventions with feedback](/docs/for-docs/tune/teaching-conventions) describes.
+
+## See also
+
+- [Customize notifications](/docs/for-docs/tune/notifications), for every notification and escalation setting
+- [Route and assign suggestions to the right people](/docs/for-docs/work-the-queue/assignment-and-routing), for who Promptless notifies and assigns
+- [Review from Slack and Teams](/docs/for-docs/work-the-queue/reviewing-from-slack-and-teams), for how Promptless follows thread replies
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#policies), for every `policies` field
