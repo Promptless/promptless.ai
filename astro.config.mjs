@@ -246,6 +246,7 @@ export default defineConfig({
                         { autogenerate: { directory: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
                       ],
                     },
+                    { label: 'Shape how Promptless communicates', slug: 'docs/for-docs/get-the-most-out/communication' },
                     { label: 'Ask to update config', slug: 'docs/for-docs/get-the-most-out/ask-promptless-to-update-config' },
                     { label: 'Zapier recipes', slug: 'docs/for-docs/get-the-most-out/zapier-recipes' },
                   ],
