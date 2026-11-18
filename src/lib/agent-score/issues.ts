@@ -87,8 +87,11 @@ function diagnosticIssue(diagnostic: Diagnostic): Issue {
   };
 }
 
+/** Diagnostics the report explains elsewhere: `PartialScanNotice` covers `single-page-sample`. */
+const EXPLAINED_DIAGNOSTICS = new Set(['single-page-sample']);
+
 export function diagnosticIssues(latest: ScanResult): Issue[] {
-  return latest.diagnostics.map(diagnosticIssue);
+  return latest.diagnostics.filter((diagnostic) => !EXPLAINED_DIAGNOSTICS.has(diagnostic.id)).map(diagnosticIssue);
 }
 
 /** Failing and warning checks keyed by check id, for rendering inside their category. */
