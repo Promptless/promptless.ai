@@ -131,8 +131,8 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   `Voices.BinaryContrast` (`Promptless.NegationContrast` replaces it),
   `Promptless.PassiveVoice` (too noisy on the docs), and
   `Promptless.BlogReadingGrade` (blog-only; Vale doesn't lint the blog).
-  `Promptless.Semicolons` and `Promptless.CurrentState` run at warning. Any
-  error fails CI.
+  `Promptless.Semicolons`, `Promptless.CurrentState`, and
+  `Promptless.OrderedListPeriod` run at warning. Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI runs the repair (`--output` full
