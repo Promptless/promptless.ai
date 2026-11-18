@@ -1,6 +1,6 @@
 ---
 title: "Example: Audit your docs for broken links"
-description: Ask Promptless to crawl your published docs site for broken links, missing anchors, and permanently redirected links, then fix them in a suggestion, once or on a schedule trigger.
+description: Have Promptless crawl your published docs site and open a suggestion that fixes broken links, missing anchors, and permanent redirects, once or every week.
 id: for-docs-get-the-most-out-teach-promptless-a-custom-task-audit-broken-links
 slug: docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/audit-broken-links
 type: how-to
@@ -31,7 +31,7 @@ related-pages:
   - for-docs-get-the-most-out-teach-promptless-a-custom-task
   - for-docs-connect-triggers-schedule
   - for-docs-get-the-most-out-ask-promptless-to-update-config
-  - for-docs-reference-configuration-reference
+  - for-docs-migrate-preserve-urls-and-redirects
 risks:
   - open-world
 sample-questions:
@@ -43,54 +43,71 @@ sidebar:
   hidden: false
   order: 37
   label: "Example: Broken link audit"
-last-updated: 2026-10-20
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-<Aside type="tip">
-  Promptless can create the scheduled link audit for you. Ask it in Slack or Microsoft Teams, for example "@Promptless audit docs.acme.com for broken links every Monday morning." Promptless adds the schedule trigger to your configuration. See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
-</Aside>
+Promptless can crawl your published docs site for broken links and fix them in your docs source with a suggestion. Ask for an audit after you move or rename pages, or run it every week on a schedule trigger to catch links that break when other sites reorganize. The audit needs no workflow file or `PROMPTLESS.md` hook. You name the site in your request or in the trigger's instructions.
 
-Links rot as pages move and other sites reorganize. Promptless has a built-in link checker that crawls your published docs site and reports the links that need attention. Promptless then fixes those links in your docs source and opens a suggestion. Ask for an audit whenever you need one, or put it on a schedule trigger so moved and broken links get caught every week. The audit needs no workflow file or `PROMPTLESS.md` hook. For the general trigger-plus-instructions pattern, see [Teach Promptless a custom task](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task).
+The audit starts at the URL you name and crawls every page on that site. It reports these links:
 
-## Prerequisites
+| Link                        | What the audit found                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Broken link                 | The target returns an error status, such as 404, or doesn't respond in time.                                               |
+| Missing anchor              | The target page has no element with the link's anchor, such as `#install`.                                                |
+| Permanently redirected link | The target answers with a permanent redirect (301 or 308) and ends on a working page. The report names the final URL. |
 
-Before you set up an audit, make sure you have:
+A link that temporarily redirects (302, 303, or 307) to a working page counts as working. A site that keeps rate-limiting the crawler is reported as broken with HTTP 429. Open that link yourself to confirm it.
 
-- A published docs site on a public URL. Promptless crawls the site over the internet. It can't reach `localhost`, a staging server behind a VPN, or other hosts on a private network.
+For a redirected link, Promptless replaces the link with the final URL the report names. For a broken link or a missing anchor, it looks for the page or heading that now holds the content and points the link there.
+
+For example, Acme moves its install guide from `/guides/install` to `/get-started/install` and adds a permanent redirect. The audit of `https://docs.acme.com` reports that the quickstart's link to `/guides/install#requirements` redirects to `/get-started/install#requirements`. It also reports that the API overview links to `/reference/auth#api-tokens`, an anchor that a heading rename removed. The suggestion updates the quickstart link to the new URL and points the API overview link at `/reference/auth#create-an-api-token`.
+
+## Before you start
+
+- A docs site published on a public URL, such as `https://docs.acme.com`. Promptless reads the site without signing in, so it can't audit pages behind a login, on `localhost`, or on a private network.
 - An active doc collection for the repository that holds the site's source, so Promptless can edit the links it finds.
-- The ability to chat with Promptless in Slack or Teams, or admin access to edit triggers on the Configuration page.
+- For a scheduled audit, an [organization admin](/docs/for-docs/reference/configuration-reference#permissions-and-conflict-detection) role to add triggers. Alternatively, ask Promptless in Slack or Microsoft Teams to add the trigger for you.
 
-Name the site URL in your request or in the trigger's instructions. You can also set `docs_root_url` on the doc collection in `promptless.yaml`, so Promptless knows where that collection is published. See [Doc collections](/docs/for-docs/reference/configuration-reference#doc-collections).
-
-## Run a one-off audit
-
-Ask Promptless for an audit in Slack or Microsoft Teams, or from the [New Task page](https://app.gopromptless.ai/new-task) in the dashboard. For example:
-
-```text
-@Promptless audit https://docs.acme.com for broken links and fix what you find.
-```
-
-By default the audit checks the links between pages of your own site, including their anchors. To also check links to other sites, say so in the request, for example "include external links."
-
-## Schedule a recurring audit
-
-A recurring audit runs on a [schedule trigger](/docs/for-docs/connect/triggers/schedule). Ask Promptless to add it, as the tip at the top of this page shows, or add it yourself:
+## Audit your docs site once
 
 <Steps>
-  1. Open your organization's [Configuration page](https://app.gopromptless.ai/configuration) and select the **Triggers** tab.
+  1. In a Slack or Microsoft Teams channel where Promptless is connected, mention Promptless with your site's URL. For example:
 
-  2. Choose the **"On a schedule"** group and its catalog entry, "A recurring schedule".
+     ```text
+     @Promptless audit https://docs.acme.com for broken links and fix what you find.
+     ```
 
-  3. Set the schedule and timezone, and enter standing instructions like the ones in the following YAML.
+     The audit checks links between pages of your site and their anchors. To also check links to other sites, add "include external links" to the request. To ask from the dashboard instead, enter the request on [New Task](https://app.gopromptless.ai/new-task) and leave out the `@Promptless` mention.
 
-  4. Save your configuration.
+  2. Review the suggestion before you merge it. Check each fix to a link on another site, because Promptless chooses the replacement when that site removed the page.
 </Steps>
 
-The trigger's `promptless.yaml` entry looks like this:
+## Schedule a weekly audit
+
+A schedule trigger runs the audit on a repeating clock. To have Promptless add the trigger, ask in Slack or Microsoft Teams, for example "@Promptless audit https://docs.acme.com for broken links every Monday at 9am." See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+
+To add the trigger yourself:
+
+<Steps>
+  1. On the [Configuration page](https://app.gopromptless.ai/configuration), select the **Triggers** tab.
+
+  2. Select **Add an automatic or scheduled trigger**.
+
+  3. Under **On a schedule**, select **A recurring schedule**.
+
+  4. Under **When should Promptless run?**, select **Every Monday at 9am**.
+
+  5. Under **In which timezone?**, select your timezone.
+
+  6. Under **What should Promptless do each time?**, enter the audit request with your site's URL. For example: "Check https://docs.acme.com for broken links, including external links, and open one suggestion that fixes them."
+
+  7. Select **Add trigger**.
+</Steps>
+
+In `promptless.yaml`, the trigger looks like this:
 
 ```yaml
 triggers:
@@ -104,28 +121,10 @@ triggers:
       and open one suggestion that fixes them.
 ```
 
-The cron `0 9 * * 1` runs the audit every Monday at 9am in the given timezone. Change the `cron` and `timezone` values to the cadence you want, and replace the URL with your site's. For cron and timezone rules, see [Schedule triggers](/docs/for-docs/connect/triggers/schedule#cron-schedule-rules).
-
-## What the audit reports
-
-The link checker starts at the URL you give it and follows links to every page on the same site. It checks each link it finds on those pages and reports two kinds of results.
-
-Broken links:
-
-- A link whose page returns an error status, such as 404 or 500, or doesn't respond in time.
-- A link to an anchor, such as `#install`, that doesn't exist on the target page.
-- A link to a site that keeps rate-limiting the checker. It's reported with HTTP 429, so you can recheck it by hand.
-
-Permanently redirected links:
-
-- A link that answers with a permanent redirect (301 or 308) and ends on a working page. The report names the destination, including any anchor, so Promptless can update the link to point there directly.
-
-A temporary redirect (302, 303, or 307) that ends on a working page counts as a working link. Its source link is still the right one to use.
-
-Promptless finds each reported link in your docs source and fixes it in a suggestion. It updates a redirected link to its destination and points a broken link at the page or anchor that now holds the content. Review the fixes for links to other sites before you merge, because the right replacement for a removed page is a judgment call.
+The cron expression `0 9 * * 1` runs the audit at 9am every Monday in the trigger's timezone. A week with no broken or redirected links ends with no suggestion. For other cadences and the cron rules, see [Schedule triggers](/docs/for-docs/connect/triggers/schedule).
 
 ## See also
 
 - [Schedule triggers](/docs/for-docs/connect/triggers/schedule), for cron and timezone rules
-- [Example: turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps), for another recurring task on a schedule trigger
-- [Pay down docs debt with Deep Analysis](/docs/for-docs/get-the-most-out/pay-down-docs-debt), for one-time audits across your whole docs set
+- [Preserve URLs and redirects](/docs/for-docs/migrate/preserve-urls-and-redirects), to keep links working when you move or rename pages
+- [Example: turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps), for a recurring task that follows a written workflow
