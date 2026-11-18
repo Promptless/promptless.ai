@@ -438,7 +438,7 @@ Each task carries these fields:
 | `needs_input`         | The task produced none and ended on a question the customer must answer. A later answer starts a new task. |
 | `failed`              | Promptless could not finish the work.                                                                      |
 
-`outcome` is `null` for tasks that finished before Promptless added the field and for tasks from sources other than the API or MCP. Promptless may add values later, so handle values not listed here.
+`outcome` is `null` for tasks that finished before Promptless added the field. It's also `null` for tasks from sources other than the API, MCP, or the dashboard's New Task page. Promptless may add values later, so handle values not listed here.
 
 This feed omits the suggestions a task produced. Each suggestion in the [Suggestions](#suggestions) feed carries `trigger_event_id`, so join the two feeds on that field.
 
@@ -467,7 +467,7 @@ Poll this feed the way you poll the [Suggestions](#suggestions) feed, ordered by
 
 ## Task status and messages
 
-After you submit a task, follow its progress and continue the conversation on the same trigger event. Both operations use the same `Authorization: Bearer sk-pl-...` token. The conversation is available for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`.
+After you submit a task, follow its progress and continue the conversation on the same trigger event. Both operations use the same `Authorization: Bearer sk-pl-...` token. The conversation is available for tasks submitted over the API or MCP, for tasks created through MCP `request_changes`, and for New Tasks submitted from the dashboard.
 
 ### Read task status
 
@@ -486,7 +486,7 @@ GET /v1/triggers/{trigger_event_id}
 | `source`           | string         | The task's origin.                                                                                                                                                           |
 | `request`          | string \| null | A one-line summary of the submitted request.                                                                                                                                 |
 | `resolution`       | string \| null | A note that explains how the task ended. Read it after `finished` is `true`.                                                                                                 |
-| `outcome`          | string \| null | How the task ended. See [Outcomes](#outcomes) for the values. `null` until the task finishes, and for tasks from sources other than the API or MCP.                          |
+| `outcome`          | string \| null | How the task ended. `null` until the task finishes. See [Outcomes](#outcomes) for the values and other `null` cases.                                                         |
 | `suggestions`      | array          | A per-task summary of each suggestion this task produced, with the fields listed below. This is a lighter shape than the [Suggestions](#suggestions) feed.                   |
 | `status_guidance`  | string         | Human- or LLM-readable advice for polling the task and interpreting its outcome. Key on `finished`, a boolean, to detect completion. Do not parse `status_guidance` in code. |
 | `messages`         | array          | The persisted conversation, latest 100, oldest-first. Reading the conversation never consumes it.                                                                            |
@@ -519,7 +519,7 @@ Each entry in `messages` has the `TaskMessage` shape below. The send endpoint re
 | `created_at`       | string        | ISO 8601 time the message was created.                                                               |
 | `message`          | string        | The message text.                                                                                    |
 
-Reading status works for any task source. Promptless populates the `messages` array for tasks submitted over the API or MCP and for tasks created through MCP `request_changes`. A task you submit over the API is eligible for a conversation. An empty `messages` array on your own API task means the task has no messages yet. Tasks from other sources, such as Slack, a GitHub pull request, or the dashboard, carry no conversation, so their `messages` array is empty.
+Reading status works for any task source. Promptless populates the `messages` array for tasks submitted over the API or MCP, for tasks created through MCP `request_changes`, and for New Tasks submitted from the dashboard. A task you submit over the API is eligible for a conversation. An empty `messages` array on your own API task means the task has no messages yet. Tasks from other sources, such as Slack or a GitHub pull request, carry no conversation, so their `messages` array is empty.
 
 ```bash
 curl "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-446655440000" \
@@ -558,7 +558,8 @@ curl "https://api.gopromptless.ai/v1/triggers/550e8400-e29b-41d4-a716-4466554400
       "sequence": 1,
       "author": { "type": "customer", "name": "deploy-bot@acme.com" },
       "created_at": "2026-08-20T14:32:05Z",
-      "message": "Document the new rate limiting feature added in v2.5"
+      "message": "Document the new rate limiting feature added in v2.5",
+      "attachments": []
     }
   ]
 }
