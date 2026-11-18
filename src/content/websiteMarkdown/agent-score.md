@@ -9,7 +9,7 @@ Agent Score runs [afdocs](https://github.com/agent-ecosystem/afdocs) against a p
 
 Open https://promptless.ai/agent-score and enter the root URL of a docs site, such as `docs.example.com`. A scan takes about a minute. `docs.example.com` and `example.com/docs` are scored separately. A site scanned in the last 10 minutes returns the cached result.
 
-afdocs tests only the pages under the URL you enter. If it tests fewer than 5, the report shows a partial score, says why, and suggests a better URL to scan when there is one.
+afdocs assumes you scan the root of a docs site: it tests only the pages under the URL you enter. Agent Score helps you pick that URL. If the URL you enter looks like a single page, the form suggests the docs root instead. If a scan tests fewer than 5 pages, the report shows a partial score and says why. Where it can, the report offers a URL to rescan, such as the folder that holds your llms.txt. When Agent Score can't find the docs root, the report leaves the choice of URL to you.
 
 The public JSON API lives at `https://api.gopromptless.ai/public/free-tools/agent-score`:
 
