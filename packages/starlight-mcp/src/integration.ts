@@ -36,6 +36,8 @@ export interface IntegrationOptions {
   locales: LocaleDef[];
   /** Package location relative to project root (for resolving the route entry). */
   packageDir: string;
+  /** Optional rewrite of each page's raw body before indexing. */
+  transformContent?: (content: string, file: string) => string;
 }
 
 export interface RuntimeConfig {
@@ -73,6 +75,7 @@ export function mcpIntegration(options: IntegrationOptions): AstroIntegration {
             site: config.site,
             base: config.base,
             locales: options.locales,
+            transformContent: options.transformContent,
           });
           logger.info(`Indexed ${index.length} documentation page(s) for the MCP server.`);
         } catch (err) {

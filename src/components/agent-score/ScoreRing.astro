@@ -1,0 +1,47 @@
+---
+/** Circular score gauge. Color follows the grade; the arc animates in unless reduced motion is on. */
+import { gradeTone } from '@lib/agent-score/meta';
+
+interface Props {
+  score: number | null;
+  grade?: string | null;
+  size?: number;
+  stroke?: number;
+  showOutOf?: boolean;
+}
+
+const { score, grade, size = 148, stroke = 11, showOutOf = true } = Astro.props;
+const tone = gradeTone(grade);
+const radius = (size - stroke) / 2;
+const circumference = 2 * Math.PI * radius;
+const value = typeof score === 'number' ? Math.max(0, Math.min(100, score)) : 0;
+const offset = circumference * (1 - value / 100);
+const fontSize = Math.round(size * 0.32);
+---
+
+<div
+  class="pl-as-ring"
+  data-tone={tone}
+  style={`width:${size}px;height:${size}px;--ring-circumference:${circumference.toFixed(2)}`}
+  role="img"
+  aria-label={typeof score === 'number' ? `Score ${score} out of 100${grade ? `, grade ${grade}` : ''}` : 'Not scored'}
+>
+  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+    <circle class="pl-as-ring-track" cx={size / 2} cy={size / 2} r={radius} fill="none" stroke-width={stroke} />
+    <circle
+      class="pl-as-ring-value"
+      cx={size / 2}
+      cy={size / 2}
+      r={radius}
+      fill="none"
+      stroke-width={stroke}
+      stroke-linecap="round"
+      stroke-dasharray={circumference.toFixed(2)}
+      stroke-dashoffset={offset.toFixed(2)}
+    />
+  </svg>
+  <span class="pl-as-ring-label" aria-hidden="true">
+    <span class="pl-as-ring-score" style={`font-size:${fontSize}px`}>{typeof score === 'number' ? score : '–'}</span>
+    {showOutOf && <span class="pl-as-ring-of">/ 100</span>}
+  </span>
+</div>
