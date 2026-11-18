@@ -20,7 +20,6 @@ audiences:
   - aud-scaleup-docs-team
 intent: call the Promptless API from a deploy workflow so each finished staging or production deploy starts a documentation review
 lifecycle: published
-last-updated: 2026-10-20
 applies-to:
   - promptless-for-docs
 concepts:
@@ -32,7 +31,7 @@ related-pages:
 sample-questions:
   - How do I update docs after a deploy to production finishes?
   - How do I call the Promptless API from GitHub Actions?
-  - Can Promptless watch GitHub Deployments?
+  - Should I use a GitHub tags trigger or an API call after each deploy?
 sidebar:
   hidden: false
   order: 37
@@ -43,12 +42,12 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-Your deploy pipeline can tell Promptless when a deploy to staging or production finishes. Promptless then reviews the commits in that deploy and writes documentation updates for those changes. Use this setup when you want docs to follow what you ship to an environment, not each merged pull request or each pushed tag.
+Your deploy pipeline can tell Promptless when a deploy to staging or production finishes. Promptless then reviews the commits in that deploy and writes documentation updates for those changes. Use this setup when you want docs to follow what you ship to an environment.
 
 To send the notification, add a step to your CI/CD deploy workflow that calls the Promptless [API trigger](/docs/for-docs/connect/triggers/api) after the deploy succeeds. The call names the environment and the commit SHA or tag you deployed. This page shows a GitHub Actions workflow. Any CI system that can send an HTTP request works the same way.
 
 <Aside type="tip">
-  Do you mark each release with a Git tag? A [GitHub tags trigger](/docs/for-docs/connect/triggers/github-tags) then starts a review on each matching tag push, with no CI changes. That trigger responds to tag pushes, not to GitHub Deployments or Environments. To act on a finished deploy, use the API call on this page.
+  Do you mark each release with a Git tag? A [GitHub tags trigger](/docs/for-docs/connect/triggers/github-tags) starts a review on each matching tag push, with no CI changes.
 </Aside>
 
 ## Set up the deploy notification
@@ -70,7 +69,7 @@ Set this up once per repository whose deploys you want documented. You need:
   5. In your deploy workflow, add a step after the deploy step that calls `POST https://api.gopromptless.ai/v1/triggers`. Use the [example workflow](#example-workflow) as a starting point.
 </Steps>
 
-After the next successful deploy, the request appears in your Promptless dashboard as an **API Task**. Promptless takes several minutes to review the deploy and open any suggestions.
+After the next successful deploy, the request appears on the [Triggers page](https://app.gopromptless.ai/triggers) as an **API Task**.
 
 ## Example workflow
 
@@ -149,7 +148,7 @@ Promptless works from the instructions and context you send. When your pipeline 
 
 To deploy a tag, run the workflow from that tag. `github.ref_name` then holds the tag name, such as `v1.4.0`, and the request names that tag.
 
-Many teams send only production deploys, so docs track what customers can use. Others send staging deploys too, so docs are ready before the release reaches production. To send only production deploys, add an `if` condition to the notification step:
+Send only production deploys to keep docs in step with what customers can use. Send staging deploys too to have docs ready before the release reaches production. To send only production deploys, add an `if` condition to the notification step:
 
 ```yaml
       - name: Tell Promptless what was deployed
