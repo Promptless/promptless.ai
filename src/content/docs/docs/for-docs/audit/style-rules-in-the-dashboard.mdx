@@ -1,6 +1,6 @@
 ---
 title: Review and edit style rules in the dashboard
-description: Find the Vale rules your docs break most, see which guidance each rule comes from, and change a rule's level, message, or patterns from the Promptless dashboard.
+description: Find the Vale rules your docs break most, see where each rule comes from, and change a rule's level, message, or patterns from the Promptless dashboard.
 id: for-docs-audit-style-rules-in-the-dashboard
 slug: docs/for-docs/audit/style-rules-in-the-dashboard
 type: how-to
@@ -21,7 +21,6 @@ audiences:
   - aud-enterprise-docs-team
 intent: review the organization's style rules and edit a Vale rule from the dashboard
 lifecycle: published
-last-updated: 2026-11-05
 applies-to:
   - promptless-for-docs
 concepts:
@@ -29,6 +28,7 @@ concepts:
   - style guide
   - knowledge base
 related-pages:
+  - for-docs-audit-vale-rules
   - for-docs-audit-standards-enforcement
 sample-questions:
   - Where can I see the Vale rules Promptless enforces?
@@ -41,65 +41,75 @@ sidebar:
   label: Style rules in the dashboard
 ---
 
-import { Aside, Steps } from '@astrojs/starlight/components';
+import { Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-Promptless checks every draft against your organization's [style rules](/docs/for-docs/audit/standards-enforcement#turn-your-style-guidance-into-rules) before it creates a suggestion. The **Rules** page in the dashboard lists those rules. Use it to see which rules your docs break most often and where each rule comes from. You can also change a Vale rule's level, message, or patterns without editing YAML files in your Agent Knowledge Base.
+Promptless lints every suggestion with your organization's [Vale rules](/docs/for-docs/audit/vale-rules). The **Rules** page in the dashboard lists those rules with how often your docs break each one. Use it to find the rules your docs break most and to check where each rule comes from. You can also fix a rule that is too strict or that flags correct text. You edit the rule in a form, and Promptless writes the YAML file for you.
 
 ## Before you start
 
-- Any member of your Promptless organization can view the rules.
-- To save a change, you need an admin role in the organization.
+- Any member of your organization can view the rules. To save a change, you need the admin role.
+- If your organization keeps its rules in a [rules collection](/docs/for-docs/audit/vale-rules#where-the-rules-live), the **Rules** page shows the rules from that repository. Edit those rules in the repository.
 
-## Find a rule
+## Find the rules your docs break most
 
-On the [Promptless dashboard](https://app.gopromptless.ai), select **Rules** under **Style guide** in the sidebar.
+In the [Promptless dashboard](https://app.gopromptless.ai), select **Style guide** > **Rules**.
 
-The list shows each Vale rule's level, its source, and its violations. The violations count is how many matches the rule has on your connected doc collections in the latest style check. Use **Counts in** to count one collection's pages. To narrow the list, search by a rule's name, message, or pattern, or filter by level or source. Sort by violations to see the rules your docs break most.
+The **Violations** column counts each rule's matches in the latest style check of your GitHub and GitLab doc collections. Sort by **Violations** to see the rules your docs break most. To count one doc collection, select it in **Counts in**. To narrow the list, search by a rule's name, message, or pattern, or filter by level or **Source**.
 
-Judgment rules appear in their own group at the end of the list. Vale can't check them, so Promptless applies them while it drafts. To change a judgment rule, edit your style guide or `style/rules/judgment-rules.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base).
+Judgment rules are rules that Vale can't check, such as a rule about tone. Promptless applies them as it writes. To change a judgment rule, edit your style guide or `style/rules/judgment-rules.md` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base).
 
-## See where a rule comes from
+## Check where a rule comes from
 
-Open a rule to see its source under the rule name. Each rule comes from one of these sources:
+Open a rule to see its source. Check the source before you edit, because it tells you where to make a change that lasts:
 
-- Your style guide. Promptless wrote the rule from stated guidance, and the rule cites the guide's file and line.
-- Your docs. Promptless observed the convention across your pages and wrote it as a suggestion-level rule.
-- Promptless defaults. The rule belongs to the default styles Promptless applies for every organization.
+| Source              | What it means                                                                                            | Where to change the rule                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Your style guide    | Promptless wrote the rule from a rule your style guide states. The rule cites the guide's file and line. | Fix the style guide, then edit the rule in the dashboard if you need it now. |
+| Your docs           | Promptless observed the convention across your pages and set the rule to suggestion level.               | To enforce the convention, add it to your style guide.                       |
+| Your team           | A person wrote the rule or last saved it from the dashboard.                                             | Edit the rule in the dashboard.                                              |
+| Promptless defaults | The rule is one of the default rules Promptless runs for every organization.                             | Turn the rule off in `style/rules/vale.ini`. See the next section.           |
 
-Check the source before you change a rule. When a rule from your style guide is wrong, fix the guide too. The next analysis then writes the rule the way you want it.
+Promptless rewrites the rules that come from your style guide and your docs when it updates your rule set. To keep a change to one of those rules, make the same change in your style guide.
 
 ## Edit a rule
 
-Edit a rule when its level is too strict or too lenient, or when its message doesn't help writers fix the text. Edit its patterns when they match text they shouldn't.
+Edit a rule when its level is too strict or too lenient, or when its message doesn't help a writer fix the text. Edit its patterns when they match correct text.
 
 <Steps>
   1. On the **Rules** page, select the rule.
 
-  2. Change the rule's **Level**, **Message**, or the fields for its Vale rule type. To see the rule file your change produces, select **Raw YAML**.
+  2. Change **Level**, **Message**, or the fields for the rule's Vale type.
+
+  3. Optional. To review the YAML file your change produces, select **Raw YAML**.
+
+  4. Select **Save**.
+</Steps>
+
+When you select **Save**, Promptless checks that Vale can compile the rule. If Vale can't compile it, Promptless doesn't save the rule and names the line to fix. Promptless then commits the rule file to `style/rules/` in your Agent Knowledge Base and lints its next suggestion with the changed rule. The violation counts update after the next style check of your doc collections.
+
+## Turn off a Promptless default
+
+Promptless default rules are read-only in the dashboard. When your style guide takes a different position than a default rule, turn the default off for your organization. Open the default rule to see whether it can be turned off. Promptless keeps some defaults on for every organization.
+
+<Steps>
+  1. In your Agent Knowledge Base, open `style/rules/vale.ini`.
+
+  2. Under the section for the files the setting covers, set the rule to `NO`:
+
+     ```ini
+     [*.md]
+     Direct.Hedging = NO
+     ```
 
   3. Select **Save**.
 </Steps>
 
-Promptless checks that Vale can compile the changed rule and saves it to `style/rules/` in your Agent Knowledge Base. It then checks your connected collections again, so the violation counts reflect the change. Later analyses treat a rule you saved as your team's and keep it as you wrote it.
-
-<Aside type="note">
-  Your organization might keep its rules in a [rules collection](/docs/for-docs/audit/standards-enforcement#keep-your-rules-in-a-repository). That repository then holds the canonical rules. The dashboard shows them, and you edit them in the repository.
-</Aside>
-
-## Turn off a Promptless default
-
-Promptless defaults are read-only in the dashboard. Your style guide might take a different position than a default rule. To turn the default off for your organization, set it to `NO` in `style/rules/vale.ini` in your Agent Knowledge Base. Put the setting under the section for the files it covers:
-
-```ini
-[*.md]
-Direct.Hedging = NO
-```
-
-Open a default rule to see whether it can be turned off. Promptless keeps some defaults on for every organization. A doc collection that sets the same rule in its own Vale configuration keeps its own setting. To review your organization's overrides, select **vale.ini** on the **Rules** page.
+A default rule accepts only `NO`, not a different level. A doc collection that sets the same rule in its own Vale config keeps its own setting. To review your organization's overrides, select **vale.ini** on the **Rules** page.
 
 ## See also
 
-- [Vale integration](/docs/for-docs/audit/standards-enforcement), for how Promptless writes your style rules and acts on each level
-- [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), where Promptless records your style rules
+- [Vale rules](/docs/for-docs/audit/vale-rules), for how Promptless creates your rule set and where the rules live
+- [Vale integration](/docs/for-docs/audit/standards-enforcement), for how Promptless runs Vale and acts on each level
+- [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base#edit-files), for how to edit `style/rules/vale.ini`
