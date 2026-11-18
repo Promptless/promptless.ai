@@ -40,7 +40,7 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
-|   +-- generated/mcp/  # Generated MCP tools reference partials; don't edit (scripts/mcp-reference/, ADR adrs/0009)
+|   +-- generated/mcp/  # Generated MCP tools reference partials; don't edit (scripts/mcp-reference/, ADR adrs/0010)
 +-- data/mcp/           # catalog.json: exported MCP tool, skill, and resource definitions
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
