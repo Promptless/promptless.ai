@@ -228,7 +228,7 @@ test('primary nav keeps canonical routes with free tools tab', async () => {
 
   assertLink(nav, '/', 'Home');
   assertLink(nav, '/pricing', 'Pricing');
-  assert.match(nav, /<summary[^>]*aria-label="Choose a documentation product"[^>]*>/i);
+  assert.match(nav, /<summary[^>]*aria-label="Docs: choose a documentation product"[^>]*>/i);
   assertLink(nav, '/docs/for-docs/start-here/welcome', 'Promptless for Docs');
   assertLink(nav, '/docs/governance', 'Promptless for Agent Instructions');
   assert.match(nav, /class="pl-docs-product-badge">New<\/span>/i);
@@ -634,14 +634,14 @@ test('homepage product switcher renders accessible default state and product reg
 
   const docsBelowFoldIndex = homeHtml.indexOf('id="pl-below-fold-docs"');
   const docsLogoCarouselIndex = homeHtml.indexOf('data-customer-logo-carousel="docs"');
-  const docsVideoIndex = homeHtml.indexOf('data-video-id="');
+  const docsVideoIndex = homeHtml.search(/<video[^>]*data-loop-video/);
   assert.ok(
     docsBelowFoldIndex !== -1 &&
       docsLogoCarouselIndex > docsBelowFoldIndex &&
       docsVideoIndex > docsLogoCarouselIndex,
     'Expected the docs customer-logo carousel above the docs demo video.'
   );
-  assert.match(homeHtml, /data-video-id="[A-Za-z0-9_-]+"/);
+  assert.match(homeHtml, /<video[^>]*data-loop-video[^>]*src="\/videos\/promptless-explainer\.mp4"/);
   assert.match(homeHtml, /pl-hero-v2-toolchain-agents/);
   assert.match(homeHtml, /id="book-a-demo"/);
   assert.match(homeHtml, /id="book-a-demo-docs"/);
@@ -932,7 +932,7 @@ test('agent score landing renders its form, credits, and CLI contract', async ()
   assert.equal(response.status, 200);
   const html = await response.text();
 
-  assert.match(html, /<h1[^>]*>How well can/);
+  assert.match(html, /<h1[^>]*>Can <span>AI agents<\/span> read your docs\?<\/h1>/);
   assert.match(html, /id="agent-score-hero-form"/);
   assert.match(html, /data-as-scan-form/);
   assert.match(html, /data-api-base="https?:\/\/[^"]+\/public\/free-tools\/agent-score"/);
@@ -941,15 +941,15 @@ test('agent score landing renders its form, credits, and CLI contract', async ()
   assert.match(html, /aria-live="polite"/);
   assert.doesNotMatch(html, /type="email"/, 'Agent Score must not ask for an email.');
   assert.match(html, /id="run-it-yourself"/);
-  assert.match(html, /npx afdocs@latest check https:\/\/docs\.example\.com --format scorecard/);
+  assert.match(html, /npx afdocs@latest check https:\/\/docs\.example\.com --skip-checks [a-z0-9,-]+ --format scorecard/);
   assert.match(html, /href="https:\/\/github\.com\/agent-ecosystem\/afdocs"/);
   assert.match(html, /href="https:\/\/github\.com\/dacharyc"/);
-  assert.match(html, /href="https:\/\/agentdocsspec\.com\/spec\/web\/"/);
+  assert.match(html, /href="https:\/\/afdocs\.dev"/);
   assert.doesNotMatch(html, /id="automate"/, 'The landing page has no Automate section.');
   assert.doesNotMatch(html, /pl-as-eyebrow/, 'The landing page has no eyebrow labels.');
   assert.match(html, /id="leaderboard"/);
   assert.match(html, /href="\/agent-score\.md"/);
-  assert.match(html, /id="methodology"/);
+  assert.doesNotMatch(html, /id="methodology"/, 'The landing page has no methodology section.');
   assert.match(html, /href="\/blog\/technical\/agent-friendly-docs-necessary-not-sufficient"/);
   assert.match(html, /og\/agent-score\.png/);
 
@@ -979,6 +979,16 @@ test('adapter build renders Agent Score reports on demand', (t) => {
   const funcs = readdirSync(functionsDir).filter((name) => name.endsWith('.func'));
   const hasFonts = funcs.some((name) => existsSync(path.join(functionsDir, name, 'scripts', 'marketing-image', 'fonts', 'Inter-Bold.ttf')));
   assert.ok(hasFonts, 'Expected the Inter fonts to be bundled into the render function.');
+});
+
+test('docs markdown links are portable outside their source page', async () => {
+  const response = await fetch(`${preview.baseUrl}/docs/for-docs/connect/triggers.md`);
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  assert.match(body, /\[llms\.txt\]\(https:\/\/promptless\.ai\/llms\.txt\)/);
+  assert.match(body, /\[GitHub PRs\]\(https:\/\/promptless\.ai\/docs\/for-docs\/connect\/triggers\/github-prs\)/);
+  assert.match(body, /https:\/\/promptless\.ai\/docs\/for-docs\/reference\/configuration-reference#provider-connection-and-trigger-availability/);
+  assert.doesNotMatch(body, /\]\(\//);
 });
 
 test('website markdown endpoints are available for agent-friendly content', async () => {
