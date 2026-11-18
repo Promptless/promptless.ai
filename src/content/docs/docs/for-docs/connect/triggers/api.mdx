@@ -210,8 +210,6 @@ A repeat with the same key returns the original trigger event:
 
 Each [API Reference](/docs/for-docs/api/operations/submitapitriggerv1/) operation lists the status codes and `error` values it returns.
 
-The API enforces no rate limits and returns no `429` status.
-
 ## Read endpoints
 
 The `/v1` API also exposes read endpoints for polling integrations. They cover a connection check, the list of your doc collections, a suggestion lifecycle feed, and a finished-task feed. All take the same bearer token and return JSON. Each returns `401` when the key is missing, invalid, or revoked, and `503` when the read store is temporarily unavailable.
@@ -410,7 +408,9 @@ After you submit a task, follow its progress and continue the conversation on th
 GET /v1/triggers/{trigger_event_id}
 ```
 
-`trigger_event_id` is the id returned by `POST /v1/triggers`. A successful request returns `200 OK` with the task's current state, the suggestions it produced, and its latest 100 conversation messages, oldest first. To detect completion, branch on the `finished` boolean. The `status` string and `status_guidance` text can change, so don't parse them in code. For each field, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/).
+Pass the `trigger_event_id` that `POST /v1/triggers` returned. The response holds the task's current state, the suggestions it produced, and its latest 100 conversation messages, oldest first. For each field, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/).
+
+To detect completion, branch on the `finished` boolean. The `status` string and `status_guidance` text can change, so don't parse them in code.
 
 The `suggestions` array is a lighter summary than the [Suggestions](#suggestions) feed. To track a suggestion's full lifecycle, including whether it merged or closed without merging, use the [Suggestions](#suggestions) feed and its `closed_without_merge` field.
 
@@ -521,9 +521,7 @@ For the full schema, see the [Send a task message reference](/docs/for-docs/api/
 
 ### Task error responses
 
-Both operations return `401 authentication_failed` when the key is missing, invalid, or revoked. Both return `404 task_not_found` for an unknown task or one in another organization. Both return `503 runtime_store_unavailable` when the read store is temporarily unavailable.
-
-Sending to a task that has finished returns `409 task_finished`. To continue the work, submit a new task with `POST /v1/triggers`. Sending to a task from a source other than the API or MCP returns `400 unsupported_task_source`. For every error, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/) and [Send a task message](/docs/for-docs/api/operations/sendtaskmessage/).
+A message sent to a finished task returns `409 task_finished`. To continue the work, submit a new task with `POST /v1/triggers`. For every status code and `error` value, see [Get task status](/docs/for-docs/api/operations/gettaskstatus/) and [Send a task message](/docs/for-docs/api/operations/sendtaskmessage/).
 
 ## View API triggers
 
