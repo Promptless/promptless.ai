@@ -403,16 +403,32 @@ Each repository needs a `main` branch, and the GitHub App needs Contents read ac
 
 ## 8. Enable trace analysis
 
-On the **Analyzers** card of the same page, confirm that your analyzer's **Trace analyzer** switch is **On**. New analyzers start with it on. An organization administrator can set it to **Off** to stop analyses while uploads continue, and back to **On** to resume. Each change applies at the analyzer's next check-in.
+On the **Analyzers** card of the same page, confirm that your analyzer's **Trace analyzer** switch is **On**. New analyzers start with it on and analyze all eligible traces. An organization administrator can set it to **Off** to stop analyses while uploads continue. Each change applies at the analyzer's next check-in.
+
+To turn analysis back on, choose the backlog of stored traces to analyze:
+
+<Steps>
+  1. Turn on **Trace analyzer**. The **Enable trace analysis** dialog opens with your last choice selected.
+  2. Choose **All traces** or **Since date or time**. For **Since date or time**, set **Since date** and, optionally, **Time (optional)**.
+  3. Select **Enable analysis**.
+</Steps>
+
+- **All traces** analyzes every eligible stored trace, including sessions from while analysis was off. Your model provider receives the analysis input for each one. See [Trust and data model](/docs/governance/start-here/trust-and-data-model#from-the-analyzer-to-your-model-provider).
+- **Since date or time** analyzes traces that ended at or after that time, in your browser's timezone. A trace that is still open counts by its latest event. An empty time starts at midnight.
+
+If the request fails, the dialog stays open with your choice and shows the reason. Select **Enable analysis** again to retry.
+
+Neither choice reaches traces from before `spec.analysis.activationAt` or before the earliest selected instruction repository was added. Completed analyses don't run again. If you later choose an earlier date, the older eligible traces join the backlog at the next check-in.
 
 Analysis runs only when all of these are true:
 
 - **Trace analyzer** is **On** for the analyzer.
+- The analyzer runs a worker version that supports backlog selection. Until it does, the card shows **Trace analysis is waiting for a worker update**. Update the worker and wait for its next check-in.
 - At least one instruction repository is selected.
 - `spec.analysis.activationAt` is set, and a session has activity at or after that time.
 - The session has finished, or its quiet window has passed.
 
-Deployment checks pass while analysis is off or no repository is selected, so `Ready=True` alone does not show that analysis can run. When you switch analysis on, eligible stored sessions since `activationAt` become due for analysis.
+Deployment checks pass while analysis is off or no repository is selected, so `Ready=True` alone does not show that analysis can run. When you switch analysis on, eligible stored sessions in the backlog you chose become due for analysis.
 
 ## 9. Enroll a host and verify a session
 
