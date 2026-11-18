@@ -1,0 +1,74 @@
+# Source: the Promptless style guide, "Punctuation": "End an ordered list item
+# with a period when it is a complete sentence." InlinePizza asked on
+# 2026-11-18 for the rule to move from the agent knowledge base into Vale.
+#
+# Vale's `list` scope drops the item numbers, so it can't tell an ordered list
+# from a bulleted one, and the `raw` scope includes code blocks. This script
+# reads the raw file, skips fenced code blocks, and checks each ordered item
+# ("1." or "1)"), following a wrapped item to its last line.
+#
+# Vale can't parse grammar, so the script treats an item as a sentence when it
+# has at least four words, not counting a leading bold label. That leaves
+# fragments alone: a noun phrase ("Settings page"), a code value
+# (`doc_collection_id`), and a bold step title ("**Create a grant**"). An item
+# may end with a period, "!", "?", or ":" (an item that introduces a code block
+# or a nested list), before any closing quote, parenthesis, or emphasis.
+#
+# Level is warning: the rule is conditional, and a long noun phrase of four or
+# more words is flagged too. Add the period when the item is a sentence, and
+# ignore the alert when it isn't.
+extends: script
+message: "End this ordered list item with a period if it's a complete sentence."
+level: warning
+scope: raw
+script: |
+  text := import("text")
+  matches := []
+  lines := text.split(scope, "\n")
+  pos := 0
+  starts := []
+  for l in lines {
+    starts = append(starts, pos)
+    pos += len(l) + 1
+  }
+  is_break := func(l) {
+    return text.trim_space(l) == "" || text.re_match(`^[ \t]*([-*+]|\d+[.)])[ \t]`, l) || text.re_match("^[ \t]*(```|~~~|<|\\||#)", l)
+  }
+  fence := ""
+  n := len(lines)
+  i := 0
+  for i < n {
+    l := lines[i]
+    f := text.re_find("^[ \t]*(```|~~~)", l)
+    if f != undefined {
+      if fence == "" {
+        fence = f[0][1].text
+      } else if f[0][1].text == fence {
+        fence = ""
+      }
+      i += 1
+      continue
+    }
+    if fence != "" || !text.re_match(`^[ \t]*\d+[.)][ \t]+\S`, l) {
+      i += 1
+      continue
+    }
+    m := text.re_find(`^[ \t]*\d+[.)][ \t]+`, l)
+    begin := starts[i] + m[0][0].end
+    body := text.substr(l, m[0][0].end)
+    last := i
+    j := i + 1
+    for j < n && !is_break(lines[j]) {
+      body = body + " " + text.trim_space(lines[j])
+      last = j
+      j += 1
+    }
+    body = text.trim_space(body)
+    rest := text.re_replace(`^\*\*[^*]+\*\*[ \t:.—-]*`, body, "")
+    words := text.fields(rest)
+    if len(words) >= 4 && !text.re_match("[.!?:][\"'’”)\\]*_`]*$", body) {
+      end := starts[last] + len(text.trim_right(lines[last], " \t\r"))
+      matches = append(matches, {begin: begin, end: end})
+    }
+    i = j
+  }
