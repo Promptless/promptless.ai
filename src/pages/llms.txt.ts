@@ -74,6 +74,10 @@ async function buildSections(): Promise<LlmsSection[]> {
           description:
             'Connect Claude Code, Cursor, VS Code, or Codex over MCP with OAuth sign-in, or let a coding agent create an account for a person to claim.',
         }),
+        docsPage('/docs/for-docs/reference/mcp-tools', {
+          label: 'MCP tools reference',
+          description: 'Arguments, results, annotations, and errors of each Promptless MCP tool.',
+        }),
         docsPage('/docs/governance', { label: 'Agent Instructions documentation' }),
         docsPage('/docs/governance/agent-setup-guide', {
           label: 'Set up PIG with a coding agent',
@@ -107,7 +111,12 @@ async function buildSections(): Promise<LlmsSection[]> {
         docsPage('/docs/for-docs/starport', { label: 'Starport' }),
         docsPage('/docs/for-docs/get-the-most-out/screenshots', { label: 'Promptless Capture' }),
         await marketingPage('/free-tools', {
-          description: 'Broken Link Report: scan a docs site and get the report by email.',
+          description: 'Agent Score, which grades how well AI agents can read a docs site, and Broken Link Report, which emails a broken-link report for a docs site.',
+        }),
+        await marketingPage('/agent-score', {
+          label: 'Agent Score',
+          description:
+            'Free tool that scores a docs site from 0 to 100 for AI-agent readiness with the open-source afdocs CLI (28 checks, 7 categories). Public reports at /agent-score/<host>[/<path>] with a .md twin, a JSON API, and score history. The same checks run locally with npx afdocs.',
         }),
       ],
     },

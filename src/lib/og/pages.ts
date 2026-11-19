@@ -67,6 +67,11 @@ const STANDALONE_PAGES: Array<{ routePath: string; title: string; description?: 
     title: 'Free tools',
     description: 'Free tools to help you quickly improve docs quality.',
   },
+  {
+    routePath: '/agent-score',
+    title: 'Agent Score: how well can AI agents read your docs?',
+    description: 'Free, open methodology. 28 afdocs checks, a 0 to 100 score, fixes, and history for any docs site.',
+  },
 ];
 
 function buildPages(): OgPage[] {
