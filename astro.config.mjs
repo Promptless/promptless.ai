@@ -234,6 +234,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/for-docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/for-docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Fluid Topics doc gaps', slug: 'docs/for-docs/get-the-most-out/fluid-topics-analytics' },
                     { label: 'Localized docs', slug: 'docs/for-docs/get-the-most-out/localization' },
                     { label: 'Changelogs & release notes', slug: 'docs/for-docs/get-the-most-out/release-notes' },
                     { label: 'Passive channel listening', slug: 'docs/for-docs/get-the-most-out/passive-channel-listening' },
@@ -246,6 +247,7 @@ export default defineConfig({
                         { autogenerate: { directory: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
                       ],
                     },
+                    { label: 'Shape how Promptless communicates', slug: 'docs/for-docs/get-the-most-out/communication' },
                     { label: 'Ask to update config', slug: 'docs/for-docs/get-the-most-out/ask-promptless-to-update-config' },
                     { label: 'Zapier recipes', slug: 'docs/for-docs/get-the-most-out/zapier-recipes' },
                   ],
@@ -267,6 +269,7 @@ export default defineConfig({
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
+                    { label: 'MCP tools', slug: 'docs/for-docs/reference/mcp-tools' },
                     { label: 'Getting support', slug: 'docs/for-docs/reference/getting-help' },
                   ],
                 },

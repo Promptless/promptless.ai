@@ -23,6 +23,7 @@ import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MIN_PAGES_FOR_SCORING } from '../src/lib/agent-score/discovery';
 import { normalizeTargetUrl } from '../src/lib/agent-score/slug';
 import { CATEGORIES, GRADE_HEX, gradeTone } from '../src/lib/agent-score/meta';
 import type {
@@ -62,6 +63,7 @@ const fillerEntries: LeaderboardEntry[] = FILLER.map(([slug, overall], index) =>
   grade: gradeFor(overall),
   scannedAt: new Date(Date.UTC(2026, 9, 12 - index, 15, 0, 0)).toISOString(),
   scanCount: 1 + (index % 4),
+  partial: false,
 }));
 
 interface MockScan {
@@ -239,6 +241,7 @@ function leaderboard(sort: string, limit: number) {
     grade: site.latest.grade,
     scannedAt: site.latest.scannedAt,
     scanCount: site.scanCount,
+    partial: (site.latest.testedPages ?? MIN_PAGES_FOR_SCORING) < MIN_PAGES_FOR_SCORING,
   }));
   const entries = [...real, ...fillerEntries];
   entries.sort((a, b) =>

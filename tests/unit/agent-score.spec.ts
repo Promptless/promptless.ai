@@ -5,7 +5,8 @@ import { normalizeTargetUrl, parseSlug } from '../../src/lib/agent-score/slug';
 import { CATEGORIES, TOTAL_CHECKS, gradeForScore } from '../../src/lib/agent-score/meta';
 import { actionableChecks, buildFixPrompt, buildMarkdownReport, summarySentence } from '../../src/lib/agent-score/report';
 import { affectedPages, checkIssues, diagnosticIssues, fixText, shortUrl } from '../../src/lib/agent-score/issues';
-import type { SiteResponse } from '../../src/lib/agent-score/types';
+import { looksLikeSinglePage, partialScan } from '../../src/lib/agent-score/discovery';
+import type { ScanResult, SiteResponse } from '../../src/lib/agent-score/types';
 
 const fixture = (name: string) =>
   JSON.parse(readFileSync(new URL(`../../src/lib/agent-score/fixtures/${name}.json`, import.meta.url), 'utf8')) as SiteResponse;
@@ -137,4 +138,77 @@ test('issues list affected pages and drop the result restated in the fix', () =>
 
   assert.equal(shortUrl('https://developer.deel.com/api/x', 'developer.deel.com'), '/api/x');
   assert.equal(shortUrl('https://api.letsdeel.com/mcp', 'developer.deel.com'), 'api.letsdeel.com/mcp');
+});
+
+/** The acme fixture's latest scan, re-pointed at `slug` with afdocs results for a thin scan. */
+function thinScan(slug: string, options: { testedPages: number; sources: string[]; llmsTxt: string | null }): ScanResult {
+  const latest = structuredClone(fixture('docs.acme-api.dev').latest);
+  latest.slug = slug;
+  latest.testedPages = options.testedPages;
+  latest.discoverySources = options.sources;
+  for (const category of latest.categories) {
+    for (const check of category.checks) {
+      if (check.id === 'llms-txt-exists') check.evidence = options.llmsTxt ? { canonicalUrl: options.llmsTxt } : null;
+    }
+  }
+  return latest;
+}
+
+test('partialScan suggests the folder of an llms.txt above the scanned path', () => {
+  const latest = thinScan('developer.globalpayments.com/docs/getting-started/overview', {
+    testedPages: 1,
+    sources: ['llms-txt'],
+    llmsTxt: 'https://developer.globalpayments.com/llms.txt',
+  });
+  assert.deepEqual(partialScan(latest), {
+    kind: 'index_above',
+    testedPages: 1,
+    indexUrl: 'https://developer.globalpayments.com/llms.txt',
+    suggestion: 'developer.globalpayments.com',
+  });
+  const nested = thinScan('example.com/docs/guides/start', { testedPages: 2, sources: ['llms-txt'], llmsTxt: 'https://example.com/docs/llms.txt' });
+  assert.equal((partialScan(nested) as { suggestion: string }).suggestion, 'example.com/docs');
+});
+
+test('partialScan suggests the host root for a deep URL with no llms.txt above it', () => {
+  const sameFolder = thinScan('example.com/docs', { testedPages: 3, sources: ['llms-txt'], llmsTxt: 'https://example.com/docs/llms.txt' });
+  assert.deepEqual(partialScan(sameFolder), { kind: 'deep_url', testedPages: 3, suggestion: 'example.com' });
+  const otherHost = thinScan('docs.example.com/guide', { testedPages: 1, sources: ['fallback'], llmsTxt: 'https://example.com/llms.txt' });
+  assert.deepEqual(partialScan(otherHost), { kind: 'deep_url', testedPages: 1, suggestion: 'docs.example.com' });
+});
+
+test('partialScan separates a root with no index from a root with a thin index', () => {
+  assert.deepEqual(partialScan(thinScan('docs.example.com', { testedPages: 1, sources: ['fallback'], llmsTxt: null })), {
+    kind: 'no_index',
+    testedPages: 1,
+  });
+  assert.deepEqual(
+    partialScan(thinScan('docs.example.com', { testedPages: 4, sources: ['llms-txt'], llmsTxt: 'https://docs.example.com/llms.txt' })),
+    { kind: 'few_pages', testedPages: 4 },
+  );
+});
+
+test('partialScan ignores scans that tested enough pages or did not report a count', () => {
+  assert.equal(partialScan(thinScan('docs.example.com/a/b', { testedPages: 5, sources: ['fallback'], llmsTxt: null })), null);
+  const unknown = thinScan('docs.example.com/a/b', { testedPages: 1, sources: ['fallback'], llmsTxt: null });
+  delete unknown.testedPages;
+  assert.equal(partialScan(unknown), null);
+});
+
+test('looksLikeSinglePage flags deep paths and page files, not docs roots', () => {
+  for (const input of ['developer.globalpayments.com/docs/getting-started/overview', 'https://help.example.com/2026b/home.htm', 'example.com/guide.html']) {
+    assert.equal(looksLikeSinglePage(input), true, `Expected ${input} to look like one page.`);
+  }
+  for (const input of ['docs.stripe.com', 'stripe.com/docs', 'airtable.com/developers/agents', 'not a url', '']) {
+    assert.equal(looksLikeSinglePage(input), false, `Expected ${input} to look like a docs root.`);
+  }
+});
+
+test('diagnosticIssues leaves the single-page diagnostic to the partial scan notice', () => {
+  const latest = structuredClone(fixture('docs.acme-api.dev').latest);
+  latest.diagnostics.push({ id: 'single-page-sample', severity: 'warning', message: 'Only 1 page was discovered and tested.', resolution: '' });
+  assert.deepEqual(
+    diagnosticIssues(latest).map((issue) => issue.key),
+    fixture('docs.acme-api.dev').latest.diagnostics.map((diagnostic) => diagnostic.id),
+  );
 });
