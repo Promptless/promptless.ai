@@ -40,15 +40,17 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007); glossary/ is generated from terms/
+|   +-- generated/mcp/  # Generated MCP tools reference partials; don't edit (scripts/mcp-reference/, ADR adrs/0010)
++-- data/mcp/           # catalog.json: exported MCP tool, skill, and resource definitions
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock; mcp-reference/ generates the MCP tools reference
 tests/smoke/            # Smoke tests
 tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
-terms/                  # Termbase: one manni term page per concept (see terms/README.md, ADR adrs/0010)
+terms/                  # Termbase: one manni term page per concept (see terms/README.md, ADR adrs/0011)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
 astro.config.mjs        # Astro config, redirects, Starlight setup
 vercel.json             # Vercel deploy config, generated redirects
@@ -200,7 +202,7 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   Definitions are held to the house Vale styles (`npx manni term lint`). The
   `Terms` style warns on docs pages about a term in the wrong case, such as
   `GitHub app` for `GitHub App`. See [`terms/README.md`](terms/README.md) and
-  [ADR 0010](adrs/0010-adopt-manni-term.md).
+  [ADR 0011](adrs/0011-adopt-manni-term.md).
 - **manni a11y** (`a11y:` in `manni.config.yaml`,
   `.github/workflows/a11y-scheduled.yml`) — accessibility of the *rendered*
   site, not only `src/content/docs`. It doesn't run on pull requests. Every
