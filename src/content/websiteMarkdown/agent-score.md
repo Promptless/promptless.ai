@@ -28,7 +28,7 @@ npx afdocs@latest check https://docs.example.com --skip-checks llms-txt-coverage
 npx afdocs@latest check https://docs.example.com --skip-checks llms-txt-coverage --fixes --verbose
 ```
 
-The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic --skip-checks llms-txt-coverage`.
+The hosted scanner runs `afdocs check <url> --format json --score --sampling deterministic --network-context cloud --skip-checks llms-txt-coverage`.
 
 ## Checks
 
