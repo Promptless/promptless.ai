@@ -109,6 +109,52 @@ During analysis, Promptless also writes Vale rules from your style guidance and 
   If you point a collection at a different repository, Promptless analyzes the new repository from scratch. It replaces all six files, including any edits you've made. Copy anything you want to keep first.
 </Aside>
 
+## Collection setup scripts
+
+Some documentation repositories need setup before Promptless can work in them, such as installing dependencies or starting a local docs server. Add a setup script to the collection, and Promptless runs it each time it opens the collection.
+
+Add a file named `on-mount.sh` to the collection's folder in the Knowledge Base:
+
+```text
+collection_analyses/<collection>/on-mount.sh
+```
+
+Create it the way you create any other Knowledge Base file: in the editor (enter the full name, `on-mount.sh`), through Git, or by [asking Promptless](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config). Promptless runs setup while the file exists. To turn setup off, delete the file. Use a regular file, because Promptless rejects a symbolic link.
+
+### What the script can do
+
+Promptless runs the file with Bash from the root of the docs repository, with `errexit` and `pipefail` set. The file doesn't need to be executable. The script runs with the agent's permissions and your configured environment variables, including those with the `PROMPTLESS_` prefix. `DOCS_REPO` holds the path to the docs repository, and `KB_REPO` holds the path to the Knowledge Base. Promptless keeps its own service credentials out of the script's environment.
+
+Install dependencies in the project or in your user directory. The script runs without root, so it can't install system packages. Variables that the script exports stay inside the script.
+
+Promptless runs the script each time it opens the collection, and that can happen more than once in a task. Write the script so that another run succeeds when the dependencies are already installed or the server is already running.
+
+### Start a docs server
+
+Your script starts the server, checks that it's ready, and chooses its port. Start the server in the background, and exit successfully only after it responds:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+npm ci
+if ! curl --fail --silent http://localhost:3000/ >/dev/null; then
+  npm run dev -- --port 3000 &
+fi
+for attempt in {1..60}; do
+  if curl --fail --silent http://localhost:3000/ >/dev/null; then
+    exit 0
+  fi
+  sleep 1
+done
+echo "Docs server did not become ready on port 3000" >&2
+exit 1
+```
+
+Adapt the install command, server command, and readiness check to your repository. Keep background servers in the script's process group, and don't detach them with `setsid` or run them as daemons. When the task ends, Promptless stops the process group and its servers. The script has no time limit of its own, so the task's lifetime limits it.
+
+If setup fails, the repository stays open, and Promptless can still do the work that doesn't depend on setup. Promptless doesn't retry the script.
+
 ## Track what Promptless changed
 
 Promptless can update these files when you give feedback on suggestions through PR comments, the Promptless dashboard, or Slack. It applies what it learned to future tasks. The **Recent updates by Promptless** list shows its latest changes. Each entry shows:
@@ -138,7 +184,7 @@ Promptless commits your changes directly to the Knowledge Base repository.
 <Steps>
   1. Select the **+** button next to a folder to create a file in it. To create a top-level file, select the new-file icon at the root.
 
-  2. In the **New file** dialog, enter a file name without the `.md` extension. Promptless adds the extension. To create the file in new folders, enter a path such as `nested/path/filename`, and Promptless creates the folders.
+  2. In the **New file** dialog, enter a file name. If you leave off an extension, Promptless saves the file as Markdown (`.md`). To create another kind of file, include its extension: for example, `on-mount.sh` for a [collection setup script](#collection-setup-scripts). To create the file in new folders, enter a path such as `nested/path/filename`, and Promptless creates the folders.
 
   3. Select **Create**.
 </Steps>
