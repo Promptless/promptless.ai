@@ -180,7 +180,10 @@ export default defineConfig({
         // e.g. "context-sources"). Section index pages that sit beside a
         // like-named directory (Triggers, Context sources, Integrations) are
         // listed explicitly so they stay the first item in their group, matching
-        // the previous Promptless for Docs output. The Sidebar override renders a
+        // the previous Promptless for Docs output. A group's first page is
+        // labeled "Overview" in the nav rather than repeating the group label;
+        // the page keeps its own title (for example, Connect > Triggers > Overview
+        // opens the page titled "Triggers"). The Sidebar override renders a
         // compact product switcher from the plugin's route data above each topic's
         // own sidebar. Promptless for Agent Instructions starts with one overview.
         starlightSidebarTopics(
@@ -199,7 +202,7 @@ export default defineConfig({
                       label: 'Triggers',
                       collapsed: true,
                       items: [
-                        { label: 'Triggers', slug: 'docs/for-docs/connect/triggers' },
+                        { label: 'Overview', slug: 'docs/for-docs/connect/triggers' },
                         { autogenerate: { directory: 'docs/for-docs/connect/triggers', collapsed: true } },
                       ],
                     },
@@ -207,7 +210,7 @@ export default defineConfig({
                       label: 'Context sources',
                       collapsed: true,
                       items: [
-                        { label: 'Context sources', slug: 'docs/for-docs/connect/context-sources' },
+                        { label: 'Overview', slug: 'docs/for-docs/connect/context-sources' },
                         { autogenerate: { directory: 'docs/for-docs/connect/context-sources', collapsed: true } },
                       ],
                     },
@@ -231,6 +234,7 @@ export default defineConfig({
                   items: [
                     { label: 'Keep screenshots current', slug: 'docs/for-docs/get-the-most-out/screenshots' },
                     { label: 'Pay down docs debt', slug: 'docs/for-docs/get-the-most-out/pay-down-docs-debt' },
+                    { label: 'Fluid Topics doc gaps', slug: 'docs/for-docs/get-the-most-out/fluid-topics-analytics' },
                     { label: 'Localized docs', slug: 'docs/for-docs/get-the-most-out/localization' },
                     { label: 'Changelogs & release notes', slug: 'docs/for-docs/get-the-most-out/release-notes' },
                     { label: 'Passive channel listening', slug: 'docs/for-docs/get-the-most-out/passive-channel-listening' },
@@ -239,10 +243,11 @@ export default defineConfig({
                       label: 'Teach a custom task',
                       collapsed: true,
                       items: [
-                        { label: 'Teach a custom task', slug: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task' },
+                        { label: 'Overview', slug: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task' },
                         { autogenerate: { directory: 'docs/for-docs/get-the-most-out/teach-promptless-a-custom-task', collapsed: true } },
                       ],
                     },
+                    { label: 'Shape how Promptless communicates', slug: 'docs/for-docs/get-the-most-out/communication' },
                     { label: 'Ask to update config', slug: 'docs/for-docs/get-the-most-out/ask-promptless-to-update-config' },
                     { label: 'Zapier recipes', slug: 'docs/for-docs/get-the-most-out/zapier-recipes' },
                   ],
@@ -264,6 +269,7 @@ export default defineConfig({
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
+                    { label: 'MCP tools', slug: 'docs/for-docs/reference/mcp-tools' },
                     { label: 'Getting support', slug: 'docs/for-docs/reference/getting-help' },
                   ],
                 },
