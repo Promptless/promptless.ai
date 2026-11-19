@@ -40,12 +40,14 @@ src/
 |   +-- website/        # Marketing page content (MDX)
 |   +-- legal/          # Privacy policy, terms
 +-- partials/           # MDX partials embedded in docs pages (@partials/*); integrations/ holds connection procedures (ADR adrs/0007)
+|   +-- generated/mcp/  # Generated MCP tools reference partials; don't edit (scripts/mcp-reference/, ADR adrs/0010)
++-- data/mcp/           # catalog.json: exported MCP tool, skill, and resource definitions
 +-- lib/                # Shared utilities (navigation, route manifest, content ordering)
 |   +-- agent-score/    # Agent Score API contract types, metadata, slug rules, report/OG builders, fixtures
 +-- styles/             # Global CSS (custom.css, site.css); agent-score.css is imported by its components only
 packages/
 +-- starlight-mcp/      # Read-only MCP server plugin (/mcp route; ADR 0007), vendored from Starport
-scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock
+scripts/                # Build/migration scripts; agent-score-mock-api.ts is the local Agent Score API mock; mcp-reference/ generates the MCP tools reference
 tests/smoke/            # Smoke tests
 tests/unit/             # Unit tests (node --import tsx --test tests/unit/*.spec.ts)
 adrs/                   # Architecture Decision Records (MADR format); see adrs/README.md
@@ -131,8 +133,8 @@ CI workflow; keep their scopes aligned (all target `src/content/docs`):
   `Voices.BinaryContrast` (`Promptless.NegationContrast` replaces it),
   `Promptless.PassiveVoice` (too noisy on the docs), and
   `Promptless.BlogReadingGrade` (blog-only; Vale doesn't lint the blog).
-  `Promptless.Semicolons` and `Promptless.CurrentState` run at warning. Any
-  error fails CI.
+  `Promptless.Semicolons`, `Promptless.CurrentState`, and
+  `Promptless.OrderedListPeriod` run at warning. Any error fails CI.
 - **remark-lint** (`.remarkrc.mjs`, `remark-lint.yml`) — Markdown/MDX
   *structure* (heading increments, list/blank-line consistency, undefined
   references, trailing whitespace). CI runs the repair (`--output` full
