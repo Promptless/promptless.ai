@@ -48,3 +48,4 @@ New, non-migration architecture decisions go here in `adrs/` using the MADR temp
 - [0007 — Embed integration procedures as MDX partials and drop integration pages from the nav](0007-embed-integration-procedures-as-partials.md) — accepted
 - [0008 — Check the rendered site's accessibility with manni a11y](0008-adopt-manni-a11y.md) — accepted
 - [0009 — Drop the `last-updated` frontmatter field](0009-drop-last-updated-frontmatter.md) — accepted
+- [0010 — Generate the MCP tools reference from the server's definitions](0010-generate-mcp-tools-reference.md) — proposed
