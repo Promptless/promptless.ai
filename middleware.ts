@@ -27,6 +27,7 @@ export const config = {
     '/free-tools/:path*',
     '/agent-score',
     '/agent-score/:path*',
+    '/guides/:path*',
     '/docs/:path*',
     '/blog/:path*',
     '/changelog/:path*',
