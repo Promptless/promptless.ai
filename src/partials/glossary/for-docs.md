@@ -34,7 +34,7 @@ docs as code
 
 docs as tests
 docs-as-tests
-:   An approach that runs the procedures in your docs against the product as tests. A page that no longer matches the product fails, the way broken code fails a test.
+:   An approach that runs the procedures in your docs against the product as tests. A page whose steps don't match the product fails, the way broken code fails a test.
 
 docs debt
 :   The backlog of stale steps, off-style prose, duplicate pages, and outdated structure that builds up in a large docs set.
@@ -51,6 +51,10 @@ docs PRs
 documentation PR
 docs pull request
 :   The pull request or merge request that Promptless opens in your documentation repository for a suggestion. You review it and steer it with comments, the same way you review code.
+
+documentation gap
+documentation gaps
+:   A reader question that the docs don't answer, or answer only partly or wrongly. Reader signals, such as searches that return no results and low page ratings, help find them.
 
 feedback
 :   Change requests, comments, and close reasons you give Promptless on a suggestion. Feedback on one suggestion changes only that suggestion, unless you phrase it as a standing rule for future suggestions.
