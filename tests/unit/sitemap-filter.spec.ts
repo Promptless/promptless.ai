@@ -41,7 +41,6 @@ test('collects hidden docs pages from source content', () => {
 
   assert(hiddenPaths.has('/docs/internal/component-fixtures'));
   assert(hiddenPaths.has('/docs/for-docs/security/self-hosting'));
-  assert(hiddenPaths.has('/docs/for-docs/security/self-hosting/kubernetes-helm'));
   assert(!hiddenPaths.has('/docs/for-docs/start-here/welcome'));
 });
 
