@@ -42,7 +42,6 @@ sample-questions:
   - What fields does a github_pr trigger match clause accept in promptless.yaml?
   - How do I disable an inherited Slack notification channel for one doc collection?
   - What is the difference between omitting msteams_channel and setting it to null?
-  - How do I stop Promptless from automatically archiving stale suggestions?
 sidebar:
   hidden: false
   order: 61
@@ -195,7 +194,7 @@ In a typical pull request workflow, this overlaps with your PR triggers. Merging
 | `doc_collections` | Documentation repositories where Promptless publishes updates                          | [Doc collections](#doc-collections) |
 | `context_sources` | Limits on what Promptless reads from connected integrations                            | [Context sources](#context-sources) |
 | `triggers`        | Events that start documentation work                                                   | [Triggers](#triggers)               |
-| `policies`        | Where notifications and escalations go, how Promptless publishes, and when it archives | [Policies](#policies)               |
+| `policies`        | Where notifications and escalations go, and how Promptless publishes                   | [Policies](#policies)               |
 | `style`           | Where your organization's style rules live                                             | [Style](#style)                     |
 
 Every section is optional. A key the schema doesn't define, at any level of the file, fails validation.
@@ -608,7 +607,7 @@ Built-in triggers can't be turned off, but you can use their keys in [policy rul
 
 ## Policies
 
-Policies set where Promptless sends notifications and escalations, how it publishes documentation updates, and when it archives stale suggestions. `policies.default` applies to every suggestion. Each entry in `policies.rules` applies only when its `if` block matches, and overrides the default field by field. See [Rule matching](#rule-matching).
+Policies set where Promptless sends notifications and escalations, and how it publishes documentation updates. `policies.default` applies to every suggestion. Each entry in `policies.rules` applies only when its `if` block matches, and overrides the default field by field. See [Rule matching](#rule-matching).
 
 `policies.default` and each rule's `then` block accept these sections:
 
@@ -617,7 +616,8 @@ Policies set where Promptless sends notifications and escalations, how it publis
 | `notification` | Slack and Teams channels that announce suggestions                              | [`notification`](#notification) |
 | `escalation`   | Slack and Teams channels, and email addresses, that receive escalations         | [`escalation`](#escalation)     |
 | `publishing`   | Whether Promptless opens and merges documentation PRs, and what it posts on PRs | [`publishing`](#publishing)     |
-| `archiving`    | Whether and when Promptless archives stale suggestions                          | [`archiving`](#archiving)       |
+
+Promptless ignores an `archiving` section left in a policy from an earlier configuration, so you can delete it.
 
 ```yaml
 policies:
@@ -734,37 +734,6 @@ The extras that `suppress_pr_description_extras` removes are the "Open in Prompt
 
 <Aside type="note">
   `auto_create_pr` controls only automatic PR creation. When it's off, Promptless leaves suggestions as drafts and doesn't open a documentation PR on its own. You can still open one on demand: ask the agent, select **Create PR** in Slack, or create it from the dashboard. `auto_merge` applies only to PRs that Promptless creates automatically.
-</Aside>
-
-#### `archiving`
-
-Promptless archives stale suggestions automatically, so your dashboard stays focused on active work. The `archiving` section sets when:
-
-| Field              | Default | Description                                                                             |
-| ------------------ | ------- | --------------------------------------------------------------------------------------- |
-| `enabled`          | `true`  | Whether automatic archiving runs for this scope                                         |
-| `stale_after_days` | `30`    | Days of inactivity before Promptless archives a suggestion. Must be a positive integer. |
-
-Set `enabled: false` to keep a scope's suggestions open indefinitely, for example when a team leaves a suggestion open until a linked ticket closes. Lower `stale_after_days` to archive sooner.
-
-Promptless measures inactivity from a suggestion's last activity: the most recent of when it was created, updated, had its diff refreshed, or was reopened. Promptless never archives a suggestion that someone viewed within the window.
-
-```yaml
-policies:
-  default:
-    archiving:
-      stale_after_days: 45
-
-  rules:
-    - if:
-        doc_collection: acme/docs
-      then:
-        archiving:
-          enabled: false   # keep this collection's suggestions indefinitely
-```
-
-<Aside type="note">
-  Archiving runs on a schedule, outside any trigger, so it resolves per doc collection. Only `policies.default` and rules that match on `doc_collection` apply. A rule can turn off archiving or change the window for one collection while the default covers the rest. A rule that sets `trigger` never affects archiving.
 </Aside>
 
 ### Rule matching
