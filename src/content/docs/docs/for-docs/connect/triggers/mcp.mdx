@@ -16,6 +16,7 @@ keywords:
   - OAuth editor connection
   - direct edits
   - triage-suggestions
+  - agent sign-up
 language: en
 audiences:
   - aud-devrel-devex
@@ -44,6 +45,7 @@ sample-questions:
   - Which tools does the Promptless MCP server provide?
   - How do I edit documentation files directly from my editor through Promptless?
   - How do I revoke my Promptless MCP connection?
+  - Can a coding agent create a Promptless account for me?
 sidebar:
   hidden: false
   order: 16
@@ -66,8 +68,8 @@ To use Promptless from the Claude.ai or ChatGPT web app, follow [Use Promptless 
 ## Before you start
 
 - An MCP-capable editor, such as Claude Code or Cursor, or a chat app that accepts custom connectors, such as Claude.
-- Your organization's [Promptless setup](https://app.gopromptless.ai/configuration) finished.
-- An active membership in the organization. MCP needs no API key and no particular organization role.
+- Your organization's [Promptless setup](https://app.gopromptless.ai/configuration) finished, to start documentation tasks.
+- An active membership in the organization. MCP needs no API key and no particular organization role. If you don't have an organization yet, create one when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
 
 ## Connect the server
 
@@ -171,11 +173,11 @@ Your editor handles authorization automatically over OAuth; you approve the conn
 <Steps>
   1. A browser tab opens to the Promptless consent page.
 
-  2. Choose the organization to connect. The picker defaults to your active organization.
+  2. Choose the organization to connect. The picker defaults to your active organization. If you don't belong to an organization yet, enter a name for a new one.
 
   3. Check the **Returns to** row. It shows where Promptless sends access when you approve. Promptless doesn't verify the client name, so go by this row. A local editor such as Claude Code or Cursor returns to a local address with a port, like `127.0.0.1:54321`. An app that opens through its own link scheme shows a callback like `myapp://claude.ai/cb`, and any app on your device that handles `myapp://` links receives the access. Cancel if you didn't start this connection from that editor or app.
 
-  4. Select **Authorize as \{your email}**. Your editor stores the token and returns you to the editor.
+  4. Select **Authorize as \{your email}**. For a new organization, the button reads **Create organization and authorize as \{your email}**. Your editor stores the token and returns you to the editor.
 </Steps>
 
 <Aside type="note">
@@ -187,12 +189,67 @@ Your editor handles authorization automatically over OAuth; you approve the conn
   - Revise a suggestion Promptless already produced.
   - Update a suggestion's labels, assignees, and title, and open its docs pull request.
   - Close a suggestion, which also closes its docs pull request.
+  - Check your organization's connected integrations and setup steps, and create links that let a member connect an integration.
   - On the direct-edit URL, read and search your documentation and commit edits to an open suggestion's branch.
 
   The write actions (revise, update, close, and edit) act on any suggestion in your organization, like the read tools, including suggestions other members created. Any active organization member can authorize a connection, whatever their [organization role](/docs/for-docs/security/access-and-permissions), and MCP access can't be limited to specific members or roles. To control what gets submitted, use your [publishing policies and relevance filtering](/docs/for-docs/tune/noise-and-relevance-filtering).
 </Aside>
 
 A token is tied to one organization. When your client names the server URL in its authorization request, the token works only at that URL. When it doesn't, the token works at both URLs, so the consent screen lists file reading and editing for every connection. To connect a second organization, authorize again and pick that organization at consent. Your editor can hold one Promptless connection per organization.
+
+## Let a coding agent create your account
+
+A coding agent, such as Claude Code or Codex, can create a Promptless organization and connect to it before anyone signs in. You then claim the account to become its admin. Until someone claims it, the agent can only check the account's status and [create links for connecting integrations](#connect-integrations-from-your-editor).
+
+<Steps>
+  1. Create the account. The request needs no authentication, and the organization name is 1–100 characters:
+
+     ```bash
+     curl -X POST https://api.gopromptless.ai/agent-signups \
+       -H "Content-Type: application/json" \
+       -d '{"organization_name": "Acme Docs"}'
+     ```
+
+     The response carries an `access_token` for the MCP server and a `claim_url` for the person who claims the account. Save both, because Promptless shows them only once. Keep the token secret, because it acts for the organization until someone claims it.
+
+  2. Connect the agent with the token. In Claude Code, run:
+
+     ```bash
+     claude mcp add --transport http promptless https://api.gopromptless.ai/mcp \
+       --header "Authorization: Bearer <access_token>"
+     ```
+
+     In Codex, set `PROMPTLESS_ACCESS_TOKEN` to the token, then run:
+
+     ```bash
+     codex mcp add promptless --url https://api.gopromptless.ai/mcp \
+       --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN
+     ```
+
+  3. Within 72 hours, sign in to Promptless or create an account, then open the `claim_url`. Promptless deletes an account that nobody claims in that time.
+
+  4. Select **Claim account**. You become the organization's admin, and the agent's access token stops working.
+
+  5. Remove the token-based `promptless` server from the agent, and [connect the server](#connect-the-server) with OAuth. The new connection acts as you.
+</Steps>
+
+## Connect integrations from your editor
+
+Promptless needs integrations, such as GitHub and Slack, to watch for changes and publish suggestions. A person approves each connection in a browser, so your editor creates a link for that person with the [`connect_integration`](/docs/for-docs/reference/mcp-tools#connect_integration) tool. This works from any connection, including an [agent-created account](#let-a-coding-agent-create-your-account).
+
+<Steps>
+  1. Ask your editor to connect an integration, for example: "Connect Slack to Promptless." Your editor returns a link.
+
+  2. Send the link to someone who can grant access to that integration. The link works for 24 hours.
+
+  3. That person signs in to Promptless, then opens the link.
+
+  4. That person selects **Continue to \{provider}** and approves access with the provider.
+
+  5. Ask your editor to check the connection. It calls [`get_account_status`](/docs/for-docs/reference/mcp-tools#get_account_status), which lists the connected integrations.
+</Steps>
+
+Only a member of the organization can connect an integration. On an unclaimed agent-created account, the first person to open a link claims the account and becomes its admin.
 
 ## Available tools
 
@@ -532,6 +589,10 @@ Tool failures come back as errors your editor's model sees, each formatted as `c
 - **`answer_task_question` returns `decline` or `cancel`**: you declined or canceled the question. No work continues and following stops. The original task and anything it already produced remain. To pursue the change, start a new task with `submit_documentation_task`.
 - **An answer reference that points at an unrelated task**: `answer_task_question` rejects it with `continuation_conflict`. This happens when the `idempotency_key` matches a task other than this question's own continuation. That covers a different parent task, a different question, or a task ineligible for a clarifying answer. Promptless doesn't reuse that task. Start a new task with `submit_documentation_task`, restating your original request and your answer.
 - **A deduplicated answer whose continuation can't be found**: `answer_task_question` rejects it with `continuation_unavailable`. This case is transient. A concurrent identical answer to the same question was still committing its continuation when this call looked for it. Retry `answer_task_question` with the same arguments.
+- **A tool call from an unclaimed agent-created account fails**: the agent can only check the account's status and create connect links. [Claim the account](#let-a-coding-agent-create-your-account), then connect with OAuth.
+- **The agent's access token returns `401`**: a person claimed the account, or Promptless deleted it unclaimed after 72 hours. After a claim, [connect with OAuth](#connect-the-server). Otherwise, create a new account.
+- **A connect link says you aren't a member**: another person claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
+- **A connect link says it's invalid or expired**: ask your editor for a new link. A link works for 24 hours, and copying can cut it short.
 - **A read that names no collection in an organization with several**: the tool reports the available collections. Pass a `doc_collection_id` from that list, or pass a `suggestion_id`, which selects its collection.
 - **A path outside the paths Promptless maintains**: the read, list, or write is refused. Promptless reads and edits only the paths configured for the collection. Call `list_documentation_files` for valid paths.
 - **A `search_documentation` query that isn't valid RE2**: the tool reports that the query is not a valid RE2 regular expression. The error names what failed to parse. Rewrite the pattern without backreferences or lookaround, or set `regex` to `false` to search for the literal text.
@@ -541,7 +602,7 @@ Tool failures come back as errors your editor's model sees, each formatted as `c
 - **A write to a suggestion whose task hasn't finished**: the tool refuses it until Promptless records the suggestion's first commit. Wait for the task to finish, then retry.
 - **`stale_head`**: the suggestion's branch changed after your last read, so `expected_head_sha` no longer matches it. The error names the current commit. Read the file again and retry with that commit as `expected_head_sha`.
 - **An `old_text` that matches no place or several places**: `edit_documentation_file` refuses the whole call and reports which edit failed and how many places it matched. Read the file again, copy the text verbatim, and include enough surrounding text to match once.
-- **Denied, canceled, or expired consent**: re-run the authorize step. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
+- **Denied, canceled, or expired consent**: re-run the authorize step. A consent request expires after 30 minutes. In Claude Code, run `/mcp` and pick **promptless** again. In Cursor, click **Needs login** again.
 
 ### Setup issues
 
