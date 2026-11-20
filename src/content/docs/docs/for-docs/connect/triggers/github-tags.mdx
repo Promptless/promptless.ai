@@ -1,0 +1,158 @@
+---
+title: GitHub tags
+description: Have Promptless look for documentation gaps when you push a release tag that matches a pattern you choose.
+id: for-docs-connect-triggers-github-tags
+slug: docs/for-docs/connect/triggers/github-tags
+type: how-to
+tags:
+  - connect
+  - triggers
+  - guide
+keywords:
+  - GitHub tags trigger
+  - deployment trigger
+  - release tag
+  - tag_pattern
+  - release documentation gaps
+language: en
+audiences:
+  - aud-engineer-owned-docs
+  - aud-scaleup-docs-team
+intent: configure a GitHub tags trigger so each pushed release tag starts Promptless looking for documentation gaps in the changes since the previous release tag
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+  - integration:github
+concepts:
+  - trigger
+  - github app
+  - release notes
+prerequisites:
+  - for-docs-reference-integrations-github
+related-pages:
+  - for-docs-get-the-most-out-docs-after-deploys
+  - for-docs-connect-triggers-github-prs
+  - for-docs-connect-triggers
+  - for-docs-reference-configuration-reference
+sample-questions:
+  - How do I check my docs for gaps when I tag a release instead of after each merged PR?
+  - How do I start a documentation review when a deploy finishes?
+  - How do I limit the trigger to tags cut from my main branch?
+sidebar:
+  hidden: false
+  order: 9.5
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import GitHubConnect from '@partials/integrations/github-connect.mdx';
+
+## Overview
+
+A GitHub tags trigger ties documentation work to your releases. When you push a tag that matches your release pattern, such as `v1.*`, Promptless looks for documentation gaps in the changes since the previous release tag. Use it when your team merges many pull requests between releases and wants to check the docs once per release.
+
+To update docs when a deploy to staging or production finishes, call the Promptless API from your deploy pipeline. See [Update docs after each deploy](/docs/for-docs/get-the-most-out/docs-after-deploys).
+
+<Aside type="tip">
+  You can also ask Promptless in Slack or Microsoft Teams to set up the trigger for you. For example, "@Promptless add a GitHub tags trigger for my acme/api repo on release tags like v1.0.0."
+
+  See [Ask Promptless to update your configuration](/docs/for-docs/get-the-most-out/ask-promptless-to-update-config).
+</Aside>
+
+## Before you start
+
+- An admin role in your Promptless organization, to connect GitHub and edit the [Configuration page](https://app.gopromptless.ai/configuration).
+- The GitHub organization that holds the repositories you tag, connected to Promptless. Promptless can't save a GitHub tags trigger until it is. If the organization isn't connected yet, [connect it](#connect-github) first.
+
+A GitHub tags trigger uses the same GitHub connection as GitHub PR and commit triggers, and needs no extra GitHub permissions.
+
+## Connect GitHub
+
+Skip this section if the organization already has a card on the [Integrations page](https://app.gopromptless.ai/integrations).
+
+<GitHubConnect />
+
+## Add a GitHub tags trigger
+
+<Steps>
+  1. On the **Triggers** tab of the [Configuration page](https://app.gopromptless.ai/configuration), add a **GitHub tags** trigger. Choose the repositories where you tag releases.
+
+  2. In **Which tags are releases?**, enter the pattern your release tags match, such as `v1.*`. The pattern is required.
+
+  3. Optional. Open **Advanced Filters** to limit the trigger to tags cut from certain branches, or to repositories with certain GitHub topics or owners. See [Match tags and branches](#match-tags-and-branches).
+
+  4. Save your changes. The next time you push a matching tag, Promptless looks for documentation gaps.
+</Steps>
+
+## Configure in YAML
+
+To configure the trigger in YAML, switch the [Configuration page](https://app.gopromptless.ai/configuration) to **YAML** mode and add a trigger with `trigger_type: deployment` to the `triggers` section:
+
+```yaml
+triggers:
+  release-reviews:
+    trigger_type: deployment
+    match:
+      - repos:
+          - acme/api
+        tag_pattern: "v1.*"   # the pushed tag name must match this glob
+        branches:
+          - main              # omit to match a tag cut from any branch
+```
+
+Each match clause takes these fields:
+
+| Field         | Required | Description                                                                      |
+| ------------- | -------- | -------------------------------------------------------------------------------- |
+| `repos`       | Yes      | The repositories to watch, or the literal `all`.                                 |
+| `tag_pattern` | Yes      | A case-sensitive glob that the pushed tag name must match, such as `v1.*`.       |
+| `branches`    | No       | The branches a tag must be cut from. Omit it to match a tag cut from any branch. |
+
+For every field, including repository exclusions and topic and owner filters, see the [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers).
+
+## Match tags and branches
+
+In a `tag_pattern`, `*` matches any sequence of characters, so `v1.*` matches `v1.2.0` and `v1.4.0`. It also matches release candidate tags such as `v1.2.0-rc1`, and each of those starts a review too. Write a narrower pattern if you don't want reviews for release candidates. Matching is case-sensitive, so `V1.*` doesn't match `v1.2.0`.
+
+Set `branches` to review only tags cut from those branches. Promptless reads the branch from GitHub's push event for the tag. When GitHub can't attribute a tag to a branch, a trigger with `branches` set doesn't activate for that tag. Omit `branches` to review every matching tag, whichever branch it came from.
+
+## Set the previous release tag
+
+To find the changes to check, Promptless looks for the previous release tag in the repository. It picks that tag by how your repository names and orders its release tags.
+
+Record those conventions in your Agent Knowledge Base so Promptless compares against the right tag. For example: "Release tags follow `vMAJOR.MINOR.PATCH`. Tags with an `-rc` suffix, such as `v1.2.0-rc1`, are release candidates." See [Teach conventions with feedback](/docs/for-docs/tune/teaching-conventions).
+
+## Use with GitHub PR triggers
+
+A GitHub tags trigger and a [GitHub PR trigger](/docs/for-docs/connect/triggers/github-prs) run independently. When a GitHub PR trigger for the same repositories lists `merge` in `trigger_on`, Promptless also checks each merged pull request. To check docs only when you tag a release, remove `merge` from that trigger:
+
+```yaml
+triggers:
+  pr-reviews:
+    trigger_type: github_pr
+    match:
+      - repos:
+          - acme/api
+        trigger_on:
+          - opened
+          - first_approval   # merge removed so only the release tag starts docs work
+```
+
+## Send notifications to a channel
+
+A release has no pull request thread for Promptless to reply in. To hear about the suggestions a GitHub tags trigger creates, set a Slack or Microsoft Teams channel in your [publishing policies](/docs/for-docs/reference/configuration-reference#policies).
+
+For a private Slack channel, first invite Promptless by tagging `@Promptless` in the channel. Then set the channel in a policy:
+
+```yaml
+policies:
+  default:
+    notification:
+      slack_channel: docs-updates
+```
+
+## See also
+
+- [Update docs after each deploy](/docs/for-docs/get-the-most-out/docs-after-deploys), to start a review when a deploy to an environment finishes
+- [GitHub PRs](/docs/for-docs/connect/triggers/github-prs), to start documentation work from pull request activity
+- [Triggers](/docs/for-docs/connect/triggers), for how triggers work and how to follow what one did
+- [Configuration Reference](/docs/for-docs/reference/configuration-reference#triggers), for every trigger and policy field
