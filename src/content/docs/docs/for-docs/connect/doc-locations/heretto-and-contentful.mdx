@@ -1,0 +1,216 @@
+---
+title: Heretto and Contentful
+description: Connect a Heretto CCMS folder or a Contentful space as a doc collection, so Promptless proposes documentation changes where your writers already review and publish.
+id: for-docs-connect-doc-locations-heretto-and-contentful
+slug: docs/for-docs/connect/doc-locations/heretto-and-contentful
+type: how-to
+tags:
+  - connect
+  - doc-locations
+keywords:
+  - Heretto CCMS
+  - Contentful
+  - DITA
+  - headless CMS
+  - docs outside Git
+  - component content management system
+  - entry drafts
+  - Heretto suggestions
+language: en
+audiences:
+  - aud-non-docs-as-code-writers
+  - aud-enterprise-docs-team
+intent: set up a Heretto CCMS folder or a Contentful space environment as a doc collection, and learn where its proposed changes are reviewed and who publishes them
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+  - integration:heretto
+  - integration:contentful
+concepts:
+  - doc collection
+  - heretto
+  - contentful
+  - ccms
+related-pages:
+  - for-docs-connect-doc-locations-github-repos
+  - for-docs-reference-configuration-reference
+  - for-docs-reference-account-management
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - Can Promptless update docs that live in Heretto instead of Git?
+  - How do I add a Contentful space as a Promptless doc collection?
+  - Where do I accept or reject a Promptless change in Heretto?
+  - Does Promptless publish Contentful entries?
+  - Which Contentful fields can Promptless edit?
+sidebar:
+  hidden: false
+  order: 25
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+import HerettoConnect from '@partials/integrations/heretto-connect.mdx';
+import ContentfulConnect from '@partials/integrations/contentful-connect.mdx';
+
+## Overview
+
+Promptless can keep documentation current when it lives in a Heretto component content management system (CCMS) or in Contentful, outside Git. In Promptless, a doc collection is a place where your documentation lives. Here it is a Heretto folder or a Contentful space environment.
+
+Promptless works on a copy of the content. When it saves a suggestion, it writes the proposed change into Heretto or Contentful as a change that readers don't see yet. Your writers review it there with the tools they already use. Accepting a change and publishing it to readers are separate in Heretto, and the same action in Contentful:
+
+|                                | Heretto                                                        | Contentful                                                             |
+| ------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| A doc collection covers        | One folder, with every subfolder                               | One environment of one space, optionally limited to some content types |
+| Promptless proposes changes as | Heretto suggestions (tracked changes) in each topic            | Unpublished drafts of each entry                                       |
+| A writer reviews in            | Heretto's topic editor, or the suggestion's page in Promptless | Contentful's entry editor                                              |
+| A change reaches readers when  | Your team publishes output from Heretto, as it does today      | An editor publishes the entry                                          |
+
+Promptless never opens a pull request for these collections. The automatic PR creation setting (`publishing.auto_create_pr`) has no effect on them.
+
+## Before you start
+
+- An admin role in your Promptless organization, to edit the [Configuration page](https://app.gopromptless.ai/configuration). See [Account management](/docs/for-docs/reference/account-management).
+- For Heretto, a Heretto user and API token that Promptless can connect as.
+- For Contentful, an admin role in the Contentful space.
+
+## Heretto
+
+A Heretto doc collection covers one folder in your Heretto Content Library and everything inside it. Promptless reads the DITA topics, maps, and other XML files in that folder each time it works on your docs. It leaves out images and other binary files, and any file larger than 5 MB.
+
+### Connect Heretto
+
+Skip this section if the [Integrations page](https://app.gopromptless.ai/integrations) already shows a Heretto card for your tenant.
+
+<HerettoConnect />
+
+### Add a Heretto doc collection
+
+<Steps>
+  1. On the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add doc collection**.
+
+  2. Under **Heretto**, select **Browse folders on** your Heretto host.
+
+  3. Open repositories and folders until you reach the folder that holds your documentation, and select **Use this folder**. The browser lists only folders that the connected Heretto user can open.
+
+  4. Check the **Heretto folder** field. It shows the folder's path in Heretto, such as `content/Guides/Install`, with the folder ID below it. If the path isn't the folder you meant, select **Change**.
+
+  5. Select **Add collection**.
+</Steps>
+
+Two doc collections can't cover the same folder.
+
+In YAML mode, set `platform: heretto`, the tenant's `host`, and the folder's `root_folder_id`. The folder ID is the last part of the folder's REST URL, under **API Info** in Heretto's resource drawer.
+
+```yaml
+doc_collections:
+  acme/product-manual:
+    platform: heretto
+    host: acme.heretto.com
+    root_folder_id: 8f3ed200-cbba-11e1-ac51-c82a1446d15c
+```
+
+### Review a Heretto suggestion
+
+When Promptless saves a suggestion, it writes each change into the topic as a Heretto suggestion credited to the connected user. Readers don't see the change until a writer accepts it and your team publishes.
+
+Links that Promptless sends in Slack, Microsoft Teams, and the dashboard open the suggestion's page in Promptless, labeled **Review in Promptless**. That page shows a rendered preview of each changed topic and an **Open in Heretto** link for each file. To decide on the changes:
+
+<Steps>
+  1. Open each changed file in Heretto's topic editor.
+
+  2. Right-click each change, and choose **Accept Change** or **Reject Change**.
+</Steps>
+
+Promptless checks Heretto every hour. When writers reject every change, Promptless closes the suggestion. When every change is resolved in any other way, Promptless marks it merged.
+
+To accept all of a suggestion's changes at once, select **Publish to Heretto** on the suggestion's page. This writes the final content into the Content Library and needs the Admin or Editor role in Promptless. If Promptless couldn't write the suggestion into Heretto when it saved it, select **Suggest in Heretto** to try again.
+
+### Who publishes Heretto content
+
+Promptless changes only the content in your Content Library. Your team publishes output from Heretto to readers through its own publishing process, as it does for any other change.
+
+### What Promptless can change in Heretto
+
+- Promptless writes only `.dita`, `.ditamap`, `.ditaval`, and `.xml` files.
+- Promptless can add a topic or map, and creates any missing parent folders.
+- Promptless can't delete or rename files. Delete or rename them in Heretto.
+- Promptless can't change a topic's root element, for example from `<concept>` to `<task>`. A Heretto suggestion can't express that change.
+- Promptless doesn't write a file that another user has locked in Heretto.
+- Promptless doesn't write a file that someone edited in Heretto after Promptless read it.
+
+Promptless checks every file before writing to Heretto. A locked file or a conflicting edit stops the whole suggestion at this check. If Heretto reports an error during a write, files saved before the error may already contain tracked changes.
+
+## Contentful
+
+A Contentful doc collection covers one environment of one space, such as `master`. You can limit it to some content types. Promptless works on the Short text, Long text, and Rich Text fields of each entry, one copy per locale that has a value. It reads each entry's current draft, so it sees unpublished edits that your editors already made.
+
+### Connect Contentful
+
+Skip this section if the [Integrations page](https://app.gopromptless.ai/integrations) already shows a card for your space.
+
+<ContentfulConnect />
+
+### Add a Contentful doc collection
+
+<Steps>
+  1. On the **Doc collections** tab of the [Configuration page](https://app.gopromptless.ai/configuration), select **Add doc collection**.
+
+  2. Select your space, listed as **Space** followed by its ID. The list shows only connected spaces.
+
+  3. Under **Contentful source**, check **Contentful space** and **Environment**. Compare them with the space and environment on the space's Integrations card, or select **Open in Contentful** on that card. Leave **Environment** blank for `master`.
+
+  4. Optional. In **Content types**, enter the IDs of the content types Promptless documents, such as `article`. Leave it empty to cover every content type.
+
+  5. Select **Add collection**.
+</Steps>
+
+The Promptless app must be installed in the environment the collection names.
+
+In YAML mode, set `platform: contentful` and the `space_id`. The space ID is the part of a Contentful URL after `/spaces/`. `environment_id` and `content_types` are optional.
+
+```yaml
+doc_collections:
+  contentful/abc123xyz:
+    platform: contentful
+    space_id: abc123xyz
+    environment_id: master
+    content_types:
+      - article
+```
+
+### Review a Contentful suggestion
+
+When Promptless saves a suggestion, it saves the changed fields to each entry's draft and leaves the entry unpublished. Readers keep seeing the published version.
+
+Select **Open in Contentful** to review the changed entries. The link opens an entry or a review page with links to the entries. If the suggestion opens in Promptless instead, check whether it still has changes waiting to be written to Contentful.
+
+- **To accept a change,** publish the entry.
+- **To reject a change,** restore the field's previous value.
+
+<Aside type="caution" title="Publishing an entry publishes its whole draft">
+  If you publish an entry that has other unpublished edits, Contentful publishes those edits with the Promptless change. Check the entry's other changes before you publish it.
+</Aside>
+
+Promptless checks review status when Contentful reports a publish and during its hourly check. When editors reject every change, Promptless closes the suggestion. When every change is resolved in any other way, Promptless marks it merged.
+
+### Who publishes Contentful content
+
+An editor in Contentful publishes, and publishing is also how they accept the change. Promptless can publish for you: select **Publish in Contentful** on the suggestion's page in Promptless. Promptless refuses when the entry has other unpublished changes or was never published. Publish those entries in Contentful instead.
+
+### What Promptless can change in Contentful
+
+- Promptless edits existing values of Short text, Long text, and Rich Text fields. It can't fill an empty field or clear a field.
+- Promptless doesn't change other field types, such as references, dates, or media.
+- Promptless can't create, delete, archive, or move entries.
+- A Short text value stays one line of no more than 255 characters.
+- In Rich Text, Promptless writes paragraphs, headings, lists, block quotes, tables, links, and inline formatting. It can't add images, code blocks, or embedded entries and assets. It keeps the embedded entries and assets that a field already has.
+- Promptless doesn't write a field that someone edited in Contentful after Promptless read it.
+
+Promptless checks every field before saving drafts. If a field fails that check, Promptless stops before saving any entries. If Contentful reports an error during a save, earlier entries may already contain the proposed changes.
+
+## See also
+
+- [GitHub repos](/docs/for-docs/connect/doc-locations/github-repos), for docs that live in Git
+- [Configuration reference](/docs/for-docs/reference/configuration-reference#doc-collections), for the doc collection fields that every platform shares
+- [Account management](/docs/for-docs/reference/account-management), for the Admin, Editor, and Collaborator roles
