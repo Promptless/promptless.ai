@@ -8,7 +8,6 @@ export const prerender = true;
 const NOTE = 'The site index is at https://promptless.ai/llms.txt. Append `.md` to any page URL (or send `Accept: text/markdown`) to get its markdown twin.';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  'customer-stories': 'Customer stories',
   'product-updates': 'Product updates',
   newsletter: 'Newsletter',
   technical: 'Technical',
