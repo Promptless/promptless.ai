@@ -1,0 +1,117 @@
+---
+title: MCP server reference
+description: Look up the Promptless MCP server's URLs, OAuth sign-in, token and connection lifetimes, approval page, and data access for MCP clients such as Cursor, Claude Code, and custom agents, and for the Claude and ChatGPT connector.
+id: for-docs-reference-mcp-server
+slug: docs/for-docs/reference/mcp-server
+type: reference
+tags:
+  - reference
+  - mcp
+keywords:
+  - MCP server URL
+  - MCP OAuth
+  - Claude connector
+  - ChatGPT plugin
+  - connector security review
+sidebar:
+  label: MCP server
+  hidden: false
+  order: 63.5
+---
+
+The Promptless [MCP](https://modelcontextprotocol.io) (Model Context Protocol) server connects MCP clients to your Promptless organization. Clients such as Cursor, Claude Code, custom agents, Claude, and ChatGPT sign in with OAuth and act with your Promptless access. They can start documentation tasks and work on suggestions for you. Before you approve the server for yourself, your organization, or a marketplace listing, check its URLs, sign-in, token lifetimes, and data access here.
+
+To connect a client, see [MCP triggers](/docs/for-docs/connect/triggers/mcp) for editors and agents, or [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude) and [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt). If you review the Claude or ChatGPT connector, see [Connector review details](#connector-review-details).
+
+## Server URLs
+
+| URL                                                 | Use it for                                                                                                                                                                                                          | Tools                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `https://api.gopromptless.ai/mcp`                   | Any MCP client that has a local copy of your documentation repository or doesn't need file tools. Examples are editors such as Cursor and VS Code, CLI agents such as Claude Code and Codex CLI, and custom agents. | Tools that start and follow documentation tasks, work on suggestions, and check your account         |
+| `https://api.gopromptless.ai/mcp/with-direct-edits` | MCP clients with no local copy of your repository, which need Promptless to search, read, and edit the files. Examples are Claude and ChatGPT.                                                                      | The same tools, plus tools that search, read, and edit documentation files and show suggestion diffs |
+
+Choose the URL by the tools that the client needs, not by the kind of client. Each URL is a separate connection. A token issued for one URL doesn't work on the other. The URL also decides which approval page opens, as [Sign-in and approval](#sign-in-and-approval) describes. For each tool on each URL, see the [MCP tools reference](/docs/for-docs/reference/mcp-tools).
+
+## Authentication
+
+These values are the same for both URLs and for every client.
+
+| Item                  | Value                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Authentication        | OAuth 2.1 authorization code flow with PKCE (`S256`)                                                                             |
+| Client registration   | Dynamic client registration only. The client registers itself, with no client ID or client secret to configure.                  |
+| Account               | A Promptless account. The server uses OAuth sign-in, with no API key.                                                            |
+| Access token lifetime | 8 hours. The client refreshes the token automatically.                                                                           |
+| Connection lifetime   | 90 days from approval. Refreshing the token doesn't extend it. After 90 days, you approve the connection again.                  |
+| Approval request      | Expires 30 minutes after the client starts it. On `/mcp/with-direct-edits`, this includes the time that you spend on docs setup. |
+| Data scope            | One Promptless organization, which you select on the approval page                                                               |
+
+## Sign-in and approval
+
+When you connect, the client opens a Promptless approval page in your browser. You sign in to Promptless, choose one organization, and approve. If you aren't a member of an organization yet, you can create one there. The client never gets your Promptless password.
+
+The server URL, not the client, decides which approval page opens:
+
+| Step           | `/mcp`                                                                                                                                  | `/mcp/with-direct-edits`                                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page           | **Connect \{client} to Promptless**                                                                                                     | **What do you want help with?**, then **Choose your organization**, or **Create your organization** if you have none                                                                                           |
+| **Returns to** | For a local client, an address with a port, such as `127.0.0.1:54321`, or the callback of an app that opens through its own link scheme | The client's address, such as `claude.ai` or `claude.com` for Claude, and `chatgpt.com` for ChatGPT                                                                                                            |
+| Approve        | **Authorize as \{your email}**, or **Create organization and authorize as \{your email}**                                               | The same buttons                                                                                                                                                                                               |
+| After approval | The tab returns you to the client.                                                                                                      | If the organization has no GitHub or GitLab connection, the docs setup page opens before the tab returns you to the client. Then you ask the client to set up your docs, which starts a Promptless setup task. |
+
+On both pages, the organization picker selects your active organization by default and shows your role in it. The client sets its own name, and Promptless doesn't verify the name, so check the **Returns to** row before you approve.
+
+## Unattended agents
+
+A scheduled agent or another agent that runs without a person present can use the MCP server. A person approves its connection once in a browser. To act in an existing organization, the MCP server accepts only OAuth tokens, with no API key, personal access token, or client-credentials option.
+
+| Item                 | Behavior                                                                                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First approval       | A person signs in and approves on the approval page. The agent's MCP client must be able to open the approval page and receive the redirect.                                                                            |
+| Refresh              | The client refreshes its access token with no person present, until the connection reaches 90 days. The connection has no idle timeout.                                                                                 |
+| Shared connection    | Each refresh token works once. If two processes share one connection and refresh at the same time, one succeeds and the other fails. Give each process its own connection, or have the processes share one token store. |
+| After 90 days        | A person approves the connection again.                                                                                                                                                                                 |
+| Clarifying questions | A client without MCP forms gets the question as text. The agent answers with the `answer` argument of [`answer_task_question`](/docs/for-docs/reference/mcp-tools#answer_task_question).                                |
+
+To start documentation tasks from CI or a script without an MCP client, use the [API trigger](/docs/for-docs/connect/triggers/api) with an API key.
+
+## Data access
+
+A connection has the Promptless access of the person who approved it, in the organization that they selected. Every connection to the same URL gets the same access.
+
+| A connection can                                                                                                                                              | `/mcp` | `/mcp/with-direct-edits` |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------ |
+| Read all documentation tasks, doc collections, and suggestions in the organization, including work that started from Slack, GitHub, the dashboard, or the API | Yes    | Yes                      |
+| Start documentation tasks, which can open docs pull requests                                                                                                  | Yes    | Yes                      |
+| Revise, update, and close suggestions, and open or close their docs pull requests                                                                             | Yes    | Yes                      |
+| Search, read, and edit documentation files. Edits go only to the branch of an open suggestion, as one commit for each edit, and never to the default branch   | No     | Yes                      |
+
+Promptless checks the person's organization membership on each call. When the person stops being an active member, the connection stops working. Each member disconnects their own connection in their MCP client, and an admin can't disconnect another member's connection. For data handling, see the [Promptless privacy policy](/docs/for-docs/security/privacy-policy).
+
+## Tools
+
+Each Promptless tool carries MCP annotations that tell the client whether it's read-only. For each tool's annotations, arguments, and results, see the [MCP tools reference](/docs/for-docs/reference/mcp-tools).
+
+| Annotation  | Tools such as                                                              | What the client does |
+| ----------- | -------------------------------------------------------------------------- | -------------------- |
+| Read-only   | `list_doc_collections`, `search_documentation`                             | Can run them unasked |
+| Destructive | `submit_documentation_task`, `close_suggestion`, `edit_documentation_file` | Asks before they run |
+
+## Connector review details
+
+The Promptless connector for Claude and ChatGPT is this MCP server at the direct-edit URL. Marketplace and security reviewers can check it with these details.
+
+| Item           | Value                                                                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Server URL     | `https://api.gopromptless.ai/mcp/with-direct-edits`                                                                                      |
+| Claude listing | [Promptless in the Claude directory](https://claude.ai/directory/edb58d4d-3a6e-4950-a748-02d45a9e863c)                                   |
+| Setup guides   | [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude), [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt) |
+| Privacy policy | [Promptless privacy policy](/docs/for-docs/security/privacy-policy)                                                                      |
+| Support        | [help@gopromptless.ai](mailto\:help@gopromptless.ai)                                                                                     |
+
+## See also
+
+- [Use Promptless from Claude or ChatGPT](/docs/for-docs/work-the-queue/claude-and-chatgpt) describes what users can do from a conversation.
+- [MCP tools reference](/docs/for-docs/reference/mcp-tools) describes each tool.
+- [MCP triggers](/docs/for-docs/connect/triggers/mcp) describes how editors and agents, such as Cursor and Claude Code, connect.
+- [Access and permissions](/docs/for-docs/security/access-and-permissions) describes Promptless organization roles.
