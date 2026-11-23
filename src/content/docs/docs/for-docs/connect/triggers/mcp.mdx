@@ -1,6 +1,6 @@
 ---
 title: MCP triggers
-description: Connect Claude Code, Cursor, Claude, or another MCP client to Promptless to start, track, and revise documentation tasks. Authorize with OAuth. No API key needed.
+description: Connect Cursor, Claude Code, a custom agent, or another MCP client to Promptless to start, track, and revise documentation tasks. Authorize with OAuth. No API key needed.
 id: for-docs-connect-triggers-mcp
 slug: docs/for-docs/connect/triggers/mcp
 type: how-to
@@ -12,7 +12,8 @@ keywords:
   - Claude Code
   - Cursor
   - MCP tool approval
-  - OAuth editor connection
+  - OAuth MCP connection
+  - MCP agent
 language: en
 audiences:
   - aud-devrel-devex
@@ -50,11 +51,11 @@ import { Steps } from '@astrojs/starlight/components';
 
 ## Overview
 
-Ask for documentation updates from the AI editor you already work in. When you finish a code change in Claude Code or Cursor, ask Promptless to document it. Your editor follows the task in the same conversation and reports the outcome and the docs pull request link. You review and approve the change.
+Ask for documentation updates from the AI editor or agent you already work with. When you finish a code change in Cursor or Claude Code, ask Promptless to document it. Your client follows the task in the same conversation and reports the outcome and the docs pull request link. You review and approve the change.
 
-[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is the open protocol that AI editors use to connect to tools. The Promptless MCP server needs no API key and no `promptless.yaml` entry. Connect your editor, approve the connection once in the browser, and run a test prompt to confirm the connection.
+[MCP](https://modelcontextprotocol.io) (Model Context Protocol) is the open protocol that AI editors and agents use to connect to tools. The Promptless MCP server needs no API key and no `promptless.yaml` entry. Connect your client, approve the connection once in the browser, and run a test prompt to confirm the connection.
 
-To start tasks from CI or a script, use the [API trigger](/docs/for-docs/connect/triggers/api). To connect a chat app, see [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude) or [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt).
+To start tasks from CI or a script, use the [API trigger](/docs/for-docs/connect/triggers/api). An agent that runs without a person present can connect after one browser approval, as [Unattended agents](/docs/for-docs/reference/mcp-server#unattended-agents) describes. To connect a chat app, see [Use Promptless from Claude](/docs/for-docs/work-the-queue/claude) or [Use Promptless from ChatGPT](/docs/for-docs/work-the-queue/chatgpt).
 
 ## Before you start
 
@@ -64,7 +65,7 @@ To start tasks from CI or a script, use the [API trigger](/docs/for-docs/connect
 
 ## Connect the server
 
-Every editor connects to the same server URL, `https://api.gopromptless.ai/mcp`. Follow the steps for your editor, then [authorize in the browser](#authorize-in-the-browser). The dashboard also shows the URL and the Claude Code command under **Settings** > **Editor connection (MCP)**.
+Connect to `https://api.gopromptless.ai/mcp` when your client works in a local copy of your documentation repository or doesn't need file tools. Editors such as Cursor, CLI agents such as Claude Code, and custom agents use this URL. A client with no local copy, such as a chat app, uses `https://api.gopromptless.ai/mcp/with-direct-edits`, which adds tools that search, read, and edit documentation files. Follow the steps for your client, then [authorize in the browser](#authorize-in-the-browser). The dashboard also shows the URL and the Claude Code command under **Settings** > **Editor connection (MCP)**.
 
 ### Claude Code
 
@@ -134,49 +135,49 @@ Add an HTTP server named `promptless` with the URL `https://api.gopromptless.ai/
 
 ## Authorize in the browser
 
-Every editor uses the same consent page. Approve the connection there once.
+Every client on this URL uses the same consent page. Approve the connection there once.
 
 <Steps>
   1. On the consent page, choose the Promptless organization to connect. The picker selects your active organization by default.
 
-  2. Check the **Returns to** row. It shows where Promptless sends access when you approve. Promptless doesn't verify the client name, so go by this row. A local editor such as Claude Code or Cursor returns to a local address with a port, like `127.0.0.1:54321`. An app that opens through its own link scheme shows a callback like `myapp://claude.ai/cb`, and any app on your device that handles `myapp://` links receives the access. Cancel if you didn't start this connection from that editor or app.
+  2. Check the **Returns to** row. It shows where Promptless sends access when you approve. Promptless doesn't verify the client name, so go by this row. A local editor such as Claude Code or Cursor returns to a local address with a port, like `127.0.0.1:54321`. An app that opens through its own link scheme shows a callback like `myapp://claude.ai/cb`, and any app on your device that handles `myapp://` links receives the access. Cancel if you didn't start this connection from that client.
 
-  3. Select **Authorize as \{your email}**. Your editor stores the token, and the tab returns you to the editor.
+  3. Select **Authorize as \{your email}**. Your client stores the token, and the tab returns you to the client.
 </Steps>
 
-The connection acts with your access in the organization you chose. It can read any task and change any suggestion in that organization. A connection covers one organization. To connect another organization, authorize again and choose that organization. The [MCP server reference](/docs/for-docs/reference/mcp-server) lists the token lifetimes and what a connection can access. It also shows how the editor approval page differs from the chat-app page.
+The connection acts with your access in the organization you chose. It can read any task and change any suggestion in that organization. A connection covers one organization. To connect another organization, authorize again and choose that organization. The [MCP server reference](/docs/for-docs/reference/mcp-server) lists the token lifetimes and what a connection can access. It also shows how the approval page for this URL differs from the one for `/mcp/with-direct-edits`.
 
 ## Test the connection
 
-Right after you approve, confirm that the editor reaches the right organization. Enter this prompt in your editor:
+Right after you approve, confirm that the client reaches the right organization. Enter this prompt in your client:
 
 ```text
 Which documentation repositories is Promptless connected to?
 ```
 
-The editor calls `list_doc_collections`, a read-only tool, and lists the doc collections of the organization you chose by name, such as `acme/docs`. If the editor asks to approve the call, approve it. The connection works when you see your organization's documentation repositories.
+The client calls `list_doc_collections`, a read-only tool, and lists the doc collections of the organization you chose by name, such as `acme/docs`. If the client asks to approve the call, approve it. The connection works when you see your organization's documentation repositories.
 
 If the list is empty or shows repositories you don't recognize, check which organization is connected. Enter `Which Promptless organization am I connected to?`
 
-- **The organization name is wrong**: Remove the `promptless` server from your editor. Then add it again with the steps for your editor, and choose the correct organization.
+- **The organization name is wrong**: Remove the `promptless` server from your client. Then add it again with the steps for your client, and choose the correct organization.
 - **The organization name is right, and the list is empty**: The organization has no doc collections yet. To add your first one, connect your docs repository as the [quickstart](/docs/for-docs/start-here/quickstart#complete-the-setup-wizard) describes. To see the setup steps that remain, enter `What is my Promptless setup status?`
 
-## Ask your editor
+## Ask your client
 
-Ask in plain language, and your editor picks the tools. For example:
+Ask in plain language, and your client picks the tools. For example:
 
 - "Document the new authentication flow in the API docs collection."
 - "Triage my open Promptless suggestions, label the P0s, and close anything we've decided against."
 
-Your editor can auto-approve the read-only tools. Tools that start or change work ask before they run. For what each tool does and which tools are read-only, see the [MCP tools reference](/docs/for-docs/reference/mcp-tools).
+Your client can auto-approve the read-only tools. Tools that start or change work ask before they run. For what each tool does and which tools are read-only, see the [MCP tools reference](/docs/for-docs/reference/mcp-tools).
 
 ## Answer a clarifying question
 
-A task can finish by asking you one clarifying question. If your editor supports MCP forms (elicitation), it shows a **Your answer** field. Otherwise, reply in the same conversation. Promptless continues the work in a new task that carries your request and your answer, and your editor follows that task too.
+A task can finish by asking you one clarifying question. If your client supports MCP forms (elicitation), it shows a **Your answer** field. Otherwise, reply in the same conversation. Promptless continues the work in a new task that carries your request and your answer, and your client follows that task too.
 
 ## Workflow skills
 
-Promptless also offers skills, step-by-step guidance for workflows that chain several tools, such as backlog triage. Skills reach your editor over the draft MCP Skills extension (SEP-2640), which many clients don't support yet. A client without it calls the same tools directly.
+Promptless also offers skills, step-by-step guidance for workflows that chain several tools, such as backlog triage. Skills reach your client over the draft MCP Skills extension (SEP-2640), which many clients don't support yet. A client without it calls the same tools directly.
 
 ## See your MCP tasks in the dashboard
 
@@ -186,17 +187,17 @@ To find MCP-originated suggestions on the [Suggestions list](https://app.gopromp
 
 ## Manage and revoke your connection
 
-A connection lasts 90 days from approval, and your editor refreshes its access automatically until then. After 90 days, authorize in the browser again.
+A connection lasts 90 days from approval, and your client refreshes its access automatically until then. After 90 days, authorize in the browser again.
 
-To revoke a connection, remove the `promptless` server from your editor. The dashboard's **Editor connection (MCP)** section shows setup instructions only. Promptless also revokes the connection if you lose active membership in the organization. Each member manages their own connection, and an admin can't revoke another member's connection.
+To revoke a connection, remove the `promptless` server from your client. The dashboard's **Editor connection (MCP)** section shows setup instructions only. Promptless also revokes the connection if you lose active membership in the organization. Each member manages their own connection, and an admin can't revoke another member's connection.
 
 ## Troubleshooting
 
-- **The consent tab doesn't open, or consent was denied, canceled, or expired**: Repeat the last step for your editor under [Connect the server](#connect-the-server).
+- **The consent tab doesn't open, or consent was denied, canceled, or expired**: Repeat the last step for your client under [Connect the server](#connect-the-server).
 - **No promptless entry under `/mcp` in Claude Code**: Confirm that the `claude mcp add` command ran, then restart Claude Code.
 - **Cursor's Needs login button doesn't respond**: Remove the `promptless` server and add it again.
 - **The organization is not in the picker**: You aren't an active member of that organization. Ask an admin of the Promptless organization to invite you.
-- **A tool you expect is missing**: Your editor loads the tool list when it connects. Reconnect the `promptless` server or start a new conversation.
+- **A tool you expect is missing**: Your client loads the tool list when it connects. Reconnect the `promptless` server or start a new conversation.
 
 For an error a tool returns, such as `task_finished` or `stale_head`, see [Tool errors](/docs/for-docs/reference/mcp-tools#tool-errors).
 
