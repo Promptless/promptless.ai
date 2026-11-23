@@ -12,6 +12,7 @@ keywords:
   - GitHub Enterprise Cloud
   - custom GitHub App
   - webhook
+  - webhook secret
   - IP allowlist
   - private key
 language: en
@@ -36,6 +37,7 @@ sample-questions:
   - What repository permissions does the Promptless GitHub Enterprise app need?
   - Which Promptless IP addresses do I need to allowlist for GitHub Enterprise?
   - Can Promptless connect to a GitHub Enterprise Server that is only reachable on a private network?
+  - How does Promptless verify webhooks from GitHub Enterprise?
 sidebar:
   hidden: false
   order: 53
@@ -57,7 +59,7 @@ In the steps below, you register and configure the app, allow Promptless IP addr
 
 - GitHub Enterprise admin access, to create and configure GitHub Apps.
 - A GitHub Enterprise instance that Promptless can reach at a public HTTPS address. See [Hostname requirements](#hostname-requirements).
-- A secure place to store the private key and client secret you generate in Step 7.
+- A secure place to store the webhook secret you generate in Step 3 and the private key you generate in Step 7.
 
 ### Hostname requirements
 
@@ -69,6 +71,7 @@ Promptless validates the hostname when you connect the integration and again eac
 - embeds a username or password.
 - resolves to a private, internal, loopback, or otherwise non-routable address, whether directly or through DNS.
 - does not respond as a genuine GitHub Enterprise server.
+- points to `github.com` or one of its subdomains.
 
 Enter the same public host you use to reach your instance in a browser, such as `github.example.com`. Promptless adds the API path for you.
 
@@ -109,7 +112,7 @@ Promptless uses these URLs to complete authentication and return you to the dash
 The webhook delivers repository events from GitHub Enterprise to Promptless as they happen.
 
 - **Webhook URL** (required): `https://api.gopromptless.ai/integrations/github/events`
-- **Webhook secret** (optional): leave it empty, or generate a secure secret if your security policies require one.
+- **Webhook secret** (recommended): generate a long random secret, and save it to enter when you connect the app in Step 9. Promptless then accepts only deliveries signed with this secret. Without a secret, Promptless accepts unsigned deliveries that name your host and this app's installation. Anyone who knows your hostname and the installation ID can then send events that Promptless acts on.
 - **SSL verification** (required): enable it.
 
 <img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/b5b5ff40-d884-4086-acb6-4bb2973bfd97-github-enterprise-webhook-config.png" alt="GitHub Enterprise Webhook Configuration" />
@@ -169,13 +172,11 @@ On the GitHub App settings page, generate the credentials you enter when you con
 <Steps>
   1. At the bottom of the page, select **Generate a private key**, and save the downloaded `.pem` file.
 
-  2. In the **Client secrets** section, select **Generate a new client secret**, and copy the secret.
-
-  3. Note the **App ID** at the top of the page, and the **Client ID** from the same settings page.
+  2. Note the **App ID** at the top of the page.
 </Steps>
 
 <Aside type="caution">
-  The private key and client secret give access to your GitHub Enterprise instance. Store them as highly sensitive credentials.
+  The private key gives access to your GitHub Enterprise instance. Store it as a highly sensitive credential.
 </Aside>
 
 ## Step 8: Install the app
@@ -190,14 +191,15 @@ On the GitHub App settings page, generate the credentials you enter when you con
 
 ## Step 9: Connect the app to Promptless
 
-Have these values ready:
+Have these values ready for the connection form:
 
-| Value                                       | Where to find it                                                                  |
-| ------------------------------------------- | --------------------------------------------------------------------------------- |
-| GitHub Enterprise URL                       | Your instance's public host. See [Hostname requirements](#hostname-requirements). |
-| App ID and Client ID                        | Your GitHub App settings                                                          |
-| Client secret and private key (`.pem` file) | Step 7                                                                            |
-| Installation ID                             | Step 8                                                                            |
+| Field                         | Value                                                                                                           |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **App ID**                    | The App ID from Step 7.                                                                                         |
+| **Installation ID**           | The installation ID from Step 8.                                                                                |
+| **Hostname**                  | Your instance's public host, such as `github.example.com`. See [Hostname requirements](#hostname-requirements). |
+| **Private Key**               | The full contents of the `.pem` file from Step 7.                                                               |
+| **Webhook Secret (optional)** | The webhook secret from Step 3. Leave it blank only if your app has no webhook secret.                          |
 
 Then connect the integration:
 
@@ -209,12 +211,24 @@ Then connect the integration:
 
 <img src="https://promptless-customer-doc-assets.s3.amazonaws.com/docs-images/org_2lvkgU9erOFxYhtEVVC0ymPrPdF/8a5d1abd-3c56-4c5f-a7b1-340ecd794940-github-enterprise-connect-button.png" alt="GitHub Enterprise Connection Interface" />
 
-When the connection succeeds, the dashboard confirms that the GitHub Enterprise integration is active. If the hostname fails validation, the connection fails with an error.
+Before Promptless saves the connection, it uses the App ID and private key to read the installation on your host. If the hostname fails validation or the installation can't be read, the connection fails with an error and Promptless saves nothing. A connection you already had stays in place.
+
+When the connection succeeds, the GitHub Enterprise card shows **Webhook signatures**. Check that it says **Verified with your secret** if you entered a webhook secret. **Not verified** means Promptless accepts deliveries from your host without checking their signature.
+
+To add or change the webhook secret later, select **Disconnect GitHub Enterprise** on the card, and connect again with the new secret. Update the secret on your GitHub App at the same time, because Promptless rejects deliveries signed with any other secret.
 
 ## Troubleshoot the connection
 
 <details>
   <summary>Webhook deliveries fail</summary>
+
+  If the delivery log for your GitHub App shows a `401` response with the message `GitHub Enterprise webhook not authenticated`, Promptless couldn't match the delivery to your connection. Check these settings:
+
+  - If you entered a webhook secret, the secret on your GitHub App must be the same. To change the secret in Promptless, disconnect GitHub Enterprise and connect again.
+  - The **Hostname** you connected must be the hostname your GitHub Enterprise server reports for itself. This can differ when the server sits behind a proxy or gateway.
+  - The **Installation ID** you connected must be the installation that sends the deliveries.
+
+  For other delivery failures:
 
   - Confirm that the [Promptless IP addresses](#step-6-allow-promptless-ip-addresses) are allowed.
   - Check that your GitHub Enterprise instance can reach the webhook URL.
@@ -223,10 +237,21 @@ When the connection succeeds, the dashboard confirms that the GitHub Enterprise 
 </details>
 
 <details>
+  <summary>Connecting GitHub Enterprise fails</summary>
+
+  The connection form shows why Promptless couldn't save the connection:
+
+  - `GitHub Enterprise App private key is not a valid PEM key`: paste the whole `.pem` file, including the `-----BEGIN` and `-----END` lines.
+  - `GitHub Enterprise did not accept this App ID and private key for this installation ID`: check that the App ID and private key belong to the same GitHub App, and that the installation ID is an installation of that app.
+  - `Could not reach GitHub Enterprise to verify the App installation`: check that your instance is reachable at its public host and that the [Promptless IP addresses](#step-6-allow-promptless-ip-addresses) are allowed.
+  - `This GitHub installation ID is already connected to another Promptless organization`: email [help@gopromptless.ai](mailto\:help@gopromptless.ai).
+</details>
+
+<details>
   <summary>Authentication fails</summary>
 
   - Check the callback and setup URLs from Step 2.
-  - Confirm that the private key and client secret are valid.
+  - Confirm that the private key is valid.
   - Check that the App ID matches your GitHub App.
   - Confirm that the installation completed.
 </details>
