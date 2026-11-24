@@ -154,6 +154,21 @@ test('draft pages are excluded', () => {
   );
 });
 
+test('pages hidden from the sidebar are excluded', () => {
+  withDocs(
+    {
+      'guides/hidden.md': `---\ntitle: Hidden\nsidebar:\n  hidden: true\n---\n\nx\n`,
+      'guides/live.md': page('Live'),
+    },
+    (dir) => {
+      const paths = buildDocsIndex({ docsDir: dir, site: 'https://x/', base: '/', locales: ROOT_ONLY }).map(
+        (e) => e.path,
+      );
+      assert.deepEqual(paths, ['/guides/live/']);
+    },
+  );
+});
+
 test('the production docs tree indexes both product namespaces', () => {
   const docsDir = join(process.cwd(), 'src', 'content', 'docs');
   const entries = buildDocsIndex({

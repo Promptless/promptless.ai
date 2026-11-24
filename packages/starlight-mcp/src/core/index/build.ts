@@ -122,6 +122,10 @@ export function buildDocsIndex(opts: BuildIndexOptions): DocEntry[] {
       continue;
     }
     if (data.draft === true) continue;
+    // Pages hidden from the sidebar stay out of agent search, as they do from the
+    // sitemap and site search (an expired offer, an internal fixture page).
+    const sidebar = data.sidebar as { hidden?: unknown } | undefined;
+    if (sidebar?.hidden === true) continue;
     if (transformContent) content = transformContent(content, file);
 
     // A frontmatter `slug` replaces the file-derived route entirely (Starlight
