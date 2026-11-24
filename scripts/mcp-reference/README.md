@@ -49,3 +49,4 @@ Astro leaves headings in an imported file out of the page's table of contents, a
 `manni lint structure` can't see them ([ADR 0007](../../adrs/0007-embed-integration-procedures-as-partials.md)).
 So the page owns each `` ### `<tool_name>` `` heading and the generated partial supplies
 the content under it. The check keeps the two in step.
+
