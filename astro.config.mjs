@@ -373,6 +373,8 @@ export default defineConfig({
             topics: {
               for_docs: [
                 '/docs/for-docs/referral-program',
+                // Model provider keys stay out of the nav while only staff features use them.
+                '/docs/for-docs/audit/model-provider-keys',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
