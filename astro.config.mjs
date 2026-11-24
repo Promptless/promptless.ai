@@ -373,8 +373,6 @@ export default defineConfig({
             topics: {
               for_docs: [
                 '/docs/for-docs/referral-program',
-                // Docs evals stay out of the nav while they aren't open to every organization.
-                '/docs/for-docs/audit/docs-evals',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
