@@ -1,4 +1,4 @@
-# Generated from Promptless/promptless@a2491e342a46a6cd18752762a4d107b9489a57b0 by tools/promptless-ai-references/export-api-spec.py.
+# Generated from Promptless/promptless@023c4b19917a74ba50762d7510f10f202845527f by tools/promptless-ai-references/export-api-spec.py.
 # Don't edit by hand: the routes and models in Promptless/promptless runtime/ define this file,
 # and the Refresh promptless.ai references workflow proposes each change.
 openapi: 3.1.0
@@ -59,13 +59,14 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '409':
           description: The organization has not finished setting up Promptless (`org_not_configured`),
-            or no configured doc collection is eligible to receive the request (`no_eligible_doc_collection`).
+            or `doc_collection_id` doesn't name a doc collection configured for the organization (`no_eligible_doc_collection`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '422':
-          description: The request body is invalid (e.g. empty `instructions`).
+          description: The request body is invalid, such as an empty `instructions` or a `doc_collection_id`
+            that isn't a UUID.
           content:
             application/json:
               schema:
@@ -139,13 +140,14 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '409':
           description: The organization has not finished setting up Promptless (`org_not_configured`),
-            or no configured doc collection is eligible to receive the request (`no_eligible_doc_collection`).
+            or `doc_collection_id` doesn't name a doc collection configured for the organization (`no_eligible_doc_collection`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '422':
-          description: The request body is invalid (e.g. empty `instructions`).
+          description: The request body is invalid, such as an empty `instructions` or a `doc_collection_id`
+            that isn't a UUID.
           content:
             application/json:
               schema:
@@ -179,8 +181,8 @@ paths:
       - Read endpoints
       summary: List finished tasks
       description: Lists the organization's finished tasks, newest completion first, including tasks that
-        made no documentation change. Only finished tasks appear; follow a running task with `GET /v1/triggers/{trigger_event_id}`.
-        Filter with `source`, bound with `since`, and page with `limit` and `offset`.
+        made no documentation change. Only finished tasks appear. To follow a running task, use `GET /v1/triggers/{trigger_event_id}`.
+        Filter with `source`, set a start time with `since`, and page with `limit` and `offset`.
       operationId: listFinishedTasks
       parameters:
       - name: since
@@ -517,8 +519,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuggestionsResponse'
         '400':
-          description: A query parameter is invalid — `since` is not a valid ISO 8601 timestamp (`invalid_since`),
-            or `event` and `status` were combined (`invalid_filter`).
+          description: A query parameter is invalid. Either `since` is not a valid ISO 8601 timestamp
+            (`invalid_since`), or `event` and `status` were combined (`invalid_filter`).
           content:
             application/json:
               schema:
@@ -575,7 +577,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AgentSignupErrorResponse'
         '429':
-          description: Too many accounts were created this hour, so sign-up is paused (`signups_paused`).
+          description: Too many sign-up requests arrived this hour, so sign-up is paused (`signups_paused`).
             Retry after the number of seconds in `Retry-After`, or sign up at the dashboard.
           headers:
             Retry-After:
@@ -717,9 +719,12 @@ components:
           type:
           - string
           - 'null'
+          format: uuid
           title: Doc Collection Id
-          description: Identifier of the doc collection to update, from `GET /v1/doc-collections`. Omit
-            it to let Promptless route the request across the organization's collections.
+          description: Optional ID of one doc collection to scope the request to. Get the IDs from `GET
+            /v1/doc-collections`. Promptless works only in that collection unless your `instructions`
+            name others. When you omit it, Promptless decides which of your organization's doc collections
+            the request affects.
           examples:
           - 3f2504e0-4f89-41d3-9a0c-0305e82c3301
       additionalProperties: false
@@ -1138,6 +1143,7 @@ components:
           type: array
           title: Attachments
           description: Files a customer sent with a dashboard reply. Empty for other messages.
+          default: []
       type: object
       required:
       - id
