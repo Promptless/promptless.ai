@@ -154,7 +154,7 @@ export default defineConfig({
           },
           apiPaths: ['/docs/for-docs/api'],
           docsPaths: ['/docs'],
-          exclude: [...hiddenSitemapPaths, '/report/*', '/docs/internal/*', '/docs/marketing-images/*'],
+          exclude: [...hiddenSitemapPaths, '/docs/internal/*', '/docs/marketing-images/*'],
         }),
         starlightOpenAPI([
           {
