@@ -1,8 +1,8 @@
 /**
  * Types for the Agent Score API contract (v1).
  *
- * The backend lives in the Promptless monorepo under
- * `/public/free-tools/agent-score`; this site only renders its responses. Keep
+ * The Promptless API serves this contract at `/public/free-tools/agent-score`;
+ * this site only renders its responses. Keep
  * these in step with the contract document, and with
  * scripts/agent-score-mock-api.ts, which implements the same shapes locally.
  */
