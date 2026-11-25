@@ -7,8 +7,7 @@ serves. Nobody writes those sections by hand.
 
 | File | Role |
 | --- | --- |
-| `export-catalog.py` | Writes what `tools/list`, `skills/list`, and `resources/list` return on each documented server path to `src/data/mcp/catalog.json`. `DOCUMENTED_SURFACES` lists those paths by profile key. A server path missing from it isn't exported. Promptless's refresh job runs it. |
-| `src/data/mcp/catalog.json` | The committed catalog snapshot. |
+| `src/data/mcp/catalog.json` | The committed catalog snapshot. It records what `tools/list`, `skills/list`, and `resources/list` return on each documented server path. Promptless's refresh job exports it. |
 | `generate.ts` | Renders the catalog into MDX partials under `src/partials/generated/mcp/`. With `--check`, it fails when the partials are stale or the page's tool headings don't match the catalog. |
 | `src/partials/generated/mcp/` | Generated partials. Don't edit them by hand. |
 
