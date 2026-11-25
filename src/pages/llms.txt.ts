@@ -110,6 +110,7 @@ async function buildSections(): Promise<LlmsSection[]> {
         }),
         docsPage('/docs/for-docs/starport', { label: 'Starport' }),
         docsPage('/docs/for-docs/get-the-most-out/screenshots', { label: 'Promptless Capture' }),
+        await marketingPage('/guides/build-vs-buy-docs-agent', { label: 'Build vs buy' }),
         await marketingPage('/free-tools', {
           description: 'Agent Score, which grades how well AI agents can read a docs site, and Broken Link Report, which emails a broken-link report for a docs site.',
         }),
