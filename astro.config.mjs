@@ -154,7 +154,7 @@ export default defineConfig({
           },
           apiPaths: ['/docs/for-docs/api'],
           docsPaths: ['/docs'],
-          exclude: [...hiddenSitemapPaths, '/report/*', '/docs/internal/*', '/docs/marketing-images/*'],
+          exclude: [...hiddenSitemapPaths, '/docs/internal/*', '/docs/marketing-images/*'],
         }),
         starlightOpenAPI([
           {
@@ -269,6 +269,7 @@ export default defineConfig({
                     { label: 'Configuration reference', slug: 'docs/for-docs/reference/configuration-reference' },
                     { label: 'Frequently asked questions', slug: 'docs/for-docs/reference/faq' },
                     { label: 'Account management', slug: 'docs/for-docs/reference/account-management' },
+                    { label: 'MCP server', slug: 'docs/for-docs/reference/mcp-server' },
                     { label: 'MCP tools', slug: 'docs/for-docs/reference/mcp-tools' },
                     { label: 'Getting support', slug: 'docs/for-docs/reference/getting-help' },
                   ],
@@ -372,6 +373,8 @@ export default defineConfig({
             topics: {
               for_docs: [
                 '/docs/for-docs/referral-program',
+                // Model provider keys stay out of the nav while only staff features use them.
+                '/docs/for-docs/audit/model-provider-keys',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
                 '/docs/for-docs/security/self-hosting',
