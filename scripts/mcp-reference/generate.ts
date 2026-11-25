@@ -218,7 +218,7 @@ function table(headers: string[], body: string[][]): string {
 
 function annotation(tool: Tool): string {
   if (tool.annotations?.readOnlyHint) return 'Read-only';
-  if (tool.annotations?.destructiveHint) return 'Changes existing content';
+  if (tool.annotations?.destructiveHint) return 'Destructive';
   return 'Changes data';
 }
 
