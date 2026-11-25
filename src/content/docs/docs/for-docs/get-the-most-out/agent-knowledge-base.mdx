@@ -14,6 +14,7 @@ keywords:
   - collection analysis
   - notification preferences
   - edit knowledge base files
+  - clone knowledge base with Git
   - style guide
 language: en
 audiences:
@@ -41,6 +42,7 @@ sample-questions:
   - What do PROMPTLESS.md and style/client_style_guide.md control?
   - What files does Promptless create in collection_analyses/ when I connect a docs repository?
   - Who can edit Agent Knowledge Base files, and where are the edits saved?
+  - How do I clone and push the Agent Knowledge Base with Git?
 sidebar:
   hidden: false
   order: 33
@@ -53,7 +55,7 @@ import { Aside, Steps } from '@astrojs/starlight/components';
 
 The Agent Knowledge Base holds the files Promptless reads to understand your documentation style, product context, and workflow preferences. Promptless updates these files as it learns from your feedback. Open the Knowledge Base to check what Promptless has learned, correct an assumption it made, or add instructions it follows on every task.
 
-All organization members can view the files. Only organization admins can edit or create them.
+All organization members can view the files. Only organization admins can edit or create them, in the dashboard or by [pushing changes with Git](#clone-and-push-the-knowledge-base-with-git).
 
 <img src="https://promptless-customer-doc-assets.s3.us-east-2.amazonaws.com/docs-images/org_3DaVKUzHgjyjaODgCPaDmjXezqp/agent-knowledge-base-overview-0319a74a.png" alt="Agent Knowledge Base page showing the Files tree, the Recent updates by Promptless list, and collection_analyses/promptless_promptless_ai_63eb882f/product-overview.md open in the editor" />
 
@@ -144,6 +146,57 @@ Promptless commits your changes directly to the Knowledge Base repository.
 </Steps>
 
 The new file opens in the editor.
+
+## Clone and push the Knowledge Base with Git
+
+Clone the Agent Knowledge Base to read and change its files with your own editor, scripts, or CI pipeline. Promptless serves your organization's Knowledge Base at `https://api.gopromptless.ai/v1/knowledge-base.git` and finds the organization from your API key.
+
+Before you start, get a Promptless API key. Organization admins create keys on **Settings > API Access**. See [Create an API key](/docs/for-docs/connect/triggers/api#create-an-api-key).
+
+### Clone the repository
+
+Run this command in the folder where you want the clone:
+
+```bash
+git clone https://api.gopromptless.ai/v1/knowledge-base.git
+```
+
+When Git asks for credentials, enter any username and your API key as the password. Any active API key can clone, fetch, and pull.
+
+To skip the prompt, for example in a CI job, put the key in the URL:
+
+```bash
+git clone https://x-access-token:<your-api-key>@api.gopromptless.ai/v1/knowledge-base.git
+```
+
+<Aside type="caution">
+  If you put the key in the clone URL, Git saves the key in plain text in the clone's `.git/config` file. In a shared or long-lived checkout, store the key with a [Git credential helper](https://git-scm.com/docs/gitcredentials) instead.
+</Aside>
+
+### Push changes
+
+Push with a key created on **Settings > API Access**. Promptless and the dashboard editor also commit to `main`, so run `git pull` before you edit. Commit your changes to `main`, and run `git push`. If `main` has new commits since your last pull, Git refuses the push. Pull, resolve any conflicts, and push again.
+
+Promptless accepts a push only when it meets these rules:
+
+- The push updates `main` and no other branch. Promptless refuses a push that deletes a branch or rewrites the history of `main`.
+- The push is 100 MB or less.
+- No new commit has an author or committer email address that Promptless commits with, such as `agent+<id>@gopromptless.ai`. Promptless uses these addresses to link a commit to the task that made it. Commits that are already in the repository, such as the commits you pulled, pass this check.
+
+If a push includes a commit with a Promptless address, Git lists the refused commits. Set your own email address, rewrite the commits, and push again:
+
+```bash
+git config user.email <your-email>
+git rebase --exec 'git commit --amend --no-edit --reset-author' origin/main
+```
+
+Promptless records which API key made each accepted push.
+
+### After you push
+
+Promptless stores your commits unchanged, so their SHAs match your clone. Your changes appear in the Agent Knowledge Base in the dashboard, and Promptless reads them on its next task.
+
+If a push leaves `promptless.yaml` invalid, Git accepts the push, and Promptless keeps using your last valid configuration. The [Configuration page](https://app.gopromptless.ai/configuration) shows the error until a later change fixes the file.
 
 ## See also
 
