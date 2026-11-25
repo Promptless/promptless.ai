@@ -30,8 +30,10 @@ live server lists tools only after OAuth.
 ## Decision Outcome
 
 Chosen option: **a committed catalog rendered into MDX partials**.
-`scripts/mcp-reference/export-catalog.py` imports the definitions from a checkout of the
-product repository with its Python environment, and writes `src/data/mcp/catalog.json`.
+An export script in the product repository imports the definitions with that repository's
+Python environment, and writes `src/data/mcp/catalog.json`. The script started in this
+repository. Promptless/promptless#6795 moved it to the product repository, so this public
+one holds no code that imports private modules.
 `scripts/mcp-reference/generate.ts` renders one partial per tool,
 the tool tables, and the skills table into `src/partials/generated/mcp/`. The page keeps
 each tool heading and embeds the tool's partial under it, as ADR 0007 requires for
