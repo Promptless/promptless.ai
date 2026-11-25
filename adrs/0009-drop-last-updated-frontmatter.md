@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-11-15
 - Deciders: Prithvi
-- Context source: [#team-docs Slack thread, 2026-11-15](https://promptless.slack.com/archives/C0B2WNQ3CM9/p1794705108935659)
+- Context source: #team-docs discussion, 2026-11-15
 
 ## Context and Problem Statement
 
