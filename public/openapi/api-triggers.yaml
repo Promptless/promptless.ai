@@ -1,7 +1,9 @@
+# Generated from the Promptless API's routes and models. Don't edit by hand:
+# the next refresh overwrites hand edits.
 openapi: 3.1.0
 info:
   title: Promptless API
-  description: |
+  description: |-
     API for triggering Promptless documentation updates from external systems like CI/CD pipelines and custom automations.
 
     <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
@@ -14,28 +16,19 @@ paths:
       tags:
       - Triggers
       summary: Submit an API trigger (unversioned)
-      description: |
+      description: |-
         Request a documentation update. Authenticate with your organization's API key as a bearer token. A successful request returns the identifier of the trigger event.
 
         `POST /triggers` and `POST /v1/triggers` are the same operation, served by one handler and one idempotency scope.
 
         <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
       operationId: submitApiTrigger
-      parameters:
-      - name: Idempotency-Key
-        in: header
-        required: false
-        description: |
-          Optional key of up to 255 characters that makes the submission idempotent within your organization. A repeat submission that reuses a key already accepted returns the original `trigger_event_id` with `deduplicated` set to `true` instead of creating a new trigger event.
-        schema:
-          type: string
-          maxLength: 255
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ApiTriggerIntakeRequest'
-        required: true
       responses:
         '202':
           description: The trigger was accepted and enqueued for processing.
@@ -44,8 +37,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiTriggerAcceptedResponse'
         '400':
-          description: The `Idempotency-Key` header is blank or longer than 255 characters
-            (`invalid_idempotency_key`).
+          description: The `Idempotency-Key` header is blank or longer than 255 characters (`invalid_idempotency_key`).
           content:
             application/json:
               schema:
@@ -57,22 +49,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '402':
-          description: The organization's free trial ended without a card on file (`trial_expired`),
-            so Promptless starts no new work and records no trigger event. `message` gives the
-            date the trial ended.
+          description: The organization's free trial ended without a card on file (`trial_expired`), so
+            Promptless starts no new work and records no trigger event. `message` gives the date the trial
+            ended.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '409':
           description: The organization has not finished setting up Promptless (`org_not_configured`),
-            or no configured doc collection is eligible to receive the request (`no_eligible_doc_collection`).
+            or `doc_collection_id` doesn't name a doc collection configured for the organization (`no_eligible_doc_collection`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '422':
-          description: The request body is invalid (e.g. empty `instructions`).
+          description: The request body is invalid, such as an empty `instructions` or a `doc_collection_id`
+            that isn't a UUID.
           content:
             application/json:
               schema:
@@ -91,51 +84,140 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
       security:
       - bearerAuth: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Optional key of up to 255 characters that makes the submission idempotent within
+          your organization. A repeat submission that reuses a key already accepted returns the original
+          `trigger_event_id` with `deduplicated` set to `true` instead of creating a new trigger event.
+        schema:
+          type: string
+          maxLength: 255
   /v1/triggers:
+    post:
+      tags:
+      - Triggers
+      summary: Submit an API trigger (v1)
+      description: |-
+        Request a documentation update on the current `/v1` path. This is the same operation as `POST /triggers`, served by one handler and one idempotency scope.
+
+        <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
+      operationId: submitApiTriggerV1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiTriggerIntakeRequest'
+      responses:
+        '202':
+          description: The trigger was accepted and enqueued for processing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerAcceptedResponse'
+        '400':
+          description: The `Idempotency-Key` header is blank or longer than 255 characters (`invalid_idempotency_key`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '402':
+          description: The organization's free trial ended without a card on file (`trial_expired`), so
+            Promptless starts no new work and records no trigger event. `message` gives the date the trial
+            ended.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '409':
+          description: The organization has not finished setting up Promptless (`org_not_configured`),
+            or `doc_collection_id` doesn't name a doc collection configured for the organization (`no_eligible_doc_collection`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: The request body is invalid, such as an empty `instructions` or a `doc_collection_id`
+            that isn't a UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '500':
+          description: The trigger could not be enqueued for processing (`enqueue_failed`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '503':
+          description: Trigger intake is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: Optional key of up to 255 characters that makes the submission idempotent within
+          your organization. A repeat submission that reuses a key already accepted returns the original
+          `trigger_event_id` with `deduplicated` set to `true` instead of creating a new trigger event.
+        schema:
+          type: string
+          maxLength: 255
     get:
       tags:
       - Read endpoints
       summary: List finished tasks
-      description: |
-        Lists the organization's finished tasks, newest completion first, including tasks that made no documentation change. Only finished tasks appear; follow a running task with `GET /v1/triggers/{trigger_event_id}`. Filter with `source`, bound with `since`, and page with `limit` and `offset`.
+      description: Lists the organization's finished tasks, newest completion first, including tasks that
+        made no documentation change. Only finished tasks appear. To follow a running task, use `GET /v1/triggers/{trigger_event_id}`.
+        Filter with `source`, set a start time with `since`, and page with `limit` and `offset`.
       operationId: listFinishedTasks
       parameters:
       - name: since
         in: query
         required: false
-        description: ISO 8601 timestamp used as an inclusive lower limit on the completion
-          timestamp. A trailing `Z` is accepted, and a value without a timezone is read
-          as UTC. A task whose completion timestamp equals this value is returned again,
-          so deduplicate by `trigger_event_id` and `finished_at` together. A task that
-          Promptless reopens and finishes again returns with the same `trigger_event_id`
-          and a new `finished_at`.
         schema:
           type: string
           format: date-time
+        description: ISO 8601 timestamp used as an inclusive lower limit on the completion timestamp.
+          A trailing `Z` is accepted, and a value without a timezone is read as UTC. A task whose completion
+          timestamp equals this value is returned again, so deduplicate by `trigger_event_id` and `finished_at`
+          together. A task that Promptless reopens and finishes again returns with the same `trigger_event_id`
+          and a new `finished_at`.
       - name: source
         in: query
         required: false
-        description: Exact trigger source to return, such as `api`. Omit to return every
-          source.
         schema:
           type: string
+        description: Exact trigger source to return, such as `api`. Omit to return every source.
       - name: limit
         in: query
         required: false
-        description: Maximum number of tasks to return.
         schema:
           type: integer
-          minimum: 1
           maximum: 100
+          minimum: 1
           default: 50
+        description: Maximum number of tasks to return.
       - name: offset
         in: query
         required: false
-        description: Number of tasks to skip before returning results.
         schema:
           type: integer
           minimum: 0
           default: 0
+        description: Number of tasks to skip before returning results.
       responses:
         '200':
           description: A page of finished tasks, newest completion first.
@@ -156,241 +238,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '422':
-          description: A query parameter is out of range, such as a `limit` above 100
-            or a negative `offset`.
+          description: A query parameter is out of range, such as a `limit` above 100 or a negative `offset`.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-        '503':
-          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-      security:
-      - bearerAuth: []
-    post:
-      tags:
-      - Triggers
-      summary: Submit an API trigger (v1)
-      description: |
-        Request a documentation update on the current `/v1` path. This is the same operation as `POST /triggers`, served by one handler and one idempotency scope.
-
-        <a href="/openapi/api-triggers.yaml" download="promptless-openapi.yaml">Download the OpenAPI spec (YAML)</a>
-      operationId: submitApiTriggerV1
-      parameters:
-      - name: Idempotency-Key
-        in: header
-        required: false
-        description: |
-          Optional key of up to 255 characters that makes the submission idempotent within your organization. A repeat submission that reuses a key already accepted returns the original `trigger_event_id` with `deduplicated` set to `true` instead of creating a new trigger event.
-        schema:
-          type: string
-          maxLength: 255
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ApiTriggerIntakeRequest'
-        required: true
-      responses:
-        '202':
-          description: The trigger was accepted and enqueued for processing.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerAcceptedResponse'
-        '400':
-          description: The `Idempotency-Key` header is blank or longer than 255 characters
-            (`invalid_idempotency_key`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '401':
-          description: The API key is missing, invalid, or revoked.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '402':
-          description: The organization's free trial ended without a card on file (`trial_expired`),
-            so Promptless starts no new work and records no trigger event. `message` gives the
-            date the trial ended.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '409':
-          description: The organization has not finished setting up Promptless (`org_not_configured`),
-            or no configured doc collection is eligible to receive the request (`no_eligible_doc_collection`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '422':
-          description: The request body is invalid (e.g. empty `instructions`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-        '500':
-          description: The trigger could not be enqueued for processing (`enqueue_failed`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '503':
-          description: Trigger intake is temporarily unavailable (`runtime_store_unavailable`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-      security:
-      - bearerAuth: []
-  /v1/account:
-    get:
-      tags:
-      - Read endpoints
-      summary: Get account details
-      description: |
-        Return the organization associated with your API key. Use it to test a connection and label the account. `org_name` is `null` for an organization created before names were recorded.
-      operationId: getAccount
-      responses:
-        '200':
-          description: The organization associated with the API key.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccountResponse'
-        '401':
-          description: The API key is missing, invalid, or revoked.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '503':
-          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-      security:
-      - bearerAuth: []
-  /v1/doc-collections:
-    get:
-      tags:
-      - Read endpoints
-      summary: List doc collections
-      description: |
-        List the doc collections configured for your organization. Each entry carries its `id`, `name`, `platform`, and `default_branch`. The response is not paged.
-      operationId: listDocCollections
-      responses:
-        '200':
-          description: The doc collections configured for the organization.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DocCollectionsResponse'
-        '401':
-          description: The API key is missing, invalid, or revoked.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '503':
-          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-      security:
-      - bearerAuth: []
-  /v1/suggestions:
-    get:
-      tags:
-      - Read endpoints
-      summary: List suggestions
-      description: |
-        Read the suggestion lifecycle feed for your organization. Filter with `event` or `status` (not both), narrow with `query` and `since`, and page with `limit` and `offset`. Results are ordered newest-first by the selected event's timestamp.
-      operationId: listSuggestions
-      parameters:
-      - name: event
-        in: query
-        required: false
-        description: Select suggestions by lifecycle event and order by that event's timestamp.
-          Cannot be combined with `status`.
-        schema:
-          type: string
-          enum:
-          - created
-          - merged
-          - closed
-      - name: status
-        in: query
-        required: false
-        description: Select suggestions by current status. Cannot be combined with `event`.
-        schema:
-          type: string
-          enum:
-          - open
-          - draft
-          - merged
-          - closed
-      - name: query
-        in: query
-        required: false
-        description: Free-text match against suggestion title and description.
-        schema:
-          type: string
-      - name: since
-        in: query
-        required: false
-        description: ISO 8601 timestamp used as an inclusive lower limit on the event
-          timestamp. A row whose timestamp equals this value is returned again, so deduplicate
-          by `id`.
-        schema:
-          type: string
-          format: date-time
-      - name: limit
-        in: query
-        required: false
-        description: Maximum number of suggestions to return.
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 100
-          default: 50
-      - name: offset
-        in: query
-        required: false
-        description: Number of suggestions to skip before returning results.
-        schema:
-          type: integer
-          minimum: 0
-          default: 0
-      responses:
-        '200':
-          description: A page of suggestions from the lifecycle feed.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuggestionsResponse'
-        '400':
-          description: >-
-            A query parameter is invalid — `since` is not a valid ISO 8601 timestamp
-            (`invalid_since`), or `event` and `status` were combined (`invalid_filter`).
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
-        '401':
-          description: The API key is missing, invalid, or revoked.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '503':
           description: The read store is temporarily unavailable (`runtime_store_unavailable`).
           content:
@@ -404,17 +256,19 @@ paths:
       tags:
       - Triggers
       summary: Get task status
-      description: |
-        Read the current status and conversation of a task submitted through `POST /v1/triggers`. The `messages` array holds the persisted conversation (latest 100, oldest-first) for tasks submitted over the API, MCP, or the dashboard's New Task page and for tasks created through MCP `request_changes`, and comes back empty for other sources. Reading the conversation does not consume it.
+      description: Read the current status and conversation of a task submitted through `POST /v1/triggers`.
+        The `messages` array holds the persisted conversation (latest 100, oldest-first) for tasks submitted
+        over the API, MCP, or the dashboard's New Task page and for tasks created through MCP `request_changes`,
+        and comes back empty for other sources. Reading the conversation does not consume it.
       operationId: getTaskStatus
       parameters:
       - name: trigger_event_id
         in: path
         required: true
-        description: Identifier of the task, as returned by `POST /v1/triggers`.
         schema:
           type: string
           format: uuid
+        description: Identifier of the task, as returned by `POST /v1/triggers`.
       responses:
         '200':
           description: The task's current status and conversation.
@@ -453,49 +307,50 @@ paths:
       tags:
       - Triggers
       summary: Send a task message
-      description: |
-        Append a message to the conversation of a task submitted through `POST /v1/triggers`, continuing the reply on that same task. Available for tasks submitted over the API, MCP, or the dashboard's New Task page and for tasks created through MCP `request_changes`.
+      description: Append a message to the conversation of a task submitted through `POST /v1/triggers`,
+        continuing the reply on that same task. Available for tasks submitted over the API, MCP, or the
+        dashboard's New Task page and for tasks created through MCP `request_changes`.
       operationId: sendTaskMessage
       parameters:
       - name: trigger_event_id
         in: path
         required: true
-        description: Identifier of the task, as returned by `POST /v1/triggers`.
         schema:
           type: string
           format: uuid
+        description: Identifier of the task, as returned by `POST /v1/triggers`.
       - name: Idempotency-Key
         in: header
         required: false
-        description: |
-          Optional key of up to 255 characters that makes the message send safe to retry. Reusing the key with the same text returns the original stored message with `deduplicated` set to `true`. Reusing it with different text returns `409 idempotency_conflict`.
+        description: Optional key of up to 255 characters that makes the message send safe to retry. Reusing
+          the key with the same text returns the original stored message with `deduplicated` set to `true`.
+          Reusing it with different text returns `409 idempotency_conflict`.
         schema:
           type: string
           maxLength: 255
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/SendTaskMessageRequest'
-        required: true
       responses:
-        '200':
-          description: An idempotent replay of a message stored earlier under the same
-            Idempotency-Key.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SendTaskMessageResponse'
         '201':
           description: Promptless appends the message to the task's conversation.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SendTaskMessageResponse'
+        '200':
+          description: An idempotent replay of a message stored earlier under the same Idempotency-Key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendTaskMessageResponse'
         '400':
-          description: The task source does not support messages (`unsupported_task_source`),
-            or the message is empty or longer than 20,000 characters, or an Idempotency-Key
-            is blank or longer than 255 characters (`invalid_message`).
+          description: The task source does not support messages (`unsupported_task_source`), or the message
+            is empty or longer than 20,000 characters, or an Idempotency-Key is blank or longer than 255
+            characters (`invalid_message`).
           content:
             application/json:
               schema:
@@ -513,15 +368,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '409':
-          description: The task has finished and stops accepting messages (`task_finished`),
-            or the caller reused the same Idempotency-Key with different text (`idempotency_conflict`).
+          description: The task has finished and stops accepting messages (`task_finished`), or the caller
+            reused the same Idempotency-Key with different text (`idempotency_conflict`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
         '422':
-          description: The `trigger_event_id` path parameter is not a valid UUID, or
-            the request body is invalid.
+          description: The `trigger_event_id` path parameter is not a valid UUID, or the request body
+            is invalid.
           content:
             application/json:
               schema:
@@ -534,8 +389,271 @@ paths:
                 $ref: '#/components/schemas/ApiTriggerErrorResponse'
       security:
       - bearerAuth: []
+  /v1/account:
+    get:
+      tags:
+      - Read endpoints
+      summary: Get account details
+      description: Return the organization associated with your API key. Use it to test a connection and
+        label the account. `org_name` is `null` for an organization created before names were recorded.
+      operationId: getAccount
+      responses:
+        '200':
+          description: The organization associated with the API key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '503':
+          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/doc-collections:
+    get:
+      tags:
+      - Read endpoints
+      summary: List doc collections
+      description: List the doc collections configured for your organization. Each entry carries its `id`,
+        `name`, `platform`, and `default_branch`. The response is not paged.
+      operationId: listDocCollections
+      responses:
+        '200':
+          description: The doc collections configured for the organization.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocCollectionsResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '503':
+          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /v1/suggestions:
+    get:
+      tags:
+      - Read endpoints
+      summary: List suggestions
+      description: Read the suggestion lifecycle feed for your organization. Filter with `event` or `status`
+        (not both), narrow with `query` and `since`, and page with `limit` and `offset`. Results are ordered
+        newest-first by the selected event's timestamp.
+      operationId: listSuggestions
+      parameters:
+      - name: event
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - created
+          - merged
+          - closed
+        description: Select suggestions by lifecycle event and order by that event's timestamp. Cannot
+          be combined with `status`.
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - open
+          - draft
+          - merged
+          - closed
+        description: Select suggestions by current status. Cannot be combined with `event`.
+      - name: query
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Free-text match against suggestion title and description.
+      - name: since
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+        description: ISO 8601 timestamp used as an inclusive lower limit on the event timestamp. A row
+          whose timestamp equals this value is returned again, so deduplicate by `id`.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+        description: Maximum number of suggestions to return.
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+        description: Number of suggestions to skip before returning results.
+      responses:
+        '200':
+          description: A page of suggestions from the lifecycle feed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionsResponse'
+        '400':
+          description: A query parameter is invalid. Either `since` is not a valid ISO 8601 timestamp
+            (`invalid_since`), or `event` and `status` were combined (`invalid_filter`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '401':
+          description: The API key is missing, invalid, or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+        '422':
+          description: A query parameter is out of range or not one of its listed values, such as a `limit`
+            above 100, a negative `offset`, or an unknown `event`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+        '503':
+          description: The read store is temporarily unavailable (`runtime_store_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTriggerErrorResponse'
+      security:
+      - bearerAuth: []
+  /agent-signups:
+    post:
+      tags:
+      - Agent sign-up
+      summary: Create an account for a coding agent
+      description: |-
+        Create a Promptless account for a coding agent, with no person present. The response carries a token the agent connects to the Promptless MCP server with, and a claim link a person opens to take over the account. Promptless stores only digests of both, so save them from this response.
+
+        The request needs no API key. A person must claim the account within 72 hours. Sign-ups are limited to 200 an hour across all callers.
+      operationId: createAgentSignup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentSignupRequest'
+        required: true
+      responses:
+        '201':
+          description: The account was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAgentSignupResponse'
+        '422':
+          description: The request body doesn't match the schema, such as an empty `organization_name`
+            or one longer than 100 characters (`invalid_payload`). `fields` names the fields to correct.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSignupErrorResponse'
+        '429':
+          description: Too many sign-up requests arrived this hour, so sign-up is paused (`signups_paused`).
+            Retry after the number of seconds in `Retry-After`, or sign up at the dashboard.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSignupErrorResponse'
+        '502':
+          description: The account service didn't complete the request (`clerk_unavailable`). Repeating
+            the request is safe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSignupErrorResponse'
+        '503':
+          description: Agent sign-up is unavailable right now (`signups_unavailable`). Retry in a minute.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentSignupErrorResponse'
 components:
   schemas:
+    AccountResponse:
+      properties:
+        org_id:
+          type: string
+          title: Org Id
+          description: Identifier of the organization the API key belongs to.
+          examples:
+          - org_2b5f9c1e
+        org_name:
+          type:
+          - string
+          - 'null'
+          title: Org Name
+          description: Display name of the organization, or null if none was recorded.
+          examples:
+          - Acme, Inc.
+      type: object
+      required:
+      - org_id
+      - org_name
+      title: AccountResponse
+      description: The organization associated with the API key.
+    AgentSignupErrorResponse:
+      properties:
+        error:
+          type: string
+          title: Error
+          description: Stable machine-readable error code.
+          examples:
+          - signups_paused
+        message:
+          type: string
+          title: Message
+          description: What happened and what to do next, written for the agent to act on.
+        fields:
+          type:
+          - string
+          - 'null'
+          title: Fields
+          description: For `invalid_payload`, the request fields to correct, separated by commas.
+        retry_after_seconds:
+          type:
+          - integer
+          - 'null'
+          title: Retry After Seconds
+          description: For `signups_paused`, how many seconds to wait before retrying.
+      type: object
+      required:
+      - error
+      - message
+      title: AgentSignupErrorResponse
+      description: Error body returned when an agent sign-up is rejected.
     ApiTriggerAcceptedResponse:
       properties:
         trigger_event_id:
@@ -547,8 +665,8 @@ components:
         deduplicated:
           type: boolean
           title: Deduplicated
-          description: True when an Idempotency-Key matched an earlier submission, so
-            this response replays that trigger event instead of creating a new one.
+          description: True when an Idempotency-Key matched an earlier submission, so this response replays
+            that trigger event instead of creating a new one.
           examples:
           - false
       type: object
@@ -581,85 +699,102 @@ components:
       properties:
         instructions:
           type: string
-          title: Instructions
-          description: What you want Promptless to document. Be specific about which
-            docs to update and what changes to make.
           minLength: 1
+          title: Instructions
+          description: What you want Promptless to document. Be specific about which docs to update and
+            what changes to make.
           examples:
           - Document the new rate limiting feature added in v2.5
         context:
-          type: object
           additionalProperties: true
+          type: object
           title: Context
-          description: Optional arbitrary metadata to attach to the request. Appears in trigger
-            history for reference and is passed through to the workflow as additional
-            context.
+          description: Optional arbitrary metadata to attach to the request. Appears in trigger history
+            for reference and is passed through to the workflow as additional context.
           examples:
           - jira_ticket: DOC-456
             release: v2.5.0
+        doc_collection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          title: Doc Collection Id
+          description: Optional ID of one doc collection to scope the request to. Get the IDs from `GET
+            /v1/doc-collections`. Promptless works only in that collection unless your `instructions`
+            name others. When you omit it, Promptless decides which of your organization's doc collections
+            the request affects.
+          examples:
+          - 3f2504e0-4f89-41d3-9a0c-0305e82c3301
       additionalProperties: false
       type: object
       required:
       - instructions
       title: ApiTriggerIntakeRequest
       description: JSON request body for API-triggered task intake.
-    HTTPValidationError:
-      type: object
-      title: HTTPValidationError
-      description: Validation error body returned when the request fails schema validation.
+    CreateAgentSignupRequest:
       properties:
-        detail:
-          type: array
-          title: Detail
-          items:
-            $ref: '#/components/schemas/ValidationError'
-    ValidationError:
+        organization_name:
+          type: string
+          maxLength: 100
+          minLength: 1
+          title: Organization Name
+          description: Name of the organization to create.
+          examples:
+          - Acme Docs
+      additionalProperties: false
       type: object
-      title: ValidationError
       required:
-      - loc
-      - msg
-      - type
+      - organization_name
+      title: CreateAgentSignupRequest
+      description: JSON request body for creating an account for a coding agent.
+    CreateAgentSignupResponse:
       properties:
-        loc:
-          type: array
-          title: Location
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-        msg:
+        organization_id:
           type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-    AccountResponse:
-      type: object
-      title: AccountResponse
-      description: The organization associated with the API key.
-      properties:
-        org_id:
-          type: string
-          title: Org Id
-          description: Identifier of the organization the API key belongs to.
+          title: Organization Id
+          description: Identifier of the new organization.
           examples:
           - org_2b5f9c1e
-        org_name:
-          type:
-          - string
-          - 'null'
-          title: Org Name
-          description: Display name of the organization, or null if none was recorded.
+        organization_name:
+          type: string
+          title: Organization Name
+          description: The organization's name, as stored.
           examples:
-          - Acme, Inc.
-      required:
-      - org_id
-      - org_name
-    DocCollection:
+          - Acme Docs
+        mcp_url:
+          type: string
+          title: Mcp Url
+          description: The Promptless MCP server URL to connect the coding agent to.
+          examples:
+          - https://api.gopromptless.ai/mcp
+        access_token:
+          type: string
+          title: Access Token
+          description: Bearer token the agent sends to the MCP server. It needs no OAuth and has no refresh.
+            This response is the only place it appears.
+        claim_url:
+          type: string
+          title: Claim Url
+          description: Link a person opens, signed in to Promptless, to become the account's first admin.
+            This response is the only place it appears.
+        expires_at:
+          type: string
+          format: date-time
+          title: Expires At
+          description: When the claim link expires. Promptless doesn't keep an account nobody claimed
+            by then.
       type: object
-      title: DocCollection
-      description: A doc collection configured for the organization.
+      required:
+      - organization_id
+      - organization_name
+      - mcp_url
+      - access_token
+      - claim_url
+      - expires_at
+      title: CreateAgentSignupResponse
+      description: Everything the agent needs to connect over MCP and hand the account to a person.
+    DocCollection:
       properties:
         id:
           type: string
@@ -682,28 +817,145 @@ components:
           title: Default Branch
           examples:
           - main
+      type: object
       required:
       - id
       - name
       - platform
       - default_branch
+      title: DocCollection
+      description: A doc collection configured for the organization.
     DocCollectionsResponse:
-      type: object
-      title: DocCollectionsResponse
-      description: The doc collections configured for the organization. This response
-        is not paged.
       properties:
         doc_collections:
-          type: array
-          title: Doc Collections
           items:
             $ref: '#/components/schemas/DocCollection'
+          type: array
+          title: Doc Collections
+      type: object
       required:
       - doc_collections
-    Suggestion:
+      title: DocCollectionsResponse
+      description: The doc collections configured for the organization. This response is not paged.
+    FinishedTask:
+      properties:
+        trigger_event_id:
+          type: string
+          format: uuid
+          title: Trigger Event Id
+          description: The task's id, the same id POST /v1/triggers returned. A task that Promptless reopens
+            and finishes again appears again with this id, so deduplicate the feed on this value and `finished_at`
+            together.
+          examples:
+          - d3aa7c40-5ec4-48c6-8d10-81c2ee042690
+        source:
+          type: string
+          title: Source
+          description: The task's origin, such as api.
+        request:
+          type:
+          - string
+          - 'null'
+          title: Request
+          description: A one-line summary of the submitted request.
+        outcome:
+          type:
+          - string
+          - 'null'
+          enum:
+          - suggestions_created
+          - no_change_needed
+          - needs_input
+          - failed
+          - null
+          description: How the task ended. Null for tasks that finished before Promptless added this field
+            and for tasks from sources other than the API, MCP, or the dashboard's New Task page. Promptless
+            may add values later.
+          title: Outcome
+        resolution:
+          type:
+          - string
+          - 'null'
+          title: Resolution
+          description: A note that explains how the task ended.
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+          description: ISO 8601 time the task was submitted.
+        finished_at:
+          type: string
+          format: date-time
+          title: Finished At
+          description: ISO 8601 time the task finished.
       type: object
-      title: Suggestion
-      description: A documentation suggestion and its lifecycle state.
+      required:
+      - trigger_event_id
+      - source
+      - request
+      - outcome
+      - resolution
+      - submitted_at
+      - finished_at
+      title: FinishedTask
+      description: One finished task in the finished-task feed.
+    FinishedTasksResponse:
+      properties:
+        tasks:
+          items:
+            $ref: '#/components/schemas/FinishedTask'
+          type: array
+          title: Tasks
+          description: The finished tasks in this page, newest completion first.
+      type: object
+      required:
+      - tasks
+      title: FinishedTasksResponse
+      description: A page of finished tasks from the finished-task feed, newest completion first.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+      description: Validation error body returned when the request fails schema validation.
+    SendTaskMessageRequest:
+      properties:
+        message:
+          type: string
+          maxLength: 20000
+          minLength: 1
+          title: Message
+          description: The instruction to add. Non-empty after trimming, up to 20,000 characters.
+          examples:
+          - Also document the 429 rate-limit response for this endpoint.
+      additionalProperties: false
+      type: object
+      required:
+      - message
+      title: SendTaskMessageRequest
+      description: JSON request body for appending a message to a task's conversation.
+    SendTaskMessageResponse:
+      properties:
+        message:
+          $ref: '#/components/schemas/TaskMessage'
+        deduplicated:
+          type: boolean
+          title: Deduplicated
+          description: True when this response replays a message stored earlier under the same Idempotency-Key
+            instead of storing a new one.
+          examples:
+          - false
+      type: object
+      required:
+      - message
+      - deduplicated
+      title: SendTaskMessageResponse
+      description: Response body returned when a task message is stored or replayed.
+    Suggestion:
       properties:
         id:
           type: string
@@ -731,17 +983,18 @@ components:
           - merged
           - closed
           - null
+          description: Current status, mirroring the docs pull request's state (open, draft, merged, or
+            closed). Null when the suggestion is drafted but no docs PR has been opened yet. Draft when
+            a draft docs PR is open.
           title: Status
-          description: Current status, mirroring the docs pull request's state (open,
-            draft, merged, or closed). Null when the suggestion is drafted but no docs
-            PR has been opened yet. Draft when a draft docs PR is open.
         trigger_event_id:
           type:
           - string
           - 'null'
           format: uuid
           title: Trigger Event Id
-          description: Identifier of the task that created the suggestion, the same id `POST /v1/triggers` returned. Null for suggestions created before tasks were recorded.
+          description: Identifier of the task that created the suggestion, the same id `POST /v1/triggers`
+            returned. Null for suggestions created before tasks were recorded.
           examples:
           - 550e8400-e29b-41d4-a716-446655440000
         url:
@@ -754,8 +1007,7 @@ components:
           - string
           - 'null'
           title: Docs Pr Url
-          description: Link to the documentation pull request, or null before a docs
-            PR exists.
+          description: Link to the documentation pull request, or null before a docs PR exists.
         doc_collection_id:
           type:
           - string
@@ -768,10 +1020,10 @@ components:
           - 'null'
           title: Doc Collection Name
         impacted_file_paths:
-          type: array
-          title: Impacted File Paths
           items:
             type: string
+          type: array
+          title: Impacted File Paths
         impacted_file_count:
           type: integer
           title: Impacted File Count
@@ -794,8 +1046,8 @@ components:
         closed_without_merge:
           type: boolean
           title: Closed Without Merge
-          description: True when the suggestion was closed without merging. Branch shipped
-            versus rejected on this field.
+          description: True when the suggestion was closed without merging. Branch shipped versus rejected
+            on this field.
         close_reason:
           type:
           - string
@@ -813,10 +1065,11 @@ components:
           - branch_deleted
           - unknown_legacy
           - null
+          description: Supplementary machine-readable label for why the suggestion closed. This set may
+            expand over time and includes a catch-all (unknown_legacy), so branch on closed_without_merge
+            rather than hard-coding these values.
           title: Close Reason
-          description: Supplementary machine-readable label for why the suggestion closed.
-            This set may expand over time and includes a catch-all (unknown_legacy), so
-            branch on closed_without_merge rather than hard-coding these values.
+      type: object
       required:
       - id
       - title
@@ -834,22 +1087,21 @@ components:
       - closed_at
       - closed_without_merge
       - close_reason
+      title: Suggestion
+      description: A documentation suggestion and its lifecycle state.
     SuggestionsResponse:
-      type: object
-      title: SuggestionsResponse
-      description: A page of suggestions from the lifecycle feed.
       properties:
         suggestions:
-          type: array
-          title: Suggestions
           items:
             $ref: '#/components/schemas/Suggestion'
+          type: array
+          title: Suggestions
+      type: object
       required:
       - suggestions
+      title: SuggestionsResponse
+      description: A page of suggestions from the lifecycle feed.
     TaskMessage:
-      type: object
-      title: TaskMessage
-      description: A single message in a task's conversation.
       properties:
         id:
           type: string
@@ -872,25 +1124,9 @@ components:
           examples:
           - 1
         author:
-          type: object
+          $ref: '#/components/schemas/TaskMessageAuthor'
           title: Author
           description: Who wrote the message.
-          properties:
-            type:
-              type: string
-              enum:
-              - promptless
-              - customer
-              title: Type
-            name:
-              type:
-              - string
-              - 'null'
-              title: Name
-              description: The customer's email when available, otherwise null.
-          required:
-          - type
-          - name
         created_at:
           type: string
           format: date-time
@@ -901,29 +1137,13 @@ components:
           title: Message
           description: The message text.
         attachments:
+          items:
+            $ref: '#/components/schemas/TaskMessageAttachment'
           type: array
           title: Attachments
           description: Files a customer sent with a dashboard reply. Empty for other messages.
-          items:
-            type: object
-            title: TaskMessageAttachment
-            properties:
-              filename:
-                type: string
-                title: Filename
-                description: The file's name.
-              content_type:
-                type: string
-                title: Content Type
-                description: The file's media type, such as `image/png`.
-              size:
-                type: integer
-                title: Size
-                description: The file's size in bytes.
-            required:
-            - filename
-            - content_type
-            - size
+          default: []
+      type: object
       required:
       - id
       - trigger_event_id
@@ -931,11 +1151,136 @@ components:
       - author
       - created_at
       - message
-    TaskSuggestionSummary:
+      title: TaskMessage
+      description: A single message in a task's conversation.
+    TaskMessageAttachment:
+      properties:
+        filename:
+          type: string
+          title: Filename
+          description: The file's name.
+        content_type:
+          type: string
+          title: Content Type
+          description: The file's media type, such as `image/png`.
+        size:
+          type: integer
+          title: Size
+          description: The file's size in bytes.
       type: object
-      title: TaskSuggestionSummary
-      description: A per-task summary of a suggestion the task produced. This is a lighter
-        shape than the Suggestion lifecycle feed.
+      required:
+      - filename
+      - content_type
+      - size
+      title: TaskMessageAttachment
+      description: A file a customer sent with a dashboard reply.
+    TaskMessageAuthor:
+      properties:
+        type:
+          type: string
+          enum:
+          - promptless
+          - customer
+          title: Type
+        name:
+          type:
+          - string
+          - 'null'
+          title: Name
+          description: The sender's email or display name when known, otherwise null.
+      type: object
+      required:
+      - type
+      - name
+      title: TaskMessageAuthor
+      description: Who wrote a task message.
+    TaskStatusResponse:
+      properties:
+        trigger_event_id:
+          type: string
+          format: uuid
+          title: Trigger Event Id
+          description: The task's id.
+          examples:
+          - 550e8400-e29b-41d4-a716-446655440000
+        status:
+          type: string
+          title: Status
+          description: The task's current status. The status string can change over time, so branch on
+            finished to detect completion.
+        finished:
+          type: boolean
+          title: Finished
+          description: True when the task has completed or been skipped.
+        submitted_at:
+          type: string
+          format: date-time
+          title: Submitted At
+          description: ISO 8601 time the task was submitted.
+        source:
+          type: string
+          title: Source
+          description: The task's origin.
+        request:
+          type:
+          - string
+          - 'null'
+          title: Request
+          description: A one-line summary of the submitted request.
+        resolution:
+          type:
+          - string
+          - 'null'
+          title: Resolution
+          description: A note that explains how the task ended. Read it after finished is true.
+        outcome:
+          type:
+          - string
+          - 'null'
+          enum:
+          - suggestions_created
+          - no_change_needed
+          - needs_input
+          - failed
+          - null
+          description: How the task ended. Null until the task finishes, and for tasks from sources other
+            than the API, MCP, or the dashboard's New Task page. Promptless may add values later.
+          title: Outcome
+        suggestions:
+          items:
+            $ref: '#/components/schemas/TaskSuggestionSummary'
+          type: array
+          title: Suggestions
+          description: The suggestions this task produced. Each entry is a per-task summary, a lighter
+            shape than the Suggestion lifecycle feed.
+        status_guidance:
+          type: string
+          title: Status Guidance
+          description: Human- or LLM-readable advice for polling the task and interpreting its outcome.
+            Callers detect completion with finished.
+        messages:
+          items:
+            $ref: '#/components/schemas/TaskMessage'
+          type: array
+          title: Messages
+          description: The persisted conversation, latest 100, oldest-first. Empty for task sources that
+            do not support messages.
+      type: object
+      required:
+      - trigger_event_id
+      - status
+      - finished
+      - submitted_at
+      - source
+      - request
+      - resolution
+      - outcome
+      - suggestions
+      - status_guidance
+      - messages
+      title: TaskStatusResponse
+      description: The current status of a task and its persisted conversation.
+    TaskSuggestionSummary:
       properties:
         id:
           type: string
@@ -966,9 +1311,9 @@ components:
           - merged
           - closed
           - null
+          description: The docs pull request's state (open, draft, merged, or closed), or null before
+            a docs PR exists.
           title: Status
-          description: The docs pull request's state (open, draft, merged, or closed),
-            or null before a docs PR exists.
         doc_collection_id:
           type:
           - string
@@ -981,34 +1326,34 @@ components:
           - string
           - 'null'
           title: Docs Pr Url
-          description: Link to the documentation pull request, or null before a docs PR
-            exists.
+          description: Link to the documentation pull request, or null before a docs PR exists.
         branch_name:
           type: string
           title: Branch Name
           description: The git branch in the documentation repository.
         labels:
-          type: array
-          title: Labels
           items:
             type: string
+          type: array
+          title: Labels
         assignees:
+          items:
+            type: string
           type: array
           title: Assignees
           description: The ID of each person assigned to the suggestion.
+        assignee_names:
           items:
             type: string
-        assignee_names:
           type: array
           title: Assignee Names
           description: The display name of each assignee, in the same order as assignees.
-          items:
-            type: string
         created_at:
           type: string
           format: date-time
           title: Created At
           description: ISO 8601 time the suggestion was created.
+      type: object
       required:
       - id
       - title
@@ -1021,203 +1366,31 @@ components:
       - assignees
       - assignee_names
       - created_at
-    TaskStatusResponse:
-      type: object
-      title: TaskStatusResponse
-      description: The current status of a task and its persisted conversation.
+      title: TaskSuggestionSummary
+      description: A per-task summary of a suggestion the task produced. This is a lighter shape than
+        the Suggestion lifecycle feed.
+    ValidationError:
       properties:
-        trigger_event_id:
-          type: string
-          format: uuid
-          title: Trigger Event Id
-          description: The task's id.
-          examples:
-          - 550e8400-e29b-41d4-a716-446655440000
-        status:
-          type: string
-          title: Status
-          description: The task's current status. The status string can change over
-            time, so branch on finished to detect completion.
-        finished:
-          type: boolean
-          title: Finished
-          description: True when the task has completed or been skipped.
-        submitted_at:
-          type: string
-          format: date-time
-          title: Submitted At
-          description: ISO 8601 time the task was submitted.
-        source:
-          type: string
-          title: Source
-          description: The task's origin.
-        request:
-          type:
-          - string
-          - 'null'
-          title: Request
-          description: A one-line summary of the submitted request.
-        resolution:
-          type:
-          - string
-          - 'null'
-          title: Resolution
-          description: A note that explains how the task ended. Read it after finished
-            is true.
-        outcome:
-          type:
-          - string
-          - 'null'
-          title: Outcome
-          description: How the task ended. Null until the task finishes, and for tasks
-            from sources other than the API, MCP, or the dashboard's New Task page.
-            Promptless may add values later.
-          enum:
-          - suggestions_created
-          - no_change_needed
-          - needs_input
-          - failed
-          - null
-        suggestions:
-          type: array
-          title: Suggestions
-          description: The suggestions this task produced. Each entry is a per-task summary,
-            a lighter shape than the Suggestion lifecycle feed.
+        loc:
           items:
-            $ref: '#/components/schemas/TaskSuggestionSummary'
-        status_guidance:
-          type: string
-          title: Status Guidance
-          description: Human- or LLM-readable advice for polling the task and interpreting
-            its outcome. Callers detect completion with finished.
-        messages:
+            anyOf:
+            - type: string
+            - type: integer
           type: array
-          title: Messages
-          description: The persisted conversation, latest 100, oldest-first. Empty for
-            task sources that do not support messages.
-          items:
-            $ref: '#/components/schemas/TaskMessage'
-      required:
-      - trigger_event_id
-      - status
-      - finished
-      - submitted_at
-      - source
-      - request
-      - resolution
-      - outcome
-      - suggestions
-      - status_guidance
-      - messages
-    SendTaskMessageRequest:
-      type: object
-      title: SendTaskMessageRequest
-      description: JSON request body for appending a message to a task's conversation.
-      properties:
-        message:
+          title: Location
+        msg:
           type: string
           title: Message
-          description: The instruction to add. Non-empty after trimming, up to 20,000
-            characters.
-          minLength: 1
-          maxLength: 20000
-          examples:
-          - Also document the 429 rate-limit response for this endpoint.
-      required:
-      - message
-    SendTaskMessageResponse:
+        type:
+          type: string
+          title: Error Type
       type: object
-      title: SendTaskMessageResponse
-      description: Response body returned when a task message is stored or replayed.
-      properties:
-        message:
-          $ref: '#/components/schemas/TaskMessage'
-        deduplicated:
-          type: boolean
-          title: Deduplicated
-          description: True when this response replays a message stored earlier under
-            the same Idempotency-Key instead of storing a new one.
-          examples:
-          - false
       required:
-      - message
-      - deduplicated
-    FinishedTask:
-      type: object
-      title: FinishedTask
-      description: One finished task in the finished-task feed.
-      properties:
-        trigger_event_id:
-          type: string
-          format: uuid
-          title: Trigger Event Id
-          description: The task's id, the same id POST /v1/triggers returned. A task
-            that Promptless reopens and finishes again appears again with this id, so
-            deduplicate the feed on this value and `finished_at` together.
-          examples:
-          - d3aa7c40-5ec4-48c6-8d10-81c2ee042690
-        source:
-          type: string
-          title: Source
-          description: The task's origin, such as api.
-        request:
-          type:
-          - string
-          - 'null'
-          title: Request
-          description: A one-line summary of the submitted request.
-        outcome:
-          type:
-          - string
-          - 'null'
-          title: Outcome
-          description: How the task ended. Null for tasks that finished before Promptless
-            added this field and for tasks from sources other than the API, MCP, or the
-            dashboard's New Task page. Promptless may add values later.
-          enum:
-          - suggestions_created
-          - no_change_needed
-          - needs_input
-          - failed
-          - null
-        resolution:
-          type:
-          - string
-          - 'null'
-          title: Resolution
-          description: A note that explains how the task ended.
-        submitted_at:
-          type: string
-          format: date-time
-          title: Submitted At
-          description: ISO 8601 time the task was submitted.
-        finished_at:
-          type: string
-          format: date-time
-          title: Finished At
-          description: ISO 8601 time the task finished.
-      required:
-      - trigger_event_id
-      - source
-      - request
-      - outcome
-      - resolution
-      - submitted_at
-      - finished_at
-    FinishedTasksResponse:
-      type: object
-      title: FinishedTasksResponse
-      description: A page of finished tasks from the finished-task feed, newest completion
-        first.
-      properties:
-        tasks:
-          type: array
-          title: Tasks
-          description: The finished tasks in this page, newest completion first.
-          items:
-            $ref: '#/components/schemas/FinishedTask'
-      required:
-      - tasks
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      description: One request validation failure.
   securitySchemes:
     bearerAuth:
       type: http
