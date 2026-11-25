@@ -14,6 +14,7 @@ keywords:
   - MCP tool approval
   - OAuth MCP connection
   - MCP agent
+  - agent sign-up
 language: en
 audiences:
   - aud-devrel-devex
@@ -42,6 +43,7 @@ risks:
 sample-questions:
   - How do I connect Claude Code or Cursor to Promptless over MCP?
   - How do I revoke my Promptless MCP connection?
+  - Can a coding agent create a Promptless account for me?
 sidebar:
   hidden: false
   order: 16
@@ -60,8 +62,8 @@ To start tasks from CI or a script, use the [API trigger](/docs/for-docs/connect
 ## Before you start
 
 - An MCP client that supports HTTP transport and OAuth, such as Claude Code, Cursor, VS Code, or Codex CLI.
-- Your organization's [Promptless setup](https://app.gopromptless.ai/configuration) finished.
-- An active membership in the organization. Any member can connect, whatever their [organization role](/docs/for-docs/security/access-and-permissions).
+- Your organization's [Promptless setup](https://app.gopromptless.ai/configuration) finished, to start documentation tasks.
+- An active membership in the organization. Any member can connect, whatever their [organization role](/docs/for-docs/security/access-and-permissions). If you don't have an organization yet, create one when you [authorize](#authorize-in-the-browser), or [let a coding agent create one](#let-a-coding-agent-create-your-account).
 
 ## Connect the server
 
@@ -138,11 +140,11 @@ Add an HTTP server named `promptless` with the URL `https://api.gopromptless.ai/
 Every client on this URL uses the same consent page. Approve the connection there once.
 
 <Steps>
-  1. On the consent page, choose the Promptless organization to connect. The picker selects your active organization by default.
+  1. On the consent page, choose the Promptless organization to connect. The picker selects your active organization by default. If you don't belong to an organization yet, enter a name for a new one.
 
   2. Check the **Returns to** row. It shows where Promptless sends access when you approve. Promptless doesn't verify the client name, so go by this row. A local editor such as Claude Code or Cursor returns to a local address with a port, like `127.0.0.1:54321`. An app that opens through its own link scheme shows a callback like `myapp://claude.ai/cb`, and any app on your device that handles `myapp://` links receives the access. Cancel if you didn't start this connection from that client.
 
-  3. Select **Authorize as \{your email}**. Your client stores the token, and the tab returns you to the client.
+  3. Select **Authorize as \{your email}**. For a new organization, the button reads **Create organization and authorize as \{your email}**. Your client stores the token, and the tab returns you to the client.
 </Steps>
 
 The connection acts with your access in the organization you chose. It can read any task and change any suggestion in that organization. A connection covers one organization. To connect another organization, authorize again and choose that organization. The [MCP server reference](/docs/for-docs/reference/mcp-server) lists the token lifetimes and what a connection can access. It also shows how the approval page for this URL differs from the one for `/mcp/with-direct-edits`.
@@ -161,6 +163,60 @@ If the list is empty or shows repositories you don't recognize, check which orga
 
 - **The organization name is wrong**: Remove the `promptless` server from your client. Then add it again with the steps for your client, and choose the correct organization.
 - **The organization name is right, and the list is empty**: The organization has no doc collections yet. To add your first one, connect your docs repository as the [quickstart](/docs/for-docs/start-here/quickstart#complete-the-setup-wizard) describes. To see the setup steps that remain, enter `What is my Promptless setup status?`
+
+## Connect integrations from your editor
+
+Promptless needs integrations, such as GitHub and Slack, to watch for changes and publish suggestions. A person approves each connection in a browser, so your client creates a link for that person with the [`connect_integration`](/docs/for-docs/reference/mcp-tools#connect_integration) tool. This works from any connection, including an [agent-created account](#let-a-coding-agent-create-your-account).
+
+<Steps>
+  1. Ask your client to connect an integration, for example: "Connect Slack to Promptless." Your client returns a link.
+
+  2. Send the link to someone who can grant access to that integration. The link works for 24 hours.
+
+  3. That person signs in to Promptless, then opens the link.
+
+  4. That person selects **Continue to \{provider}** and approves access with the provider.
+
+  5. Ask your client to check the connection. It calls [`get_account_status`](/docs/for-docs/reference/mcp-tools#get_account_status), which lists the connected integrations.
+</Steps>
+
+Only a member of the organization can connect an integration. On an unclaimed agent-created account, the first person to open a link claims the account and becomes its admin.
+
+## Let a coding agent create your account
+
+A coding agent, such as Claude Code or Codex, can create a Promptless organization and connect to it before anyone signs in. You then claim the account to become its admin. Until someone claims it, the agent can only check the account's status and [create links for connecting integrations](#connect-integrations-from-your-editor). The agent's token works only for the organization it created. To act in an existing organization, an agent connects with OAuth, as [Unattended agents](/docs/for-docs/reference/mcp-server#unattended-agents) describes.
+
+<Steps>
+  1. Create the account. The request needs no authentication, and the organization name is 1–100 characters:
+
+     ```bash
+     curl -X POST https://api.gopromptless.ai/agent-signups \
+       -H "Content-Type: application/json" \
+       -d '{"organization_name": "Acme Docs"}'
+     ```
+
+     The response carries an `access_token` for the MCP server and a `claim_url` for the person who claims the account. Save both, because Promptless shows them only once. Keep the token secret, because it acts for the organization until someone claims it.
+
+  2. Connect the agent with the token. In Claude Code, run:
+
+     ```bash
+     claude mcp add --transport http promptless https://api.gopromptless.ai/mcp \
+       --header "Authorization: Bearer <access_token>"
+     ```
+
+     In Codex, set `PROMPTLESS_ACCESS_TOKEN` to the token, then run:
+
+     ```bash
+     codex mcp add promptless --url https://api.gopromptless.ai/mcp \
+       --bearer-token-env-var PROMPTLESS_ACCESS_TOKEN
+     ```
+
+  3. Within 72 hours, sign in to Promptless or create an account, then open the `claim_url`. Promptless deletes an account that nobody claims in that time.
+
+  4. Select **Claim account**. You become the organization's admin, and the agent's access token stops working.
+
+  5. Remove the token-based `promptless` server from the agent, and [connect the server](#connect-the-server) with OAuth. The new connection acts as you.
+</Steps>
 
 ## Ask your client
 
@@ -193,11 +249,15 @@ To revoke a connection, remove the `promptless` server from your client. The das
 
 ## Troubleshooting
 
-- **The consent tab doesn't open, or consent was denied, canceled, or expired**: Repeat the last step for your client under [Connect the server](#connect-the-server).
+- **The consent tab doesn't open, or consent was denied, canceled, or expired**: Repeat the last step for your client under [Connect the server](#connect-the-server). A consent request expires after 30 minutes.
 - **No promptless entry under `/mcp` in Claude Code**: Confirm that the `claude mcp add` command ran, then restart Claude Code.
 - **Cursor's Needs login button doesn't respond**: Remove the `promptless` server and add it again.
 - **The organization is not in the picker**: You aren't an active member of that organization. Ask an admin of the Promptless organization to invite you.
 - **A tool you expect is missing**: Your client loads the tool list when it connects. Reconnect the `promptless` server or start a new conversation.
+- **A tool call from an unclaimed agent-created account fails**: The agent can only check the account's status and create connect links. [Claim the account](#let-a-coding-agent-create-your-account), then connect with OAuth.
+- **The agent's access token returns `401`**: A person claimed the account, or Promptless deleted it unclaimed after 72 hours. After a claim, [connect with OAuth](#connect-the-server). Otherwise, create a new account.
+- **A connect link says you aren't a member**: Another person claimed the agent-created account first, or an admin removed you. Ask a member to invite you.
+- **A connect link says it's invalid or expired**: Ask your client for a new link. A link works for 24 hours, and copying can cut it short.
 
 For an error a tool returns, such as `task_finished` or `stale_head`, see [Tool errors](/docs/for-docs/reference/mcp-tools#tool-errors).
 
