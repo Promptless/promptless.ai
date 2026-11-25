@@ -366,17 +366,17 @@ export default defineConfig({
             },
           ],
           {
-            // Generated OpenAPI pages and hidden self-hosting pages belong to
-            // Promptless for Docs even though autogenerate cannot discover them.
+            // Generated OpenAPI pages belong to Promptless for Docs even though
+            // autogenerate cannot discover them.
             // The referral program page stays out of the nav (sidebar.hidden)
             // but renders with the Promptless for Docs sidebar.
             topics: {
               for_docs: [
                 '/docs/for-docs/referral-program',
+                // Model provider keys stay out of the nav while only staff features use them.
+                '/docs/for-docs/audit/model-provider-keys',
                 '/docs/for-docs/api',
                 '/docs/for-docs/api/**/*',
-                '/docs/for-docs/security/self-hosting',
-                '/docs/for-docs/security/self-hosting/**/*',
                 // Out of the nav (ADR adrs/0007) but still in the Promptless for Docs topic.
                 '/docs/for-docs/reference/integrations',
                 '/docs/for-docs/reference/integrations/**/*',

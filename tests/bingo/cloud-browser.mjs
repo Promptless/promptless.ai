@@ -1,4 +1,4 @@
-// Run with the guarded runtime.bingo.tests.local_app fake-inbox harness on :5019.
+// Run with the Bingo backend's local-only fake-inbox harness on :5019.
 // Real email providers and personal browser profiles are never used.
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";

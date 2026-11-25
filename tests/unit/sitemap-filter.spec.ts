@@ -40,7 +40,7 @@ test('collects hidden docs pages from source content', () => {
   const hiddenPaths = getHiddenDocsPaths(new URL('../../src/content/docs/', import.meta.url));
 
   assert(hiddenPaths.has('/docs/internal/component-fixtures'));
-  assert(hiddenPaths.has('/docs/for-docs/security/self-hosting'));
+  assert(hiddenPaths.has('/docs/for-docs/referral-program'));
   assert(!hiddenPaths.has('/docs/for-docs/start-here/welcome'));
 });
 
