@@ -1,0 +1,153 @@
+---
+title: Find documentation gaps with your docs platform's analytics
+description: Connect the reader analytics your docs platform already collects, so Promptless checks each search, question, and rating against your docs source and reports a ranked list of documentation gaps.
+id: for-docs-get-the-most-out-docs-platform-analytics
+slug: docs/for-docs/get-the-most-out/docs-platform-analytics
+type: how-to
+tags:
+  - get-the-most-out
+  - guide
+keywords:
+  - docs analytics
+  - reader analytics
+  - documentation gaps
+  - searches with no results
+  - unanswered questions
+  - page ratings
+  - Fluid Topics
+  - GitBook
+  - Mintlify
+language: en
+audiences:
+  - aud-scaleup-docs-team
+  - aud-enterprise-docs-team
+intent: connect a docs platform's reader analytics read-only and ask Promptless for a ranked list of documentation gaps based on reader searches, assistant questions, ratings, and page views
+lifecycle: published
+applies-to:
+  - promptless-for-docs
+  - integration:fluid-topics
+  - integration:gitbook
+  - integration:mintlify
+concepts:
+  - integrations
+  - analytics
+  - documentation gaps
+related-pages:
+  - for-docs-get-the-most-out-teach-promptless-a-custom-task-analytics-docs-gaps
+  - for-docs-connect-connection-health
+risks:
+  - privileged
+  - open-world
+sample-questions:
+  - Can Promptless find documentation gaps from my docs platform's analytics?
+  - How do I connect my docs platform's analytics to Promptless?
+  - Which reader analytics does Promptless read?
+  - How does Promptless decide that a search term or question is a documentation gap?
+sidebar:
+  hidden: false
+  order: 30
+  label: Doc gaps from docs analytics
+---
+
+import FluidTopicsConnect from '@partials/integrations/fluid-topics-connect.mdx';
+import GitBookAnalyticsConnect from '@partials/integrations/gitbook-analytics-connect.mdx';
+
+import MintlifyAnalyticsConnect from '@partials/integrations/mintlify-analytics-connect.mdx';
+
+## Overview
+
+If your docs platform collects reader analytics, those analytics show where readers look for answers and don't find them. Promptless connects to that platform's analytics natively, so you don't export data or set up a separate analytics tool. It checks each signal against your documentation source and tells you which gaps to fix first.
+
+Promptless reads the reports your platform keeps. They include searches that returned nothing, questions readers asked the site's AI assistant, page ratings, and page views. The connection is read-only.
+
+Some reports include text that readers typed, such as their questions, search terms, and comments. Promptless treats that text as evidence about your docs and quotes only the words that identify a gap.
+
+## Before you start
+
+- An admin role in your Promptless organization, to connect the analytics.
+- A [doc collection](/docs/for-docs/connect/doc-locations/how-promptless-learns-your-docs) that holds the source of the docs your site publishes. Promptless searches it to confirm each gap.
+- Access to create an API key or token in your docs platform. The connect steps for your platform say which one.
+
+## Connect your docs platform
+
+Follow the steps for the platform that publishes your docs.
+
+### Fluid Topics
+
+<FluidTopicsConnect />
+
+### GitBook
+
+<GitBookAnalyticsConnect />
+
+### Mintlify
+
+<MintlifyAnalyticsConnect />
+
+## Ask Promptless for a gap analysis
+
+Ask Promptless for a gap analysis in Slack, in Microsoft Teams, or from **New Task**. For example: "@Promptless find documentation gaps in our docs analytics for the last 90 days."
+
+Name a date range to narrow the analysis, or name one signal, such as searches with no results, to get only that report. On Fluid Topics, you can also name a locale, or a product or guide. Without a date range, Promptless uses the last 90 days.
+
+For each candidate gap, Promptless searches your doc collection for the term or question, its synonyms, and the product names it contains. It drops typos, questions about other products, and subjects the docs already answer under another name. It then classifies each remaining gap:
+
+| Class       | Meaning                                                                                                                                       |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing     | No page covers the subject.                                                                                                                   |
+| Findability | A page covers the subject, but readers search or ask for it and don't find it. Its title, headings, and metadata don't use the readers' term. |
+| Quality     | Readers reach the page, then rate it low, comment that it's wrong or unclear, or get a poor assistant answer from it.                         |
+
+Promptless returns the gaps ranked by reader impact: the number of searches, questions, or ratings behind each gap, weighted by the page's views. A gap with signals in several reports ranks higher than a gap with one. Each gap names its report, the term, question, or page, its count, and the date range. It also names the page that covers the subject, or says that no page does, and recommends a change. When a report reads only part of the site's data, the gap says how much it read. To fix a gap, ask Promptless to open a suggestion for it.
+
+To run the analysis on a schedule, pair a schedule trigger with a workflow. See [Example: Turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps).
+
+## Example
+
+Readers of your docs site at `docs.example.com` often search for "single sign-on" and get no results. Your docs cover the subject on a page titled "Configure SAML authentication", and the page views report shows that readers rarely open it.
+
+You ask Promptless in Slack for a gap analysis of the last 90 days. Promptless finds the SAML page in your doc collection and sees that its title, headings, and metadata never use the term "single sign-on". It reports one Findability gap with both signals, so the gap ranks near the top. The gap cites both reports and names the SAML page. It recommends adding "single sign-on" to the page's title and metadata. You reply in the thread and ask Promptless to open a suggestion for that change.
+
+## Troubleshooting
+
+### Fluid Topics doesn't connect
+
+When you select **Connect**, Promptless reads analytics with the key. The connection saves only when that read succeeds:
+
+- **Invalid Fluid Topics API key**: Fluid Topics rejected the key. Copy the key again from **Administration** > **Integration** > **API keys** and reconnect.
+- **Fluid Topics API key lacks the ANALYTICS\_USER role**: the key authenticates but can't read analytics. Give the key the `ANALYTICS_USER` role in Fluid Topics, then select **Connect** again.
+- **Fluid Topics host must be an https URL**: Promptless connects to the portal only over HTTPS. Enter the portal URL with `https://`, or with no scheme, such as `docs.example.com`.
+
+### GitBook doesn't connect
+
+When you select **Connect**, Promptless reads the site and one small insights report with the token. The connection saves only when both reads succeed:
+
+- **Invalid GitBook API token**: GitBook rejected the token. Create a new API token and reconnect.
+- **GitBook site not found for this API token**: the token's user can't see a site with these IDs. Copy both IDs again from the site's URL in GitBook. If they're right, use a token from a user with access to the site.
+- **This GitBook API token's user cannot read this site's insights**: the token's user can see the site but not its insights. Create the token with a user who can open the site's insights in GitBook.
+- **This GitBook organization's plan does not include site insights**: GitBook answers analytics requests only on plans with site insights. The message names the plan GitBook requires. Upgrade the GitBook plan, then connect again.
+
+### Mintlify doesn't connect
+
+When you select **Connect**, Promptless reads analytics with the key. The connection saves only when that read succeeds:
+
+- **This is a Mintlify assistant API key, which cannot read analytics**: the key starts with `mint_dsc_`. Assistant keys reach only Mintlify's assistant, search, and page content APIs. Create an admin API key and connect with it.
+- **Invalid Mintlify API key**: Mintlify rejected the key. Copy the key again, or create a new admin API key.
+- **Mintlify project not found for this API key**: the project ID doesn't belong to the key's Mintlify organization. Copy the project ID again from the API keys page in Mintlify.
+- **Mintlify refused this API key**: the key lacks read access, or its IP allowlist blocks Promptless. Mintlify sets both when you create a key and doesn't let you change them. Create a new admin API key with read access and no IP allowlist, then connect with it.
+- **Mintlify's hourly analytics rate limit (100 requests per organization) is used up**: Mintlify allows 100 analytics requests an hour for your whole Mintlify organization. Your own tools share that budget. Try again after the hour resets.
+
+### The card shows Needs reconnect
+
+Promptless checks the connection regularly. Your platform's card shows **Needs reconnect** when the platform rejects the key or token, or when it loses the access it needs:
+
+- **Fluid Topics:** the key loses its `ANALYTICS_USER` or `ADMIN` role, or the portal stops responding.
+- **GitBook:** the token's user loses access to the site or its insights, or the GitBook plan drops site insights.
+- **Mintlify:** Mintlify refuses the key, or the key can't read the project.
+
+Fix the access in your docs platform, then select **Check access**. If the key or token was deleted, or a Mintlify key needs different access, disconnect the integration and connect it with a new one. See [Connection health & troubleshooting](/docs/for-docs/connect/connection-health).
+
+## See also
+
+- [Example: Turn docs analytics into doc-gap suggestions](/docs/for-docs/get-the-most-out/teach-promptless-a-custom-task/analytics-docs-gaps), for the same kind of analysis with PostHog on a schedule
+- [Pay down docs debt with Deep Analysis](/docs/for-docs/get-the-most-out/pay-down-docs-debt), to fix many gaps in one coordinated run
