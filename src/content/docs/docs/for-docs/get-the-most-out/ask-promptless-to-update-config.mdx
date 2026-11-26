@@ -44,6 +44,7 @@ sample-questions:
   - Can I ask Promptless in Slack to add a GitHub PR trigger for a repo?
   - Does a configuration change made through chat create a suggestion or a pull request?
   - How do I restrict who can change Promptless configuration from Slack or Teams?
+  - Can I require review before Promptless changes my configuration?
   - Can I revert a configuration change Promptless made from chat?
 sidebar:
   hidden: false
@@ -57,7 +58,7 @@ import { Steps } from '@astrojs/starlight/components';
 
 Ask Promptless to change your configuration, and it makes the change for you. You can ask in Slack, Microsoft Teams, or a task on the dashboard's [New Task](https://app.gopromptless.ai/new-task) page. Use it when describing a change is faster than editing `promptless.yaml` on the [Configuration page](https://app.gopromptless.ai/configuration) yourself. For example, add a trigger for a new repository while you're discussing it in a channel.
 
-A configuration change is not a documentation suggestion. Asking Promptless to update your docs produces a suggestion that you review and merge. Asking it to update your configuration changes your settings directly, with no suggestion and no pull request.
+A configuration change is not a documentation suggestion. Asking Promptless to update your docs produces a suggestion that you review and merge. Asking it to update your configuration changes your settings with no suggestion. If your Knowledge Base requires a review for changes, Promptless opens a pull request for the configuration change instead.
 
 ## Before you start
 
@@ -74,7 +75,7 @@ A configuration change is not a documentation suggestion. Asking Promptless to u
   3. If Promptless asks a clarifying question, reply in the same thread.
 </Steps>
 
-Promptless validates the resulting configuration before it applies the change, so an invalid or unrecognized change isn't saved. It then commits the change to `promptless.yaml` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base). Review the result on the [Configuration page](/docs/for-docs/reference/configuration-reference#configuration-editor). To undo a change, revert it like any other commit, or ask Promptless to change it back.
+Promptless validates the resulting configuration before it applies the change, so an invalid or unrecognized change isn't saved. It then commits the change to `promptless.yaml` in your [Agent Knowledge Base](/docs/for-docs/get-the-most-out/agent-knowledge-base), or opens a pull request for it when your Knowledge Base [requires review](#require-review-for-configuration-changes). Review the result on the [Configuration page](/docs/for-docs/reference/configuration-reference#configuration-editor). To undo a change, revert it like any other commit, or ask Promptless to change it back.
 
 To ask from the dashboard instead, enter your request on [New Task](https://app.gopromptless.ai/new-task) and submit it. Leave out the `@Promptless` mention.
 
@@ -110,6 +111,15 @@ To limit chat changes to specific people:
 </Steps>
 
 When an allowlist is present, Promptless makes configuration changes from chat only for the listed users.
+
+## Require review for configuration changes
+
+`promptless.yaml` is a file in your Agent Knowledge Base, so your rules for reviewing Knowledge Base changes apply to configuration changes too. Before Promptless saves a configuration change, it reads your Knowledge Base's guidance on changing itself. That guidance includes `PROMPTLESS.md` and any file in `doc_workflow/` about review or approval. Then it saves the change in one of two ways:
+
+- **Commit:** Promptless commits the change, and the new configuration takes effect. It does this when your Knowledge Base has no rule about reviewing its changes. It also commits when your rule lets the person who asked skip review. That covers a change Promptless needs for their request, such as a filter entry for a file they asked it to edit.
+- **Pull request:** Promptless opens a pull request in your Knowledge Base when your rule requires review. It also opens one when it can't confirm who asked or whether the rule applies. It asks for review as your rule describes and replies with the pull request's link. The configuration takes effect after the pull request merges. Then reply in the conversation where the request started, so Promptless continues the work that needed the change.
+
+To require review, add a rule to `PROMPTLESS.md` that says who reviews changes to the Knowledge Base and whose requests can skip review. For example: "Changes to the Knowledge Base need a pull request that a maintainer reviews. Changes that a maintainer asks for can go straight to `main`. The maintainers are @alex-rivera and @sam-chen."
 
 ## See also
 
